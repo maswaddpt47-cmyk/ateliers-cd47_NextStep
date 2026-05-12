@@ -1154,12 +1154,24 @@ function RadialChart({data,colors,height=220}){
 
 function VueGraphiques({entries}){
   if(!ResponsiveContainer)return CE('div',{className:'card'},CE('p',{style:{color:'#718096',textAlign:'center',padding:'40px 0'}},'⚠️ Recharts non chargé — vérifiez la connexion internet.'));
-  const passes=entries.filter(isPasse);
+
+  const[dateFrom,setDateFrom]=React.useState('');
+  const[dateTo,setDateTo]=React.useState('');
+
+  // Entries filtrées par la plage de dates
+  const filtered=React.useMemo(()=>{
+    let r=entries;
+    if(dateFrom)r=r.filter(e=>e.date&&e.date>=dateFrom);
+    if(dateTo)r=r.filter(e=>e.date&&e.date<=dateTo);
+    return r;
+  },[entries,dateFrom,dateTo]);
+
+  const passes=filtered.filter(isPasse);
   const total=passes.length;
   const totalInscrits=passes.reduce((s,e)=>s+(parseInt(e.inscrits)||0),0);
   const totalPresents=passes.reduce((s,e)=>s+(parseInt(e.presents)||0),0);
   const txPresence=totalInscrits>0?Math.round(totalPresents/totalInscrits*100):0;
-  const annules=entries.filter(e=>e.statut==='Annulé').length;
+  const annules=filtered.filter(e=>e.statut==='Annulé').length;
   const todayYM=new Date().toISOString().slice(0,7);
   const fmtML=ym=>ym==='?'?'?':`${ym.slice(5,7)}-${ym.slice(0,4)}`;
 
@@ -1169,35 +1181,57 @@ function VueGraphiques({entries}){
   const byPublic={};passes.forEach(e=>{const p=e.public||'Autres';if(!byPublic[p])byPublic[p]={value:0,inscrits:0,presents:0};byPublic[p].value++;byPublic[p].inscrits+=(parseInt(e.inscrits)||0);byPublic[p].presents+=(parseInt(e.presents)||0);});
   const dataPublic=Object.entries(byPublic).sort((a,b)=>b[1].value-a[1].value).map(([label,d])=>({label,value:d.value,tip:`${label} : ${d.value} atelier(s) — ${d.inscrits} inscrits / ${d.presents} présents`}));
 
-  const byMois={};entries.forEach(e=>{const m=e.date?e.date.slice(0,7):'?';if(m>='2000'&&m<todayYM){if(!byMois[m])byMois[m]={realises:0,annules:0};if(e.statut==='Réalisé')byMois[m].realises++;if(e.statut==='Annulé')byMois[m].annules++;}});
+  const byMois={};filtered.forEach(e=>{const m=e.date?e.date.slice(0,7):'?';if(m>='2000'&&m<todayYM){if(!byMois[m])byMois[m]={realises:0,annules:0};if(e.statut==='Réalisé')byMois[m].realises++;if(e.statut==='Annulé')byMois[m].annules++;}});
   const dataMois=Object.keys(byMois).sort().map(k=>({label:fmtML(k),value:byMois[k].realises+byMois[k].annules,tip:`${fmtML(k)} : ${byMois[k].realises} réalisé(s) / ${byMois[k].annules} annulé(s)`}));
 
   const byMoisPresents={};passes.forEach(e=>{const m=e.date?e.date.slice(0,7):'?';if(m<todayYM)byMoisPresents[m]=(byMoisPresents[m]||0)+(parseInt(e.presents)||0);});
   const dataMoisPresents=Object.keys(byMoisPresents).sort().map(k=>({label:fmtML(k),value:byMoisPresents[k],tip:`${fmtML(k)} : ${byMoisPresents[k]} présent(s)`}));
 
-  const byFutur={};entries.filter(e=>e.statut==='Planifié'&&e.date&&e.date.slice(0,7)>=todayYM).forEach(e=>{const m=e.date.slice(0,7);byFutur[m]=(byFutur[m]||0)+1;});
+  const byFutur={};filtered.filter(e=>e.statut==='Planifié'&&e.date&&e.date.slice(0,7)>=todayYM).forEach(e=>{const m=e.date.slice(0,7);byFutur[m]=(byFutur[m]||0)+1;});
   const dataFutur=Object.keys(byFutur).sort().map(k=>({label:fmtML(k),value:byFutur[k],tip:`${fmtML(k)} : ${byFutur[k]} atelier(s) planifié(s)`}));
 
-  const byStat={};entries.forEach(e=>{byStat[e.statut]=(byStat[e.statut]||0)+1;});
+  const byStat={};filtered.forEach(e=>{byStat[e.statut]=(byStat[e.statut]||0)+1;});
   const dataStat=Object.entries(byStat).map(([label,value])=>({label,value}));
 
-  if(passes.length===0)return CE('div',{className:'card'},CE('p',{style:{color:'#718096',textAlign:'center',padding:'40px 0'}},'Aucun atelier réalisé.'));
+  const hasFilter=dateFrom||dateTo;
+
   return CE('div',null,
-    CE('div',{style:{display:'flex',justifyContent:'flex-end',marginBottom:8}},CE('button',{className:'btn btn-print btn-sm',onClick:()=>window.print()},'🖨️ Imprimer')),
-    CE('div',{className:'kpi-grid'},
-      CE('div',{className:'kpi'},CE('div',{className:'val'},total),CE('div',{className:'lbl'},'Ateliers réalisés')),
-      CE('div',{className:'kpi'},CE('div',{className:'val'},annules),CE('div',{className:'lbl'},'Annulés')),
-      CE('div',{className:'kpi'},CE('div',{className:'val'},totalPresents),CE('div',{className:'lbl'},'Participants présents')),
-      CE('div',{className:'kpi'},CE('div',{className:'val'},txPresence+'%'),CE('div',{className:'lbl'},'Taux de présence'))
+    // Barre de filtre date
+    CE('div',{className:'card',style:{marginBottom:12}},
+      CE('div',{style:{display:'flex',alignItems:'center',gap:12,flexWrap:'wrap'}},
+        CE('span',{style:{fontSize:12,fontWeight:700,color:'#718096',whiteSpace:'nowrap'}},'📅 Période'),
+        CE('div',{style:{display:'flex',alignItems:'center',gap:8}},
+          CE('span',{style:{fontSize:12,color:'#718096'}},'Du'),
+          CE('input',{type:'date',value:dateFrom,onChange:e=>setDateFrom(e.target.value),style:{padding:'6px 10px',border:'1.5px solid #e2e8f0',borderRadius:8,fontSize:13}}),
+          CE('span',{style:{fontSize:12,color:'#718096'}},'Au'),
+          CE('input',{type:'date',value:dateTo,onChange:e=>setDateTo(e.target.value),style:{padding:'6px 10px',border:'1.5px solid #e2e8f0',borderRadius:8,fontSize:13}})
+        ),
+        hasFilter&&CE('button',{onClick:()=>{setDateFrom('');setDateTo('');},style:{padding:'6px 14px',border:'1.5px solid #e2e8f0',borderRadius:8,fontSize:12,color:'#718096',background:'#fff',cursor:'pointer'}},'✖ Tout afficher'),
+        hasFilter&&CE('span',{style:{fontSize:12,color:'#1e3a8a',fontWeight:600,background:'#eff6ff',padding:'4px 10px',borderRadius:6}},
+          `${filtered.length} atelier(s) sur ${entries.length}`),
+        CE('div',{style:{marginLeft:'auto'}},
+          CE('button',{className:'btn btn-print btn-sm',onClick:()=>window.print()},'🖨️ Imprimer'))
+      )
     ),
-    CE('div',{style:{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:16}},
-      CE('div',{className:'card'},CE('h2',null,'Ateliers par mois (révolus)'),CE(LineChart,{data:dataMois})),
-      CE('div',{className:'card'},CE('h2',null,'Présents par mois (révolus)'),CE(LineChart,{data:dataMoisPresents})),
-      CE('div',{className:'card'},CE('h2',null,'Par commune'),CE(BarChart,{data:dataCommune,colors:['#1e3a8a','#3b82f6','#60a5fa','#93c5fd','#1e40af','#2563eb','#1d4ed8','#1e3a8a']})),
-      CE('div',{className:'card'},CE('h2',null,'Par type de public'),CE(BarChart,{data:dataPublic,colors:['#7C3AED','#2563EB','#059669','#DB2777','#d97706','#0891b2','#65a30d','#dc2626']})),
-      CE('div',{className:'card'},CE('h2',null,'📅 Planifiés — mois à venir'),CE(BarChart,{data:dataFutur,colors:['#7c3aed','#8b5cf6','#a78bfa','#c4b5fd']})),
-      CE('div',{className:'card'},CE('h2',null,'Par statut'),CE(RadialChart,{data:dataStat,colors:['#276749','#2a69ac','#9b2c2c','#718096','#744210']}))
-    )
+
+    passes.length===0
+      ? CE('div',{className:'card'},CE('p',{style:{color:'#718096',textAlign:'center',padding:'40px 0'}},hasFilter?'Aucun atelier réalisé sur cette période.':'Aucun atelier réalisé.'))
+      : CE('div',null,
+          CE('div',{className:'kpi-grid'},
+            CE('div',{className:'kpi'},CE('div',{className:'val'},total),CE('div',{className:'lbl'},'Ateliers réalisés')),
+            CE('div',{className:'kpi'},CE('div',{className:'val'},annules),CE('div',{className:'lbl'},'Annulés')),
+            CE('div',{className:'kpi'},CE('div',{className:'val'},totalPresents),CE('div',{className:'lbl'},'Participants présents')),
+            CE('div',{className:'kpi'},CE('div',{className:'val'},txPresence+'%'),CE('div',{className:'lbl'},'Taux de présence'))
+          ),
+          CE('div',{style:{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:16}},
+            CE('div',{className:'card'},CE('h2',null,'Ateliers par mois (révolus)'),CE(LineChart,{data:dataMois})),
+            CE('div',{className:'card'},CE('h2',null,'Présents par mois (révolus)'),CE(LineChart,{data:dataMoisPresents})),
+            CE('div',{className:'card'},CE('h2',null,'Par commune'),CE(BarChart,{data:dataCommune,colors:['#1e3a8a','#3b82f6','#60a5fa','#93c5fd','#1e40af','#2563eb','#1d4ed8','#1e3a8a']})),
+            CE('div',{className:'card'},CE('h2',null,'Par type de public'),CE(BarChart,{data:dataPublic,colors:['#7C3AED','#2563EB','#059669','#DB2777','#d97706','#0891b2','#65a30d','#dc2626']})),
+            CE('div',{className:'card'},CE('h2',null,'📅 Planifiés — mois à venir'),CE(BarChart,{data:dataFutur,colors:['#7c3aed','#8b5cf6','#a78bfa','#c4b5fd']})),
+            CE('div',{className:'card'},CE('h2',null,'Par statut'),CE(RadialChart,{data:dataStat,colors:['#276749','#2a69ac','#9b2c2c','#718096','#744210']}))
+          )
+        )
   );
 }
 
