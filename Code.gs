@@ -1,11 +1,11 @@
 // ═══════════════════════════════════════════════════════════
-// Code.gs — Ateliers CD47 v9.0
-// Mise à jour depuis v8.2 — compatible avec les données existantes
+// Code.gs — Ateliers CD47 v9.2
+// Mise à jour depuis v9.0 — compatible avec les données existantes
 //
-// Changements v9.0 :
-//  · Feuille de données renommée → Ateliers_next_step (test)
-//  · Suppression de ADMIN_PWD (géré côté client en SHA-256)
-//  · Version bumped à 9.0
+// Changements v9.2 :
+//  · Filtre par année côté serveur (param ?year=YYYY dans getAll)
+//  · Ajout de 'calendrier' dans VISIBILITY_DEFAULTS
+//  · Version bumped à 9.2
 //  · Aucun changement de schéma — rétrocompatible total
 //
 // Pour revenir en production : changer SHEET_NAME → 'Ateliers'
@@ -32,11 +32,12 @@ const MATERIELS = [
 ];
 
 const VISIBILITY_DEFAULTS = {
-  saisie:     true,
-  historique: true,
-  graphiques: false,
-  carte:      false,
-  bingo:      false
+  saisie:      true,
+  historique:  true,
+  graphiques:  false,
+  carte:       false,
+  bingo:       false,
+  calendrier:  false   // v9.2 — activé par l'admin dans Config
 };
 
 const LISTS_DEFAULTS = {
@@ -88,7 +89,7 @@ function handleRequest(e) {
   try {
     let result;
     switch (action) {
-      case 'getAll':         result = getAll();                          break;
+      case 'getAll':         result = getAll(params.year || '');             break;
       case 'save':           result = saveEntry(body.entry);             break;
       case 'saveMany':       result = saveManyEntries(body.entries);     break;
       case 'delete':         result = deleteEntry(body._id);             break;
@@ -111,7 +112,7 @@ function handleRequest(e) {
 // LECTURE
 // ═══════════════════════════════════════════════════════════
 
-function getAll() {
+function getAll(year) {
   const sheet = getSheet(SHEET_NAME);
   const data  = sheet.getDataRange().getValues();
 
@@ -135,6 +136,11 @@ function getAll() {
       } else if (ent.date) {
         ent.date = String(ent.date).slice(0, 10);
       }
+
+      // ── v9.2 : Filtre par année côté serveur ──────────────
+      // Si year est fourni (ex: '2025'), on exclut les autres années.
+      // year='all' ou year='' → pas de filtre (charge tout).
+      if (year && year !== 'all' && ent.date && !ent.date.startsWith(year)) continue;
 
       // Normaliser l'horaire
       if (ent.horaire instanceof Date) {
@@ -343,7 +349,7 @@ function getConfigSheet() {
   let sh = ss.getSheetByName(CONFIG_SHEET);
   if (!sh) {
     sh = ss.insertSheet(CONFIG_SHEET);
-    sh.getRange(1,1,1,2).setValues([['app_version','9.0']]);
+    sh.getRange(1,1,1,2).setValues([['app_version','9.2']]);
     Logger.log('Feuille Config créée automatiquement');
   }
   return sh;
@@ -407,7 +413,7 @@ function initSheets() {
   }
 
   // Mettre à jour la version dans Config (partagé prod + test)
-  setConfig('app_version', '9.0');
+  setConfig('app_version', '9.2');
 
   SpreadsheetApp.getUi().alert(
     '✅ Feuille "' + SHEET_NAME + '" prête.\n' +

@@ -272,6 +272,24 @@ tr:hover td{background:#f7fafc}
 .sf-btn-secondary{padding:13px 24px;border:2px solid #e2e8f0;border-radius:12px;cursor:pointer;font-size:14px;font-weight:600;color:#718096;background:#fff;transition:all .2s}
 .sf-btn-secondary:hover{border-color:#94a3b8;color:#1a202c}
 .sf-conseiller-badge{display:inline-flex;align-items:center;gap:8px;padding:6px 14px;border-radius:20px;font-size:12px;font-weight:700;color:#fff;background:var(--ac);margin-bottom:14px}
+/* ── v9.2 : Calendrier ── */
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-bottom:3px}
+.cal-header-cell{text-align:center;font-size:11px;font-weight:700;color:#718096;padding:6px 2px;text-transform:uppercase;letter-spacing:.06em;background:#f8fafc;border-radius:4px}
+.cal-cell{min-height:88px;padding:5px;border-radius:6px;border:1px solid #e2e8f0;background:#fff;transition:background .12s;vertical-align:top;overflow:hidden}
+.cal-cell:hover{background:#f8fafc}
+.cal-cell-empty{background:#f8fafc;border-color:#f0f4f8;cursor:default}
+.cal-today{background:#eff6ff;border-color:#93c5fd}
+.cal-today:hover{background:#dbeafe}
+.cal-day-num{font-size:12px;font-weight:600;color:#4a5568;margin-bottom:3px;line-height:1.4}
+.cal-today-num{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;background:#1e3a8a;color:#fff;border-radius:50%;font-size:11px;font-weight:700}
+.cal-event{display:flex;align-items:center;gap:3px;padding:2px 5px;border-radius:3px;font-size:9.5px;cursor:pointer;margin-bottom:2px;transition:filter .1s;overflow:hidden;max-width:100%;line-height:1.3}
+.cal-event:hover{filter:brightness(.9)}
+.cal-event-time{font-weight:700;flex-shrink:0;font-size:9px}
+.cal-event-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;color:#1a202c}
+.cal-more{font-size:9.5px;color:#6b7280;cursor:pointer;margin-top:2px;font-weight:600;padding:1px 4px;background:#f1f5f9;border-radius:3px;display:inline-block}
+.cal-more:hover{color:#1e3a8a;background:#dbeafe}
+.cal-year-sel{padding:4px 8px;border:1.5px solid rgba(255,255,255,.35);border-radius:6px;background:rgba(255,255,255,.12);color:#fff;font-size:12px;font-weight:700;cursor:pointer;outline:none}
+.cal-year-sel option{background:#1e3a8a;color:#fff}
 `;
   document.head.appendChild(s);
 })();
@@ -1064,7 +1082,211 @@ function VueHistorique({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
 }
 
 // ═══════════════════════════════════════════════════════════
-// GRAPHIQUES — RECHARTS
+// VUE CALENDRIER — v9.2
+// ═══════════════════════════════════════════════════════════
+function VueCalendrier({entries,onEdit,onDelete,onRefresh,onDuplicate,initConseiller,onResetConseiller,canDelete}){
+  const today=new Date();
+  const todayStr=today.toISOString().slice(0,10);
+  const[calDate,setCalDate]=React.useState(new Date(today.getFullYear(),today.getMonth(),1));
+  const[filtConseiller,setFiltConseiller]=React.useState(initConseiller||'Tous');
+  const[panel,setPanel]=React.useState(null);
+  const[panelStatut,setPanelStatut]=React.useState('');
+  const[panelInscrits,setPanelInscrits]=React.useState('');
+  const[panelPresents,setPanelPresents]=React.useState('');
+  const[panelNote,setPanelNote]=React.useState('');
+  const[saving,setSaving]=React.useState(false);
+  const[confirmDel,setConfirmDel]=React.useState(null);
+  const[expandDay,setExpandDay]=React.useState(null);
+
+  React.useEffect(()=>{if(initConseiller)setFiltConseiller(initConseiller);},[initConseiller]);
+
+  const yr=calDate.getFullYear();
+  const mo=calDate.getMonth();
+  const monthStr=`${yr}-${String(mo+1).padStart(2,'0')}`;
+  const MOIS_LONG=['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+  const JOURS_COURT=['Lun','Mar','Mer','Jeu','Ven','Sam','Dim'];
+  const CLOTURE_PRESETS=[
+    {label:'✅ Réalisé',statut:'Réalisé',bg:'#16a34a',color:'#fff'},
+    {label:'❌ Annulé',statut:'Annulé',bg:'#dc2626',color:'#fff'},
+    {label:'🚫 Non réalisé',statut:'Non réalisé',bg:'#6b7280',color:'#fff'},
+    {label:'📅 Reporté',statut:'Reporté',bg:'#d97706',color:'#fff'},
+  ];
+
+  // Entrées du mois filtrées par conseiller
+  const monthEntries=React.useMemo(()=>{
+    let r=entries.filter(e=>e.date&&e.date.startsWith(monthStr));
+    if(filtConseiller!=='Tous')r=r.filter(e=>e.conseiller===filtConseiller);
+    return r;
+  },[entries,monthStr,filtConseiller]);
+
+  // Map jour→ateliers
+  const dayMap=React.useMemo(()=>{
+    const m={};
+    monthEntries.forEach(e=>{const d=parseInt(e.date.slice(8,10));if(!m[d])m[d]=[];m[d].push(e);});
+    // Tri par horaire dans chaque jour
+    Object.values(m).forEach(arr=>arr.sort((a,b)=>(a.horaire||'').localeCompare(b.horaire||'')));
+    return m;
+  },[monthEntries]);
+
+  // Grille calendrier
+  const firstDow=new Date(yr,mo,1).getDay();
+  const firstDowMon=(firstDow+6)%7; // 0=Lun
+  const daysInMonth=new Date(yr,mo+1,0).getDate();
+  const cells=[];
+  for(let i=0;i<firstDowMon;i++)cells.push(null);
+  for(let d=1;d<=daysInMonth;d++)cells.push(d);
+  while(cells.length%7!==0)cells.push(null);
+
+  // Navigation
+  function prevMonth(){setCalDate(d=>new Date(d.getFullYear(),d.getMonth()-1,1));setExpandDay(null);}
+  function nextMonth(){setCalDate(d=>new Date(d.getFullYear(),d.getMonth()+1,1));setExpandDay(null);}
+  function goToday(){setCalDate(new Date(today.getFullYear(),today.getMonth(),1));setExpandDay(null);}
+
+  // Panel
+  function openPanel(e){setPanel(e);setPanelStatut(e.statut);setPanelInscrits(e.inscrits===undefined||e.inscrits===''?'':String(e.inscrits));setPanelPresents(e.presents===undefined||e.presents===''?'':String(e.presents));setPanelNote(e.remarques||'');}
+  function closePanel(){setPanel(null);}
+  async function savePanel(){
+    if(!panel)return;setSaving(true);
+    try{
+      const updated={...panel,statut:panelStatut,inscrits:panelInscrits===''?'':parseInt(panelInscrits)||0,presents:panelPresents===''?'':parseInt(panelPresents)||0,remarques:panelNote};
+      const res=await apiFetch('save',{entry:updated});
+      if(!res.ok)throw new Error(res.error);
+      showToast('✅ Mis à jour');closePanel();onRefresh();
+    }catch(err){showToast('❌ '+err.message,false);}
+    finally{setSaving(false);}
+  }
+
+  // KPIs mois
+  const kpi=React.useMemo(()=>{
+    const r=monthEntries.filter(e=>e.statut==='Réalisé').length;
+    const p=monthEntries.filter(e=>e.statut==='Planifié').length;
+    const ins=monthEntries.reduce((s,e)=>s+(parseInt(e.inscrits)||0),0);
+    const pres=monthEntries.reduce((s,e)=>s+(parseInt(e.presents)||0),0);
+    return{total:monthEntries.length,realises:r,planifies:p,inscrits:ins,presents:pres};
+  },[monthEntries]);
+
+  return CE('div',null,
+    // ── Header ──
+    CE('div',{className:'card',style:{marginBottom:12}},
+      CE('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:10,marginBottom:12}},
+        CE('div',{style:{display:'flex',alignItems:'center',gap:8}},
+          CE('button',{className:'btn btn-secondary btn-sm',onClick:prevMonth},'‹'),
+          CE('div',{style:{fontSize:18,fontWeight:800,color:'#1e3a8a',minWidth:170,textAlign:'center'}},`${MOIS_LONG[mo]} ${yr}`),
+          CE('button',{className:'btn btn-secondary btn-sm',onClick:nextMonth},'›'),
+          CE('button',{className:'btn btn-secondary btn-sm',style:{marginLeft:4,fontSize:12},onClick:goToday},'Aujourd\'hui')
+        ),
+        CE('div',{style:{display:'flex',alignItems:'center',gap:8}},
+          CE('label',{style:{fontSize:12,fontWeight:600,color:'#4a5568',margin:0,whiteSpace:'nowrap'}},'Conseiller :'),
+          CE('select',{value:filtConseiller,onChange:e=>setFiltConseiller(e.target.value),style:{padding:'5px 10px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:13}},
+            CE('option',{value:'Tous'},'Tous'),
+            CONSEILLERS.map(c=>CE('option',{key:c,value:c},c))
+          )
+        )
+      ),
+      CE('div',{style:{display:'flex',gap:8,flexWrap:'wrap'}},
+        CE('div',{className:'kpi-mini',style:{flex:'1 1 70px'}},CE('div',{className:'v',style:{color:'#1e3a8a',fontSize:20}},kpi.total),CE('div',{className:'l'},'Ateliers')),
+        CE('div',{className:'kpi-mini',style:{flex:'1 1 70px'}},CE('div',{className:'v',style:{color:'#166534',fontSize:20}},kpi.realises),CE('div',{className:'l'},'Réalisés')),
+        CE('div',{className:'kpi-mini',style:{flex:'1 1 70px'}},CE('div',{className:'v',style:{color:'#2563eb',fontSize:20}},kpi.planifies),CE('div',{className:'l'},'Planifiés')),
+        CE('div',{className:'kpi-mini',style:{flex:'1 1 70px'}},CE('div',{className:'v',style:{color:'#7c3aed',fontSize:20}},kpi.inscrits),CE('div',{className:'l'},'Inscrits')),
+        CE('div',{className:'kpi-mini',style:{flex:'1 1 70px'}},CE('div',{className:'v',style:{color:'#0891b2',fontSize:20}},kpi.presents),CE('div',{className:'l'},'Présents'))
+      )
+    ),
+    // ── Grille ──
+    CE('div',{className:'card',style:{padding:'12px 16px'}},
+      // En-têtes jours
+      CE('div',{className:'cal-grid',style:{marginBottom:4}},
+        JOURS_COURT.map(j=>CE('div',{key:j,className:'cal-header-cell'},j))
+      ),
+      // Cellules
+      CE('div',{className:'cal-grid'},
+        cells.map((day,idx)=>{
+          if(day===null)return CE('div',{key:'e'+idx,className:'cal-cell cal-cell-empty'});
+          const ds=`${yr}-${String(mo+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+          const isToday=ds===todayStr;
+          const dayAteliers=dayMap[day]||[];
+          const MAX_VISIBLE=3;
+          const hidden=dayAteliers.length-MAX_VISIBLE;
+          const expanded=expandDay===day;
+          const visible=expanded?dayAteliers:dayAteliers.slice(0,MAX_VISIBLE);
+          return CE('div',{key:day,className:'cal-cell'+(isToday?' cal-today':'')},
+            CE('div',{className:'cal-day-num'},
+              isToday?CE('span',{className:'cal-today-num'},day):day
+            ),
+            visible.map(e=>{
+              const sc=conseillerColor(e.conseiller);
+              const retard=isRetard(e);
+              return CE('div',{key:e._id,className:'cal-event',
+                style:{background:retard?'#fecaca':sc+'22',borderLeft:`3px solid ${retard?'#ef4444':sc}`},
+                onClick:ev=>{ev.stopPropagation();openPanel(e);}},
+                CE('span',{className:'cal-event-time',style:{color:retard?'#991b1b':sc}},e.horaire||''),
+                CE('span',{className:'cal-event-label'},e.thematique||e.lieu||'—')
+              );
+            }),
+            hidden>0&&!expanded&&CE('div',{className:'cal-more',onClick:ev=>{ev.stopPropagation();setExpandDay(day);}},`+${hidden} autre${hidden>1?'s':''}`),
+            expanded&&hidden>0&&CE('div',{className:'cal-more',style:{color:'#dc2626'},onClick:ev=>{ev.stopPropagation();setExpandDay(null);}},`Réduire ▲`)
+          );
+        })
+      )
+    ),
+    // ── Side panel ──
+    panel&&CE('div',{className:'side-panel-overlay',onClick:closePanel}),
+    CE('div',{className:'side-panel'+(panel?' open':'')},
+      panel&&CE(React.Fragment,null,
+        CE('div',{className:'side-panel-header'},
+          CE('h3',null,'Détail / Mise à jour'),
+          CE('button',{onClick:closePanel,style:{background:'none',border:'none',fontSize:18,cursor:'pointer',color:'#718096'}},'✕')
+        ),
+        CE('div',{className:'side-panel-body'},
+          isRetard(panel)&&CE('div',{className:'cloture-banner'},
+            CE('div',{className:'cloture-title'},'⚠️ Atelier passé — à clôturer'),
+            CE('div',{className:'cloture-btns'},
+              CLOTURE_PRESETS.map(p=>CE('button',{key:p.statut,className:'cloture-btn',style:{background:p.bg,color:p.color},onClick:()=>setPanelStatut(p.statut)},p.label))
+            )
+          ),
+          CE('div',{style:{fontSize:13,fontWeight:700,color:'#1a202c',marginBottom:8}},panel.thematique),
+          CE('div',{className:'sp-info-row'},CE('span',null,'Date'),CE('span',null,fmtDate(panel.date),' ',panel.horaire)),
+          CE('div',{className:'sp-info-row'},CE('span',null,'Commune'),CE('span',null,panel.commune)),
+          CE('div',{className:'sp-info-row'},CE('span',null,'Lieu'),CE('span',null,panel.lieu)),
+          panel.orienteur&&CE('div',{className:'sp-info-row'},CE('span',null,'Orienteur'),CE('span',null,panel.orienteur)),
+          CE('div',{className:'sp-info-row'},CE('span',null,'Public'),CE('span',null,panel.public)),
+          CE('div',{className:'sp-info-row'},CE('span',null,'Conseiller'),CE('span',{style:{color:conseillerColor(panel.conseiller),fontWeight:700}},panel.conseiller)),
+          panel.materiel&&panel.materiel.length>0&&CE('div',{style:{marginTop:10,marginBottom:4}},
+            CE('div',{style:{fontSize:11,fontWeight:700,color:'#718096',marginBottom:4}},'MATÉRIEL'),
+            panel.materiel.map(m=>CE('span',{key:m,className:'mat-chip'},m))
+          ),
+          CE('hr',{style:{border:'none',borderTop:'1px solid #e2e8f0',margin:'12px 0'}}),
+          CE('div',{className:'sp-field'},CE('label',null,'Statut *'),
+            CE('select',{value:panelStatut,onChange:e=>setPanelStatut(e.target.value),style:{width:'100%',padding:'8px 10px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:13}},
+              STATUTS.map(s=>CE('option',{key:s,value:s},s)))),
+          CE('div',{className:'sp-field'},CE('label',null,"Nombre d'inscrits"),
+            CE('input',{type:'number',min:0,value:panelInscrits,onChange:e=>setPanelInscrits(e.target.value),style:{width:'100%',padding:'8px 10px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:13},placeholder:'0'})),
+          CE('div',{className:'sp-field'},CE('label',null,'Nombre de présents'),
+            CE('input',{type:'number',min:0,value:panelPresents,onChange:e=>setPanelPresents(e.target.value),style:{width:'100%',padding:'8px 10px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:13},placeholder:'0'})),
+          CE('div',{className:'sp-field'},CE('label',null,'Remarques'),
+            CE('textarea',{value:panelNote,onChange:e=>setPanelNote(e.target.value),rows:3,placeholder:'Ajouter une note…',style:{width:'100%',padding:'8px 10px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:13,resize:'vertical'}}))
+        ),
+        CE('div',{className:'side-panel-footer'},
+          canDelete&&CE('button',{className:'btn btn-danger btn-sm',onClick:()=>{setConfirmDel(panel);closePanel();}},'Supprimer'),
+          onDuplicate&&CE('button',{className:'btn btn-secondary btn-sm',style:{background:'#eff6ff',color:'#1d4ed8',border:'1px solid #bfdbfe'},onClick:()=>{onDuplicate(panel);closePanel();}},'📋 Dupliquer'),
+          CE('button',{className:'btn btn-secondary',style:{flex:1},onClick:()=>onEdit(panel._id)},'Éditer complet'),
+          CE('button',{className:'btn btn-primary',style:{flex:1},onClick:savePanel,disabled:saving},saving?'…':'💾 Enregistrer')
+        )
+      )
+    ),
+    confirmDel&&CE('div',{style:{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:1000}},
+      CE('div',{className:'card',style:{width:360}},
+        CE('h2',null,'🗑️ Confirmer la suppression'),
+        CE('p',{style:{margin:'12px 0',fontSize:13}},`Supprimer l'atelier #${confirmDel._n} — ${confirmDel.thematique} ?`),
+        CE('p',{style:{fontSize:12,color:'#718096',marginBottom:16}},'Cette action est irréversible.'),
+        CE('div',{style:{display:'flex',gap:10}},
+          CE('button',{className:'btn btn-danger',onClick:()=>{onDelete(confirmDel._id);setConfirmDel(null);}},'🗑️ Supprimer'),
+          CE('button',{className:'btn btn-secondary',onClick:()=>setConfirmDel(null)},'Annuler')
+        )
+      )
+    )
+  );
+}
+
 // ═══════════════════════════════════════════════════════════
 // Recharts — variables déclarées globalement, assignées via IIFE
 // pour être accessibles par BarChart/LineChart/RadialChart ET VueGraphiques
@@ -1158,7 +1380,6 @@ function VueGraphiques({entries}){
   const[dateFrom,setDateFrom]=React.useState('');
   const[dateTo,setDateTo]=React.useState('');
 
-  // Entries filtrées par la plage de dates
   const filtered=React.useMemo(()=>{
     let r=entries;
     if(dateFrom)r=r.filter(e=>e.date&&e.date>=dateFrom);
@@ -1166,6 +1387,7 @@ function VueGraphiques({entries}){
     return r;
   },[entries,dateFrom,dateTo]);
 
+  const hasFilter=dateFrom||dateTo;
   const passes=filtered.filter(isPasse);
   const total=passes.length;
   const totalInscrits=passes.reduce((s,e)=>s+(parseInt(e.inscrits)||0),0);
@@ -1193,30 +1415,31 @@ function VueGraphiques({entries}){
   const byStat={};filtered.forEach(e=>{byStat[e.statut]=(byStat[e.statut]||0)+1;});
   const dataStat=Object.entries(byStat).map(([label,value])=>({label,value}));
 
-  const hasFilter=dateFrom||dateTo;
+  // Années disponibles
+  const annees=[...new Set(entries.map(e=>e.date?e.date.slice(0,4):'').filter(Boolean))].sort();
 
   return CE('div',null,
-    // Barre de filtre date
+    // Barre filtre période
     CE('div',{className:'card',style:{marginBottom:12}},
-      CE('div',{style:{display:'flex',alignItems:'center',gap:12,flexWrap:'wrap'}},
+      CE('div',{style:{display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}},
         CE('span',{style:{fontSize:12,fontWeight:700,color:'#718096',whiteSpace:'nowrap'}},'📅 Période'),
-        CE('div',{style:{display:'flex',alignItems:'center',gap:8}},
+        // Boutons années
+        CE('button',{onClick:()=>{setDateFrom('');setDateTo('');},style:{padding:'5px 12px',borderRadius:6,border:`1.5px solid ${!hasFilter?'#1e3a8a':'#e2e8f0'}`,background:!hasFilter?'#1e3a8a':'#fff',color:!hasFilter?'#fff':'#718096',fontSize:12,fontWeight:600,cursor:'pointer'}},'Tout'),
+        annees.map(yr=>CE('button',{key:yr,onClick:()=>{setDateFrom(`${yr}-01-01`);setDateTo(`${yr}-12-31`);},style:{padding:'5px 12px',borderRadius:6,border:`1.5px solid ${dateFrom===`${yr}-01-01`&&dateTo===`${yr}-12-31`?'#1e3a8a':'#e2e8f0'}`,background:dateFrom===`${yr}-01-01`&&dateTo===`${yr}-12-31`?'#1e3a8a':'#fff',color:dateFrom===`${yr}-01-01`&&dateTo===`${yr}-12-31`?'#fff':'#718096',fontSize:12,fontWeight:600,cursor:'pointer'}},yr)),
+        // Saisie manuelle
+        CE('div',{style:{display:'flex',alignItems:'center',gap:6,marginLeft:4}},
           CE('span',{style:{fontSize:12,color:'#718096'}},'Du'),
-          CE('input',{type:'date',value:dateFrom,onChange:e=>setDateFrom(e.target.value),style:{padding:'6px 10px',border:'1.5px solid #e2e8f0',borderRadius:8,fontSize:13}}),
+          CE('input',{type:'date',value:dateFrom,onChange:e=>setDateFrom(e.target.value),style:{padding:'5px 8px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:12}}),
           CE('span',{style:{fontSize:12,color:'#718096'}},'Au'),
-          CE('input',{type:'date',value:dateTo,onChange:e=>setDateTo(e.target.value),style:{padding:'6px 10px',border:'1.5px solid #e2e8f0',borderRadius:8,fontSize:13}})
+          CE('input',{type:'date',value:dateTo,onChange:e=>setDateTo(e.target.value),style:{padding:'5px 8px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:12}})
         ),
-        hasFilter&&CE('button',{onClick:()=>{setDateFrom('');setDateTo('');},style:{padding:'6px 14px',border:'1.5px solid #e2e8f0',borderRadius:8,fontSize:12,color:'#718096',background:'#fff',cursor:'pointer'}},'✖ Tout afficher'),
-        hasFilter&&CE('span',{style:{fontSize:12,color:'#1e3a8a',fontWeight:600,background:'#eff6ff',padding:'4px 10px',borderRadius:6}},
-          `${filtered.length} atelier(s) sur ${entries.length}`),
-        CE('div',{style:{marginLeft:'auto'}},
-          CE('button',{className:'btn btn-print btn-sm',onClick:()=>window.print()},'🖨️ Imprimer'))
+        hasFilter&&CE('span',{style:{fontSize:12,color:'#1e3a8a',fontWeight:600,background:'#eff6ff',padding:'4px 10px',borderRadius:6}},`${filtered.length} / ${entries.length}`),
+        CE('button',{className:'btn btn-print btn-sm',style:{marginLeft:'auto'},onClick:()=>window.print()},'🖨️ Imprimer')
       )
     ),
-
     passes.length===0
-      ? CE('div',{className:'card'},CE('p',{style:{color:'#718096',textAlign:'center',padding:'40px 0'}},hasFilter?'Aucun atelier réalisé sur cette période.':'Aucun atelier réalisé.'))
-      : CE('div',null,
+      ?CE('div',{className:'card'},CE('p',{style:{color:'#718096',textAlign:'center',padding:'40px 0'}},hasFilter?'Aucun atelier réalisé sur cette période.':'Aucun atelier réalisé.'))
+      :CE('div',null,
           CE('div',{className:'kpi-grid'},
             CE('div',{className:'kpi'},CE('div',{className:'val'},total),CE('div',{className:'lbl'},'Ateliers réalisés')),
             CE('div',{className:'kpi'},CE('div',{className:'val'},annules),CE('div',{className:'lbl'},'Annulés')),
@@ -1316,7 +1539,8 @@ function VueAdmin({entries,onRefresh,addLog,conseillersList,onSaveColors}){
   const[colorSaving,setColorSaving]=React.useState(false);
   const[importProgress,setImportProgress]=React.useState(0);
   const[importMsg,setImportMsg]=React.useState('');
-  const VIS_ITEMS=[{key:'saisie',label:'✏️ Saisie',sub:'Formulaire de saisie'},{key:'historique',label:'📋 Historique',sub:'Liste des ateliers'},{key:'graphiques',label:'📊 Graphiques',sub:'Tableaux de bord'},{key:'carte',label:'🗺️ Carte',sub:'Carte des communes'},{key:'bingo',label:'🎯 Bingo',sub:'Vue par commune'}];
+  const cancelRef=React.useRef(false);
+  const VIS_ITEMS=[{key:'saisie',label:'✏️ Saisie',sub:'Formulaire de saisie'},{key:'historique',label:'📋 Historique',sub:'Liste des ateliers'},{key:'calendrier',label:'📅 Calendrier',sub:'Vue calendrier mensuelle'},{key:'graphiques',label:'📊 Graphiques',sub:'Tableaux de bord'},{key:'carte',label:'🗺️ Carte',sub:'Carte des communes'},{key:'bingo',label:'🎯 Bingo',sub:'Vue par commune'}];
 
   React.useEffect(()=>{apiFetch('getVisibility').then(res=>{if(res.ok)setVisibility(res.visibility);}).catch(()=>{});},[]);
 
@@ -1351,6 +1575,7 @@ function VueAdmin({entries,onRefresh,addLog,conseillersList,onSaveColors}){
 
   async function handleImportCSV(e){
     const file=e.target.files[0];if(!file)return;e.target.value='';
+    cancelRef.current=false;
     setImporting(true);setImportProgress(0);setImportMsg('Lecture du fichier…');
     try{
       const text=await file.text();const lines=text.split('\n').filter(l=>l.trim());
@@ -1359,25 +1584,52 @@ function VueAdmin({entries,onRefresh,addLog,conseillersList,onSaveColors}){
       function parseCSVLine(line){const res=[];let cur='',inQ=false;for(let i=0;i<line.length;i++){const c=line[i];if(c==='"')inQ=!inQ;else if(c===sep&&!inQ){res.push(cur.trim());cur='';}else cur+=c;}res.push(cur.trim());return res;}
       const headers=parseCSVLine(lines[0]).map(h=>h.replace(/^"|"$/g,'').trim());
       const entries_raw=[];
-      for(let i=1;i<lines.length;i++){const vals=parseCSVLine(lines[i]);if(vals.length<3)continue;const row={};headers.forEach((h,idx)=>{row[h]=vals[idx]?vals[idx].replace(/^"|"$/g,'').trim():'';});if(!row._id&&!row.statut)continue;entries_raw.push({_id:row._id||genId(),_n:parseInt(row._n)||0,statut:row.statut||'Planifié',date:normalizeDate(row.date),horaire:normalizeHoraire(row.horaire),ampm:row.ampm||'AM',orienteur:row.orienteur||'',commune:normalizeCommune(row.commune),lieu:row.lieu||'',thematique:row.thematique||'',inscrits:row.inscrits===''?'':parseInt(row.inscrits)||0,presents:row.presents===''?'':parseInt(row.presents)||0,public:row.pub||row.public||'Tous publics',conseiller:row.conseiller||'',materiel:MATERIELS.filter(m=>row[m]==='OUI'),residence:row.residence||'',remarques:row.remarques||''});}
+      for(let i=1;i<lines.length;i++){const vals=parseCSVLine(lines[i]);if(vals.length<3)continue;const row={};headers.forEach((h,idx)=>{row[h]=vals[idx]?vals[idx].replace(/^"|"$/g,'').trim():'';});if(!row._id&&!row.statut&&!row['Statut'])continue;
+        const g=(...keys)=>{for(const k of keys){if(row[k]!==undefined&&row[k]!=='')return row[k];}return '';};
+        entries_raw.push({_id:g('_id')||genId(),_n:parseInt(g('_n','N°'))||0,statut:g('statut','Statut')||'Planifié',date:normalizeDate(g('date','Date')),horaire:normalizeHoraire(g('horaire','Horaire')),ampm:g('ampm','AM/PM')||'AM',orienteur:g('orienteur','Orienteur'),commune:normalizeCommune(g('commune','Commune')),lieu:g('lieu','Lieu',"Lieu de l'atelier"),thematique:g('thematique','Thématique','Thematique'),inscrits:g('inscrits','Inscrits')===''?'':parseInt(g('inscrits','Inscrits'))||0,presents:g('presents','Présents')===''?'':parseInt(g('presents','Présents'))||0,public:g('pub','public','Public')||'Tous publics',conseiller:g('conseiller','Conseiller','Conseiller numérique'),materiel:MATERIELS.filter(m=>String(g(m)).trim().toUpperCase()==='OUI'),residence:g('residence','Résidence','Résidence des participants'),remarques:g('remarques','Remarques')});}
       setImportMsg(`${entries_raw.length} lignes parsées — envoi vers Google Sheets…`);
       const BATCH=5;let done=0;
-      for(let i=0;i<entries_raw.length;i+=BATCH){const batch=entries_raw.slice(i,i+BATCH);const params=new URLSearchParams({action:'saveMany',entries:JSON.stringify(batch)});const res=await Promise.race([fetch(`${GS_URL}?${params.toString()}`),new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')),45000))]);const data=await res.json();if(!data.ok)throw new Error(data.error);done+=batch.length;setImportProgress(Math.round(done/entries_raw.length*100));setImportMsg(`${done}/${entries_raw.length} lignes importées…`);}
+      for(let i=0;i<entries_raw.length;i+=BATCH){
+        if(cancelRef.current){showToast(`⛔ Annulé — ${done} lignes importées`,false);addLog(`Import CSV annulé à ${done}/${entries_raw.length}`,'info');return;}
+        const batch=entries_raw.slice(i,i+BATCH);const params=new URLSearchParams({action:'saveMany',entries:JSON.stringify(batch)});const res=await Promise.race([fetch(`${GS_URL}?${params.toString()}`),new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')),45000))]);const data=await res.json();if(!data.ok)throw new Error(data.error);done+=batch.length;setImportProgress(Math.round(done/entries_raw.length*100));setImportMsg(`${done}/${entries_raw.length} lignes importées…`);}
       addLog(`Import CSV : ${entries_raw.length} ateliers`,'ok');showToast(`✅ ${entries_raw.length} ateliers importés`);onRefresh();
     }catch(err){showToast('❌ '+err.message,false);addLog('Erreur import CSV : '+err.message,'err');}
-    finally{setImporting(false);setImportProgress(0);setImportMsg('');}
+    finally{setImporting(false);setImportProgress(0);setImportMsg('');cancelRef.current=false;}
   }
 
   async function handleImportXLSX(e){
-    const file=e.target.files[0];if(!file)return;e.target.value='';setImporting(true);setImportMsg('Lecture XLSX…');
+    const file=e.target.files[0];if(!file)return;e.target.value='';
+    cancelRef.current=false;
+    setImporting(true);setImportMsg('Lecture XLSX…');
     try{
       const ab=await file.arrayBuffer();const wb=XLSX.read(ab);const ws=wb.Sheets[wb.SheetNames[0]];const rows=XLSX.utils.sheet_to_json(ws,{defval:''});
-      const entries_raw=rows.map(r=>({_id:r['_id']||genId(),_n:parseInt(r['N°'])||0,statut:r['Statut']||'Planifié',date:normalizeDate(r['Date']),horaire:normalizeHoraire(r['Horaire']),ampm:r['ampm']||'AM',orienteur:r['Orienteur']||'',commune:normalizeCommune(r['Commune']),lieu:r['Lieu']||'',thematique:r['Thématique']||'',inscrits:r['Inscrits']===''?'':parseInt(r['Inscrits'])||0,presents:r['Présents']===''?'':parseInt(r['Présents'])||0,public:r['Public']||'Tous publics',conseiller:r['Conseiller']||'',materiel:[],residence:r['Résidence']||'',remarques:r['Remarques']||''})).filter(r=>r.statut);
+      const g=(r,...keys)=>{for(const k of keys){if(r[k]!==undefined&&r[k]!=='')return r[k];}return '';};
+      const entries_raw=rows.map(r=>({
+        _id:       g(r,'_id')||genId(),
+        _n:        parseInt(g(r,'_n','N°','n'))||0,
+        statut:    g(r,'statut','Statut')||'Planifié',
+        date:      normalizeDate(g(r,'date','Date')),
+        horaire:   normalizeHoraire(g(r,'horaire','Horaire')),
+        ampm:      g(r,'ampm','AM/PM')||'AM',
+        orienteur: g(r,'orienteur','Orienteur'),
+        commune:   normalizeCommune(g(r,'commune','Commune')),
+        lieu:      g(r,'lieu','Lieu',"Lieu de l'atelier"),
+        thematique:g(r,'thematique','Thématique','Thematique'),
+        inscrits:  g(r,'inscrits','Inscrits')===''?'':parseInt(g(r,'inscrits','Inscrits'))||0,
+        presents:  g(r,'presents','Présents','Presents')===''?'':parseInt(g(r,'presents','Présents','Presents'))||0,
+        public:    g(r,'public','Public')||'Tous publics',
+        conseiller:g(r,'conseiller','Conseiller','Conseiller numérique'),
+        materiel:  MATERIELS.filter(m=>String(g(r,m)).trim().toUpperCase()==='OUI'),
+        residence: g(r,'residence','Résidence','Résidence des participants'),
+        remarques: g(r,'remarques','Remarques'),
+      })).filter(r=>r.statut);
       const BATCH=5;let done=0;
-      for(let i=0;i<entries_raw.length;i+=BATCH){const batch=entries_raw.slice(i,i+BATCH);const params=new URLSearchParams({action:'saveMany',entries:JSON.stringify(batch)});const res=await Promise.race([fetch(`${GS_URL}?${params.toString()}`),new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')),45000))]);const data=await res.json();if(!data.ok)throw new Error(data.error);done+=batch.length;setImportProgress(Math.round(done/entries_raw.length*100));}
+      for(let i=0;i<entries_raw.length;i+=BATCH){
+        if(cancelRef.current){showToast(`⛔ Annulé — ${done} lignes importées`,false);addLog(`Import XLSX annulé à ${done}/${entries_raw.length}`,'info');return;}
+        const batch=entries_raw.slice(i,i+BATCH);const params=new URLSearchParams({action:'saveMany',entries:JSON.stringify(batch)});const res=await Promise.race([fetch(`${GS_URL}?${params.toString()}`),new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')),45000))]);const data=await res.json();if(!data.ok)throw new Error(data.error);done+=batch.length;setImportProgress(Math.round(done/entries_raw.length*100));}
       addLog(`Import XLSX : ${entries_raw.length} ateliers`,'ok');showToast(`✅ ${entries_raw.length} ateliers importés`);onRefresh();
     }catch(err){showToast('❌ '+err.message,false);addLog('Erreur import XLSX : '+err.message,'err');}
-    finally{setImporting(false);setImportProgress(0);setImportMsg('');}
+    finally{setImporting(false);setImportProgress(0);setImportMsg('');cancelRef.current=false;}
   }
 
   const resetLabels=['🗑️ Réinitialiser la BDD locale','⚠️ Confirmer (1/2)','🚨 Confirmer définitivement (2/2)'];
@@ -1439,12 +1691,12 @@ function VueAdmin({entries,onRefresh,addLog,conseillersList,onSaveColors}){
     CE('div',{className:'admin-section'},
       CE('h3',null,'📥 Import CSV'),
       CE('p',{style:{fontSize:12,color:'#4a5568',marginBottom:12}},'Importe un fichier CSV compatible. Les entrées existantes sont fusionnées.'),
-      importing?CE('div',null,CE('p',{style:{fontSize:12,color:'#4a5568',marginBottom:6}},importMsg),CE('div',{className:'progress-bar'},CE('div',{className:'progress-fill',style:{width:importProgress+'%'}})),CE('p',{style:{fontSize:11,color:'#718096',marginTop:4}},importProgress+'%')):CE('label',{style:{display:'inline-block',cursor:'pointer'}},CE('span',{className:'btn btn-primary'},'📂 Choisir un fichier CSV'),CE('input',{type:'file',accept:'.csv',style:{display:'none'},onChange:handleImportCSV}))
+      importing?CE('div',null,CE('p',{style:{fontSize:12,color:'#4a5568',marginBottom:6}},importMsg),CE('div',{className:'progress-bar'},CE('div',{className:'progress-fill',style:{width:importProgress+'%'}})),CE('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginTop:6}},CE('p',{style:{fontSize:11,color:'#718096'}},importProgress+'%'),CE('button',{className:'btn btn-danger btn-sm',onClick:()=>cancelRef.current=true},'⛔ Annuler'))):CE('label',{style:{display:'inline-block',cursor:'pointer'}},CE('span',{className:'btn btn-primary'},'📂 Choisir un fichier CSV'),CE('input',{type:'file',accept:'.csv',style:{display:'none'},onChange:handleImportCSV}))
     ),
     CE('div',{className:'admin-section'},
       CE('h3',null,'📊 Import XLSX'),
       CE('p',{style:{fontSize:12,color:'#4a5568',marginBottom:12}},'Réimporte un fichier .xlsx précédemment exporté.'),
-      importing?CE('div',null,CE('p',{style:{fontSize:12,color:'#4a5568'}},importMsg)):CE('label',{style:{display:'inline-block',cursor:'pointer'}},CE('span',{className:'btn btn-warn'},'📂 Choisir un fichier XLSX'),CE('input',{type:'file',accept:'.xlsx',style:{display:'none'},onChange:handleImportXLSX}))
+      importing?CE('div',null,CE('p',{style:{fontSize:12,color:'#4a5568',marginBottom:6}},importMsg||'Import en cours…'),CE('div',{className:'progress-bar'},CE('div',{className:'progress-fill',style:{width:importProgress+'%'}})),CE('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginTop:6}},CE('p',{style:{fontSize:11,color:'#718096'}},importProgress+'%'),CE('button',{className:'btn btn-danger btn-sm',onClick:()=>cancelRef.current=true},'⛔ Annuler'))):CE('label',{style:{display:'inline-block',cursor:'pointer'}},CE('span',{className:'btn btn-warn'},'📂 Choisir un fichier XLSX'),CE('input',{type:'file',accept:'.xlsx',style:{display:'none'},onChange:handleImportXLSX}))
     ),
     CE('div',{className:'admin-section'},
       CE('h3',null,'🗑️ Réinitialiser la base de données'),

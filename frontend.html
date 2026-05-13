@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Ateliers Inclusion Numérique — Conseillers v9.2</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prop-types/15.8.1/prop-types.min.js"></script>
+<script src="https://unpkg.com/recharts@2.12.7/umd/Recharts.js"></script>
+<script src="shared.js"></script>
+</head>
+<body>
+<div id="root"></div>
+<script>
+// ── App Frontend (conseillers) ─────────────────────────────
+function App(){
+  const[view,setView]           = React.useState('accueil');
+  const[entries,setEntries]     = React.useState([]);
+  const[loading,setLoading]     = React.useState(true);
+  const[error,setError]         = React.useState(null);
+  const[newEntries,setNewEntries]= React.useState([]);
+  const[seenIds,setSeenIds]     = React.useState(new Set());
+  const[filtreConseiller,setFiltreConseiller]= React.useState(null);
+  const[editingId,setEditingId] = React.useState(null);
+  const[prefillData,setPrefillData]= React.useState(null); // v9.0 duplication
+  const[annee,setAnnee]         = React.useState(String(new Date().getFullYear())); // v9.2 filtre année
+  const[visibility,setVisibility]= React.useState({saisie:true,historique:true,graphiques:true,carte:true,bingo:true,calendrier:false});
+  const[lists,setLists]         = React.useState({
+    statuts:[...STATUTS_DEFAULT],conseillers:[...CONSEILLERS_DEFAULT],
+    publics:[...PUBLICS_DEFAULT],materiels:[...MATERIELS_DEFAULT]
+  });
+
+  async function loadData(attempt=1){
+    setLoading(true);setError(null);
+    try{
+      const res=await Promise.race([fetch(`${GS_URL}?action=getAll&year=${annee}`),new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')),12000))]);
+      const data=await res.json();
+      if(!data.ok)throw new Error(data.error||'Erreur serveur');
+      const incoming=data.entries||[];
+      setEntries(incoming);
+      if(data.lists){
+        const l=data.lists;
+        const nl={statuts:Array.isArray(l.statuts)?l.statuts:[...STATUTS_DEFAULT],conseillers:Array.isArray(l.conseillers)?l.conseillers:[...CONSEILLERS_DEFAULT],publics:Array.isArray(l.publics)?l.publics:[...PUBLICS_DEFAULT],materiels:Array.isArray(l.materiels)?l.materiels:[...MATERIELS_DEFAULT]};
+        setLists(nl);STATUTS=[...nl.statuts];CONSEILLERS=[...nl.conseillers];PUBLICS=[...nl.publics];MATERIELS=[...nl.materiels];
+      }
+      if(data.visibility)setVisibility(v=>({...v,...data.visibility}));
+      if(data.conseiller_colors)applyColors(data.conseiller_colors);
+      setSeenIds(prev=>{if(prev.size===0)return new Set(incoming.map(e=>e._id));const nouvs=incoming.filter(e=>!prev.has(e._id));if(nouvs.length>0)setNewEntries(n=>[...nouvs,...n]);return new Set(incoming.map(e=>e._id));});
+      setLoading(false);
+    }catch(err){
+      if(err.message==='timeout'&&attempt<3){setTimeout(()=>loadData(attempt+1),2000);}
+      else{setError(attempt>1?'Google Sheets ne répond pas après 3 tentatives.':'Impossible de charger : '+err.message);setLoading(false);}
+    }
+  }
+
+  const isFirstLoad=React.useRef(true);
+  React.useEffect(()=>{loadCommunes47().catch(()=>{});},[]);
+  React.useEffect(()=>{
+    if(isFirstLoad.current){isFirstLoad.current=false;loadData();}
+    else{setSeenIds(new Set());loadData();}
+  },[annee]);
+
+  function handleChoixConseiller(nom){
+    setFiltreConseiller(nom);
+    setView(visibility.historique?'historique':visibility.calendrier?'calendrier':visibility.saisie?'saisie':'graphiques');
+  }
+
+  function handleEdit(id){setEditingId(id);setPrefillData(null);setView('saisie');}
+
+  // v9.1 : après sauvegarde d'un nouvel atelier → bascule sur historique
+  function handleSaved(){loadData();setView('historique');}
+
+  async function handleDelete(id){
+    try{const res=await apiFetch('delete',{_id:id});if(!res.ok)throw new Error(res.error);showToast('✅ Atelier supprimé');loadData();}
+    catch(err){showToast('❌ '+err.message,false);}
+  }
+
+  // v9.0 : duplication
+  function handleDuplicate(entry){
+    const{_id,_n,date,horaire,ampm,inscrits,presents,remarques,...rest}=entry;
+    setPrefillData({...rest});setEditingId(null);setView('saisie');
+  }
+
+  const nav=(v,label,visible=true)=>visible&&CE('button',{className:view===v?'active':'',onClick:()=>setView(v)},label);
+
+  if(view==='accueil'){
+    return CE('div',null,
+      CE('nav',{style:{background:NAV_DEFAULT_COLOR}},
+        CE('span',{className:'logo'},'🖥️ Ateliers Inclusion Numérique'),
+        loading&&CE('span',{style:{fontSize:11,color:'rgba(255,255,255,.6)',marginLeft:8,display:'flex',alignItems:'center',gap:5}},
+          CE('span',{className:'spinner',style:{borderTopColor:'rgba(255,255,255,.8)',borderColor:'rgba(255,255,255,.2)'}}),
+          'Chargement…')
+      ),
+      CE('div',{className:'main'},
+        error
+          ? CE('div',{className:'error-box'},CE('strong',null,'❌ Impossible de charger'),CE('span',null,error),CE('button',{className:'btn btn-primary',onClick:loadData},'🔄 Réessayer'))
+          : CE(VueAccueil,{conseillers:lists.conseillers,onChoix:handleChoixConseiller,loading})
+      ),
+      CE('div',{id:'toast',className:'toast',style:{opacity:0}})
+    );
+  }
+
+  return CE('div',null,
+    CE('nav',{style:{padding:0,background:filtreConseiller?conseillerColor(filtreConseiller):NAV_DEFAULT_COLOR}},
+      CE('div',{style:{maxWidth:1200,margin:'0 auto',width:'100%',display:'flex',alignItems:'center',gap:4,padding:'0 20px'}},
+        CE('span',{className:'logo',style:{flex:'0 0 auto'}},'🖥️ Ateliers Inclusion Numérique',
+          entries.length>0&&CE('span',{style:{background:'rgba(255,255,255,.18)',borderRadius:10,padding:'1px 7px',fontSize:12,fontWeight:700,marginLeft:8}},entries.length)
+        ),
+        CE('div',{style:{display:'flex',gap:4,alignItems:'center',flex:1,justifyContent:'center'}},
+          filtreConseiller&&CE('span',{style:{fontSize:12,color:'rgba(255,255,255,.7)',marginRight:4}},'👤 '+filtreConseiller),
+          nav('saisie','✏️ Saisie',visibility.saisie),
+          nav('historique','📋 Historique',visibility.historique),
+          nav('calendrier','📅 Calendrier',visibility.calendrier),
+          nav('graphiques','📊 Graphiques',visibility.graphiques),
+          nav('carte','🗺️ Carte',visibility.carte),
+          nav('bingo','🎯 Bingo',visibility.bingo),
+          newEntries.length>0&&CE('button',{className:'notif',onClick:()=>{setView('historique');window._filterNewEntries&&window._filterNewEntries(newEntries.map(e=>e._id));setNewEntries([]);}},
+            '🔔 Nouveaux ',CE('span',{className:'notif-badge'},newEntries.length))
+        ),
+        CE('div',{style:{flex:'0 0 auto',display:'flex',alignItems:'center',gap:8}},
+          CE('select',{className:'cal-year-sel',value:annee,onChange:e=>setAnnee(e.target.value),title:'Changer l\'année chargée'},
+            [String(new Date().getFullYear()-1),String(new Date().getFullYear()),String(new Date().getFullYear()+1)].map(y=>CE('option',{key:y,value:y},y))
+          ),
+          CE('button',{style:{background:'none',border:'none',color:'rgba(255,255,255,.6)',cursor:'pointer',fontSize:12},onClick:()=>setView('accueil')},'↩ Accueil')
+        )
+      )
+    ),
+    CE('div',{className:'main'},
+      loading&&CE('div',{className:'loading-full'},CE('div',{className:'big-spin'}),CE('span',null,'Chargement…')),
+      error&&CE('div',{className:'error-box'},CE('strong',null,'❌ Impossible de charger'),CE('span',null,error),CE('button',{className:'btn btn-primary',onClick:loadData},'🔄 Réessayer')),
+      !loading&&!error&&CE('div',null,
+        view==='saisie'&&visibility.saisie&&CE(VueSaisie,{entries,onSaved:handleSaved,onNewEntry:e=>{setNewEntries(n=>[e,...n]);setSeenIds(s=>{const ns=new Set(s);ns.add(e._id);return ns;});},lists,editingId,onClearEdit:()=>setEditingId(null),prefillData,onClearPrefill:()=>setPrefillData(null),accentColor:conseillerColor(filtreConseiller||'')}),
+        view==='historique'&&visibility.historique&&CE(VueHistorique,{entries,onEdit:handleEdit,onDelete:handleDelete,onRefresh:loadData,onDuplicate:handleDuplicate,initConseiller:filtreConseiller,onResetConseiller:()=>setFiltreConseiller(null),canDelete:true}),
+        view==='calendrier'&&visibility.calendrier&&CE(VueCalendrier,{entries,onEdit:handleEdit,onDelete:handleDelete,onRefresh:loadData,onDuplicate:handleDuplicate,initConseiller:filtreConseiller,onResetConseiller:()=>setFiltreConseiller(null),canDelete:true}),
+        view==='graphiques'&&visibility.graphiques&&CE(VueGraphiques,{entries}),
+        view==='carte'&&visibility.carte&&CE(VueCarte,{entries,active:view==='carte'}),
+        view==='bingo'&&visibility.bingo&&CE(VueBingo,{entries})
+      )
+    ),
+    CE('div',{id:'toast',className:'toast',style:{opacity:0}})
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(CE(App));
+</script>
+</body>
+</html>

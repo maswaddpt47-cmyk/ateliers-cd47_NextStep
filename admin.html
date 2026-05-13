@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Ateliers Inclusion Numérique — Admin v9.0</title>
+<title>Ateliers Inclusion Numérique — Admin v9.2</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
@@ -35,6 +35,7 @@ function App(){
   const[showListes,setShowListes]= React.useState(false);
   const[editingId,setEditingId]  = React.useState(null);
   const[prefillData,setPrefillData]= React.useState(null); // v9.0 duplication
+  const[annee,setAnnee]    = React.useState(String(new Date().getFullYear())); // v9.2
   const[lists,setLists]    = React.useState({
     statuts:[...STATUTS_DEFAULT],conseillers:[...CONSEILLERS_DEFAULT],
     publics:[...PUBLICS_DEFAULT],materiels:[...MATERIELS_DEFAULT]
@@ -45,7 +46,7 @@ function App(){
   async function loadData(attempt=1){
     setLoading(true);setError(null);
     try{
-      const res=await Promise.race([fetch(`${GS_URL}?action=getAll`),new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')),12000))]);
+      const res=await Promise.race([fetch(`${GS_URL}?action=getAll&year=${annee}`),new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')),12000))]);
       const data=await res.json();
       if(!data.ok)throw new Error(data.error||'Erreur serveur');
       const incoming=data.entries||[];
@@ -57,7 +58,7 @@ function App(){
         addLog('Listes synchronisées','ok');
       }
       if(data.conseiller_colors){applyColors(data.conseiller_colors);}
-      addLog(`${incoming.length} ateliers chargés`,'ok');
+      addLog(`${incoming.length} ateliers chargés (${annee})`,'ok');
       setSeenIds(prev=>{if(prev.size===0)return new Set(incoming.map(e=>e._id));const nouvs=incoming.filter(e=>!prev.has(e._id));if(nouvs.length>0)setNewEntries(n=>[...nouvs,...n]);return new Set(incoming.map(e=>e._id));});
       setLoading(false);
     }catch(err){
@@ -66,7 +67,12 @@ function App(){
     }
   }
 
-  React.useEffect(()=>{loadData();loadCommunes47().catch(()=>{});},[]);
+  const isFirstLoad=React.useRef(true);
+  React.useEffect(()=>{loadCommunes47().catch(()=>{});},[]);
+  React.useEffect(()=>{
+    if(isFirstLoad.current){isFirstLoad.current=false;loadData();}
+    else{setSeenIds(new Set());loadData();}
+  },[annee]);
 
   async function handleDelete(id){
     try{const res=await apiFetch('delete',{_id:id});if(!res.ok)throw new Error(res.error);showToast('✅ Atelier supprimé');addLog('Suppression '+id,'ok');loadData();}
@@ -112,12 +118,16 @@ function App(){
       CE('span',{className:'admin-badge'},'ADMIN'),
       nav('saisie','✏️ Saisie'),
       nav('historique','📋 Historique'),
+      nav('calendrier','📅 Calendrier'),
       nav('graphiques','📊 Graphiques'),
       nav('carte','🗺️ Carte'),
       nav('bingo','🎯 Bingo'),
       nav('admin','⚙️ Admin'),
       nav('logs','📋 Logs'),
       CE('button',{className:view==='listes'?'active':'',style:{background:'rgba(255,255,255,.12)',border:'1px solid rgba(255,255,255,.3)',marginLeft:8},onClick:()=>setShowListes(true)},'📋 Listes'),
+      CE('select',{className:'cal-year-sel',value:annee,onChange:e=>setAnnee(e.target.value),title:'Année chargée',style:{marginLeft:8}},
+        [String(new Date().getFullYear()-1),String(new Date().getFullYear()),String(new Date().getFullYear()+1)].map(y=>CE('option',{key:y,value:y},y))
+      ),
       newEntries.length>0&&CE('button',{className:'notif',onClick:()=>{setView('historique');window._filterNewEntries&&window._filterNewEntries(newEntries.map(e=>e._id));setNewEntries([]);}},
         '🔔 Nouveaux ',CE('span',{className:'notif-badge'},newEntries.length))
     ),
@@ -127,6 +137,7 @@ function App(){
       !loading&&!error&&CE('div',null,
         view==='saisie'&&CE(VueSaisie,{entries,onSaved:handleSaved,onNewEntry:e=>{setNewEntries(n=>[e,...n]);setSeenIds(s=>{const ns=new Set(s);ns.add(e._id);return ns;});},lists,editingId,onClearEdit:()=>setEditingId(null),prefillData,onClearPrefill:()=>setPrefillData(null),accentColor:conseillerColor(adminConseiller)}),
         view==='historique'&&CE(VueHistorique,{entries,onEdit:handleEdit,onDelete:handleDelete,onRefresh:loadData,onDuplicate:handleDuplicate,canDelete:true}),
+        view==='calendrier'&&CE(VueCalendrier,{entries,onEdit:handleEdit,onDelete:handleDelete,onRefresh:loadData,onDuplicate:handleDuplicate,canDelete:true}),
         view==='graphiques'&&CE(VueGraphiques,{entries}),
         view==='carte'&&CE(VueCarte,{entries,active:view==='carte'}),
         view==='bingo'&&CE(VueBingo,{entries}),
