@@ -1857,22 +1857,21 @@ function generateCalendrier(df, year, months, conseillers) {
 
       currentRow = legendRow + 2; // espace de 2 lignes entre chaque conseiller
 
-      // ── Mention mise à jour après le bloc de Michel Aswad ────────────────
-      const consNormCheck = conseiller.trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
-      if (consNormCheck === 'michel aswad') {
-        const today = new Date();
-        const dd = String(today.getDate()).padStart(2,'0');
-        const mm = String(today.getMonth()+1).padStart(2,'0');
-        const yyyy = today.getFullYear();
-        const label = 'mise a jour : ' + dd + '/' + mm + '/' + yyyy;
-        const majStyle = {
-          font: { name: 'Calibri', sz: 9, italic: true, color: { rgb: '6B7280' } },
-          alignment: { horizontal: 'left', vertical: 'center' },
-        };
-        W(currentRow, 0, label, majStyle);
-        currentRow += 2;
-      }
+
     } // fin boucle conseillers
+
+    // ── Mention mise à jour après le dernier bloc ────────────────
+    const today = new Date();
+    const dd = String(today.getDate()).padStart(2,'0');
+    const mm = String(today.getMonth()+1).padStart(2,'0');
+    const yyyy = today.getFullYear();
+    const majLabel = 'mise a jour : ' + dd + '/' + mm + '/' + yyyy;
+    const majStyle = {
+      font: { name: 'Calibri', sz: 9, italic: true, color: { rgb: '6B7280' } },
+      alignment: { horizontal: 'left', vertical: 'center' },
+    };
+    W(currentRow, 0, majLabel, majStyle);
+    currentRow += 2;
 
     // Largeurs de colonnes
     const colInfo = [{ wch: 18 }, { wch: 36 }];
