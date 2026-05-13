@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Ateliers Inclusion Numérique — Conseillers v9.0</title>
+<title>Ateliers Inclusion Numérique — Conseillers v9.2</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
@@ -27,7 +27,8 @@ function App(){
   const[filtreConseiller,setFiltreConseiller]= React.useState(null);
   const[editingId,setEditingId] = React.useState(null);
   const[prefillData,setPrefillData]= React.useState(null); // v9.0 duplication
-  const[visibility,setVisibility]= React.useState({saisie:true,historique:true,graphiques:true,carte:true,bingo:true});
+  const[annee,setAnnee]         = React.useState(String(new Date().getFullYear())); // v9.2 filtre année
+  const[visibility,setVisibility]= React.useState({saisie:true,historique:true,graphiques:true,carte:true,bingo:true,calendrier:false});
   const[lists,setLists]         = React.useState({
     statuts:[...STATUTS_DEFAULT],conseillers:[...CONSEILLERS_DEFAULT],
     publics:[...PUBLICS_DEFAULT],materiels:[...MATERIELS_DEFAULT]
@@ -36,7 +37,7 @@ function App(){
   async function loadData(attempt=1){
     setLoading(true);setError(null);
     try{
-      const res=await Promise.race([fetch(`${GS_URL}?action=getAll`),new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')),12000))]);
+      const res=await Promise.race([fetch(`${GS_URL}?action=getAll&year=${annee}`),new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')),12000))]);
       const data=await res.json();
       if(!data.ok)throw new Error(data.error||'Erreur serveur');
       const incoming=data.entries||[];
@@ -56,11 +57,16 @@ function App(){
     }
   }
 
-  React.useEffect(()=>{loadData();loadCommunes47().catch(()=>{});},[]);
+  const isFirstLoad=React.useRef(true);
+  React.useEffect(()=>{loadCommunes47().catch(()=>{});},[]);
+  React.useEffect(()=>{
+    if(isFirstLoad.current){isFirstLoad.current=false;loadData();}
+    else{setSeenIds(new Set());loadData();}
+  },[annee]);
 
   function handleChoixConseiller(nom){
     setFiltreConseiller(nom);
-    setView(visibility.historique?'historique':visibility.saisie?'saisie':'graphiques');
+    setView(visibility.historique?'historique':visibility.calendrier?'calendrier':visibility.saisie?'saisie':'graphiques');
   }
 
   function handleEdit(id){setEditingId(id);setPrefillData(null);setView('saisie');}
@@ -108,13 +114,19 @@ function App(){
           filtreConseiller&&CE('span',{style:{fontSize:12,color:'rgba(255,255,255,.7)',marginRight:4}},'👤 '+filtreConseiller),
           nav('saisie','✏️ Saisie',visibility.saisie),
           nav('historique','📋 Historique',visibility.historique),
+          nav('calendrier','📅 Calendrier',visibility.calendrier),
           nav('graphiques','📊 Graphiques',visibility.graphiques),
           nav('carte','🗺️ Carte',visibility.carte),
           nav('bingo','🎯 Bingo',visibility.bingo),
           newEntries.length>0&&CE('button',{className:'notif',onClick:()=>{setView('historique');window._filterNewEntries&&window._filterNewEntries(newEntries.map(e=>e._id));setNewEntries([]);}},
             '🔔 Nouveaux ',CE('span',{className:'notif-badge'},newEntries.length))
         ),
-        CE('button',{style:{flex:'0 0 auto',background:'none',border:'none',color:'rgba(255,255,255,.6)',cursor:'pointer',fontSize:12},onClick:()=>setView('accueil')},'↩ Accueil')
+        CE('div',{style:{flex:'0 0 auto',display:'flex',alignItems:'center',gap:8}},
+          CE('select',{className:'cal-year-sel',value:annee,onChange:e=>setAnnee(e.target.value),title:'Changer l\'année chargée'},
+            [String(new Date().getFullYear()-1),String(new Date().getFullYear()),String(new Date().getFullYear()+1)].map(y=>CE('option',{key:y,value:y},y))
+          ),
+          CE('button',{style:{background:'none',border:'none',color:'rgba(255,255,255,.6)',cursor:'pointer',fontSize:12},onClick:()=>setView('accueil')},'↩ Accueil')
+        )
       )
     ),
     CE('div',{className:'main'},
@@ -123,6 +135,7 @@ function App(){
       !loading&&!error&&CE('div',null,
         view==='saisie'&&visibility.saisie&&CE(VueSaisie,{entries,onSaved:handleSaved,onNewEntry:e=>{setNewEntries(n=>[e,...n]);setSeenIds(s=>{const ns=new Set(s);ns.add(e._id);return ns;});},lists,editingId,onClearEdit:()=>setEditingId(null),prefillData,onClearPrefill:()=>setPrefillData(null),accentColor:conseillerColor(filtreConseiller||'')}),
         view==='historique'&&visibility.historique&&CE(VueHistorique,{entries,onEdit:handleEdit,onDelete:handleDelete,onRefresh:loadData,onDuplicate:handleDuplicate,initConseiller:filtreConseiller,onResetConseiller:()=>setFiltreConseiller(null),canDelete:true}),
+        view==='calendrier'&&visibility.calendrier&&CE(VueCalendrier,{entries,onEdit:handleEdit,onDelete:handleDelete,onRefresh:loadData,onDuplicate:handleDuplicate,initConseiller:filtreConseiller,onResetConseiller:()=>setFiltreConseiller(null),canDelete:true}),
         view==='graphiques'&&visibility.graphiques&&CE(VueGraphiques,{entries}),
         view==='carte'&&visibility.carte&&CE(VueCarte,{entries,active:view==='carte'}),
         view==='bingo'&&visibility.bingo&&CE(VueBingo,{entries})
