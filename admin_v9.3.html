@@ -14,11 +14,8 @@
 <script src="shared.js"></script>
 <style>
 /* ── v9.3 : Sidebar layout ─────────────────────────────────── */
-
-/* Reset nav globale héritée de shared.js */
 nav { display: none !important; }
 
-/* Wrapper principal : sidebar + contenu */
 .app-shell {
   display: flex;
   min-height: 100vh;
@@ -37,10 +34,8 @@ nav { display: none !important; }
   z-index: 200;
   transition: background .3s;
   box-shadow: 2px 0 12px rgba(0,0,0,.15);
-  overflow: hidden;
 }
 
-/* Logo / titre en haut */
 .sidebar-logo {
   width: 48px; height: 48px;
   border-radius: 12px;
@@ -57,7 +52,7 @@ nav { display: none !important; }
   color: #fff;
   padding: 1px 7px;
   border-radius: 20px;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 }
 
 .sidebar-admin-badge {
@@ -68,33 +63,30 @@ nav { display: none !important; }
   padding: 2px 6px;
   border-radius: 5px;
   letter-spacing: .06em;
-  margin-bottom: 12px;
+  margin-bottom: 10px;
 }
 
-/* Séparateur */
 .sidebar-sep {
   width: 36px;
   height: 1px;
   background: rgba(255,255,255,.15);
-  margin: 6px 0;
+  margin: 4px 0;
   flex-shrink: 0;
 }
 
-/* Groupe label */
 .sidebar-group-label {
   font-size: 8px;
   text-transform: uppercase;
   letter-spacing: .1em;
   color: rgba(255,255,255,.35);
-  margin: 8px 0 4px;
+  margin: 6px 0 3px;
   align-self: stretch;
   text-align: center;
 }
 
-/* Bouton nav */
 .sidebar-btn {
   width: 52px;
-  height: 52px;
+  height: 48px;
   border-radius: 12px;
   display: flex;
   flex-direction: column;
@@ -120,43 +112,38 @@ nav { display: none !important; }
   color: #fff;
 }
 
-/* Indicateur actif sur le côté gauche */
 .sidebar-btn.active::before {
   content: '';
   position: absolute;
   left: -10px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 3px;
-  height: 28px;
+  top: 50%; transform: translateY(-50%);
+  width: 3px; height: 28px;
   background: #fff;
   border-radius: 2px;
 }
 
-.sidebar-btn-ico { font-size: 18px; line-height: 1; }
+.sidebar-btn-ico { font-size: 17px; line-height: 1; }
 .sidebar-btn-lbl { font-size: 8px; font-weight: 700; letter-spacing: .03em; line-height: 1; }
 
-/* Notif badge */
-.sidebar-notif-dot {
-  position: absolute;
-  top: 8px; right: 8px;
-  width: 8px; height: 8px;
-  background: #dc2626;
-  border-radius: 50%;
-  animation: pulse 1.5s infinite;
+/* Bouton listes — style spécial dans CONFIG */
+.sidebar-btn-listes {
+  border: 1px solid rgba(255,255,255,.25);
+  background: rgba(255,255,255,.06);
+}
+.sidebar-btn-listes:hover {
+  background: rgba(255,255,255,.18);
+  color: #fff;
 }
 
-/* Sélecteur année + actions en bas */
 .sidebar-bottom {
   margin-top: auto;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 6px;
-  padding-top: 8px;
+  padding: 8px 0 0;
   border-top: 1px solid rgba(255,255,255,.12);
   width: 100%;
-  padding: 8px 0 0;
 }
 
 .sidebar-year {
@@ -172,23 +159,8 @@ nav { display: none !important; }
   cursor: pointer;
   outline: none;
 }
-
 .sidebar-year option { background: #197d89; color: #fff; }
 
-.sidebar-listes-btn {
-  width: 52px; height: 36px;
-  border-radius: 10px;
-  border: 1px solid rgba(255,255,255,.25);
-  background: rgba(255,255,255,.08);
-  color: rgba(255,255,255,.7);
-  font-size: 16px;
-  cursor: pointer;
-  display: flex; align-items: center; justify-content: center;
-  transition: all .15s;
-}
-.sidebar-listes-btn:hover { background: rgba(255,255,255,.2); color: #fff; }
-
-/* Bouton notif en bas */
 .sidebar-notif-btn {
   width: 52px; height: 36px;
   border-radius: 10px;
@@ -213,7 +185,6 @@ nav { display: none !important; }
   flex-direction: column;
 }
 
-/* Topbar fine (titre + breadcrumb) */
 .app-topbar {
   height: 44px;
   display: flex;
@@ -254,25 +225,20 @@ nav { display: none !important; }
   color: #fff;
 }
 
-/* Contenu principal */
 .app-main {
   padding: 20px;
   max-width: 1200px;
   width: 100%;
 }
-
-/* Vue labels pour topbar */
 </style>
 </head>
 <body>
 <div id="root"></div>
 <script>
 // ── Config admin ───────────────────────────────────────────
-// ⚠️  Repo public : ce hash est visible. Migrez vers une auth
-//     serveur dès que possible (prévu avec hébergement interne).
 var ADMIN_PWD_HASH = '1f2894b9c64af1e9646ce8ae49fe67c74e4267054d1182e2a96ff36a02ba8b08';
 
-// ── v9.3 : labels des vues pour la topbar ─────────────────
+// ── v9.3 : labels des vues ─────────────────────────────────
 var VIEW_META = {
   saisie:     { ico: '✏️',  label: 'Saisie',      group: 'Action' },
   historique: { ico: '📋',  label: 'Historique',   group: 'Consulter' },
@@ -297,12 +263,13 @@ function App(){
   const[seenIds,setSeenIds]= React.useState(new Set());
   const[showListes,setShowListes]= React.useState(false);
   const[editingId,setEditingId]  = React.useState(null);
-  const[prefillData,setPrefillData]= React.useState(null); // v9.0 duplication
-  const[annee,setAnnee]    = React.useState(String(new Date().getFullYear())); // v9.2
+  const[prefillData,setPrefillData]= React.useState(null);
+  const[annee,setAnnee]    = React.useState(String(new Date().getFullYear()));
   const[lists,setLists]    = React.useState({
     statuts:[...STATUTS_DEFAULT],conseillers:[...CONSEILLERS_DEFAULT],
     publics:[...PUBLICS_DEFAULT],materiels:[...MATERIELS_DEFAULT]
   });
+  const[emails,setEmails]  = React.useState({});  // v9.3
 
   function addLog(msg,type='info'){const t=new Date().toLocaleTimeString('fr-FR');setLogs(l=>[{msg,type,t},...l].slice(0,50));}
 
@@ -321,6 +288,7 @@ function App(){
         addLog('Listes synchronisées','ok');
       }
       if(data.conseiller_colors){applyColors(data.conseiller_colors);}
+      if(data.emails){setEmails(data.emails);addLog('Emails chargés','ok');}  // v9.3
       addLog(`${incoming.length} ateliers chargés (${annee})`,'ok');
       setSeenIds(prev=>{if(prev.size===0)return new Set(incoming.map(e=>e._id));const nouvs=incoming.filter(e=>!prev.has(e._id));if(nouvs.length>0)setNewEntries(n=>[...nouvs,...n]);return new Set(incoming.map(e=>e._id));});
       setLoading(false);
@@ -343,11 +311,8 @@ function App(){
   }
 
   function handleEdit(id){setEditingId(id);setPrefillData(null);setView('saisie');}
-
-  // v9.1 : après sauvegarde d'un nouvel atelier → bascule sur historique
   function handleSaved(){loadData();setView('historique');}
 
-  // v9.0 : duplication
   function handleDuplicate(entry){
     const{_id,_n,date,horaire,ampm,inscrits,presents,remarques,...rest}=entry;
     setPrefillData({...rest});setEditingId(null);setView('saisie');
@@ -357,9 +322,12 @@ function App(){
     setLists(newLists);STATUTS=[...newLists.statuts];CONSEILLERS=[...newLists.conseillers];PUBLICS=[...newLists.publics];MATERIELS=[...newLists.materiels];
   }
 
+  function handleSaveEmails(newEmails){  // v9.3
+    setEmails(newEmails);
+  }
+
   if(!auth)return CE(Login,{pwdHash:ADMIN_PWD_HASH,onLogin:()=>setAuth(true)});
 
-  // Étape 2 : choix du conseiller (pour personnaliser la couleur)
   if(!adminConseiller)return CE('div',{className:'login-wrap'},
     CE('div',{className:'login-card'},
       CE('h2',null,'👤 Qui êtes-vous ?'),
@@ -373,10 +341,9 @@ function App(){
     )
   );
 
-  // ── v9.3 : helper bouton sidebar ──────────────────────────
-  const sideBtn=(v,ico,lbl)=>CE('button',{
+  const sideBtn=(v,ico,lbl,extraClass)=>CE('button',{
     key:v,
-    className:'sidebar-btn'+(view===v?' active':''),
+    className:'sidebar-btn'+(view===v?' active':'')+(extraClass?' '+extraClass:''),
     title:lbl,
     onClick:()=>setView(v)
   },
@@ -389,7 +356,6 @@ function App(){
 
   return CE('div',{className:'app-shell'},
 
-    // ── Sidebar ──────────────────────────────────────────────
     CE('aside',{className:'sidebar',style:{background:accentColor}},
 
       CE('div',{className:'sidebar-logo'},'🖥️'),
@@ -401,36 +367,35 @@ function App(){
       CE('span',{className:'sidebar-group-label'},'Action'),
       sideBtn('saisie','✏️','Saisie'),
 
-      // Groupe : Consulter
+      // Groupe : Voir
       CE('div',{className:'sidebar-sep'}),
       CE('span',{className:'sidebar-group-label'},'Voir'),
       sideBtn('historique','📋','Hist.'),
       sideBtn('calendrier','📅','Cal.'),
       sideBtn('carte','🗺️','Carte'),
 
-      // Groupe : Analyser
+      // Groupe : Stats
       CE('div',{className:'sidebar-sep'}),
       CE('span',{className:'sidebar-group-label'},'Stats'),
       sideBtn('graphiques','📊','Graph.'),
       sideBtn('bingo','🎯','Bingo'),
 
-      // Groupe : Config
+      // Groupe : Config — Listes ICI (remonté v9.3b)
       CE('div',{className:'sidebar-sep'}),
       CE('span',{className:'sidebar-group-label'},'Config'),
+      CE('button',{
+        className:'sidebar-btn sidebar-btn-listes',
+        title:'Gérer les listes déroulantes',
+        onClick:()=>setShowListes(true)
+      },
+        CE('span',{className:'sidebar-btn-ico'},'📋'),
+        CE('span',{className:'sidebar-btn-lbl'},'Listes')
+      ),
       sideBtn('admin','⚙️','Admin'),
       sideBtn('logs','📜','Logs'),
 
-      // ── Bas de sidebar ──────────────────────────────────────
+      // Bas : sélecteur année + notifs
       CE('div',{className:'sidebar-bottom'},
-
-        // Listes
-        CE('button',{
-          className:'sidebar-listes-btn',
-          title:'Gérer les listes',
-          onClick:()=>setShowListes(true)
-        },'📋'),
-
-        // Sélecteur année
         CE('select',{
           className:'sidebar-year',
           value:annee,
@@ -440,8 +405,6 @@ function App(){
           [String(new Date().getFullYear()-1),String(new Date().getFullYear()),String(new Date().getFullYear()+1)]
             .map(y=>CE('option',{key:y,value:y},y))
         ),
-
-        // Notifications
         newEntries.length>0&&CE('button',{
           className:'sidebar-notif-btn',
           title:`${newEntries.length} nouveaux ateliers`,
@@ -453,10 +416,8 @@ function App(){
       )
     ),
 
-    // ── Zone contenu ─────────────────────────────────────────
     CE('div',{className:'app-content'},
 
-      // Topbar fine
       CE('div',{className:'app-topbar'},
         CE('span',{style:{fontSize:16}},meta.ico),
         CE('span',{className:'app-topbar-title'},meta.label),
@@ -469,7 +430,6 @@ function App(){
         )
       ),
 
-      // Contenu principal
       CE('div',{className:'app-main'},
         loading&&CE('div',{className:'loading-full'},CE('div',{className:'big-spin'}),CE('span',null,'Chargement…')),
         error&&CE('div',{className:'error-box'},CE('strong',null,'❌ Impossible de charger'),CE('span',null,error),CE('button',{className:'btn btn-primary',onClick:loadData},'🔄 Réessayer')),
@@ -489,8 +449,14 @@ function App(){
       )
     ),
 
-    // Modale listes
-    showListes&&CE(VueListes,{lists,onSave:handleSaveLists,onClose:()=>setShowListes(false)}),
+    // Modale listes — avec emails v9.3
+    showListes&&CE(VueListes,{
+      lists,
+      onSave:handleSaveLists,
+      onClose:()=>setShowListes(false),
+      emails,                        // v9.3
+      onSaveEmails:handleSaveEmails  // v9.3
+    }),
     CE('div',{id:'toast',className:'toast',style:{opacity:0}})
   );
 }

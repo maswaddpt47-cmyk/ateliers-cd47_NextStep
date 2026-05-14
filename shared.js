@@ -1,5 +1,8 @@
 // ═══════════════════════════════════════════════════════════
-// shared.js — Ateliers CD47 v9.0
+// shared.js — Ateliers CD47 v9.3
+// Code commun frontend + admin
+// Changements v9.3 : VueListes avec champ email par conseiller
+// ═══════════════════════════════════════════════════════════
 // Code commun frontend + admin
 // ═══════════════════════════════════════════════════════════
 
@@ -444,14 +447,29 @@ function getItemColor(tabKey,name){
   if(tabKey==='materiels')return'#0891b2';
   return'#94a3b8';
 }
-function VueListes({lists,onSave,onClose}){
-  const TABS=[{key:'statuts',label:'Statuts'},{key:'conseillers',label:'Conseillers'},{key:'publics',label:'Types de public'},{key:'materiels',label:'Matériels'}];
+
+// ═══════════════════════════════════════════════════════════
+// VUE LISTES — v9.3 : ajout champ email par conseiller
+// ═══════════════════════════════════════════════════════════
+function VueListes({lists,onSave,onClose,emails,onSaveEmails}){
+  const TABS=[
+    {key:'statuts',    label:'Statuts'},
+    {key:'conseillers',label:'Conseillers'},
+    {key:'publics',    label:'Types de public'},
+    {key:'materiels',  label:'Matériels'}
+  ];
   const[activeTab,setActiveTab]=React.useState('statuts');
-  const[draft,setDraft]=React.useState({statuts:[...lists.statuts],conseillers:[...lists.conseillers],publics:[...lists.publics],materiels:[...lists.materiels]});
+  const[draft,setDraft]=React.useState({
+    statuts:[...lists.statuts],
+    conseillers:[...lists.conseillers],
+    publics:[...lists.publics],
+    materiels:[...lists.materiels]
+  });
+  const[emailDraft,setEmailDraft]=React.useState(Object.assign({},emails||{}));
   const[newVal,setNewVal]=React.useState('');
   const[editIdx,setEditIdx]=React.useState(null);
   const[editVal,setEditVal]=React.useState('');
-  const items=draft[activeTab];
+  const items=draft[activeTab]||[];
   function setItems(fn){setDraft(d=>({...d,[activeTab]:fn(d[activeTab])}));setEditIdx(null);}
   function moveUp(i){if(i===0)return;setItems(arr=>{const a=[...arr];[a[i-1],a[i]]=[a[i],a[i-1]];return a;});}
   function moveDown(i){if(i===items.length-1)return;setItems(arr=>{const a=[...arr];[a[i],a[i+1]]=[a[i+1],a[i]];return a;});}
@@ -459,10 +477,19 @@ function VueListes({lists,onSave,onClose}){
   function startEdit(i){setEditIdx(i);setEditVal(items[i]);}
   function saveEdit(i){if(!editVal.trim())return;setItems(arr=>{const a=[...arr];a[i]=editVal.trim();return a;});setEditIdx(null);}
   function addItem(){const v=newVal.trim();if(!v)return;if(draft[activeTab].includes(v)){showToast('⚠️ Cet élément existe déjà',false);return;}setItems(arr=>[...arr,v]);setNewVal('');}
+  function setEmail(conseiller,val){setEmailDraft(d=>({...d,[conseiller]:val.trim()}));}
   async function handleSave(){
-    onSave(draft);onClose();
-    try{const res=await apiFetch('saveLists',{lists:JSON.stringify(draft)});if(res&&res.ok)showToast('✅ Listes enregistrées et synchronisées');else showToast('⚠️ Sauvegardé localement (erreur GAS)',false);}
-    catch(err){showToast('⚠️ Sauvegardé localement (hors-ligne)',false);}
+    onSave(draft);
+    if(onSaveEmails)onSaveEmails(emailDraft);
+    onClose();
+    try{
+      const[r1,r2]=await Promise.all([
+        apiFetch('saveLists',{lists:JSON.stringify(draft)}),
+        apiFetch('saveEmails',{emails:JSON.stringify(emailDraft)})
+      ]);
+      if(r1&&r1.ok&&r2&&r2.ok)showToast('✅ Listes et emails enregistrés');
+      else showToast('⚠️ Sauvegardé partiellement',false);
+    }catch(err){showToast('⚠️ Sauvegardé localement (hors-ligne)',false);}
   }
   React.useEffect(()=>{function k(e){if(e.key==='Escape')onClose();}document.addEventListener('keydown',k);return()=>document.removeEventListener('keydown',k);},[]);
   React.useEffect(()=>{setNewVal('');setEditIdx(null);},[activeTab]);
@@ -475,26 +502,64 @@ function VueListes({lists,onSave,onClose}){
       ),
       CE('div',{className:'listes-tabs'},TABS.map(t=>CE('div',{key:t.key,className:'listes-tab'+(activeTab===t.key?' active':''),onClick:()=>setActiveTab(t.key)},t.label,CE('span',{className:'tab-count'},draft[t.key].length)))),
       CE('div',{className:'listes-body'},
-        items.map((item,i)=>CE('div',{key:i,className:'listes-item'},
-          CE('div',{className:'listes-arrows'},
-            CE('button',{onClick:()=>moveUp(i),disabled:i===0,title:'Monter'},'▲'),
-            CE('button',{onClick:()=>moveDown(i),disabled:i===items.length-1,title:'Descendre'},'▼')
-          ),
-          CE('span',{className:'listes-dot',style:{background:getItemColor(activeTab,item)}}),
-          editIdx===i
-            ?CE('div',{className:'listes-name'},CE('input',{autoFocus:true,value:editVal,onChange:e=>setEditVal(e.target.value),onKeyDown:e=>{if(e.key==='Enter')saveEdit(i);if(e.key==='Escape')setEditIdx(null);}}))
-            :CE('div',{className:'listes-name'},item),
-          CE('div',{className:'listes-actions'},
-            editIdx===i
-              ?CE('button',{className:'btn btn-primary btn-sm',onClick:()=>saveEdit(i)},'✓ OK')
-              :CE('button',{className:'btn btn-secondary btn-sm',onClick:()=>startEdit(i)},'Modifier'),
-            CE('button',{className:'btn btn-sm',style:{background:'#fee2e2',color:'#991b1b',border:'none'},onClick:()=>remove(i)},'Suppr.')
-          )
-        )),
-        CE('div',{className:'listes-add-row'},
-          CE('input',{type:'text',placeholder:`Ajouter dans ${TABS.find(t=>t.key===activeTab)?.label}…`,value:newVal,onChange:e=>setNewVal(e.target.value),onKeyDown:e=>{if(e.key==='Enter')addItem();}}),
-          CE('button',{className:'btn btn-primary',onClick:addItem},'+ Ajouter')
-        )
+        activeTab==='conseillers'
+          ?CE('div',null,
+              CE('p',{style:{fontSize:12,color:'#718096',marginBottom:12,lineHeight:1.5}},'📧 Renseignez l\'adresse Gmail de chaque conseiller pour recevoir les rappels automatiques de clôture d\'ateliers.'),
+              items.map((item,i)=>CE('div',{key:i,className:'listes-item',style:{flexDirection:'column',alignItems:'stretch',gap:8,padding:'12px 14px'}},
+                CE('div',{style:{display:'flex',alignItems:'center',gap:10}},
+                  CE('div',{className:'listes-arrows'},
+                    CE('button',{onClick:()=>moveUp(i),disabled:i===0,title:'Monter'},'▲'),
+                    CE('button',{onClick:()=>moveDown(i),disabled:i===items.length-1,title:'Descendre'},'▼')
+                  ),
+                  CE('span',{className:'listes-dot',style:{background:getItemColor('conseillers',item)}}),
+                  editIdx===i
+                    ?CE('div',{className:'listes-name'},CE('input',{autoFocus:true,value:editVal,onChange:e=>setEditVal(e.target.value),onKeyDown:e=>{if(e.key==='Enter')saveEdit(i);if(e.key==='Escape')setEditIdx(null);}}))
+                    :CE('div',{className:'listes-name',style:{fontWeight:700}},item),
+                  CE('div',{className:'listes-actions'},
+                    editIdx===i
+                      ?CE('button',{className:'btn btn-primary btn-sm',onClick:()=>saveEdit(i)},'✓ OK')
+                      :CE('button',{className:'btn btn-secondary btn-sm',onClick:()=>startEdit(i)},'Modifier'),
+                    CE('button',{className:'btn btn-sm',style:{background:'#fee2e2',color:'#991b1b',border:'none'},onClick:()=>remove(i)},'Suppr.')
+                  )
+                ),
+                CE('div',{style:{display:'flex',alignItems:'center',gap:8,paddingLeft:52}},
+                  CE('span',{style:{fontSize:11,fontWeight:700,color:'#718096',whiteSpace:'nowrap'}},'📧 Gmail :'),
+                  CE('input',{
+                    type:'email',
+                    placeholder:'prenom.nom@gmail.com',
+                    value:emailDraft[item]||'',
+                    onChange:e=>setEmail(item,e.target.value),
+                    style:{flex:1,padding:'5px 10px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:12,color:'#1a202c'}
+                  })
+                )
+              )),
+              CE('div',{className:'listes-add-row'},
+                CE('input',{type:'text',placeholder:'Ajouter un conseiller…',value:newVal,onChange:e=>setNewVal(e.target.value),onKeyDown:e=>{if(e.key==='Enter')addItem();}}),
+                CE('button',{className:'btn btn-primary',onClick:addItem},'+ Ajouter')
+              )
+            )
+          :CE('div',null,
+              items.map((item,i)=>CE('div',{key:i,className:'listes-item'},
+                CE('div',{className:'listes-arrows'},
+                  CE('button',{onClick:()=>moveUp(i),disabled:i===0,title:'Monter'},'▲'),
+                  CE('button',{onClick:()=>moveDown(i),disabled:i===items.length-1,title:'Descendre'},'▼')
+                ),
+                CE('span',{className:'listes-dot',style:{background:getItemColor(activeTab,item)}}),
+                editIdx===i
+                  ?CE('div',{className:'listes-name'},CE('input',{autoFocus:true,value:editVal,onChange:e=>setEditVal(e.target.value),onKeyDown:e=>{if(e.key==='Enter')saveEdit(i);if(e.key==='Escape')setEditIdx(null);}}))
+                  :CE('div',{className:'listes-name'},item),
+                CE('div',{className:'listes-actions'},
+                  editIdx===i
+                    ?CE('button',{className:'btn btn-primary btn-sm',onClick:()=>saveEdit(i)},'✓ OK')
+                    :CE('button',{className:'btn btn-secondary btn-sm',onClick:()=>startEdit(i)},'Modifier'),
+                  CE('button',{className:'btn btn-sm',style:{background:'#fee2e2',color:'#991b1b',border:'none'},onClick:()=>remove(i)},'Suppr.')
+                )
+              )),
+              CE('div',{className:'listes-add-row'},
+                CE('input',{type:'text',placeholder:`Ajouter dans ${TABS.find(t=>t.key===activeTab)?.label}…`,value:newVal,onChange:e=>setNewVal(e.target.value),onKeyDown:e=>{if(e.key==='Enter')addItem();}}),
+                CE('button',{className:'btn btn-primary',onClick:addItem},'+ Ajouter')
+              )
+            )
       ),
       CE('div',{className:'listes-footer'},
         CE('button',{className:'btn btn-secondary',onClick:onClose},'Annuler'),
@@ -503,6 +568,7 @@ function VueListes({lists,onSave,onClose}){
     )
   );
 }
+
 
 // ═══════════════════════════════════════════════════════════
 // LOGIN — reçoit pwdHash en prop
@@ -1527,377 +1593,6 @@ function VueBingo({entries}){
   );
 }
 
-
-// ═══════════════════════════════════════════════════════════
-// GÉNÉRATION CALENDRIER (porté depuis calendrier-atelier-v5)
-// ═══════════════════════════════════════════════════════════
-const MONTH_NAMES_FR = {
-  1:'JANVIER',2:'FÉVRIER',3:'MARS',4:'AVRIL',5:'MAI',6:'JUIN',
-  7:'JUILLET',8:'AOÛT',9:'SEPTEMBRE',10:'OCTOBRE',11:'NOVEMBRE',12:'DÉCEMBRE'
-};
-const DAY_FR = ['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'];
-const CAL_STATUT_COLORS = {
-  'Réalisé':'70AD47','Annulé':'FF5050','Planifié':'9683EC',
-  'Non réalisé':'FFC000','Reporté':'ED7D31'
-};
-const STATUT_SYMBOLS = {
-  'Réalisé':'R','Annulé':'A','Planifié':'P','Non réalisé':'NR','Reporté':'RP'
-};
-
-function isAM(horaire) {
-  try {
-    const h = parseInt(String(horaire).replace('H',':').split(':')[0]);
-    return h < 12;
-  } catch { return true; }
-}
-
-function getWorkingDays(year, month) {
-  const days = [];
-  const d = new Date(Date.UTC(year, month - 1, 1));
-  while (d.getUTCMonth() === month - 1) {
-    if (d.getUTCDay() !== 0 && d.getUTCDay() !== 6) days.push(new Date(d));
-    d.setUTCDate(d.getUTCDate() + 1);
-  }
-  return days;
-}
-
-function dateKey(d) {
-  return `${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,'0')}-${String(d.getUTCDate()).padStart(2,'0')}`;
-}
-
-function argbOf(hex) { return 'FF' + hex.toUpperCase(); }
-
-function cellStyle(bold = false, bgHex = null, fgHex = '000000', sz = 8) {
-  const style = {
-    font: { bold, sz, color: { rgb: fgHex } },
-    alignment: { horizontal: 'center', vertical: 'center', wrapText: true },
-    border: {
-      top:    { style: 'thin', color: { rgb: 'AAAAAA' } },
-      bottom: { style: 'thin', color: { rgb: 'AAAAAA' } },
-      left:   { style: 'thin', color: { rgb: 'AAAAAA' } },
-      right:  { style: 'thin', color: { rgb: 'AAAAAA' } },
-    }
-  };
-  if (bgHex) style.fill = { fgColor: { rgb: argbOf(bgHex) }, patternType: 'solid' };
-  return style;
-}
-
-function cellStyleLeft(bold = false, bgHex = null, fgHex = '000000', sz = 8) {
-  const style = {
-    font: { bold, sz, color: { rgb: fgHex } },
-    alignment: { horizontal: 'left', vertical: 'center' },
-    border: {
-      top:    { style: 'thin', color: { rgb: 'AAAAAA' } },
-      bottom: { style: 'thin', color: { rgb: 'AAAAAA' } },
-      left:   { style: 'thin', color: { rgb: 'AAAAAA' } },
-      right:  { style: 'thin', color: { rgb: 'AAAAAA' } },
-    }
-  };
-  if (bgHex) style.fill = { fgColor: { rgb: argbOf(bgHex) }, patternType: 'solid' };
-  return style;
-}
-
-function generateCalendrier(df, year, months, conseillers) {
-  const wb = XLSX.utils.book_new();
-
-  for (const month of months) {
-    const monthName = MONTH_NAMES_FR[month];
-    const workingDays = getWorkingDays(year, month);
-    const dfMonth = df.filter(r => r.date.getUTCFullYear() === year && r.date.getUTCMonth() + 1 === month);
-
-    // Prépare la feuille comme tableau de lignes (AOA)
-    const aoa = [];
-    const merges = [];
-    const styles = {}; // "R,C" -> style object
-
-    let currentRow = 0;
-
-    function S(r, c, style) { styles[`${r},${c}`] = style; }
-    function W(r, c, v, style) {
-      while (aoa.length <= r) aoa.push([]);
-      while (aoa[r].length <= c) aoa[r].push(null);
-      aoa[r][c] = v;
-      if (style) S(r, c, style);
-    }
-
-    const DATE_START_COL = 2; // 0-indexed, col C
-
-    for (const conseiller of conseillers) {
-      const consNorm = conseiller.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
-      const dfCons = dfMonth.filter(r => {
-        const rNorm = (r.conseiller||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
-        return rNorm === consNorm;
-      });
-
-      // ── LOGIQUE TIMELINE : 1 ligne par organisme unique ──────────────────
-      // Chaque organisme reçoit une ligne. Ses sessions sont placées dans les
-      // colonnes jour+AM/PM correspondantes.
-      // Conflit (même organisme, même créneau) → cellule ⚠ fond orange.
-
-      const recapCounts = {};
-      for (const row of dfCons) {
-        const am = row.ampm ? row.ampm === 'AM' : isAM(row.horaire);
-        const dk = dateKey(row.date) + (am ? '_AM' : '_PM');
-        recapCounts[dk] = (recapCounts[dk] || 0) + 1;
-      }
-
-      // Normalise un nom d'organisme pour la déduplication :
-      // trim + collapse espaces multiples + minuscules + sans accents
-      function normOrg(s) {
-        return String(s || '—').trim()
-          .replace(/\s+/g, ' ')
-          .toLowerCase()
-          .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-      }
-
-      // Liste des organismes uniques dans l'ordre de première apparition
-      // La clé de dédup est normOrg(), le label affiché est la première
-      // occurrence nettoyée (trim + collapse) pour éviter les espaces parasites.
-      const seenOrgsKeys  = [];   // clés normalisées (pour le test d'unicité)
-      const seenOrgs      = [];   // labels d'affichage (propres)
-      for (const row of dfCons) {
-        const raw   = String(row.orienteur || '—').trim().replace(/\s+/g, ' ');
-        const key   = normOrg(raw);
-        if (!seenOrgsKeys.includes(key)) {
-          seenOrgsKeys.push(key);
-          seenOrgs.push(raw);
-        }
-      }
-
-      const nDataRows = Math.max(1, seenOrgs.length);
-
-      // Index des sessions par clé normalisée
-      // orgSessions[normKey] = [ session, session, ... ]
-      const orgSessions = {};
-      for (const row of dfCons) {
-        const key = normOrg(row.orienteur || '—');
-        if (!orgSessions[key]) orgSessions[key] = [];
-        orgSessions[key].push(row);
-      }
-
-      // Titre conseiller — style appliqué sur TOUTES les cellules de la fusion
-      const titleRow = currentRow;
-      const titleLastCol = DATE_START_COL + workingDays.length * 2 - 1;
-      const titleStyle = { font: { bold: true, sz: 26, name: 'Calibri', color: { rgb: 'FFFFFF' } },
-        fill: { fgColor: { rgb: 'FF8DB4E2' }, patternType: 'solid' },
-        alignment: { horizontal: 'center', vertical: 'center' } };
-      W(titleRow, 0, `PLANNING ATELIERS — ${conseiller.toUpperCase()}`, titleStyle);
-      for (let c = 1; c <= titleLastCol; c++) W(titleRow, c, null, titleStyle);
-      merges.push({ s: { r: titleRow, c: 0 }, e: { r: titleRow, c: titleLastCol } });
-      currentRow++;
-
-      // Sous-titre mois — style appliqué sur TOUTES les cellules de la fusion
-      const subRow = currentRow;
-      const subStyle = { font: { bold: true, sz: 18, name: 'Calibri', color: { rgb: '16365C' } },
-        fill: { fgColor: { rgb: 'FFC5D9F1' }, patternType: 'solid' },
-        alignment: { horizontal: 'center', vertical: 'center' } };
-      W(subRow, 0, `${monthName} ${year}`, subStyle);
-      for (let c = 1; c <= titleLastCol; c++) W(subRow, c, null, subStyle);
-      merges.push({ s: { r: subRow, c: 0 }, e: { r: subRow, c: titleLastCol } });
-      currentRow++;
-
-      // En-tête jours
-      const hrow = currentRow;
-      W(hrow, 0, 'CoNum',     cellStyle(true, '1F4E79', 'FFFFFF', 9));
-      W(hrow, 1, 'Organisme', cellStyle(true, '1F4E79', 'FFFFFF', 9));
-      for (let di = 0; di < workingDays.length; di++) {
-        const day = workingDays[di];
-        const colAM = DATE_START_COL + di * 2;
-        const label = `${DAY_FR[day.getUTCDay()]} ${String(day.getUTCDate()).padStart(2,'0')}`;
-        W(hrow, colAM, label, cellStyle(true, '2E75B6', 'FFFFFF', 8));
-        W(hrow, colAM + 1, null, cellStyle(true, '2E75B6', 'FFFFFF', 8));
-        merges.push({ s: { r: hrow, c: colAM }, e: { r: hrow, c: colAM + 1 } });
-      }
-      currentRow++;
-
-      // AM/PM
-      const srow = currentRow;
-      W(srow, 0, null, cellStyle(false, null, '000000', 8));
-      W(srow, 1, null, cellStyle(false, null, '000000', 8));
-      for (let di = 0; di < workingDays.length; di++) {
-        const colAM = DATE_START_COL + di * 2;
-        W(srow, colAM,     'AM', cellStyle(true, 'BDD7EE', '1F3864', 8));
-        W(srow, colAM + 1, 'PM', cellStyle(true, '9DC3E6', '1F3864', 8));
-      }
-      currentRow++;
-
-      // Lignes de données — 1 ligne par organisme, sessions en timeline
-      for (let oi = 0; oi < nDataRows; oi++) {
-        const rn  = currentRow + oi;
-        const org = seenOrgs[oi] || '';
-        W(rn, 0, conseiller, cellStyle(false, null, '000000', 8));
-        W(rn, 1, org,        cellStyleLeft(false, null, '000000', 8));
-
-        // Pré-indexer les sessions de cet organisme par créneau
-        // créneau = dateKey + '_AM' ou '_PM'
-        // Un créneau peut avoir plusieurs sessions → conflit
-        const creneau = {}; // dk_AM/PM → [session, ...]
-        for (const sess of (orgSessions[normOrg(org)] || [])) {
-          const am = sess.ampm ? sess.ampm === 'AM' : isAM(sess.horaire);
-          const ck = dateKey(sess.date) + (am ? '_AM' : '_PM');
-          if (!creneau[ck]) creneau[ck] = [];
-          creneau[ck].push(sess);
-        }
-
-        for (let di = 0; di < workingDays.length; di++) {
-          const day   = workingDays[di];
-          const dk    = dateKey(day);
-          const colAM = DATE_START_COL + di * 2;
-          const ckAM  = dk + '_AM';
-          const ckPM  = dk + '_PM';
-
-          // Traite AM
-          if (creneau[ckAM]) {
-            const list = creneau[ckAM];
-            if (list.length === 1) {
-              const s   = list[0].statut;
-              const sym = STATUT_SYMBOLS[s] || (s ? s.slice(0,2) : '?');
-              const bg  = CAL_STATUT_COLORS[s]  || 'D9D9D9';
-              W(rn, colAM, sym, cellStyle(true, bg, '000000', 8));
-            } else {
-              // CONFLIT : plusieurs sessions pour le même créneau
-              W(rn, colAM, `⚠×${list.length}`, cellStyle(true, '7B2FBE', 'FFFFFF', 7));
-              console.warn(`⚠ Conflit ${conseiller} | ${org} | ${dk} AM (${list.length} sessions)`, 'err');
-            }
-          } else {
-            W(rn, colAM, null, cellStyle(false));
-          }
-
-          // Traite PM
-          if (creneau[ckPM]) {
-            const list = creneau[ckPM];
-            if (list.length === 1) {
-              const s   = list[0].statut;
-              const sym = STATUT_SYMBOLS[s] || (s ? s.slice(0,2) : '?');
-              const bg  = CAL_STATUT_COLORS[s]  || 'D9D9D9';
-              W(rn, colAM + 1, sym, cellStyle(true, bg, '000000', 8));
-            } else {
-              W(rn, colAM + 1, `⚠×${list.length}`, cellStyle(true, '7B2FBE', 'FFFFFF', 7));
-              console.warn(`⚠ Conflit ${conseiller} | ${org} | ${dk} PM (${list.length} sessions)`, 'err');
-            }
-          } else {
-            W(rn, colAM + 1, null, cellStyle(false));
-          }
-        }
-      }
-
-      // Recap
-      const recapRow = currentRow + nDataRows;
-      W(recapRow, 0, conseiller,           cellStyleLeft(true, 'D6E4F0', '1F3864', 8));
-      W(recapRow, 1, `RECAP ${monthName}`, cellStyleLeft(true, 'D6E4F0', '1F3864', 8));
-      for (let di = 0; di < workingDays.length; di++) {
-        const dk    = dateKey(workingDays[di]);
-        const colAM = DATE_START_COL + di * 2;
-        for (const [isAMSlot, col] of [[true, colAM], [false, colAM + 1]]) {
-          const count = recapCounts[dk + (isAMSlot ? '_AM' : '_PM')] || 0;
-          W(recapRow, col, count > 0 ? count : null, cellStyle(true, 'D6E4F0', '1F3864', 9));
-        }
-      }
-
-      // ── Cartouche légende — compteurs dynamiques + centerContinuous ───────
-      const legendRow = recapRow + 1;
-
-      // Calculer les totaux depuis dfCons (données du conseiller pour ce mois)
-      let totalP = 0, totalA = 0, totalR = 0, totalRP = 0, totalNR = 0, totalAlert = 0;
-      for (const row of dfCons) {
-        const s = (row.statut || '').trim();
-        if (s === 'Planifié')          totalP++;
-        else if (s === 'Annulé')       totalA++;
-        else if (s === 'Réalisé')      totalR++;
-        else if (s === 'Reporté')      totalRP++;
-        else if (s === 'Non réalisé')  totalNR++;
-      }
-      // Compter les alertes conflit uniquement dans la plage de ce conseiller
-      for (let ri = titleRow; ri <= recapRow; ri++) {
-        if (!aoa[ri]) continue;
-        for (const cell of aoa[ri]) {
-          if (typeof cell === 'string' && cell.startsWith('⚠')) totalAlert++;
-        }
-      }
-
-      // 6 segments colorés répartis uniformément sur toute la largeur de la feuille.
-      // Chaque segment = fusion de N colonnes + texte centré + fond couleur statut.
-      const lastLegendCol = DATE_START_COL + workingDays.length * 2 - 1;
-      const totalCols     = lastLegendCol + 1;
-
-      const segments = [
-        { label: `P | Prévus : ${totalP}`,           bg: '9683EC', fg: 'FFFFFF' },
-        { label: `A | Annulés : ${totalA}`,           bg: 'FF5050', fg: 'FFFFFF' },
-        { label: `R | Réalisés : ${totalR}`,          bg: '70AD47', fg: 'FFFFFF' },
-        { label: `RP | Reportés : ${totalRP}`,        bg: 'ED7D31', fg: 'FFFFFF' },
-        { label: `NR | Non réalisés : ${totalNR}`,    bg: 'FFC000', fg: '7F4000' },
-        { label: `⚠ | Alertes : ${totalAlert}`,       bg: '7B2FBE', fg: 'FFFFFF' },
-      ];
-
-      const nSeg      = segments.length;
-      const baseWidth = Math.floor(totalCols / nSeg);
-      const remainder = totalCols - baseWidth * nSeg;
-      const bThin = (col) => ({ style: 'thin', color: { rgb: col } });
-
-      let colCursor = 0;
-      for (let si = 0; si < nSeg; si++) {
-        const seg   = segments[si];
-        const width = baseWidth + (si < remainder ? 1 : 0);
-        const colS  = colCursor;
-        const colE  = colCursor + width - 1;
-
-        const segStyle = {
-          font:      { name: 'Calibri', sz: 10, bold: true, color: { rgb: seg.fg } },
-          fill:      { fgColor: { rgb: 'FF' + seg.bg }, patternType: 'solid' },
-          alignment: { horizontal: 'center', vertical: 'center', wrapText: false },
-          border:    { top: bThin('999999'), bottom: bThin('999999'), left: bThin('CCCCCC'), right: bThin('CCCCCC') },
-        };
-
-        W(legendRow, colS, seg.label, segStyle);
-        for (let c = colS + 1; c <= colE; c++) W(legendRow, c, null, segStyle);
-        if (colS < colE) merges.push({ s: { r: legendRow, c: colS }, e: { r: legendRow, c: colE } });
-
-        colCursor += width;
-      }
-
-      currentRow = legendRow + 2; // espace de 2 lignes entre chaque conseiller
-
-
-    } // fin boucle conseillers
-
-    // ── Mention mise à jour après le dernier bloc ────────────────
-    const today = new Date();
-    const dd = String(today.getDate()).padStart(2,'0');
-    const mm = String(today.getMonth()+1).padStart(2,'0');
-    const yyyy = today.getFullYear();
-    const majLabel = 'mise a jour : ' + dd + '/' + mm + '/' + yyyy;
-    const majStyle = {
-      font: { name: 'Calibri', sz: 9, italic: true, color: { rgb: '6B7280' } },
-      alignment: { horizontal: 'left', vertical: 'center' },
-    };
-    W(currentRow, 0, majLabel, majStyle);
-    currentRow += 2;
-
-    // Largeurs de colonnes
-    const colInfo = [{ wch: 18 }, { wch: 36 }];
-    for (let di = 0; di < workingDays.length; di++) {
-      colInfo.push({ wch: 5 }, { wch: 5 });
-    }
-
-    const ws = XLSX.utils.aoa_to_sheet(aoa);
-    ws['!merges'] = merges;
-    ws['!cols']   = colInfo;
-
-    // Applique les styles
-    for (const [key, style] of Object.entries(styles)) {
-      const [r, c] = key.split(',').map(Number);
-      const cellAddr = XLSX.utils.encode_cell({ r, c });
-      if (!ws[cellAddr]) ws[cellAddr] = { t: 's', v: '' };
-      ws[cellAddr].s = style;
-    }
-
-    const sheetTitle = `Planning ${String(month).padStart(2,'0')}-${year}`;
-    XLSX.utils.book_append_sheet(wb, ws, sheetTitle);
-  } // fin boucle mois
-
-  return wb;
-}
-
 // ═══════════════════════════════════════════════════════════
 // VUE ADMIN
 // ═══════════════════════════════════════════════════════════
@@ -1943,26 +1638,6 @@ function VueAdmin({entries,onRefresh,addLog,conseillersList,onSaveColors}){
   }
 
   function handleReset(){if(resetStep===0){setResetStep(1);return;}if(resetStep===1){setResetStep(2);return;}addLog('Réinitialisation BDD locale','info');showToast('✅ BDD locale vidée (Google Sheet intact)');setResetStep(0);onRefresh();}
-
-  function exportCalendrier(){
-    if(!entries||entries.length===0){showToast('❌ Aucun atelier à exporter',false);return;}
-    try{
-      const years=entries.map(e=>e.date?e.date.slice(0,4):'').filter(Boolean);
-      const year=parseInt(years.sort((a,b)=>years.filter(v=>v===b).length-years.filter(v=>v===a).length)[0]||String(new Date().getFullYear()),10);
-      function isoToDate(iso){if(!iso)return null;const[y,m,d]=iso.split('-');return new Date(Date.UTC(parseInt(y),parseInt(m)-1,parseInt(d)));}
-      function toAmPm(horaire){if(!horaire)return'AM';return parseInt(String(horaire).replace(/[Hh]/,':').split(':')[0]||'0')<12?'AM':'PM';}
-      const df=entries.map(e=>{const d=isoToDate(e.date);if(!d||!e.conseiller)return null;return{date:d,horaire:e.horaire||'9:00',ampm:toAmPm(e.horaire),conseiller:String(e.conseiller).trim(),orienteur:String(e.orienteur||'—').trim(),statut:String(e.statut||'').trim()};}).filter(Boolean);
-      if(!df.length){showToast('❌ Aucun atelier valide',false);return;}
-      const conseillers=[...new Set(df.map(r=>r.conseiller))];
-      const monthSet=new Set(df.filter(r=>r.date.getUTCFullYear()===year).map(r=>r.date.getUTCMonth()+1));
-      const months=[...monthSet].sort((a,b)=>a-b);
-      if(!months.length){showToast('❌ Aucun atelier pour '+year,false);return;}
-      const wb=generateCalendrier(df,year,months,conseillers);
-      XLSX.writeFile(wb,`Calendrier_ateliers_${year}.xlsx`);
-      addLog(`Calendrier généré : ${df.length} ateliers, ${months.length} mois, ${conseillers.length} conseillers`,'ok');
-      showToast(`✅ Calendrier ${year} généré — ${df.length} ateliers`);
-    }catch(err){showToast('❌ '+err.message,false);addLog('Erreur calendrier : '+err.message,'err');}
-  }
 
   async function handleImportCSV(e){
     const file=e.target.files[0];if(!file)return;e.target.value='';
@@ -2078,11 +1753,6 @@ function VueAdmin({entries,onRefresh,addLog,conseillersList,onSaveColors}){
         CE('label',{className:'tgl'},CE('input',{type:'checkbox',checked:!!visibility[item.key],onChange:()=>setVisibility(v=>({...v,[item.key]:!v[item.key]}))}),CE('span',{className:'tgl-track'}))
       )),
       CE('button',{className:'btn btn-primary',style:{marginTop:16},onClick:handleSaveVisibility,disabled:visSaving},visSaving?'…':'💾 Enregistrer la visibilité')
-    ),
-    CE('div',{className:'admin-section'},
-      CE('h3',null,'📅 Générer le Calendrier Planning'),
-      CE('p',{style:{fontSize:12,color:'#4a5568',marginBottom:12}},`Génère le fichier Excel de planning mis en page directement depuis les données chargées. ${entries.length} atelier(s) disponible(s).`),
-      CE('button',{className:'btn btn-success',onClick:exportCalendrier,disabled:!entries||entries.length===0},'📅 Générer le Calendrier Planning')
     ),
     CE('div',{className:'admin-section'},
       CE('h3',null,'📥 Import CSV'),
