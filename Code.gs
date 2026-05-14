@@ -1,22 +1,19 @@
 // ═══════════════════════════════════════════════════════════
-// Code.gs — Ateliers CD47 v9.2
-// Mise à jour depuis v9.0 — compatible avec les données existantes
+// Code.gs — Ateliers CD47 v9.3
 //
-// Changements v9.2 :
-//  · Filtre par année côté serveur (param ?year=YYYY dans getAll)
-//  · Ajout de 'calendrier' dans VISIBILITY_DEFAULTS
-//  · Version bumped à 9.2
+// Changements v9.3 :
+//  · saveEmails() / getEmails() — stocke {conseiller: email} dans Config
+//  · sendRappels() — détecte ateliers "Planifié" à date passée et envoie
+//    un mail de rappel au conseiller concerné (Gmail)
+//  · createRappelTrigger() — installe le trigger nightly (à lancer 1 fois)
+//  · deleteRappelTrigger() — supprime le trigger si besoin
 //  · Aucun changement de schéma — rétrocompatible total
-//
-// Pour revenir en production : changer SHEET_NAME → 'Ateliers'
 // ═══════════════════════════════════════════════════════════
 
 const SHEET_NAME   = 'Ateliers_next_step';  // ← prod : 'Ateliers'
 const CONFIG_SHEET = 'Config';
 
 // Colonnes dans l'ordre exact du Google Sheet
-// ⚠️  Le matériel reste en colonnes séparées (OUI / '')
-//     pour rétrocompatibilité avec les données existantes
 const COLUMNS = [
   '_id', '_n', 'statut', 'date', 'horaire', 'ampm',
   'orienteur', 'commune', 'lieu', 'thematique',
@@ -37,7 +34,7 @@ const VISIBILITY_DEFAULTS = {
   graphiques:  false,
   carte:       false,
   bingo:       false,
-  calendrier:  false   // v9.2 — activé par l'admin dans Config
+  calendrier:  false
 };
 
 const LISTS_DEFAULTS = {
@@ -80,6 +77,9 @@ function handleRequest(e) {
   if (params.colors) {
     try { body.colors = JSON.parse(decodeURIComponent(params.colors.replace(/\+/g,' '))); } catch(_) {}
   }
+  if (params.emails) {
+    try { body.emails = JSON.parse(decodeURIComponent(params.emails)); } catch(_) {}
+  }
   if (params._id && !body._id) {
     body._id = params._id;
   }
@@ -90,16 +90,18 @@ function handleRequest(e) {
     let result;
     switch (action) {
       case 'getAll':         result = getAll(params.year || '');             break;
-      case 'save':           result = saveEntry(body.entry);             break;
-      case 'saveMany':       result = saveManyEntries(body.entries);     break;
-      case 'delete':         result = deleteEntry(body._id);             break;
-      case 'getConfig':      result = getConfig();                       break;
-      case 'setConfig':      result = setConfig(body.key, body.value);   break;
-      case 'getLists':       result = getLists();                        break;
-      case 'saveLists':      result = saveLists(body.lists);             break;
-      case 'getVisibility':  result = getVisibility();                   break;
-      case 'saveVisibility': result = saveVisibility(body.visibility);   break;
-      case 'saveColors':     result = saveColors(body.colors);           break;
+      case 'save':           result = saveEntry(body.entry);                 break;
+      case 'saveMany':       result = saveManyEntries(body.entries);         break;
+      case 'delete':         result = deleteEntry(body._id);                 break;
+      case 'getConfig':      result = getConfig();                           break;
+      case 'setConfig':      result = setConfig(body.key, body.value);       break;
+      case 'getLists':       result = getLists();                            break;
+      case 'saveLists':      result = saveLists(body.lists);                 break;
+      case 'getVisibility':  result = getVisibility();                       break;
+      case 'saveVisibility': result = saveVisibility(body.visibility);       break;
+      case 'saveColors':     result = saveColors(body.colors);               break;
+      case 'getEmails':      result = getEmails();                           break;  // v9.3
+      case 'saveEmails':     result = saveEmails(body.emails);               break;  // v9.3
       default: result = { ok: false, error: 'Action inconnue : ' + action };
     }
     return jsonResponse(result);
@@ -127,22 +129,16 @@ function getAll(year) {
         ent[h] = row[idx] === undefined ? '' : row[idx];
       });
 
-      // Reconstituer le tableau materiel depuis les colonnes OUI/''
       ent.materiel = MATERIELS.filter(m => ent[m] === 'OUI');
 
-      // Normaliser la date
       if (ent.date instanceof Date) {
         ent.date = Utilities.formatDate(ent.date, Session.getScriptTimeZone(), 'yyyy-MM-dd');
       } else if (ent.date) {
         ent.date = String(ent.date).slice(0, 10);
       }
 
-      // ── v9.2 : Filtre par année côté serveur ──────────────
-      // Si year est fourni (ex: '2025'), on exclut les autres années.
-      // year='all' ou year='' → pas de filtre (charge tout).
       if (year && year !== 'all' && ent.date && !ent.date.startsWith(year)) continue;
 
-      // Normaliser l'horaire
       if (ent.horaire instanceof Date) {
         ent.horaire = Utilities.formatDate(ent.horaire, Session.getScriptTimeZone(), 'HH:mm');
       } else if (ent.horaire) {
@@ -159,7 +155,220 @@ function getAll(year) {
   const lists             = getLists().lists;
   const visibility        = getVisibility().visibility;
   const conseiller_colors = getColors().colors;
-  return { ok: true, entries, lists, visibility, conseiller_colors };
+  const emails            = getEmails().emails;   // v9.3
+  return { ok: true, entries, lists, visibility, conseiller_colors, emails };
+}
+
+// ═══════════════════════════════════════════════════════════
+// EMAILS CONSEILLERS — v9.3
+// ═══════════════════════════════════════════════════════════
+
+function getEmails() {
+  try {
+    const sheet = getConfigSheet();
+    const data  = sheet.getDataRange().getValues();
+    for (let i = 0; i < data.length; i++) {
+      if (data[i][0] === 'conseiller_emails') {
+        return { ok: true, emails: JSON.parse(String(data[i][1])) };
+      }
+    }
+  } catch(_) {}
+  return { ok: true, emails: {} };
+}
+
+function saveEmails(emails) {
+  if (!emails || typeof emails !== 'object') return { ok: false, error: 'Emails invalides' };
+  return setConfig('conseiller_emails', JSON.stringify(emails));
+}
+
+// ═══════════════════════════════════════════════════════════
+// RAPPELS EMAIL AUTOMATIQUES — v9.3
+//
+// Logique :
+//   - Parcourt tous les ateliers de l'année en cours
+//   - Cible : statut "Planifié" ET date < aujourd'hui (atelier révolu)
+//   - Envoie un email au conseiller si son email est renseigné
+//   - Anti-doublon : stocke les _id déjà notifiés dans Config
+//     → un conseiller ne reçoit qu'un seul rappel par atelier
+// ═══════════════════════════════════════════════════════════
+
+function sendRappels() {
+  const today     = new Date();
+  const todayStr  = Utilities.formatDate(today, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+  const year      = todayStr.slice(0, 4);
+
+  // Charger les données
+  const allData   = getAll(year);
+  const entries   = allData.entries || [];
+  const emails    = allData.emails  || {};
+
+  // Charger les IDs déjà notifiés (anti-doublon)
+  let notifiedIds = [];
+  try {
+    const cfg = getConfig().config;
+    if (cfg && cfg['rappels_notified']) {
+      notifiedIds = JSON.parse(cfg['rappels_notified']);
+    }
+  } catch(_) {}
+
+  // Filtrer les ateliers à rappeler
+  const aRappeler = entries.filter(e =>
+    e.statut === 'Planifié' &&
+    e.date   &&
+    e.date < todayStr &&
+    !notifiedIds.includes(e._id)
+  );
+
+  if (aRappeler.length === 0) {
+    Logger.log('sendRappels : aucun atelier à rappeler.');
+    return { ok: true, sent: 0 };
+  }
+
+  // Grouper par conseiller
+  const parConseiller = {};
+  aRappeler.forEach(e => {
+    const c = e.conseiller || 'Inconnu';
+    if (!parConseiller[c]) parConseiller[c] = [];
+    parConseiller[c].push(e);
+  });
+
+  let sent = 0;
+  const newlyNotified = [];
+
+  Object.entries(parConseiller).forEach(([conseiller, ateliers]) => {
+    const email = emails[conseiller];
+    if (!email || !email.includes('@')) {
+      Logger.log(`sendRappels : pas d'email pour ${conseiller}, ignoré.`);
+      return;
+    }
+
+    // Construire le tableau HTML des ateliers à mettre à jour
+    const lignes = ateliers.map(e => `
+      <tr>
+        <td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;">${e.date}</td>
+        <td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;">${e.horaire || '—'}</td>
+        <td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;">${e.thematique || '—'}</td>
+        <td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;">${e.commune || '—'}</td>
+        <td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;">${e.lieu || '—'}</td>
+      </tr>
+    `).join('');
+
+    const nb = ateliers.length;
+    const sujet = `[Ateliers CD47] ⚠️ ${nb} atelier${nb > 1 ? 's' : ''} à clôturer — ${conseiller}`;
+
+    const corps = `
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"></head>
+<body style="font-family:'Segoe UI',Arial,sans-serif;background:#f0f4f8;margin:0;padding:20px;">
+  <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.1);">
+
+    <!-- Header -->
+    <div style="background:#197d89;padding:24px 28px;">
+      <div style="font-size:18px;font-weight:700;color:#fff;">🖥️ Ateliers Inclusion Numérique</div>
+      <div style="font-size:13px;color:rgba(255,255,255,.8);margin-top:4px;">Conseil Départemental du Lot-et-Garonne</div>
+    </div>
+
+    <!-- Corps -->
+    <div style="padding:24px 28px;">
+      <p style="font-size:15px;color:#1a202c;margin:0 0 8px;">Bonjour <strong>${conseiller}</strong>,</p>
+      <p style="font-size:14px;color:#4a5568;margin:0 0 20px;">
+        ${nb > 1
+          ? `Vous avez <strong>${nb} ateliers</strong> planifiés dont la date est passée. Merci de les clôturer en indiquant le statut réel (Réalisé, Annulé, Reporté…).`
+          : `Vous avez <strong>1 atelier</strong> planifié dont la date est passée. Merci de le clôturer en indiquant le statut réel.`
+        }
+      </p>
+
+      <!-- Tableau -->
+      <div style="border-radius:8px;overflow:hidden;border:1px solid #e2e8f0;">
+        <table style="width:100%;border-collapse:collapse;font-size:13px;">
+          <thead>
+            <tr style="background:#1e3a8a;">
+              <th style="padding:10px 12px;text-align:left;color:#fff;font-weight:600;">Date</th>
+              <th style="padding:10px 12px;text-align:left;color:#fff;font-weight:600;">Heure</th>
+              <th style="padding:10px 12px;text-align:left;color:#fff;font-weight:600;">Thématique</th>
+              <th style="padding:10px 12px;text-align:left;color:#fff;font-weight:600;">Commune</th>
+              <th style="padding:10px 12px;text-align:left;color:#fff;font-weight:600;">Lieu</th>
+            </tr>
+          </thead>
+          <tbody>${lignes}</tbody>
+        </table>
+      </div>
+
+      <p style="font-size:13px;color:#718096;margin:20px 0 0;">
+        Pour mettre à jour, connectez-vous à l'interface admin ou ouvrez le Calendrier et cliquez sur l'atelier concerné.
+      </p>
+    </div>
+
+    <!-- Footer -->
+    <div style="background:#f8fafc;padding:14px 28px;border-top:1px solid #e2e8f0;">
+      <div style="font-size:11px;color:#a0aec0;">Ce message est envoyé automatiquement chaque nuit. Ne pas répondre directement.</div>
+    </div>
+
+  </div>
+</body>
+</html>`;
+
+    try {
+      GmailApp.sendEmail(email, sujet, '', { htmlBody: corps, name: 'Ateliers CD47' });
+      ateliers.forEach(e => newlyNotified.push(e._id));
+      sent++;
+      Logger.log(`sendRappels : mail envoyé à ${email} (${nb} atelier(s))`);
+    } catch(err) {
+      Logger.log(`sendRappels : erreur envoi à ${email} — ${err.message}`);
+    }
+  });
+
+  // Sauvegarder les nouveaux IDs notifiés
+  if (newlyNotified.length > 0) {
+    const updated = [...notifiedIds, ...newlyNotified];
+    setConfig('rappels_notified', JSON.stringify(updated));
+  }
+
+  Logger.log(`sendRappels : ${sent} email(s) envoyé(s).`);
+  return { ok: true, sent, count: aRappeler.length };
+}
+
+// ═══════════════════════════════════════════════════════════
+// TRIGGER — installer / supprimer
+// À exécuter UNE SEULE FOIS depuis l'éditeur Apps Script
+// ═══════════════════════════════════════════════════════════
+
+function createRappelTrigger() {
+  // Supprimer les triggers existants sur sendRappels pour éviter les doublons
+  ScriptApp.getProjectTriggers().forEach(t => {
+    if (t.getHandlerFunction() === 'sendRappels') {
+      ScriptApp.deleteTrigger(t);
+    }
+  });
+
+  // Créer un trigger quotidien entre 7h et 8h
+  ScriptApp.newTrigger('sendRappels')
+    .timeBased()
+    .everyDays(1)
+    .atHour(7)
+    .create();
+
+  Logger.log('✅ Trigger sendRappels créé — exécution quotidienne entre 7h et 8h.');
+  SpreadsheetApp.getUi().alert('✅ Trigger installé !\nLes rappels seront envoyés automatiquement chaque matin vers 7h.');
+}
+
+function deleteRappelTrigger() {
+  let deleted = 0;
+  ScriptApp.getProjectTriggers().forEach(t => {
+    if (t.getHandlerFunction() === 'sendRappels') {
+      ScriptApp.deleteTrigger(t);
+      deleted++;
+    }
+  });
+  Logger.log(`deleteRappelTrigger : ${deleted} trigger(s) supprimé(s).`);
+  SpreadsheetApp.getUi().alert(`${deleted} trigger(s) sendRappels supprimé(s).`);
+}
+
+// Réinitialise les IDs notifiés (utile pour tester)
+function resetNotifiedIds() {
+  setConfig('rappels_notified', '[]');
+  Logger.log('resetNotifiedIds : liste vidée.');
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -343,20 +552,17 @@ function getSheet(name) {
   return sheet;
 }
 
-// Config se crée automatiquement si absente
 function getConfigSheet() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   let sh = ss.getSheetByName(CONFIG_SHEET);
   if (!sh) {
     sh = ss.insertSheet(CONFIG_SHEET);
-    sh.getRange(1,1,1,2).setValues([['app_version','9.2']]);
+    sh.getRange(1,1,1,2).setValues([['app_version','9.3']]);
     Logger.log('Feuille Config créée automatiquement');
   }
   return sh;
 }
 
-// Construit une ligne dans l'ordre des headers
-// Le matériel est éclaté en colonnes OUI/'' (schéma existant)
 function buildRow(entry, headers) {
   return headers.map(h => {
     if (MATERIELS.includes(h)) {
@@ -392,15 +598,12 @@ function jsonResponse(data) {
 }
 
 // ═══════════════════════════════════════════════════════════
-// INITIALISATION — crée la feuille Ateliers_next_step
-// À exécuter UNE seule fois depuis l'éditeur Apps Script
-// Ne touche pas la feuille Ateliers (prod) ni Config
+// INITIALISATION
 // ═══════════════════════════════════════════════════════════
 
 function initSheets() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
 
-  // Créer la feuille de test si absente
   let ateliers = ss.getSheetByName(SHEET_NAME);
   if (!ateliers) {
     ateliers = ss.insertSheet(SHEET_NAME);
@@ -412,17 +615,17 @@ function initSheets() {
     ateliers.setFrozenRows(1);
   }
 
-  // Mettre à jour la version dans Config (partagé prod + test)
-  setConfig('app_version', '9.2');
+  setConfig('app_version', '9.3');
 
   SpreadsheetApp.getUi().alert(
     '✅ Feuille "' + SHEET_NAME + '" prête.\n' +
-    'Config partagée avec la prod (listes + visibilité inchangées).'
+    'Config partagée avec la prod (listes + visibilité inchangées).\n\n' +
+    '→ Exécute createRappelTrigger() pour activer les rappels email.'
   );
 }
 
 // ═══════════════════════════════════════════════════════════
-// TESTS — Exécuter depuis l'éditeur Apps Script
+// TESTS
 // ═══════════════════════════════════════════════════════════
 
 function testGetAll() {
@@ -430,7 +633,21 @@ function testGetAll() {
   Logger.log('Feuille   : ' + SHEET_NAME);
   Logger.log('Entrées   : ' + r.entries.length);
   Logger.log('Listes    : ' + JSON.stringify(r.lists));
-  Logger.log('Visibilité: ' + JSON.stringify(r.visibility));
+  Logger.log('Emails    : ' + JSON.stringify(r.emails));
+}
+
+// Test sendRappels sans envoyer de vrais mails (logs seulement)
+function testSendRappels() {
+  const todayStr = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd');
+  const year     = todayStr.slice(0, 4);
+  const allData  = getAll(year);
+  const emails   = allData.emails || {};
+  const aRappeler = (allData.entries || []).filter(e =>
+    e.statut === 'Planifié' && e.date && e.date < todayStr
+  );
+  Logger.log(`testSendRappels : ${aRappeler.length} atelier(s) révolu(s) statut Planifié`);
+  Logger.log('Emails configurés : ' + JSON.stringify(emails));
+  aRappeler.forEach(e => Logger.log(` → ${e.date} | ${e.conseiller} | ${e.thematique}`));
 }
 
 function testSave() {
@@ -443,14 +660,14 @@ function testSave() {
     orienteur: 'Test Orienteur',
     commune: 'AGEN (47000)',
     lieu: 'Médiathèque test',
-    thematique: 'Internet et sécurité — test v9.0',
+    thematique: 'Internet et sécurité — test v9.3',
     inscrits: 8,
     presents: '',
     public: 'Tous publics',
     conseiller: 'Cynthia Pineau',
     materiel: ['Tablette', 'Videoprojecteur'],
     residence: '',
-    remarques: 'Test automatique GAS v9.0'
+    remarques: 'Test automatique GAS v9.3'
   };
   const r = saveEntry(entry);
   Logger.log('Save : ' + JSON.stringify(r));
