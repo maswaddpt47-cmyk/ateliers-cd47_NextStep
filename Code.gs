@@ -188,8 +188,7 @@ function saveEmails(emails) {
 //   - Parcourt tous les ateliers de l'année en cours
 //   - Cible : statut "Planifié" ET date < aujourd'hui (atelier révolu)
 //   - Envoie un email au conseiller si son email est renseigné
-//   - Anti-doublon : stocke les _id déjà notifiés dans Config
-//     → un conseiller ne reçoit qu'un seul rappel par atelier
+//   - Rappel envoyé chaque nuit tant que l'atelier n'est pas clôturé
 // ═══════════════════════════════════════════════════════════
 
 function sendRappels() {
@@ -202,21 +201,11 @@ function sendRappels() {
   const entries   = allData.entries || [];
   const emails    = allData.emails  || {};
 
-  // Charger les IDs déjà notifiés (anti-doublon)
-  let notifiedIds = [];
-  try {
-    const cfg = getConfig().config;
-    if (cfg && cfg['rappels_notified']) {
-      notifiedIds = JSON.parse(cfg['rappels_notified']);
-    }
-  } catch(_) {}
-
-  // Filtrer les ateliers à rappeler
+  // Filtrer les ateliers à rappeler (tous les Planifié à date passée, sans anti-doublon)
   const aRappeler = entries.filter(e =>
     e.statut === 'Planifié' &&
     e.date   &&
-    e.date < todayStr &&
-    !notifiedIds.includes(e._id)
+    e.date < todayStr
   );
 
   if (aRappeler.length === 0) {
@@ -233,7 +222,6 @@ function sendRappels() {
   });
 
   let sent = 0;
-  const newlyNotified = [];
 
   Object.entries(parConseiller).forEach(([conseiller, ateliers]) => {
     const email = emails[conseiller];
@@ -274,9 +262,12 @@ function sendRappels() {
       <p style="font-size:15px;color:#1a202c;margin:0 0 8px;">Bonjour <strong>${conseiller}</strong>,</p>
       <p style="font-size:14px;color:#4a5568;margin:0 0 20px;">
         ${nb > 1
-          ? `Vous avez <strong>${nb} ateliers</strong> planifiés dont la date est passée. Merci de les clôturer en indiquant le statut réel (Réalisé, Annulé, Reporté…).`
-          : `Vous avez <strong>1 atelier</strong> planifié dont la date est passée. Merci de le clôturer en indiquant le statut réel.`
+          ? `Vous avez <strong>${nb} ateliers</strong> planifiés dont la date est passée. Merci de les clôturer en indiquant le statut réel (Réalisé, Annulé, Reporté…) ainsi que le nombre de personnes présentes.`
+          : `Vous avez <strong>1 atelier</strong> planifié dont la date est passée. Merci de le clôturer en indiquant le statut réel (Réalisé, Annulé, Reporté…) ainsi que le nombre de personnes présentes.`
         }
+      </p>
+      <p style="font-size:14px;color:#4a5568;margin:0 0 20px;">
+        👉 <a href="https://maswaddpt47-cmyk.github.io/ateliers-cd47_NextStep/" style="color:#197d89;font-weight:700;">Accéder à l'application</a>
       </p>
 
       <!-- Tableau -->
@@ -296,7 +287,7 @@ function sendRappels() {
       </div>
 
       <p style="font-size:13px;color:#718096;margin:20px 0 0;">
-        Pour mettre à jour, connectez-vous à l'interface admin ou ouvrez le Calendrier et cliquez sur l'atelier concerné.
+        Merci de mettre à jour le statut de ces ateliers dès que possible.
       </p>
     </div>
 
@@ -311,19 +302,12 @@ function sendRappels() {
 
     try {
       GmailApp.sendEmail(email, sujet, '', { htmlBody: corps, name: 'Ateliers CD47' });
-      ateliers.forEach(e => newlyNotified.push(e._id));
       sent++;
       Logger.log(`sendRappels : mail envoyé à ${email} (${nb} atelier(s))`);
     } catch(err) {
       Logger.log(`sendRappels : erreur envoi à ${email} — ${err.message}`);
     }
   });
-
-  // Sauvegarder les nouveaux IDs notifiés
-  if (newlyNotified.length > 0) {
-    const updated = [...notifiedIds, ...newlyNotified];
-    setConfig('rappels_notified', JSON.stringify(updated));
-  }
 
   Logger.log(`sendRappels : ${sent} email(s) envoyé(s).`);
   return { ok: true, sent, count: aRappeler.length };
