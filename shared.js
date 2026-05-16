@@ -1308,11 +1308,11 @@ function BarChart({data,colors,height}){
   const maxLbl=data.length>8?7:data.length>5?10:14;
   const chartData=data.map(d=>({...d,name:trunc(d.label,maxLbl)}));
   return CE(ResponsiveContainer,{width:'100%',height:h},
-    CE(RBarChart,{data:chartData,margin:{top:20,right:6,left:0,bottom:mb},cursor:{fill:'rgba(255,255,255,0.02)'}},
+    CE(RBarChart,{data:chartData,margin:{top:20,right:6,left:0,bottom:mb}},
       CE(CartesianGrid,{strokeDasharray:'3 3',stroke:'#e2e8f0',vertical:false}),
       CE(XAxis,{dataKey:'name',tick:{fontSize:10,fill:'#4a5568'},angle:-40,textAnchor:'end',interval:0}),
       CE(YAxis,{tick:{fontSize:10,fill:'#718096'},allowDecimals:false,width:28}),
-      CE(RTooltip,{content:(props)=>{
+      CE(RTooltip,{cursor:{fill:'rgba(255,255,255,0.02)'},content:(props)=>{
         if(!props.active||!props.payload||!props.payload.length)return null;
         const p=props.payload[0].payload;const tip=p.tip||null;const label=p.label||props.label||'';const val=p.value;
         const CS={background:'#edf2f7',border:'1px solid #a0aec0',borderRadius:7,padding:'8px 12px',fontSize:12,boxShadow:'0 3px 10px rgba(0,0,0,.15)',maxWidth:260,lineHeight:1.6};
@@ -1330,11 +1330,11 @@ function BarChart({data,colors,height}){
 function LineChart({data}){
   if(!data||data.length===0)return CE(NoData,null);
   return CE(ResponsiveContainer,{width:'100%',height:200},
-    CE(RLineChart,{data,margin:{top:20,right:6,left:0,bottom:labelMarginBottom(data)},cursor:{fill:'rgba(255,255,255,0.02)'}},
+    CE(RLineChart,{data,margin:{top:20,right:6,left:0,bottom:labelMarginBottom(data)}},
       CE(CartesianGrid,{strokeDasharray:'3 3',stroke:'#e2e8f0',vertical:false}),
       CE(XAxis,{dataKey:'label',tick:{fontSize:10,fill:'#4a5568'},angle:-40,textAnchor:'end',interval:0}),
       CE(YAxis,{tick:{fontSize:10,fill:'#718096'},allowDecimals:false,width:28}),
-      CE(RTooltip,{content:(props)=>{
+      CE(RTooltip,{cursor:{fill:'rgba(255,255,255,0.02)'},content:(props)=>{
         if(!props.active||!props.payload||!props.payload.length)return null;
         const p=props.payload[0].payload;const tip=p.tip||null;const label=p.label||props.label||'';const val=p.value;
         const CS={background:'#edf2f7',border:'1px solid #a0aec0',borderRadius:7,padding:'8px 12px',fontSize:12,boxShadow:'0 3px 10px rgba(0,0,0,.15)',maxWidth:260,lineHeight:1.6};
@@ -1353,11 +1353,11 @@ function RadialChart({data,colors,height=220}){
   const total=data.reduce((s,d)=>s+d.value,0);
   const chartData=data.map((d,i)=>({...d,name:d.label,fill:colArr[i%colArr.length]}));
   return CE(ResponsiveContainer,{width:'100%',height:height},
-    CE(RBarChart,{data:chartData,layout:'vertical',margin:{top:8,right:40,left:4,bottom:8},cursor:{fill:'rgba(255,255,255,0.02)'}},
+    CE(RBarChart,{data:chartData,layout:'vertical',margin:{top:8,right:40,left:4,bottom:8}},
       CE(CartesianGrid,{strokeDasharray:'3 3',stroke:'#e2e8f0',horizontal:false}),
       CE(XAxis,{type:'number',tick:{fontSize:10,fill:'#718096'},allowDecimals:false}),
       CE(YAxis,{type:'category',dataKey:'name',tick:{fontSize:11,fill:'#4a5568'},width:80}),
-      CE(RTooltip,{content:(props)=>{
+      CE(RTooltip,{cursor:{fill:'rgba(255,255,255,0.02)'},content:(props)=>{
         if(!props.active||!props.payload||!props.payload.length)return null;
         const p=props.payload[0].payload;
         const pct=Math.round(p.value/total*100);
