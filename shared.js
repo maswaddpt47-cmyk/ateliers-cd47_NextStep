@@ -1,8 +1,5 @@
 // ═══════════════════════════════════════════════════════════
-// shared.js — Ateliers CD47 v9.3
-// Code commun frontend + admin
-// Changements v9.3 : VueListes avec champ email par conseiller
-// ═══════════════════════════════════════════════════════════
+// shared.js — Ateliers CD47 v9.0
 // Code commun frontend + admin
 // ═══════════════════════════════════════════════════════════
 
@@ -447,29 +444,14 @@ function getItemColor(tabKey,name){
   if(tabKey==='materiels')return'#0891b2';
   return'#94a3b8';
 }
-
-// ═══════════════════════════════════════════════════════════
-// VUE LISTES — v9.3 : ajout champ email par conseiller
-// ═══════════════════════════════════════════════════════════
-function VueListes({lists,onSave,onClose,emails,onSaveEmails}){
-  const TABS=[
-    {key:'statuts',    label:'Statuts'},
-    {key:'conseillers',label:'Conseillers'},
-    {key:'publics',    label:'Types de public'},
-    {key:'materiels',  label:'Matériels'}
-  ];
+function VueListes({lists,onSave,onClose}){
+  const TABS=[{key:'statuts',label:'Statuts'},{key:'conseillers',label:'Conseillers'},{key:'publics',label:'Types de public'},{key:'materiels',label:'Matériels'}];
   const[activeTab,setActiveTab]=React.useState('statuts');
-  const[draft,setDraft]=React.useState({
-    statuts:[...lists.statuts],
-    conseillers:[...lists.conseillers],
-    publics:[...lists.publics],
-    materiels:[...lists.materiels]
-  });
-  const[emailDraft,setEmailDraft]=React.useState(Object.assign({},emails||{}));
+  const[draft,setDraft]=React.useState({statuts:[...lists.statuts],conseillers:[...lists.conseillers],publics:[...lists.publics],materiels:[...lists.materiels]});
   const[newVal,setNewVal]=React.useState('');
   const[editIdx,setEditIdx]=React.useState(null);
   const[editVal,setEditVal]=React.useState('');
-  const items=draft[activeTab]||[];
+  const items=draft[activeTab];
   function setItems(fn){setDraft(d=>({...d,[activeTab]:fn(d[activeTab])}));setEditIdx(null);}
   function moveUp(i){if(i===0)return;setItems(arr=>{const a=[...arr];[a[i-1],a[i]]=[a[i],a[i-1]];return a;});}
   function moveDown(i){if(i===items.length-1)return;setItems(arr=>{const a=[...arr];[a[i],a[i+1]]=[a[i+1],a[i]];return a;});}
@@ -477,19 +459,10 @@ function VueListes({lists,onSave,onClose,emails,onSaveEmails}){
   function startEdit(i){setEditIdx(i);setEditVal(items[i]);}
   function saveEdit(i){if(!editVal.trim())return;setItems(arr=>{const a=[...arr];a[i]=editVal.trim();return a;});setEditIdx(null);}
   function addItem(){const v=newVal.trim();if(!v)return;if(draft[activeTab].includes(v)){showToast('⚠️ Cet élément existe déjà',false);return;}setItems(arr=>[...arr,v]);setNewVal('');}
-  function setEmail(conseiller,val){setEmailDraft(d=>({...d,[conseiller]:val.trim()}));}
   async function handleSave(){
-    onSave(draft);
-    if(onSaveEmails)onSaveEmails(emailDraft);
-    onClose();
-    try{
-      const[r1,r2]=await Promise.all([
-        apiFetch('saveLists',{lists:JSON.stringify(draft)}),
-        apiFetch('saveEmails',{emails:JSON.stringify(emailDraft)})
-      ]);
-      if(r1&&r1.ok&&r2&&r2.ok)showToast('✅ Listes et emails enregistrés');
-      else showToast('⚠️ Sauvegardé partiellement',false);
-    }catch(err){showToast('⚠️ Sauvegardé localement (hors-ligne)',false);}
+    onSave(draft);onClose();
+    try{const res=await apiFetch('saveLists',{lists:JSON.stringify(draft)});if(res&&res.ok)showToast('✅ Listes enregistrées et synchronisées');else showToast('⚠️ Sauvegardé localement (erreur GAS)',false);}
+    catch(err){showToast('⚠️ Sauvegardé localement (hors-ligne)',false);}
   }
   React.useEffect(()=>{function k(e){if(e.key==='Escape')onClose();}document.addEventListener('keydown',k);return()=>document.removeEventListener('keydown',k);},[]);
   React.useEffect(()=>{setNewVal('');setEditIdx(null);},[activeTab]);
@@ -502,64 +475,26 @@ function VueListes({lists,onSave,onClose,emails,onSaveEmails}){
       ),
       CE('div',{className:'listes-tabs'},TABS.map(t=>CE('div',{key:t.key,className:'listes-tab'+(activeTab===t.key?' active':''),onClick:()=>setActiveTab(t.key)},t.label,CE('span',{className:'tab-count'},draft[t.key].length)))),
       CE('div',{className:'listes-body'},
-        activeTab==='conseillers'
-          ?CE('div',null,
-              CE('p',{style:{fontSize:12,color:'#718096',marginBottom:12,lineHeight:1.5}},'📧 Renseignez l\'adresse Gmail de chaque conseiller pour recevoir les rappels automatiques de clôture d\'ateliers.'),
-              items.map((item,i)=>CE('div',{key:i,className:'listes-item',style:{flexDirection:'column',alignItems:'stretch',gap:8,padding:'12px 14px'}},
-                CE('div',{style:{display:'flex',alignItems:'center',gap:10}},
-                  CE('div',{className:'listes-arrows'},
-                    CE('button',{onClick:()=>moveUp(i),disabled:i===0,title:'Monter'},'▲'),
-                    CE('button',{onClick:()=>moveDown(i),disabled:i===items.length-1,title:'Descendre'},'▼')
-                  ),
-                  CE('span',{className:'listes-dot',style:{background:getItemColor('conseillers',item)}}),
-                  editIdx===i
-                    ?CE('div',{className:'listes-name'},CE('input',{autoFocus:true,value:editVal,onChange:e=>setEditVal(e.target.value),onKeyDown:e=>{if(e.key==='Enter')saveEdit(i);if(e.key==='Escape')setEditIdx(null);}}))
-                    :CE('div',{className:'listes-name',style:{fontWeight:700}},item),
-                  CE('div',{className:'listes-actions'},
-                    editIdx===i
-                      ?CE('button',{className:'btn btn-primary btn-sm',onClick:()=>saveEdit(i)},'✓ OK')
-                      :CE('button',{className:'btn btn-secondary btn-sm',onClick:()=>startEdit(i)},'Modifier'),
-                    CE('button',{className:'btn btn-sm',style:{background:'#fee2e2',color:'#991b1b',border:'none'},onClick:()=>remove(i)},'Suppr.')
-                  )
-                ),
-                CE('div',{style:{display:'flex',alignItems:'center',gap:8,paddingLeft:52}},
-                  CE('span',{style:{fontSize:11,fontWeight:700,color:'#718096',whiteSpace:'nowrap'}},'📧 Gmail :'),
-                  CE('input',{
-                    type:'email',
-                    placeholder:'prenom.nom@gmail.com',
-                    value:emailDraft[item]||'',
-                    onChange:e=>setEmail(item,e.target.value),
-                    style:{flex:1,padding:'5px 10px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:12,color:'#1a202c'}
-                  })
-                )
-              )),
-              CE('div',{className:'listes-add-row'},
-                CE('input',{type:'text',placeholder:'Ajouter un conseiller…',value:newVal,onChange:e=>setNewVal(e.target.value),onKeyDown:e=>{if(e.key==='Enter')addItem();}}),
-                CE('button',{className:'btn btn-primary',onClick:addItem},'+ Ajouter')
-              )
-            )
-          :CE('div',null,
-              items.map((item,i)=>CE('div',{key:i,className:'listes-item'},
-                CE('div',{className:'listes-arrows'},
-                  CE('button',{onClick:()=>moveUp(i),disabled:i===0,title:'Monter'},'▲'),
-                  CE('button',{onClick:()=>moveDown(i),disabled:i===items.length-1,title:'Descendre'},'▼')
-                ),
-                CE('span',{className:'listes-dot',style:{background:getItemColor(activeTab,item)}}),
-                editIdx===i
-                  ?CE('div',{className:'listes-name'},CE('input',{autoFocus:true,value:editVal,onChange:e=>setEditVal(e.target.value),onKeyDown:e=>{if(e.key==='Enter')saveEdit(i);if(e.key==='Escape')setEditIdx(null);}}))
-                  :CE('div',{className:'listes-name'},item),
-                CE('div',{className:'listes-actions'},
-                  editIdx===i
-                    ?CE('button',{className:'btn btn-primary btn-sm',onClick:()=>saveEdit(i)},'✓ OK')
-                    :CE('button',{className:'btn btn-secondary btn-sm',onClick:()=>startEdit(i)},'Modifier'),
-                  CE('button',{className:'btn btn-sm',style:{background:'#fee2e2',color:'#991b1b',border:'none'},onClick:()=>remove(i)},'Suppr.')
-                )
-              )),
-              CE('div',{className:'listes-add-row'},
-                CE('input',{type:'text',placeholder:`Ajouter dans ${TABS.find(t=>t.key===activeTab)?.label}…`,value:newVal,onChange:e=>setNewVal(e.target.value),onKeyDown:e=>{if(e.key==='Enter')addItem();}}),
-                CE('button',{className:'btn btn-primary',onClick:addItem},'+ Ajouter')
-              )
-            )
+        items.map((item,i)=>CE('div',{key:i,className:'listes-item'},
+          CE('div',{className:'listes-arrows'},
+            CE('button',{onClick:()=>moveUp(i),disabled:i===0,title:'Monter'},'▲'),
+            CE('button',{onClick:()=>moveDown(i),disabled:i===items.length-1,title:'Descendre'},'▼')
+          ),
+          CE('span',{className:'listes-dot',style:{background:getItemColor(activeTab,item)}}),
+          editIdx===i
+            ?CE('div',{className:'listes-name'},CE('input',{autoFocus:true,value:editVal,onChange:e=>setEditVal(e.target.value),onKeyDown:e=>{if(e.key==='Enter')saveEdit(i);if(e.key==='Escape')setEditIdx(null);}}))
+            :CE('div',{className:'listes-name'},item),
+          CE('div',{className:'listes-actions'},
+            editIdx===i
+              ?CE('button',{className:'btn btn-primary btn-sm',onClick:()=>saveEdit(i)},'✓ OK')
+              :CE('button',{className:'btn btn-secondary btn-sm',onClick:()=>startEdit(i)},'Modifier'),
+            CE('button',{className:'btn btn-sm',style:{background:'#fee2e2',color:'#991b1b',border:'none'},onClick:()=>remove(i)},'Suppr.')
+          )
+        )),
+        CE('div',{className:'listes-add-row'},
+          CE('input',{type:'text',placeholder:`Ajouter dans ${TABS.find(t=>t.key===activeTab)?.label}…`,value:newVal,onChange:e=>setNewVal(e.target.value),onKeyDown:e=>{if(e.key==='Enter')addItem();}}),
+          CE('button',{className:'btn btn-primary',onClick:addItem},'+ Ajouter')
+        )
       ),
       CE('div',{className:'listes-footer'},
         CE('button',{className:'btn btn-secondary',onClick:onClose},'Annuler'),
@@ -568,7 +503,6 @@ function VueListes({lists,onSave,onClose,emails,onSaveEmails}){
     )
   );
 }
-
 
 // ═══════════════════════════════════════════════════════════
 // LOGIN — reçoit pwdHash en prop
@@ -1374,7 +1308,7 @@ function BarChart({data,colors,height}){
   const maxLbl=data.length>8?7:data.length>5?10:14;
   const chartData=data.map(d=>({...d,name:trunc(d.label,maxLbl)}));
   return CE(ResponsiveContainer,{width:'100%',height:h},
-    CE(RBarChart,{data:chartData,margin:{top:20,right:6,left:0,bottom:mb}},
+    CE(RBarChart,{data:chartData,margin:{top:20,right:6,left:0,bottom:mb},cursor:{fill:'rgba(255,255,255,0.02)'}},
       CE(CartesianGrid,{strokeDasharray:'3 3',stroke:'#e2e8f0',vertical:false}),
       CE(XAxis,{dataKey:'name',tick:{fontSize:10,fill:'#4a5568'},angle:-40,textAnchor:'end',interval:0}),
       CE(YAxis,{tick:{fontSize:10,fill:'#718096'},allowDecimals:false,width:28}),
@@ -1396,7 +1330,7 @@ function BarChart({data,colors,height}){
 function LineChart({data}){
   if(!data||data.length===0)return CE(NoData,null);
   return CE(ResponsiveContainer,{width:'100%',height:200},
-    CE(RLineChart,{data,margin:{top:20,right:6,left:0,bottom:labelMarginBottom(data)}},
+    CE(RLineChart,{data,margin:{top:20,right:6,left:0,bottom:labelMarginBottom(data)},cursor:{fill:'rgba(255,255,255,0.02)'}},
       CE(CartesianGrid,{strokeDasharray:'3 3',stroke:'#e2e8f0',vertical:false}),
       CE(XAxis,{dataKey:'label',tick:{fontSize:10,fill:'#4a5568'},angle:-40,textAnchor:'end',interval:0}),
       CE(YAxis,{tick:{fontSize:10,fill:'#718096'},allowDecimals:false,width:28}),
@@ -1419,7 +1353,7 @@ function RadialChart({data,colors,height=220}){
   const total=data.reduce((s,d)=>s+d.value,0);
   const chartData=data.map((d,i)=>({...d,name:d.label,fill:colArr[i%colArr.length]}));
   return CE(ResponsiveContainer,{width:'100%',height:height},
-    CE(RBarChart,{data:chartData,layout:'vertical',margin:{top:8,right:40,left:4,bottom:8}},
+    CE(RBarChart,{data:chartData,layout:'vertical',margin:{top:8,right:40,left:4,bottom:8},cursor:{fill:'rgba(255,255,255,0.02)'}},
       CE(CartesianGrid,{strokeDasharray:'3 3',stroke:'#e2e8f0',horizontal:false}),
       CE(XAxis,{type:'number',tick:{fontSize:10,fill:'#718096'},allowDecimals:false}),
       CE(YAxis,{type:'category',dataKey:'name',tick:{fontSize:11,fill:'#4a5568'},width:80}),
