@@ -170,16 +170,15 @@
           if(!d||isNaN(d.getTime()))continue;
           if(d.getUTCFullYear()!==year)continue;
           if(!months.includes(d.getUTCMonth()+1))continue;
-          df.push({date:d,horaire:e.horaire||'9H00',ampm:String(e.ampm||'').trim().toUpperCase(),conseiller:String(e.conseiller).trim(),orienteur:String(e.orienteur||'').trim()||'—',statut:String(e.statut||'').trim()});
+          // ampm ignoré (stocké 'AM' par défaut dans GAS) — dérivé depuis l'horaire comme l'outil original
+          df.push({date:d,horaire:e.horaire||'9H00',ampm:'',conseiller:String(e.conseiller).trim(),orienteur:String(e.orienteur||'').trim()||'—',statut:String(e.statut||'').trim()});
         }
         addXLog(`✓ ${df.length} ateliers valides`,'ok');
-        // ── Diagnostic AM/PM ──
-        const nAM=df.filter(e=>e.ampm==='AM').length;
-        const nPM=df.filter(e=>e.ampm==='PM').length;
-        const nVide=df.filter(e=>!e.ampm).length;
-        addXLog(`AM/PM → AM:${nAM} · PM:${nPM} · vide:${nVide}`,nVide>0?'info':'ok');
-        if(nVide>0){const hSansAmpm=[...new Set(df.filter(e=>!e.ampm).map(e=>e.horaire))].slice(0,8);addXLog(`↳ Horaires sans ampm : ${hSansAmpm.join(', ')}`,'info');}
-        // ─────────────────────
+        // ── Diagnostic AM/PM (dérivé horaire) ──
+        const nAM=df.filter(e=>isAMCal(e.horaire)).length;
+        const nPM=df.length-nAM;
+        addXLog(`AM/PM (via horaire) → AM:${nAM} · PM:${nPM}`,'ok');
+        // ───────────────────────────────────────
         const cons=conseillersList||[];
         addXLog(`→ ${cons.length} conseillers : ${cons.join(', ')}`);
         if(df.length===0)throw new Error('Aucun atelier trouvé pour cette période. Vérifiez l\'année et les mois sélectionnés.');
