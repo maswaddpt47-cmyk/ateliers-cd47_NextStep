@@ -307,6 +307,15 @@ nav { display: none !important; }
   color: #fff;
 }
 
+.topbar-sync-info {
+  font-size: 11px;
+  color: #9ca3af;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: default;
+}
+
 .app-main {
   padding: 20px;
   max-width: 1200px;
@@ -352,6 +361,7 @@ function App(){
     publics:[...PUBLICS_DEFAULT],materiels:[...MATERIELS_DEFAULT]
   });
   const[emails,setEmails]  = React.useState({});  // v9.3
+  const[lastSync,setLastSync]= React.useState(null); // v9.4
 
   function addLog(msg,type='info'){const t=new Date().toLocaleTimeString('fr-FR');setLogs(l=>[{msg,type,t},...l].slice(0,50));}
 
@@ -372,6 +382,7 @@ function App(){
       if(data.conseiller_colors){applyColors(data.conseiller_colors);}
       if(data.emails){setEmails(data.emails);addLog('Emails chargés','ok');}  // v9.3
       addLog(`${incoming.length} ateliers chargés (${annee})`,'ok');
+      setLastSync(new Date());
       setSeenIds(prev=>{if(prev.size===0)return new Set(incoming.map(e=>e._id));const nouvs=incoming.filter(e=>!prev.has(e._id));if(nouvs.length>0)setNewEntries(n=>[...nouvs,...n]);return new Set(incoming.map(e=>e._id));});
       setLoading(false);
     }catch(err){
@@ -385,6 +396,11 @@ function App(){
   React.useEffect(()=>{
     if(isFirstLoad.current){isFirstLoad.current=false;loadData();}
     else{setSeenIds(new Set());loadData();}
+  },[annee]);
+  // v9.4 : sync auto toutes les 5 min
+  React.useEffect(()=>{
+    const id=setInterval(()=>loadData(),5*60*1000);
+    return()=>clearInterval(id);
   },[annee]);
 
   async function handleDelete(id){
@@ -505,6 +521,10 @@ function App(){
         CE('span',{className:'app-topbar-title'},meta.label),
         meta.group&&CE('span',{className:'app-topbar-sub'},'— '+meta.group),
         CE('div',{className:'app-topbar-right'},
+          lastSync&&CE('span',{
+            className:'topbar-sync-info',
+            title:'Sync auto toutes les 5 min'
+          },'🔄 '+lastSync.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})),
           adminConseiller&&adminConseiller!=='admin'&&CE('span',{
             className:'app-topbar-conseiller',
             style:{background:accentColor}
