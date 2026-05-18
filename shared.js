@@ -444,13 +444,17 @@ function getItemColor(tabKey,name){
   if(tabKey==='materiels')return'#0891b2';
   return'#94a3b8';
 }
-function VueListes({lists,onSave,onClose}){
-  const TABS=[{key:'statuts',label:'Statuts'},{key:'conseillers',label:'Conseillers'},{key:'publics',label:'Types de public'},{key:'materiels',label:'Matériels'}];
+function VueListes({lists,onSave,onClose,emails,onSaveEmails}){
+  const TABS=[{key:'statuts',label:'Statuts'},{key:'conseillers',label:'Conseillers'},{key:'publics',label:'Types de public'},{key:'materiels',label:'Matériels'},{key:'emails',label:'📧 Emails'}];
   const[activeTab,setActiveTab]=React.useState('statuts');
   const[draft,setDraft]=React.useState({statuts:[...lists.statuts],conseillers:[...lists.conseillers],publics:[...lists.publics],materiels:[...lists.materiels]});
   const[newVal,setNewVal]=React.useState('');
   const[editIdx,setEditIdx]=React.useState(null);
   const[editVal,setEditVal]=React.useState('');
+  // ── Emails CoNum ──
+  const[emailDraft,setEmailDraft]=React.useState(()=>Object.assign({},emails||{}));
+  const[emailSaving,setEmailSaving]=React.useState(false);
+
   const items=draft[activeTab];
   function setItems(fn){setDraft(d=>({...d,[activeTab]:fn(d[activeTab])}));setEditIdx(null);}
   function moveUp(i){if(i===0)return;setItems(arr=>{const a=[...arr];[a[i-1],a[i]]=[a[i],a[i-1]];return a;});}
@@ -464,8 +468,42 @@ function VueListes({lists,onSave,onClose}){
     try{const res=await apiFetch('saveLists',{lists:JSON.stringify(draft)});if(res&&res.ok)showToast('✅ Listes enregistrées et synchronisées');else showToast('⚠️ Sauvegardé localement (erreur GAS)',false);}
     catch(err){showToast('⚠️ Sauvegardé localement (hors-ligne)',false);}
   }
+  async function handleSaveEmails(){
+    setEmailSaving(true);
+    try{
+      const res=await apiFetch('saveEmails',{emails:JSON.stringify(emailDraft)});
+      if(res&&res.ok){if(onSaveEmails)onSaveEmails(emailDraft);showToast('✅ Emails enregistrés');}
+      else showToast('⚠️ Erreur lors de l\'enregistrement',false);
+    }catch(e){showToast('⚠️ Erreur réseau',false);}
+    finally{setEmailSaving(false);}
+  }
   React.useEffect(()=>{function k(e){if(e.key==='Escape')onClose();}document.addEventListener('keydown',k);return()=>document.removeEventListener('keydown',k);},[]);
   React.useEffect(()=>{setNewVal('');setEditIdx(null);},[activeTab]);
+
+  function renderEmailsTab(){
+    const conseillers=draft.conseillers;
+    return CE('div',null,
+      CE('p',{style:{fontSize:12,color:'#4a5568',marginBottom:14}},
+        'Ces emails sont utilisés pour les rappels automatiques quotidiens envoyés aux conseillers numériques.'
+      ),
+      conseillers.map(c=>CE('div',{key:c,style:{display:'flex',alignItems:'center',gap:10,marginBottom:10}},
+        CE('span',{style:{minWidth:160,fontSize:13,fontWeight:600,color:'#1a202c'}},c),
+        CE('input',{
+          type:'email',
+          placeholder:'email@exemple.com',
+          value:emailDraft[c]||'',
+          onChange:e=>setEmailDraft(d=>({...d,[c]:e.target.value})),
+          style:{flex:1,padding:'7px 10px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:13}
+        })
+      )),
+      CE('div',{style:{marginTop:16,display:'flex',justifyContent:'flex-end'}},
+        CE('button',{className:'btn btn-primary',disabled:emailSaving,onClick:handleSaveEmails},
+          emailSaving?'Sauvegarde…':'💾 Enregistrer les emails'
+        )
+      )
+    );
+  }
+
   return CE('div',{className:'listes-overlay',onClick:e=>{if(e.target.className==='listes-overlay')onClose();}},
     CE('div',{className:'listes-modal'},
       CE('div',{className:'listes-header'},
@@ -473,30 +511,32 @@ function VueListes({lists,onSave,onClose}){
         CE('h2',null,'📋 Gestion des listes déroulantes'),
         CE('p',null,'Ajouter, modifier, supprimer et réordonner')
       ),
-      CE('div',{className:'listes-tabs'},TABS.map(t=>CE('div',{key:t.key,className:'listes-tab'+(activeTab===t.key?' active':''),onClick:()=>setActiveTab(t.key)},t.label,CE('span',{className:'tab-count'},draft[t.key].length)))),
-      CE('div',{className:'listes-body'},
-        items.map((item,i)=>CE('div',{key:i,className:'listes-item'},
-          CE('div',{className:'listes-arrows'},
-            CE('button',{onClick:()=>moveUp(i),disabled:i===0,title:'Monter'},'▲'),
-            CE('button',{onClick:()=>moveDown(i),disabled:i===items.length-1,title:'Descendre'},'▼')
-          ),
-          CE('span',{className:'listes-dot',style:{background:getItemColor(activeTab,item)}}),
-          editIdx===i
-            ?CE('div',{className:'listes-name'},CE('input',{autoFocus:true,value:editVal,onChange:e=>setEditVal(e.target.value),onKeyDown:e=>{if(e.key==='Enter')saveEdit(i);if(e.key==='Escape')setEditIdx(null);}}))
-            :CE('div',{className:'listes-name'},item),
-          CE('div',{className:'listes-actions'},
+      CE('div',{className:'listes-tabs'},TABS.map(t=>CE('div',{key:t.key,className:'listes-tab'+(activeTab===t.key?' active':''),onClick:()=>setActiveTab(t.key)},t.label,t.key!=='emails'&&CE('span',{className:'tab-count'},draft[t.key]?draft[t.key].length:'')))),
+      activeTab==='emails'
+        ?CE('div',{className:'listes-body'},renderEmailsTab())
+        :CE('div',{className:'listes-body'},
+          items.map((item,i)=>CE('div',{key:i,className:'listes-item'},
+            CE('div',{className:'listes-arrows'},
+              CE('button',{onClick:()=>moveUp(i),disabled:i===0,title:'Monter'},'▲'),
+              CE('button',{onClick:()=>moveDown(i),disabled:i===items.length-1,title:'Descendre'},'▼')
+            ),
+            CE('span',{className:'listes-dot',style:{background:getItemColor(activeTab,item)}}),
             editIdx===i
-              ?CE('button',{className:'btn btn-primary btn-sm',onClick:()=>saveEdit(i)},'✓ OK')
-              :CE('button',{className:'btn btn-secondary btn-sm',onClick:()=>startEdit(i)},'Modifier'),
-            CE('button',{className:'btn btn-sm',style:{background:'#fee2e2',color:'#991b1b',border:'none'},onClick:()=>remove(i)},'Suppr.')
+              ?CE('div',{className:'listes-name'},CE('input',{autoFocus:true,value:editVal,onChange:e=>setEditVal(e.target.value),onKeyDown:e=>{if(e.key==='Enter')saveEdit(i);if(e.key==='Escape')setEditIdx(null);}}))
+              :CE('div',{className:'listes-name'},item),
+            CE('div',{className:'listes-actions'},
+              editIdx===i
+                ?CE('button',{className:'btn btn-primary btn-sm',onClick:()=>saveEdit(i)},'✓ OK')
+                :CE('button',{className:'btn btn-secondary btn-sm',onClick:()=>startEdit(i)},'Modifier'),
+              CE('button',{className:'btn btn-sm',style:{background:'#fee2e2',color:'#991b1b',border:'none'},onClick:()=>remove(i)},'Suppr.')
+            )
+          )),
+          CE('div',{className:'listes-add-row'},
+            CE('input',{type:'text',placeholder:`Ajouter dans ${TABS.find(t=>t.key===activeTab)?.label}…`,value:newVal,onChange:e=>setNewVal(e.target.value),onKeyDown:e=>{if(e.key==='Enter')addItem();}}),
+            CE('button',{className:'btn btn-primary',onClick:addItem},'+ Ajouter')
           )
-        )),
-        CE('div',{className:'listes-add-row'},
-          CE('input',{type:'text',placeholder:`Ajouter dans ${TABS.find(t=>t.key===activeTab)?.label}…`,value:newVal,onChange:e=>setNewVal(e.target.value),onKeyDown:e=>{if(e.key==='Enter')addItem();}}),
-          CE('button',{className:'btn btn-primary',onClick:addItem},'+ Ajouter')
-        )
-      ),
-      CE('div',{className:'listes-footer'},
+        ),
+      activeTab!=='emails'&&CE('div',{className:'listes-footer'},
         CE('button',{className:'btn btn-secondary',onClick:onClose},'Annuler'),
         CE('button',{className:'btn btn-primary',onClick:handleSave},'💾 Enregistrer')
       )
