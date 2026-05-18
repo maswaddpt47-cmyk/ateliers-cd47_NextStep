@@ -629,9 +629,10 @@ function AdminLogin({onLogin}){
     if(!pwd.trim())return;
     setLoading(true);setErr('');
     try{
+      const isMobile=/Android|iPhone|iPad/i.test(navigator.userAgent);
       const res=await Promise.race([
         apiFetch('checkPassword',{pwd}),
-        new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')),15000))
+        new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')),isMobile?25000:10000))
       ]);
       if(res.ok)onLogin();
       else setErr(res.error||'Mot de passe incorrect');
