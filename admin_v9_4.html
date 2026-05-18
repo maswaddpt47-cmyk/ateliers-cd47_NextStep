@@ -147,13 +147,28 @@
   const _VueAdmin_orig=window.VueAdmin;
   window.VueAdmin=function VueAdmin(props){
     const{entries,annee,conseillersList}=props;
-    const[moisDeb,setMoisDeb]=React.useState(1);
-    const[moisFin,setMoisFin]=React.useState(12);
+    // Fix #5 : persistance moisDeb/moisFin
+    const[moisDeb,setMoisDeb]=React.useState(()=>parseInt(localStorage.getItem('cal_moisDeb')||'1'));
+    const[moisFin,setMoisFin]=React.useState(()=>parseInt(localStorage.getItem('cal_moisFin')||'12'));
+    function changeMoisDeb(v){localStorage.setItem('cal_moisDeb',v);setMoisDeb(v);setLastExport(null);}
+    function changeMoisFin(v){localStorage.setItem('cal_moisFin',v);setMoisFin(v);setLastExport(null);}
     const[running,setRunning]=React.useState(false);
     const[xLogs,setXLogs]=React.useState([]);
-    const[lastExport,setLastExport]=React.useState(null); // fallback téléchargement
+    const[lastExport,setLastExport]=React.useState(null);
 
     function addXLog(msg,type='info'){setXLogs(l=>[...l,{msg,type,t:new Date().toLocaleTimeString('fr-FR')}]);}
+
+    // Fix #7 : aperçu en temps réel
+    const year=parseInt(annee||new Date().getFullYear());
+    const previewMonths=[];for(let m=moisDeb;m<=moisFin;m++)previewMonths.push(m);
+    const previewEntries=(entries||[]).filter(e=>{
+      if(!e.date||!e.conseiller)return false;
+      const mIso=String(e.date).match(/^(\d{4})-(\d{2})-(\d{2})/);
+      if(!mIso)return false;
+      return parseInt(mIso[1])===year&&previewMonths.includes(parseInt(mIso[2]));
+    });
+    const previewCons=[...new Set(previewEntries.map(e=>e.conseiller))].length;
+    const MOIS_SHORT=['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
 
     async function handleExport(){
       setRunning(true);setXLogs([]);setLastExport(null);
@@ -206,29 +221,35 @@
       CE('div',{className:'admin-section'},
         CE('h3',null,'📅 Export Timeline Ateliers'),
         CE('p',{style:{fontSize:12,color:'#4a5568',marginBottom:14}},'Génère le planning timeline directement depuis les données chargées. Année et conseillers pris depuis la sidebar.'),
-        CE('div',{style:{display:'flex',gap:12,alignItems:'flex-end',flexWrap:'wrap',marginBottom:moisInvalid?6:14}},
+        CE('div',{style:{display:'flex',gap:12,alignItems:'flex-end',flexWrap:'wrap',marginBottom:moisInvalid?6:10}},
           CE('div',null,
             CE('label',null,'Mois début'),
-            CE('select',{value:moisDeb,onChange:e=>{setMoisDeb(+e.target.value);setLastExport(null);},style:{marginTop:4}},
+            CE('select',{value:moisDeb,onChange:e=>changeMoisDeb(+e.target.value),style:{marginTop:4}},
               MOIS.map((m,i)=>CE('option',{key:i,value:i+1},m))
             )
           ),
           CE('div',null,
             CE('label',null,'Mois fin'),
-            CE('select',{value:moisFin,onChange:e=>{setMoisFin(+e.target.value);setLastExport(null);},style:{marginTop:4}},
+            CE('select',{value:moisFin,onChange:e=>changeMoisFin(+e.target.value),style:{marginTop:4}},
               MOIS.map((m,i)=>CE('option',{key:i,value:i+1},m))
             )
           ),
           CE('button',{
             className:'btn btn-success',
             style:{alignSelf:'flex-end'},
-            disabled:running||moisInvalid,
+            disabled:running||moisInvalid||previewEntries.length===0,
             onClick:handleExport
           },running?CE('span',null,CE('span',{className:'spinner'}),'Génération…'):'📥 Générer & Télécharger')
         ),
-        // Fix #2 : message d'erreur explicite si mois invalides
-        moisInvalid&&CE('p',{style:{fontSize:12,color:'#c53030',marginBottom:14,display:'flex',alignItems:'center',gap:6}},
+        moisInvalid&&CE('p',{style:{fontSize:12,color:'#c53030',marginBottom:10,display:'flex',alignItems:'center',gap:6}},
           '⚠️ Le mois de début doit être antérieur ou égal au mois de fin.'
+        ),
+        // Fix #7 : aperçu en temps réel
+        !moisInvalid&&CE('div',{style:{display:'flex',gap:8,marginBottom:12,flexWrap:'wrap'}},
+          CE('span',{style:{fontSize:12,background:'#ebf8ff',border:'1px solid #bee3f8',color:'#2b6cb0',borderRadius:6,padding:'3px 10px'}},
+            `📊 ${previewEntries.length} atelier${previewEntries.length!==1?'s':''} · ${previewCons} conseiller${previewCons!==1?'s':''}`),
+          CE('span',{style:{fontSize:12,background:'#f0fff4',border:'1px solid #9ae6b4',color:'#276749',borderRadius:6,padding:'3px 10px'}},
+            `📅 ${MOIS_SHORT[moisDeb-1]} → ${MOIS_SHORT[moisFin-1]} ${year}`)
         ),
         xLogs.length>0&&CE('div',{style:{background:'#f8fafc',border:'1px solid #e2e8f0',borderRadius:8,padding:'10px 14px',maxHeight:160,overflowY:'auto',fontSize:12}},
           xLogs.map((l,i)=>CE('div',{key:i,className:`log-entry log-${l.type}`,style:{marginBottom:4}},
@@ -579,7 +600,7 @@ var VIEW_META = {
 // ── App Admin ──────────────────────────────────────────────
 function App(){
   const[auth,setAuth]           = React.useState(false);
-  const[adminConseiller,setAdminConseiller]= React.useState('');
+  const[adminConseiller,setAdminConseiller]= React.useState(()=>localStorage.getItem('adm_conseiller')||'');
   const[view,setView]           = React.useState('historique');
   const[entries,setEntries]= React.useState([]);
   const[loading,setLoading]= React.useState(true);
@@ -666,11 +687,11 @@ function App(){
       CE('h2',null,'👤 Qui êtes-vous ?'),
       CE('p',{style:{fontSize:13,color:'#718096',margin:'8px 0 20px'}},'Pour personnaliser votre interface'),
       (lists.conseillers||CONSEILLERS_DEFAULT).map(c=>
-        CE('button',{key:c,onClick:()=>setAdminConseiller(c),
+        CE('button',{key:c,onClick:()=>{localStorage.setItem('adm_conseiller',c);setAdminConseiller(c);},
           style:{display:'block',width:'100%',marginBottom:10,padding:'11px 16px',border:`2px solid ${conseillerColor(c)}22`,borderRadius:10,background:`${conseillerColor(c)}11`,color:conseillerColor(c),fontSize:14,fontWeight:700,cursor:'pointer',textAlign:'left',transition:'all .15s'}},
           CE('span',{style:{display:'inline-block',width:10,height:10,borderRadius:'50%',background:conseillerColor(c),marginRight:8}}),c)
       ),
-      CE('button',{onClick:()=>setAdminConseiller('admin'),style:{display:'block',width:'100%',padding:'11px 16px',border:'2px solid #e2e8f0',borderRadius:10,background:'#f8fafc',color:'#718096',fontSize:13,cursor:'pointer',marginTop:4}},'Continuer sans personnalisation')
+      CE('button',{onClick:()=>{localStorage.setItem('adm_conseiller','admin');setAdminConseiller('admin');},style:{display:'block',width:'100%',padding:'11px 16px',border:'2px solid #e2e8f0',borderRadius:10,background:'#f8fafc',color:'#718096',fontSize:13,cursor:'pointer',marginTop:4}},'Continuer sans personnalisation')
     )
   );
 
@@ -763,7 +784,12 @@ function App(){
           adminConseiller&&adminConseiller!=='admin'&&CE('span',{
             className:'app-topbar-conseiller',
             style:{background:accentColor}
-          },adminConseiller)
+          },adminConseiller),
+          CE('button',{
+            onClick:()=>{localStorage.removeItem('adm_conseiller');setAdminConseiller('');},
+            title:'Changer d\'identité',
+            style:{background:'none',border:'1px solid #e2e8f0',borderRadius:6,padding:'3px 8px',fontSize:11,color:'#718096',cursor:'pointer'}
+          },'👤 Changer')
         )
       ),
 
