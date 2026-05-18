@@ -913,7 +913,7 @@ function VueHistorique({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
   },[entries,filtStatut,filtMois,filtCommune,filtConseiller,dSearch,sortDir,dateFrom,dateTo]);
 
   const kpi=React.useMemo(()=>{const realises=filtered.filter(e=>e.statut==='Réalisé');const annules=filtered.filter(e=>e.statut==='Annulé').length;const inscrits=filtered.reduce((s,e)=>s+(parseInt(e.inscrits)||0),0);const presents=filtered.reduce((s,e)=>s+(parseInt(e.presents)||0),0);const tx=inscrits>0?Math.round(presents/inscrits*100):0;return{total:filtered.length,realises:realises.length,annules,inscrits,presents,tx};},[filtered]);
-  const nRetard=entries.filter(isRetard).length;
+  const nRetard=entries.filter(e=>isRetard(e)&&(!initConseiller||initConseiller==='Tous'||e.conseiller===initConseiller)).length;
 
   function openPanel(e){setPanel(e);setPanelStatut(e.statut);setPanelInscrits(e.inscrits===undefined||e.inscrits===''?'':String(e.inscrits));setPanelPresents(e.presents===undefined||e.presents===''?'':String(e.presents));setPanelNote(e.remarques||'');}
   function closePanel(){setPanel(null);}
