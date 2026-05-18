@@ -624,7 +624,11 @@ function App(){
   async function loadData(attempt=1){
     setLoading(true);setError(null);
     try{
-      const res=await Promise.race([fetch(`${GS_URL}?action=getAll&year=${annee}`),new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')),12000))]);
+      // Timeout adaptatif : court sur PC/fibre, long sur mobile/4G
+      const isMobile=/Android|iPhone|iPad/i.test(navigator.userAgent);
+      const timeouts=isMobile?[20000,25000,30000]:[8000,10000,12000];
+      const timeoutMs=timeouts[attempt-1]||timeouts[timeouts.length-1];
+      const res=await Promise.race([fetch(`${GS_URL}?action=getAll&year=${annee}`),new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')),timeoutMs))]);
       const data=await res.json();
       if(!data.ok)throw new Error(data.error||'Erreur serveur');
       const incoming=data.entries||[];
@@ -642,7 +646,7 @@ function App(){
       setSeenIds(prev=>{if(prev.size===0)return new Set(incoming.map(e=>e._id));const nouvs=incoming.filter(e=>!prev.has(e._id));if(nouvs.length>0)setNewEntries(n=>[...nouvs,...n]);return new Set(incoming.map(e=>e._id));});
       setLoading(false);
     }catch(err){
-      if(err.message==='timeout'&&attempt<3){addLog(`Tentative ${attempt}/3…`,'info');setTimeout(()=>loadData(attempt+1),2000);}
+      if(err.message==='timeout'&&attempt<3){addLog(`Tentative ${attempt}/3…`,'info');const isMobile=/Android|iPhone|iPad/i.test(navigator.userAgent);setTimeout(()=>loadData(attempt+1),isMobile?[3000,6000][attempt-1]:2000);}
       else{setError(attempt>1?'Google Sheets ne répond pas après 3 tentatives.':'Impossible de charger : '+err.message);addLog('Erreur : '+err.message,'err');setLoading(false);}
     }
   }
