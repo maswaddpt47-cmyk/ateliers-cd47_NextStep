@@ -262,9 +262,46 @@
           CE('span',null,'📎 Si le téléchargement ne s\'est pas lancé :'),
           CE('a',{href:lastExport.url,download:lastExport.name,style:{color:'#276749',fontWeight:700,textDecoration:'underline'}},lastExport.name)
         )
-      )
+      ),
+      // v9.4 : changement de mot de passe admin
+      CE(ChangerMotDePasse,null)
     );
   };
+
+  function ChangerMotDePasse(){
+    const[pwd,setPwd]=React.useState('');
+    const[pwd2,setPwd2]=React.useState('');
+    const[saving,setSaving]=React.useState(false);
+    const[msg,setMsg]=React.useState(null);
+
+    async function handleSave(){
+      if(pwd.length<4){setMsg({ok:false,txt:'4 caractères minimum'});return;}
+      if(pwd!==pwd2){setMsg({ok:false,txt:'Les mots de passe ne correspondent pas'});return;}
+      setSaving(true);setMsg(null);
+      try{
+        const res=await apiFetch('setPassword',{pwd});
+        if(res.ok){setMsg({ok:true,txt:'✅ Mot de passe mis à jour'});setPwd('');setPwd2('');}
+        else setMsg({ok:false,txt:res.error||'Erreur'});
+      }catch(e){setMsg({ok:false,txt:'Erreur réseau'});}
+      finally{setSaving(false);}
+    }
+
+    return CE('div',{className:'admin-section'},
+      CE('h3',null,'🔑 Changer le mot de passe admin'),
+      CE('div',{style:{display:'flex',gap:10,flexWrap:'wrap',alignItems:'flex-end'}},
+        CE('div',null,
+          CE('label',null,'Nouveau mot de passe'),
+          CE('input',{type:'password',value:pwd,onChange:e=>setPwd(e.target.value),placeholder:'Min. 4 caractères',style:{marginTop:4,display:'block',padding:'8px 12px',border:'1px solid #e2e8f0',borderRadius:6,fontSize:13}})
+        ),
+        CE('div',null,
+          CE('label',null,'Confirmer'),
+          CE('input',{type:'password',value:pwd2,onChange:e=>setPwd2(e.target.value),placeholder:'Répéter',style:{marginTop:4,display:'block',padding:'8px 12px',border:'1px solid #e2e8f0',borderRadius:6,fontSize:13}})
+        ),
+        CE('button',{className:'btn btn-primary',disabled:saving||!pwd||!pwd2,onClick:handleSave,style:{alignSelf:'flex-end'}},saving?'Sauvegarde…':'💾 Sauvegarder')
+      ),
+      msg&&CE('p',{style:{marginTop:8,fontSize:13,color:msg.ok?'#276749':'#c53030'}},msg.txt)
+    );
+  }
 
 })();
 </script>
@@ -582,8 +619,43 @@ nav { display: none !important; }
 <body>
 <div id="root"></div>
 <script>
-// ── Config admin ───────────────────────────────────────────
-var ADMIN_PWD_HASH = '1f2894b9c64af1e9646ce8ae49fe67c74e4267054d1182e2a96ff36a02ba8b08';
+// ── Login admin via GAS (v9.4 — hash supprimé du client) ──
+function AdminLogin({onLogin}){
+  const[pwd,setPwd]=React.useState('');
+  const[err,setErr]=React.useState('');
+  const[loading,setLoading]=React.useState(false);
+
+  async function handleSubmit(){
+    if(!pwd.trim())return;
+    setLoading(true);setErr('');
+    try{
+      const res=await Promise.race([
+        apiFetch('checkPassword',{pwd}),
+        new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')),15000))
+      ]);
+      if(res.ok)onLogin();
+      else setErr(res.error||'Mot de passe incorrect');
+    }catch(e){setErr('Erreur réseau : '+e.message);}
+    finally{setLoading(false);}
+  }
+
+  return CE('div',{className:'login-wrap'},
+    CE('div',{className:'login-card'},
+      CE('h2',null,'🔐 Accès Admin'),
+      CE('input',{
+        type:'password',placeholder:'Mot de passe',value:pwd,
+        onChange:e=>setPwd(e.target.value),
+        onKeyDown:e=>e.key==='Enter'&&handleSubmit(),
+        style:{width:'100%',padding:'10px 14px',border:'1px solid #e2e8f0',borderRadius:8,fontSize:14,marginBottom:10,outline:'none'}
+      }),
+      err&&CE('p',{style:{color:'#c53030',fontSize:13,marginBottom:8}},err),
+      CE('button',{
+        onClick:handleSubmit,disabled:loading||!pwd.trim(),
+        style:{width:'100%',padding:'11px',background:'#1e3a8a',color:'#fff',border:'none',borderRadius:8,fontSize:14,fontWeight:700,cursor:'pointer'}
+      },loading?'Vérification…':'Connexion')
+    )
+  );
+}
 
 // ── v9.3 : labels des vues ─────────────────────────────────
 var VIEW_META = {
@@ -684,7 +756,7 @@ function App(){
     setEmails(newEmails);
   }
 
-  if(!auth)return CE(Login,{pwdHash:ADMIN_PWD_HASH,onLogin:()=>setAuth(true)});
+  if(!auth)return CE(AdminLogin,{onLogin:()=>setAuth(true)});
 
   if(!adminConseiller)return CE('div',{className:'login-wrap'},
     CE('div',{className:'login-card'},
