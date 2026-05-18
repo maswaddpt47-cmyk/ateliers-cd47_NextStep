@@ -271,6 +271,7 @@
   function ChangerMotDePasse(){
     const[pwd,setPwd]=React.useState('');
     const[pwd2,setPwd2]=React.useState('');
+    const[show,setShow]=React.useState(false);
     const[saving,setSaving]=React.useState(false);
     const[msg,setMsg]=React.useState(null);
 
@@ -286,16 +287,25 @@
       finally{setSaving(false);}
     }
 
+    const inputStyle={marginTop:4,display:'block',padding:'8px 36px 8px 12px',border:'1px solid #e2e8f0',borderRadius:6,fontSize:13,boxSizing:'border-box',width:'100%'};
+    const eyeStyle={position:'absolute',right:8,top:'50%',transform:'translateY(-50%)',background:'none',border:'none',cursor:'pointer',fontSize:14,color:'#718096',padding:0};
+
     return CE('div',{className:'admin-section'},
       CE('h3',null,'🔑 Changer le mot de passe admin'),
       CE('div',{style:{display:'flex',gap:10,flexWrap:'wrap',alignItems:'flex-end'}},
         CE('div',null,
           CE('label',null,'Nouveau mot de passe'),
-          CE('input',{type:'password',value:pwd,onChange:e=>setPwd(e.target.value),placeholder:'Min. 4 caractères',style:{marginTop:4,display:'block',padding:'8px 12px',border:'1px solid #e2e8f0',borderRadius:6,fontSize:13}})
+          CE('div',{style:{position:'relative'}},
+            CE('input',{type:show?'text':'password',value:pwd,onChange:e=>setPwd(e.target.value),placeholder:'Min. 4 caractères',style:inputStyle}),
+            CE('button',{onClick:()=>setShow(s=>!s),style:eyeStyle},show?'🙈':'👁️')
+          )
         ),
         CE('div',null,
           CE('label',null,'Confirmer'),
-          CE('input',{type:'password',value:pwd2,onChange:e=>setPwd2(e.target.value),placeholder:'Répéter',style:{marginTop:4,display:'block',padding:'8px 12px',border:'1px solid #e2e8f0',borderRadius:6,fontSize:13}})
+          CE('div',{style:{position:'relative'}},
+            CE('input',{type:show?'text':'password',value:pwd2,onChange:e=>setPwd2(e.target.value),placeholder:'Répéter',style:inputStyle}),
+            CE('button',{onClick:()=>setShow(s=>!s),style:eyeStyle},show?'🙈':'👁️')
+          )
         ),
         CE('button',{className:'btn btn-primary',disabled:saving||!pwd||!pwd2,onClick:handleSave,style:{alignSelf:'flex-end'}},saving?'Sauvegarde…':'💾 Sauvegarder')
       ),
