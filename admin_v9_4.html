@@ -624,12 +624,19 @@ function AdminLogin({onLogin}){
   const[pwd,setPwd]=React.useState('');
   const[err,setErr]=React.useState('');
   const[loading,setLoading]=React.useState(false);
+  const[hint,setHint]=React.useState('');
+
+  const[show,setShow]=React.useState(false);
 
   async function handleSubmit(){
     if(!pwd.trim())return;
-    setLoading(true);setErr('');
+    setLoading(true);setErr('');setHint('');
+    const isMobile=/Android|iPhone|iPad/i.test(navigator.userAgent);
+    // Messages progressifs pendant le cold start
+    const t1=setTimeout(()=>setHint('Connexion au serveur…'),2000);
+    const t2=setTimeout(()=>setHint('Démarrage de Google Apps Script…'),6000);
+    const t3=isMobile?setTimeout(()=>setHint('Réseau mobile détecté, patience…'),12000):null;
     try{
-      const isMobile=/Android|iPhone|iPad/i.test(navigator.userAgent);
       const res=await Promise.race([
         apiFetch('checkPassword',{pwd}),
         new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')),isMobile?25000:10000))
@@ -637,19 +644,27 @@ function AdminLogin({onLogin}){
       if(res.ok)onLogin();
       else setErr(res.error||'Mot de passe incorrect');
     }catch(e){setErr('Erreur réseau : '+e.message);}
-    finally{setLoading(false);}
+    finally{setLoading(false);setHint('');clearTimeout(t1);clearTimeout(t2);if(t3)clearTimeout(t3);}
   }
 
   return CE('div',{className:'login-wrap'},
     CE('div',{className:'login-card'},
       CE('h2',null,'🔐 Accès Admin'),
-      CE('input',{
-        type:'password',placeholder:'Mot de passe',value:pwd,
-        onChange:e=>setPwd(e.target.value),
-        onKeyDown:e=>e.key==='Enter'&&handleSubmit(),
-        style:{width:'100%',padding:'10px 14px',border:'1px solid #e2e8f0',borderRadius:8,fontSize:14,marginBottom:10,outline:'none'}
-      }),
+      CE('div',{style:{position:'relative',marginBottom:10}},
+        CE('input',{
+          type:show?'text':'password',placeholder:'Mot de passe',value:pwd,
+          onChange:e=>setPwd(e.target.value),
+          onKeyDown:e=>e.key==='Enter'&&handleSubmit(),
+          style:{width:'100%',padding:'10px 40px 10px 14px',border:'1px solid #e2e8f0',borderRadius:8,fontSize:14,outline:'none',boxSizing:'border-box'}
+        }),
+        CE('button',{
+          onClick:()=>setShow(s=>!s),
+          style:{position:'absolute',right:10,top:'50%',transform:'translateY(-50%)',background:'none',border:'none',cursor:'pointer',fontSize:16,color:'#718096',padding:0}
+        },show?'🙈':'👁️')
+      ),
       err&&CE('p',{style:{color:'#c53030',fontSize:13,marginBottom:8}},err),
+      hint&&!err&&CE('p',{style:{color:'#718096',fontSize:12,marginBottom:8,display:'flex',alignItems:'center',gap:6}},
+        CE('span',{className:'spinner',style:{width:12,height:12,borderWidth:2}}),hint),
       CE('button',{
         onClick:handleSubmit,disabled:loading||!pwd.trim(),
         style:{width:'100%',padding:'11px',background:'#1e3a8a',color:'#fff',border:'none',borderRadius:8,fontSize:14,fontWeight:700,cursor:'pointer'}
