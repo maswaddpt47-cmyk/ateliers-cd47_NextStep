@@ -1555,6 +1555,8 @@ function VueAdmin({entries,onRefresh,addLog,conseillersList,onSaveColors}){
   const[resetStep,setResetStep]=React.useState(0);
   const[visibility,setVisibility]=React.useState(null);
   const[visSaving,setVisSaving]=React.useState(false);
+  const[rappelsActif,setRappelsActif]=React.useState(true);
+  const[rappelsSaving,setRappelsSaving]=React.useState(false);
   const[importing,setImporting]=React.useState(false);
   const[colorDraft,setColorDraft]=React.useState({...CONSEILLER_COLORS});
   const[colorSaving,setColorSaving]=React.useState(false);
@@ -1564,6 +1566,7 @@ function VueAdmin({entries,onRefresh,addLog,conseillersList,onSaveColors}){
   const VIS_ITEMS=[{key:'saisie',label:'✏️ Saisie',sub:'Formulaire de saisie'},{key:'historique',label:'📋 Historique',sub:'Liste des ateliers'},{key:'calendrier',label:'📅 Calendrier',sub:'Vue calendrier mensuelle'},{key:'graphiques',label:'📊 Graphiques',sub:'Tableaux de bord'},{key:'carte',label:'🗺️ Carte',sub:'Carte des communes'},{key:'bingo',label:'🎯 Bingo',sub:'Vue par commune'}];
 
   React.useEffect(()=>{apiFetch('getVisibility').then(res=>{if(res.ok)setVisibility(res.visibility);}).catch(()=>{});},[]);
+  React.useEffect(()=>{apiFetch('getConfig').then(res=>{if(res.ok&&res.config)setRappelsActif(String(res.config['rappels_actifs'])!=='false');}).catch(()=>{});},[]);
 
   // Sync colorDraft quand la liste des conseillers change
   React.useEffect(()=>{
@@ -1585,6 +1588,12 @@ function VueAdmin({entries,onRefresh,addLog,conseillersList,onSaveColors}){
     finally{setColorSaving(false);}
   }
 
+  async function handleSaveRappels(val){
+    setRappelsSaving(true);
+    try{const res=await apiFetch('setConfig',{key:'rappels_actifs',value:String(val)});if(res&&res.ok){setRappelsActif(val);showToast(val?'✅ Rappels activés':'🔕 Rappels désactivés');}else throw new Error(res.error);}
+    catch(err){showToast('❌ '+err.message,false);}
+    finally{setRappelsSaving(false);}
+  }
   async function handleSaveVisibility(){
     setVisSaving(true);
     try{const res=await apiFetch('saveVisibility',{visibility:JSON.stringify(visibility)});if(res.ok){showToast('✅ Visibilité sauvegardée');addLog('Visibilité frontend mise à jour','ok');}else throw new Error(res.error);}
@@ -1699,6 +1708,20 @@ function VueAdmin({entries,onRefresh,addLog,conseillersList,onSaveColors}){
         })
       ),
       CE('button',{className:'btn btn-primary',style:{marginTop:16},onClick:handleSaveColors,disabled:colorSaving},colorSaving?'…':'💾 Sauvegarder les couleurs')
+    ),
+    CE('div',{className:'admin-section'},
+      CE('h3',null,'📧 Rappels email automatiques'),
+      CE('p',{style:{fontSize:12,color:'#4a5568',marginBottom:12}},'Envoi automatique chaque matin à 7h aux conseillers ayant des ateliers non clôturés.'),
+      CE('div',{className:'toggle-row'},
+        CE('div',null,
+          CE('div',{className:'toggle-label'},rappelsActif?'✅ Rappels activés':'🔕 Rappels désactivés'),
+          CE('div',{className:'toggle-sub'},rappelsActif?'Les conseillers reçoivent un mail quotidien':'Aucun mail de rappel ne sera envoyé')
+        ),
+        CE('label',{className:'tgl'},
+          CE('input',{type:'checkbox',checked:rappelsActif,disabled:rappelsSaving,onChange:e=>handleSaveRappels(e.target.checked)}),
+          CE('span',{className:'tgl-track'})
+        )
+      )
     ),
     visibility&&CE('div',{className:'admin-section'},
       CE('h3',null,'👁️ Visibilité — Frontend conseillers'),
