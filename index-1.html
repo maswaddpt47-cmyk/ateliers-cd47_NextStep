@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Ateliers Inclusion Numérique — Conseillers v9.3</title>
+<title>Ateliers Inclusion Numérique — Conseillers</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
@@ -13,7 +13,7 @@
 <script src="https://unpkg.com/recharts@2.12.7/umd/Recharts.js"></script>
 <script src="shared.js"></script>
 <style>
-/* ── v9.3 : Sidebar expand — Frontend ───────────────────────── */
+/* ── v9.4 : Sidebar expand — Frontend ───────────────────────── */
 nav { display: none !important; }
 .app-shell { display: flex; min-height: 100vh; }
 
@@ -115,13 +115,22 @@ nav { display: none !important; }
 .sidebar-accueil-btn {
   width:52px; height:36px; border-radius:10px;
   background:rgba(255,255,255,.1); border:1px solid rgba(255,255,255,.2);
-  color:rgba(255,255,255,.7); font-size:11px; font-weight:700; cursor:pointer;
-  display:flex; align-items:center; justify-content:center; gap:4px;
+  color:rgba(255,255,255,.7); font-size:14px; font-weight:700; cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
   white-space:nowrap; overflow:hidden;
   transition:width .28s cubic-bezier(.4,0,.2,1), background .18s, color .18s;
 }
 .sidebar:hover .sidebar-accueil-btn { width:calc(220px - 20px); margin:0 10px; }
 .sidebar-accueil-btn:hover { background:rgba(255,255,255,.2); color:#fff; }
+
+/* ① Fix label bouton Accueil ─────────────────────────────── */
+.sidebar-accueil-lbl {
+  font-size:11px; font-weight:700; overflow:hidden;
+  max-width:0; opacity:0; white-space:nowrap; margin-left:4px;
+  transition:max-width .28s cubic-bezier(.4,0,.2,1), opacity .18s .06s;
+}
+.sidebar:hover .sidebar-accueil-lbl { max-width:100px; opacity:1; }
+
 .app-content { margin-left:72px; flex:1; min-height:100vh; display:flex; flex-direction:column; }
 .app-topbar {
   height:46px; display:flex; align-items:center; padding:0 22px;
@@ -134,12 +143,54 @@ nav { display: none !important; }
 .app-topbar-right { margin-left:auto; display:flex; align-items:center; gap:8px; }
 .app-topbar-conseiller { font-size:12px; font-weight:700; padding:4px 12px; border-radius:20px; color:#fff; }
 .app-main { padding:20px; max-width:1200px; width:100%; }
+
+/* ② Skeleton loader ──────────────────────────────────────── */
+@keyframes shimmer {
+  0%  { background-position: -400px 0; }
+  100%{ background-position:  400px 0; }
+}
+.skeleton {
+  background: linear-gradient(90deg,#f0f4f8 25%,#e2eaf2 50%,#f0f4f8 75%);
+  background-size: 400px 100%;
+  animation: shimmer 1.4s infinite;
+  border-radius: 8px;
+}
+.skeleton-card { height: 76px; margin-bottom: 12px; width: 100%; }
+
+/* ③ Badge hors ligne ─────────────────────────────────────── */
+.offline-badge {
+  font-size:11px; color:#c53030;
+  background:#fff5f5; border:1px solid #feb2b2;
+  border-radius:6px; padding:2px 8px;
+  display:flex; align-items:center; gap:4px;
+  animation:pulse 1.5s infinite;
+}
+
+/* ④ Sync info ────────────────────────────────────────────── */
+.topbar-sync-info {
+  font-size:11px; color:#9ca3af;
+  display:flex; align-items:center; gap:3px; cursor:default;
+}
+
+/* ⑤ Stats accueil ────────────────────────────────────────── */
+.accueil-stats {
+  display:flex; gap:8px; flex-wrap:wrap; justify-content:center;
+  margin-bottom:16px; padding:0 20px;
+}
+.accueil-stat-chip {
+  display:flex; align-items:center; gap:6px;
+  border-radius:8px; padding:6px 12px; font-size:12px;
+}
+.accueil-stat-count {
+  font-size:11px; font-weight:800; border-radius:10px;
+  padding:1px 7px; color:#fff;
+}
 </style>
 </head>
 <body>
 <div id="root"></div>
 <script>
-// ── App Frontend (conseillers) v9.3 ──────────────────────────
+// ── App Frontend (conseillers) v9.4 ──────────────────────────
 var VIEW_META_F = {
   saisie:     {ico:'✏️',  label:'Saisie',      group:'Action'},
   historique: {ico:'📋',  label:'Historique',   group:'Voir'},
@@ -150,24 +201,37 @@ var VIEW_META_F = {
 };
 
 function App(){
-  const[view,setView]           = React.useState('accueil');
+  // Vue initiale : si un conseiller est mémorisé on passe directement à historique
+  const[view,setView]           = React.useState(()=>localStorage.getItem('f_conseiller')?'historique':'accueil');
   const[entries,setEntries]     = React.useState([]);
   const[loading,setLoading]     = React.useState(true);
   const[error,setError]         = React.useState(null);
   const[newEntries,setNewEntries]= React.useState([]);
   const[seenIds,setSeenIds]     = React.useState(new Set());
-  const[filtreConseiller,setFiltreConseiller]= React.useState(null);
+  // Conseiller persisté en localStorage
+  const[filtreConseiller,setFiltreConseiller]= React.useState(()=>localStorage.getItem('f_conseiller')||null);
   const[editingId,setEditingId] = React.useState(null);
   const[prefillData,setPrefillData]= React.useState(null);
-  const[annee,setAnnee]         = React.useState(String(new Date().getFullYear()));
+  // Année persistée en localStorage
+  const[annee,setAnneeState]    = React.useState(()=>localStorage.getItem('f_annee')||String(new Date().getFullYear()));
   const[visibility,setVisibility]= React.useState({saisie:true,historique:true,graphiques:true,carte:true,bingo:true,calendrier:false});
   const[lists,setLists]         = React.useState({
     statuts:[...STATUTS_DEFAULT],conseillers:[...CONSEILLERS_DEFAULT],
     publics:[...PUBLICS_DEFAULT],materiels:[...MATERIELS_DEFAULT]
   });
+  // Sync info
+  const[lastSync,setLastSync]   = React.useState(null);
+  // Online/offline
+  const[online,setOnline]       = React.useState(navigator.onLine);
 
-  async function loadData(attempt=1){
-    setLoading(true);setError(null);
+  // ─── Helpers ───────────────────────────────────────────────
+  function setAnnee(v){ localStorage.setItem('f_annee',v); setAnneeState(v); }
+  function resetConseiller(){ localStorage.removeItem('f_conseiller'); setFiltreConseiller(null); }
+
+  // ─── Chargement (silent=true → pas de spinner, pour sync auto) ──
+  async function loadData(attempt=1, silent=false){
+    if(!silent) setLoading(true);
+    setError(null);
     try{
       const res=await Promise.race([fetch(`${GS_URL}?action=getAll&year=${annee}`),new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')),12000))]);
       const data=await res.json();
@@ -181,22 +245,49 @@ function App(){
       }
       if(data.visibility)setVisibility(v=>({...v,...data.visibility}));
       if(data.conseiller_colors)applyColors(data.conseiller_colors);
+      setLastSync(new Date());
       setSeenIds(prev=>{if(prev.size===0)return new Set(incoming.map(e=>e._id));const nouvs=incoming.filter(e=>!prev.has(e._id));if(nouvs.length>0)setNewEntries(n=>[...nouvs,...n]);return new Set(incoming.map(e=>e._id));});
       setLoading(false);
     }catch(err){
-      if(err.message==='timeout'&&attempt<3){setTimeout(()=>loadData(attempt+1),2000);}
+      if(err.message==='timeout'&&attempt<3){setTimeout(()=>loadData(attempt+1,silent),2000);}
       else{setError(attempt>1?'Google Sheets ne répond pas après 3 tentatives.':'Impossible de charger : '+err.message);setLoading(false);}
     }
   }
 
   const isFirstLoad=React.useRef(true);
+
+  // Online / offline
+  React.useEffect(()=>{
+    const on=()=>setOnline(true);
+    const off=()=>setOnline(false);
+    window.addEventListener('online',on);
+    window.addEventListener('offline',off);
+    return()=>{ window.removeEventListener('online',on); window.removeEventListener('offline',off); };
+  },[]);
+
   React.useEffect(()=>{loadCommunes47().catch(()=>{});},[]);
+
+  // Chargement initial + rechargement sur changement d'année
   React.useEffect(()=>{
     if(isFirstLoad.current){isFirstLoad.current=false;loadData();}
     else{setSeenIds(new Set());loadData();}
   },[annee]);
 
+  // Sync auto silencieuse toutes les 5 min
+  React.useEffect(()=>{
+    const id=setInterval(()=>loadData(1,true),5*60*1000);
+    return()=>clearInterval(id);
+  },[annee]);
+
+  // Title dynamique selon la vue
+  React.useEffect(()=>{
+    const label=view==='accueil'?'Accueil':VIEW_META_F[view]?.label||view;
+    document.title=`${label} — Ateliers Inclusion Numérique`;
+  },[view]);
+
+  // ─── Handlers ──────────────────────────────────────────────
   function handleChoixConseiller(nom){
+    localStorage.setItem('f_conseiller',nom);
     setFiltreConseiller(nom);
     setView(visibility.historique?'historique':visibility.calendrier?'calendrier':visibility.saisie?'saisie':'graphiques');
   }
@@ -211,8 +302,14 @@ function App(){
     setPrefillData({...rest});setEditingId(null);setView('saisie');
   }
 
-  // ── Vue Accueil (pleine page, pas de sidebar) ─────────────
+  // ── Vue Accueil ───────────────────────────────────────────
   if(view==='accueil'){
+    // Stats par conseiller pour le mois en cours
+    const now=new Date();
+    const moisKey=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+    const statsMois={};
+    entries.forEach(e=>{ if(e.date&&e.date.startsWith(moisKey)&&e.conseiller) statsMois[e.conseiller]=(statsMois[e.conseiller]||0)+1; });
+
     return CE('div',null,
       CE('nav',{style:{background:NAV_DEFAULT_COLOR}},
         CE('span',{className:'logo'},'🖥️ Ateliers Inclusion Numérique'),
@@ -223,7 +320,21 @@ function App(){
       CE('div',{className:'main'},
         error
           ? CE('div',{className:'error-box'},CE('strong',null,'❌ Impossible de charger'),CE('span',null,error),CE('button',{className:'btn btn-primary',onClick:loadData},'🔄 Réessayer'))
-          : CE(VueAccueil,{conseillers:lists.conseillers,onChoix:handleChoixConseiller,loading})
+          : CE('div',null,
+              // Chips stats ce mois — s'affichent une fois les données chargées
+              !loading&&entries.length>0&&CE('div',{className:'accueil-stats'},
+                lists.conseillers.map(c=>{
+                  const n=statsMois[c]||0;
+                  const color=conseillerColor(c);
+                  return CE('div',{key:c,className:'accueil-stat-chip',style:{background:color+'12',border:`1px solid ${color}30`,color}},
+                    CE('span',{style:{fontWeight:700}},c.split(' ')[0]),
+                    CE('span',{className:'accueil-stat-count',style:{background:color}},n),
+                    CE('span',{style:{fontSize:10,color:'#9ca3af'}},'ce mois')
+                  );
+                })
+              ),
+              CE(VueAccueil,{conseillers:lists.conseillers,onChoix:handleChoixConseiller,loading})
+            )
       ),
       CE('div',{id:'toast',className:'toast',style:{opacity:0}})
     );
@@ -243,25 +354,21 @@ function App(){
       CE('div',{className:'sidebar-logo'},'🖥️'),
       entries.length>0&&CE('span',{className:'sidebar-count'},entries.length),
 
-      // Groupe : Action
       CE('div',{className:'sidebar-sep'}),
       CE('span',{className:'sidebar-group-label'},'Action'),
       sideBtn('saisie','✏️','Saisie',visibility.saisie),
 
-      // Groupe : Voir
       CE('div',{className:'sidebar-sep'}),
       CE('span',{className:'sidebar-group-label'},'Voir'),
       sideBtn('historique','📋','Historique',visibility.historique),
       sideBtn('calendrier','📅','Calendrier',visibility.calendrier),
       sideBtn('carte','🗺️','Carte',visibility.carte),
 
-      // Groupe : Stats
       CE('div',{className:'sidebar-sep'}),
       CE('span',{className:'sidebar-group-label'},'Stats'),
       sideBtn('graphiques','📊','Statistiques',visibility.graphiques),
       sideBtn('bingo','🎯','Bingo',visibility.bingo),
 
-      // Bas
       CE('div',{className:'sidebar-bottom'},
         CE('select',{className:'sidebar-year',value:annee,onChange:e=>setAnnee(e.target.value),title:'Année chargée'},
           [String(new Date().getFullYear()-1),String(new Date().getFullYear()),String(new Date().getFullYear()+1)].map(y=>CE('option',{key:y,value:y},y))
@@ -271,10 +378,11 @@ function App(){
           title:`${newEntries.length} nouveaux ateliers`,
           onClick:()=>{setView('historique');window._filterNewEntries&&window._filterNewEntries(newEntries.map(e=>e._id));setNewEntries([]);}
         }, CE('span',null,'🔔'), CE('span',null,newEntries.length)),
+        // Bouton Accueil — label fix (classe CSS au lieu d'inline)
         CE('button',{
           className:'sidebar-accueil-btn', title:'Retour accueil',
-          onClick:()=>setView('accueil')
-        }, CE('span',{style:{fontSize:14}},'↩'), CE('span',{style:{fontSize:11,fontWeight:700,marginLeft:4,overflow:'hidden',maxWidth:0,opacity:0,transition:'max-width .28s, opacity .18s .06s',whiteSpace:'nowrap'}},'Accueil'))
+          onClick:()=>{ resetConseiller(); setView('accueil'); }
+        }, CE('span',null,'↩'), CE('span',{className:'sidebar-accueil-lbl'},'Accueil'))
       )
     ),
 
@@ -284,6 +392,12 @@ function App(){
         CE('span',{className:'app-topbar-title'},meta.label),
         meta.group&&CE('span',{className:'app-topbar-sub'},'— '+meta.group),
         CE('div',{className:'app-topbar-right'},
+          // Badge hors ligne
+          !online&&CE('span',{className:'offline-badge'},'📡 Hors ligne'),
+          // Timestamp dernière sync (masqué pendant le chargement)
+          !loading&&lastSync&&CE('span',{className:'topbar-sync-info',title:'Sync auto toutes les 5 min'},
+            '🔄 ',lastSync.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})
+          ),
           loading&&CE('span',{style:{fontSize:11,color:'#9ca3af',display:'flex',alignItems:'center',gap:4}},
             CE('span',{className:'spinner',style:{borderTopColor:'#1e3a8a',borderColor:'#e2e8f0'}}), 'Chargement…'),
           filtreConseiller&&CE('span',{className:'app-topbar-conseiller',style:{background:accentColor}},filtreConseiller)
@@ -292,10 +406,14 @@ function App(){
 
       CE('div',{className:'app-main'},
         error&&CE('div',{className:'error-box'},CE('strong',null,'❌ Impossible de charger'),CE('span',null,error),CE('button',{className:'btn btn-primary',onClick:loadData},'🔄 Réessayer')),
+        // Skeleton loader — remplace le vide pendant le premier chargement
+        loading&&!error&&CE('div',null,
+          [1,2,3].map(i=>CE('div',{key:i,className:'skeleton skeleton-card'}))
+        ),
         !loading&&!error&&CE('div',null,
           view==='saisie'&&visibility.saisie&&CE(VueSaisie,{entries,onSaved:handleSaved,onNewEntry:e=>{setNewEntries(n=>[e,...n]);setSeenIds(s=>{const ns=new Set(s);ns.add(e._id);return ns;});},lists,editingId,onClearEdit:()=>setEditingId(null),prefillData,onClearPrefill:()=>setPrefillData(null),accentColor:conseillerColor(filtreConseiller||'')}),
-          view==='historique'&&visibility.historique&&CE(VueHistorique,{entries,onEdit:handleEdit,onDelete:handleDelete,onRefresh:loadData,onDuplicate:handleDuplicate,initConseiller:filtreConseiller,onResetConseiller:()=>setFiltreConseiller(null),canDelete:true}),
-          view==='calendrier'&&visibility.calendrier&&CE(VueCalendrier,{entries,onEdit:handleEdit,onDelete:handleDelete,onRefresh:loadData,onDuplicate:handleDuplicate,initConseiller:filtreConseiller,onResetConseiller:()=>setFiltreConseiller(null),canDelete:true}),
+          view==='historique'&&visibility.historique&&CE(VueHistorique,{entries,onEdit:handleEdit,onDelete:handleDelete,onRefresh:loadData,onDuplicate:handleDuplicate,initConseiller:filtreConseiller,onResetConseiller:resetConseiller,canDelete:true}),
+          view==='calendrier'&&visibility.calendrier&&CE(VueCalendrier,{entries,onEdit:handleEdit,onDelete:handleDelete,onRefresh:loadData,onDuplicate:handleDuplicate,initConseiller:filtreConseiller,onResetConseiller:resetConseiller,canDelete:true}),
           view==='graphiques'&&visibility.graphiques&&CE(VueGraphiques,{entries}),
           view==='carte'&&visibility.carte&&CE(VueCarte,{entries,active:view==='carte'}),
           view==='bingo'&&visibility.bingo&&CE(VueBingo,{entries})
