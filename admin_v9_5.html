@@ -700,12 +700,11 @@ nav { display: none !important; }
 <div id="root"></div>
 <script>
 // ── Login admin via GAS (v9.4 — hash supprimé du client) ──
-function AdminLogin({onLogin}){
+function AdminLogin({onLogin,savedName,onResetProfil}){
   const[pwd,setPwd]=React.useState('');
   const[err,setErr]=React.useState('');
   const[loading,setLoading]=React.useState(false);
   const[hint,setHint]=React.useState('');
-
   const[show,setShow]=React.useState(false);
 
   async function handleSubmit(){
@@ -730,6 +729,10 @@ function AdminLogin({onLogin}){
   return CE('div',{className:'login-wrap'},
     CE('div',{className:'login-card'},
       CE('h2',null,'🔐 Accès Admin'),
+      savedName&&savedName!=='admin'&&CE('div',{style:{background:'#eff6ff',border:'1px solid #bfdbfe',borderRadius:8,padding:'8px 12px',marginBottom:12,display:'flex',alignItems:'center',justifyContent:'space-between',fontSize:12}},
+        CE('span',{style:{color:'#1e3a8a',fontWeight:700}},'👤 Connecté en tant que : '+savedName),
+        CE('button',{onClick:onResetProfil,style:{background:'none',border:'none',color:'#9ca3af',cursor:'pointer',fontSize:11,textDecoration:'underline'}},'Changer')
+      ),
       CE('div',{style:{position:'relative',marginBottom:10}},
         CE('input',{
           type:show?'text':'password',placeholder:'Mot de passe',value:pwd,
@@ -892,7 +895,15 @@ function App(){
     setEmails(newEmails);
   }
 
-  if(!auth)return CE(AdminLogin,{onLogin:()=>setAuth(true)});
+  // v9.5 : compteurs par statut — doit être AVANT les early returns (Rules of Hooks)
+  const STATUS_PALETTE={'Planifié':'#9683EC','Réalisé':'#70AD47','Annulé':'#FF5050','Non réalisé':'#FFC000','Reporté':'#ED7D31'};
+  const statusCounts=React.useMemo(()=>{
+    const c={};
+    entries.forEach(e=>{const s=e.statut||'?';c[s]=(c[s]||0)+1;});
+    return Object.entries(STATUS_PALETTE).filter(([s])=>c[s]>0).map(([s,color])=>({s,v:c[s],color}));
+  },[entries]);
+
+  if(!auth)return CE(AdminLogin,{onLogin:()=>setAuth(true),savedName:adminConseiller,onResetProfil:()=>{localStorage.removeItem('adm_conseiller');setAdminConseiller('');}})
 
   if(!adminConseiller)return CE('div',{className:'login-wrap'},
     CE('div',{className:'login-card'},
@@ -913,14 +924,6 @@ function App(){
           )
     )
   );
-
-  // v9.5 : compteurs par statut pour le topbar
-  const STATUS_PALETTE={'Planifié':'#9683EC','Réalisé':'#70AD47','Annulé':'#FF5050','Non réalisé':'#FFC000','Reporté':'#ED7D31'};
-  const statusCounts=React.useMemo(()=>{
-    const c={};
-    entries.forEach(e=>{const s=e.statut||'?';c[s]=(c[s]||0)+1;});
-    return Object.entries(STATUS_PALETTE).filter(([s])=>c[s]>0).map(([s,color])=>({s,v:c[s],color}));
-  },[entries]);
 
   const sideBtn=(v,ico,lbl,extraClass)=>CE('button',{
     key:v,
