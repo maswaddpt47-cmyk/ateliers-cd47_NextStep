@@ -452,7 +452,7 @@ function VueListes({lists,onSave,onClose,emails,onSaveEmails}){
   const[editIdx,setEditIdx]=React.useState(null);
   const[editVal,setEditVal]=React.useState('');
   const[emailDraft,setEmailDraft]=React.useState(()=>Object.assign({},emails||{}));
-  const[rappelsActif,setRappelsActif]=React.useState(true);
+  const[rappelsActif,setRappelsActif]=React.useState({});
   const[rappelsSaving,setRappelsSaving]=React.useState(false);
 
   const items=draft[activeTab];
@@ -479,11 +479,11 @@ function VueListes({lists,onSave,onClose,emails,onSaveEmails}){
   }
   React.useEffect(()=>{function k(e){if(e.key==='Escape')onClose();}document.addEventListener('keydown',k);return()=>document.removeEventListener('keydown',k);},[]);
   React.useEffect(()=>{setNewVal('');setEditIdx(null);},[activeTab]);
-  React.useEffect(()=>{apiFetch('getConfig').then(res=>{if(res.ok&&res.config)setRappelsActif(String(res.config['rappels_actifs'])!=='false');}).catch(()=>{});},[]);
+  React.useEffect(()=>{apiFetch('getConfig').then(res=>{if(res.ok&&res.config){try{setRappelsActif(JSON.parse(res.config['rappels_actifs']||'{}'));}catch(_){setRappelsActif({});}}}).catch(()=>{});},[]);
 
-  async function handleSaveRappels(val){
+  async function handleSaveRappels(newObj){
     setRappelsSaving(true);
-    try{const res=await apiFetch('setConfig',{key:'rappels_actifs',value:String(val)});if(res&&res.ok){setRappelsActif(val);showToast(val?'✅ Rappels activés':'🔕 Rappels désactivés');}else throw new Error(res.error);}
+    try{const res=await apiFetch('setConfig',{key:'rappels_actifs',value:JSON.stringify(newObj)});if(res&&res.ok){setRappelsActif(newObj);}else throw new Error(res.error);}
     catch(err){showToast('❌ '+err.message,false);}
     finally{setRappelsSaving(false);}
   }
@@ -496,15 +496,18 @@ function VueListes({lists,onSave,onClose,emails,onSaveEmails}){
       ),
       CE('div',{className:'listes-tabs'},TABS.map(t=>CE('div',{key:t.key,className:'listes-tab'+(activeTab===t.key?' active':''),onClick:()=>setActiveTab(t.key)},t.label,CE('span',{className:'tab-count'},draft[t.key].length)))),
       CE('div',{className:'listes-body'},
-        activeTab==='conseillers'&&CE('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'10px 14px',marginBottom:10,background:'#f0fdf4',border:'1.5px solid #bbf7d0',borderRadius:8}},
-          CE('div',null,
-            CE('div',{style:{fontSize:13,fontWeight:700,color:'#166534'}},rappelsActif?'✅ Rappels email activés':'🔕 Rappels email désactivés'),
-            CE('div',{style:{fontSize:11,color:'#4a5568'}},rappelsActif?'Un mail de rappel est envoyé chaque matin à 7h':'Aucun mail automatique ne sera envoyé')
-          ),
-          CE('label',{className:'tgl'},
-            CE('input',{type:'checkbox',checked:rappelsActif,disabled:rappelsSaving,onChange:e=>handleSaveRappels(e.target.checked)}),
-            CE('span',{className:'tgl-track'})
-          )
+        activeTab==='conseillers'&&CE('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'8px 14px',marginBottom:8,background:'#f8fafc',border:'1.5px solid #e2e8f0',borderRadius:8}},
+          CE('span',{style:{fontSize:12,fontWeight:700,color:'#4a5568'}},'📧 Rappels email'),
+          CE('button',{
+            style:{fontSize:11,padding:'4px 10px',borderRadius:6,border:'1.5px solid #cbd5e0',background:'#fff',cursor:'pointer',color:'#4a5568'},
+            disabled:rappelsSaving,
+            onClick:()=>{
+              const allOn=draft.conseillers.every(c=>rappelsActif[c]!==false);
+              const newObj={};
+              draft.conseillers.forEach(c=>newObj[c]=allOn?false:true);
+              handleSaveRappels(newObj);
+            }
+          },draft.conseillers.every(c=>rappelsActif[c]!==false)?'🔕 Tout désactiver':'✅ Tout activer')
         ),
         items.map((item,i)=>CE('div',{key:i,className:'listes-item',style:{flexWrap:'wrap'}},
           CE('div',{className:'listes-arrows'},
@@ -515,15 +518,22 @@ function VueListes({lists,onSave,onClose,emails,onSaveEmails}){
           editIdx===i
             ?CE('div',{className:'listes-name'},CE('input',{autoFocus:true,value:editVal,onChange:e=>setEditVal(e.target.value),onKeyDown:e=>{if(e.key==='Enter')saveEdit(i);if(e.key==='Escape')setEditIdx(null);}}))
             :CE('div',{className:'listes-name'},item),
-          // Champ email inline uniquement pour l'onglet Conseillers
-          activeTab==='conseillers'&&CE('input',{
-            type:'email',
-            placeholder:'email@exemple.com',
-            value:emailDraft[item]||'',
-            onChange:e=>setEmailDraft(d=>({...d,[item]:e.target.value})),
-            title:'Email pour les rappels automatiques',
-            style:{flex:'1 1 160px',minWidth:0,padding:'5px 8px',border:'1.5px solid #bee3f8',borderRadius:6,fontSize:12,color:'#2a69ac',background:'#ebf8ff'}
-          }),
+          // Champ email + toggle rappel inline pour l'onglet Conseillers
+          activeTab==='conseillers'&&CE(React.Fragment,null,
+            CE('input',{
+              type:'email',
+              placeholder:'email@exemple.com',
+              value:emailDraft[item]||'',
+              onChange:e=>setEmailDraft(d=>({...d,[item]:e.target.value})),
+              title:'Email pour les rappels automatiques',
+              style:{flex:'1 1 140px',minWidth:0,padding:'5px 8px',border:'1.5px solid #bee3f8',borderRadius:6,fontSize:12,color:'#2a69ac',background:'#ebf8ff'}
+            }),
+            CE('label',{className:'tgl',title:rappelsActif[item]!==false?'Rappels activés — cliquer pour désactiver':'Rappels désactivés — cliquer pour activer',style:{flexShrink:0}},
+              CE('input',{type:'checkbox',checked:rappelsActif[item]!==false,disabled:rappelsSaving,
+                onChange:e=>{const n={...rappelsActif,[item]:e.target.checked};handleSaveRappels(n);}}),
+              CE('span',{className:'tgl-track'})
+            )
+          ),
           CE('div',{className:'listes-actions'},
             editIdx===i
               ?CE('button',{className:'btn btn-primary btn-sm',onClick:()=>saveEdit(i)},'✓ OK')
