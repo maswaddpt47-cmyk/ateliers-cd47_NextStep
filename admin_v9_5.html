@@ -1031,7 +1031,10 @@ function App(){
       ),
 
       CE('div',{className:'app-main'},
-        loading&&CE('div',{className:'loading-full'},CE('div',{className:'big-spin'}),CE('span',null,'Chargement…')),
+        loading&&CE('div',{style:{display:'flex',alignItems:'center',justifyContent:'center',flexDirection:'column',gap:16,height:260,color:'#9ca3af'}},
+          CE('span',{className:'spinner',style:{width:32,height:32,borderWidth:3,borderTopColor:accentColor,borderColor:accentColor+'33'}}),
+          CE('span',{style:{fontSize:13,fontWeight:600}},'Chargement des données…')
+        ),
         error&&CE('div',{className:'error-box'},CE('strong',null,'❌ Impossible de charger'),CE('span',null,error),CE('button',{className:'btn btn-primary',onClick:loadData},'🔄 Réessayer')),
         !loading&&!error&&CE('div',null,
           view==='saisie'&&CE(VueSaisie,{entries,onSaved:handleSaved,onNewEntry:e=>{setNewEntries(n=>[e,...n]);setSeenIds(s=>{const ns=new Set(s);ns.add(e._id);return ns;});},lists,editingId,onClearEdit:()=>setEditingId(null),prefillData,onClearPrefill:()=>setPrefillData(null),accentColor:conseillerColor(adminConseiller)}),
