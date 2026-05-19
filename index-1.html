@@ -223,33 +223,34 @@ var VIEW_META_F = {
 };
 
 function App(){
-  // Vue initiale : si un conseiller est mémorisé on passe directement à historique
-  const[view,setView]             = React.useState(()=>localStorage.getItem('f_conseiller')?'historique':'accueil');
-  const[entries,setEntries]       = React.useState([]);
-  const[loading,setLoading]       = React.useState(true);
-  const[error,setError]           = React.useState(null);
-  const[newEntries,setNewEntries]  = React.useState([]);
-  const[seenIds,setSeenIds]       = React.useState(new Set());
-  // Conseiller persisté en localStorage
+  // Vue initiale : si un conseiller est mémorisé, on passe directement à historique
+  const[view,setView]              = React.useState(()=>localStorage.getItem('f_conseiller')?'historique':'accueil');
+  const[entries,setEntries]        = React.useState([]);
+  const[loading,setLoading]        = React.useState(true);
+  const[error,setError]            = React.useState(null);
+  const[newEntries,setNewEntries]   = React.useState([]);
+  const[seenIds,setSeenIds]        = React.useState(new Set());
+  // Conseiller persisté en localStorage — identité de l'utilisateur
   const[filtreConseiller,setFiltreConseiller] = React.useState(()=>localStorage.getItem('f_conseiller')||null);
-  const[editingId,setEditingId]   = React.useState(null);
+  const[editingId,setEditingId]    = React.useState(null);
   const[prefillData,setPrefillData] = React.useState(null);
   // Année persistée en localStorage
-  const[annee,setAnneeState]      = React.useState(()=>localStorage.getItem('f_annee')||String(new Date().getFullYear()));
-  const[visibility,setVisibility]  = React.useState({saisie:true,historique:true,graphiques:true,carte:true,bingo:true,calendrier:false});
-  const[lists,setLists]           = React.useState({
+  const[annee,setAnneeState]       = React.useState(()=>localStorage.getItem('f_annee')||String(new Date().getFullYear()));
+  const[visibility,setVisibility]   = React.useState({saisie:true,historique:true,graphiques:true,carte:true,bingo:true,calendrier:false});
+  const[lists,setLists]            = React.useState({
     statuts:[...STATUTS_DEFAULT],conseillers:[...CONSEILLERS_DEFAULT],
     publics:[...PUBLICS_DEFAULT],materiels:[...MATERIELS_DEFAULT]
   });
-  const[lastSync,setLastSync]     = React.useState(null);
-  const[online,setOnline]         = React.useState(navigator.onLine);
-  const[showPicker,setShowPicker]  = React.useState(false);
+  const[lastSync,setLastSync]      = React.useState(null);
+  const[online,setOnline]          = React.useState(navigator.onLine);
+  const[showPicker,setShowPicker]   = React.useState(false);
 
   // ── Helpers ───────────────────────────────────────────────────
   function setAnnee(v){ localStorage.setItem('f_annee',v); setAnneeState(v); }
+  // resetConseiller : uniquement appelé par "Retour accueil"
   function resetConseiller(){ localStorage.removeItem('f_conseiller'); setFiltreConseiller(null); }
 
-  // ── Chargement ────────────────────────────────────────────────
+  // ── Chargement (silent=true → pas de spinner pour la sync auto) ──
   async function loadData(attempt=1, silent=false){
     if(!silent) setLoading(true);
     setError(null);
@@ -419,6 +420,7 @@ function App(){
           title:`${newEntries.length} nouveaux ateliers`,
           onClick:()=>{setView('historique');window._filterNewEntries&&window._filterNewEntries(newEntries.map(e=>e._id));setNewEntries([]);}
         }, CE('span',null,'🔔'), CE('span',null,newEntries.length)),
+        // Retour accueil = seul endroit qui efface l'identité
         CE('button',{
           className:'sidebar-accueil-btn', title:'Retour accueil',
           onClick:()=>{ resetConseiller(); setView('accueil'); }
@@ -438,7 +440,7 @@ function App(){
           ),
           loading&&CE('span',{style:{fontSize:11,color:'#9ca3af',display:'flex',alignItems:'center',gap:4}},
             CE('span',{className:'spinner',style:{borderTopColor:'#1e3a8a',borderColor:'#e2e8f0'}}), 'Chargement…'),
-          // Badge conseiller cliquable — picker de switch intégré
+          // Badge conseiller cliquable — picker de switch
           filtreConseiller&&CE('div',{style:{position:'relative'},onMouseDown:e=>e.stopPropagation()},
             CE('button',{
               className:'app-topbar-conseiller',
@@ -471,8 +473,10 @@ function App(){
         ),
         !loading&&!error&&CE('div',null,
           view==='saisie'&&visibility.saisie&&CE(VueSaisie,{entries,onSaved:handleSaved,onNewEntry:e=>{setNewEntries(n=>[e,...n]);setSeenIds(s=>{const ns=new Set(s);ns.add(e._id);return ns;});},lists,editingId,onClearEdit:()=>setEditingId(null),prefillData,onClearPrefill:()=>setPrefillData(null),accentColor:conseillerColor(filtreConseiller||'')}),
-          view==='historique'&&visibility.historique&&CE(VueHistorique,{entries,onEdit:handleEdit,onDelete:handleDelete,onRefresh:loadData,onDuplicate:handleDuplicate,initConseiller:filtreConseiller,onResetConseiller:resetConseiller,canDelete:true}),
-          view==='calendrier'&&visibility.calendrier&&CE(VueCalendrier,{entries,onEdit:handleEdit,onDelete:handleDelete,onRefresh:loadData,onDuplicate:handleDuplicate,initConseiller:filtreConseiller,onResetConseiller:resetConseiller,canDelete:true}),
+          // onResetConseiller = no-op : "Réinitialiser" remet les filtres internes
+          // mais NE touche PAS à l'identité topbar/sidebar
+          view==='historique'&&visibility.historique&&CE(VueHistorique,{entries,onEdit:handleEdit,onDelete:handleDelete,onRefresh:loadData,onDuplicate:handleDuplicate,initConseiller:filtreConseiller,onResetConseiller:()=>{},canDelete:true}),
+          view==='calendrier'&&visibility.calendrier&&CE(VueCalendrier,{entries,onEdit:handleEdit,onDelete:handleDelete,onRefresh:loadData,onDuplicate:handleDuplicate,initConseiller:filtreConseiller,onResetConseiller:()=>{},canDelete:true}),
           view==='graphiques'&&visibility.graphiques&&CE(VueGraphiques,{entries}),
           view==='carte'&&visibility.carte&&CE(VueCarte,{entries,active:view==='carte'}),
           view==='bingo'&&visibility.bingo&&CE(VueBingo,{entries})
