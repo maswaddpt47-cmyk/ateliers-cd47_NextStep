@@ -96,9 +96,9 @@ tr:hover td{background:#f7fafc}
 .listes-tabs{display:flex;border-bottom:2px solid #e2e8f0;padding:0 22px;background:#f8fafc;flex-shrink:0;overflow-x:auto}
 .listes-tab{padding:10px 14px;font-size:13px;font-weight:600;color:#718096;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;white-space:nowrap;transition:all .15s}
 .listes-tab:hover{color:#1e3a8a}
-.listes-tab.active{color:#1e3a8a;border-bottom-color:#1e3a8a}
+.listes-tab.active{color:#fff;background:#1e3a8a;border-bottom-color:#1e3a8a;border-radius:6px 6px 0 0}
 .listes-tab .tab-count{display:inline-block;background:#e2e8f0;color:#4a5568;font-size:10px;font-weight:700;padding:1px 5px;border-radius:10px;margin-left:5px}
-.listes-tab.active .tab-count{background:#1e3a8a22;color:#1e3a8a}
+.listes-tab.active .tab-count{background:rgba(255,255,255,.25);color:#fff}
 .listes-body{flex:1;overflow-y:auto;padding:16px 22px}
 .listes-item{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:8px;border:1px solid #e2e8f0;margin-bottom:7px;background:#fff;transition:box-shadow .15s}
 .listes-item:hover{box-shadow:0 2px 8px rgba(0,0,0,.08)}
@@ -452,6 +452,8 @@ function VueListes({lists,onSave,onClose,emails,onSaveEmails}){
   const[editIdx,setEditIdx]=React.useState(null);
   const[editVal,setEditVal]=React.useState('');
   const[emailDraft,setEmailDraft]=React.useState(()=>Object.assign({},emails||{}));
+  const[rappelsActif,setRappelsActif]=React.useState(true);
+  const[rappelsSaving,setRappelsSaving]=React.useState(false);
 
   const items=draft[activeTab];
   function setItems(fn){setDraft(d=>({...d,[activeTab]:fn(d[activeTab])}));setEditIdx(null);}
@@ -477,7 +479,14 @@ function VueListes({lists,onSave,onClose,emails,onSaveEmails}){
   }
   React.useEffect(()=>{function k(e){if(e.key==='Escape')onClose();}document.addEventListener('keydown',k);return()=>document.removeEventListener('keydown',k);},[]);
   React.useEffect(()=>{setNewVal('');setEditIdx(null);},[activeTab]);
+  React.useEffect(()=>{apiFetch('getConfig').then(res=>{if(res.ok&&res.config)setRappelsActif(String(res.config['rappels_actifs'])!=='false');}).catch(()=>{});},[]);
 
+  async function handleSaveRappels(val){
+    setRappelsSaving(true);
+    try{const res=await apiFetch('setConfig',{key:'rappels_actifs',value:String(val)});if(res&&res.ok){setRappelsActif(val);showToast(val?'✅ Rappels activés':'🔕 Rappels désactivés');}else throw new Error(res.error);}
+    catch(err){showToast('❌ '+err.message,false);}
+    finally{setRappelsSaving(false);}
+  }
   return CE('div',{className:'listes-overlay',onClick:e=>{if(e.target.className==='listes-overlay')onClose();}},
     CE('div',{className:'listes-modal'},
       CE('div',{className:'listes-header'},
@@ -487,6 +496,16 @@ function VueListes({lists,onSave,onClose,emails,onSaveEmails}){
       ),
       CE('div',{className:'listes-tabs'},TABS.map(t=>CE('div',{key:t.key,className:'listes-tab'+(activeTab===t.key?' active':''),onClick:()=>setActiveTab(t.key)},t.label,CE('span',{className:'tab-count'},draft[t.key].length)))),
       CE('div',{className:'listes-body'},
+        activeTab==='conseillers'&&CE('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'10px 14px',marginBottom:10,background:'#f0fdf4',border:'1.5px solid #bbf7d0',borderRadius:8}},
+          CE('div',null,
+            CE('div',{style:{fontSize:13,fontWeight:700,color:'#166534'}},rappelsActif?'✅ Rappels email activés':'🔕 Rappels email désactivés'),
+            CE('div',{style:{fontSize:11,color:'#4a5568'}},rappelsActif?'Un mail de rappel est envoyé chaque matin à 7h':'Aucun mail automatique ne sera envoyé')
+          ),
+          CE('label',{className:'tgl'},
+            CE('input',{type:'checkbox',checked:rappelsActif,disabled:rappelsSaving,onChange:e=>handleSaveRappels(e.target.checked)}),
+            CE('span',{className:'tgl-track'})
+          )
+        ),
         items.map((item,i)=>CE('div',{key:i,className:'listes-item',style:{flexWrap:'wrap'}},
           CE('div',{className:'listes-arrows'},
             CE('button',{onClick:()=>moveUp(i),disabled:i===0,title:'Monter'},'▲'),
@@ -1555,8 +1574,6 @@ function VueAdmin({entries,onRefresh,addLog,conseillersList,onSaveColors}){
   const[resetStep,setResetStep]=React.useState(0);
   const[visibility,setVisibility]=React.useState(null);
   const[visSaving,setVisSaving]=React.useState(false);
-  const[rappelsActif,setRappelsActif]=React.useState(true);
-  const[rappelsSaving,setRappelsSaving]=React.useState(false);
   const[importing,setImporting]=React.useState(false);
   const[colorDraft,setColorDraft]=React.useState({...CONSEILLER_COLORS});
   const[colorSaving,setColorSaving]=React.useState(false);
@@ -1588,12 +1605,6 @@ function VueAdmin({entries,onRefresh,addLog,conseillersList,onSaveColors}){
     finally{setColorSaving(false);}
   }
 
-  async function handleSaveRappels(val){
-    setRappelsSaving(true);
-    try{const res=await apiFetch('setConfig',{key:'rappels_actifs',value:String(val)});if(res&&res.ok){setRappelsActif(val);showToast(val?'✅ Rappels activés':'🔕 Rappels désactivés');}else throw new Error(res.error);}
-    catch(err){showToast('❌ '+err.message,false);}
-    finally{setRappelsSaving(false);}
-  }
   async function handleSaveVisibility(){
     setVisSaving(true);
     try{const res=await apiFetch('saveVisibility',{visibility:JSON.stringify(visibility)});if(res.ok){showToast('✅ Visibilité sauvegardée');addLog('Visibilité frontend mise à jour','ok');}else throw new Error(res.error);}
@@ -1708,20 +1719,6 @@ function VueAdmin({entries,onRefresh,addLog,conseillersList,onSaveColors}){
         })
       ),
       CE('button',{className:'btn btn-primary',style:{marginTop:16},onClick:handleSaveColors,disabled:colorSaving},colorSaving?'…':'💾 Sauvegarder les couleurs')
-    ),
-    CE('div',{className:'admin-section'},
-      CE('h3',null,'📧 Rappels email automatiques'),
-      CE('p',{style:{fontSize:12,color:'#4a5568',marginBottom:12}},'Envoi automatique chaque matin à 7h aux conseillers ayant des ateliers non clôturés.'),
-      CE('div',{className:'toggle-row'},
-        CE('div',null,
-          CE('div',{className:'toggle-label'},rappelsActif?'✅ Rappels activés':'🔕 Rappels désactivés'),
-          CE('div',{className:'toggle-sub'},rappelsActif?'Les conseillers reçoivent un mail quotidien':'Aucun mail de rappel ne sera envoyé')
-        ),
-        CE('label',{className:'tgl'},
-          CE('input',{type:'checkbox',checked:rappelsActif,disabled:rappelsSaving,onChange:e=>handleSaveRappels(e.target.checked)}),
-          CE('span',{className:'tgl-track'})
-        )
-      )
     ),
     visibility&&CE('div',{className:'admin-section'},
       CE('h3',null,'👁️ Visibilité — Frontend conseillers'),
