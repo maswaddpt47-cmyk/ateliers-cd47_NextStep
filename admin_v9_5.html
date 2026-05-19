@@ -216,40 +216,8 @@
     const MOIS=['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
     const moisInvalid=moisDeb>moisFin;
 
-    // ── v9.5 : Export CSV ──────────────────────────────────────
-    function exportCSV(){
-      const cols=['date','horaire','ampm','statut','conseiller','orienteur','commune','lieu','thematique','inscrits','presents','public','materiel','residence','remarques'];
-      const header=cols.join(';');
-      const rows=(entries||[]).map(e=>cols.map(c=>{
-        const v=c==='materiel'?(Array.isArray(e.materiel)?e.materiel.join(', '):''):String(e[c]===undefined||e[c]===null?'':e[c]);
-        return'"'+v.replace(/"/g,'""')+'"';
-      }).join(';'));
-      const csv='\uFEFF'+[header,...rows].join('\r\n');
-      const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
-      const url=URL.createObjectURL(blob);
-      const a=document.createElement('a');
-      a.href=url;a.download=`ateliers_${annee}_export_${new Date().toISOString().slice(0,10)}.csv`;
-      document.body.appendChild(a);a.click();document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    }
-
     return CE(React.Fragment,null,
       CE(_VueAdmin_orig,props),
-
-      // ── Section CSV ────────────────────────────────────────
-      CE('div',{className:'admin-section'},
-        CE('h3',null,'📊 Export CSV brut'),
-        CE('p',{style:{fontSize:12,color:'#4a5568',marginBottom:14}},'Exporte toutes les données de l\'année en cours au format CSV — compatible Excel, LibreOffice.'),
-        CE('div',{style:{display:'flex',gap:10,alignItems:'center',flexWrap:'wrap'}},
-          CE('button',{
-            className:'btn btn-primary',
-            disabled:!entries||entries.length===0,
-            onClick:exportCSV
-          },'⬇️ Télécharger CSV'),
-          entries&&entries.length>0&&CE('span',{style:{fontSize:12,color:'#718096'}},
-            `${entries.length} atelier${entries.length!==1?'s':''} · année ${annee}`)
-        )
-      ),
 
       CE('div',{className:'admin-section'},
         CE('h3',null,'📅 Export Timeline Ateliers'),
@@ -1007,14 +975,6 @@ function App(){
         CE('span',{className:'app-topbar-title'},meta.label),
         meta.group&&CE('span',{className:'app-topbar-sub'},'— '+meta.group),
         CE('div',{className:'app-topbar-right'},
-          // v9.5 : badges statuts
-          !loading&&statusCounts.length>0&&CE('div',{className:'topbar-status-badges'},
-            statusCounts.map(({s,v,color})=>CE('span',{
-              key:s,className:'status-badge',
-              style:{background:color+'22',color,border:`1px solid ${color}55`},
-              title:s
-            },v+' '+s.slice(0,2+(s==='Non réalisé'?4:0))))
-          ),
           // v9.5 : animation sync en arrière-plan
           syncing&&!loading&&CE('span',{className:'topbar-syncing',title:'Synchronisation en cours'},'🔄 Sync'),
           lastSync&&!syncing&&CE('span',{
