@@ -223,18 +223,15 @@ var VIEW_META_F = {
 };
 
 function App(){
-  // Vue initiale : si un conseiller est mémorisé, on passe directement à historique
   const[view,setView]              = React.useState(()=>localStorage.getItem('f_conseiller')?'historique':'accueil');
   const[entries,setEntries]        = React.useState([]);
   const[loading,setLoading]        = React.useState(true);
   const[error,setError]            = React.useState(null);
   const[newEntries,setNewEntries]   = React.useState([]);
   const[seenIds,setSeenIds]        = React.useState(new Set());
-  // Conseiller persisté en localStorage — identité de l'utilisateur
   const[filtreConseiller,setFiltreConseiller] = React.useState(()=>localStorage.getItem('f_conseiller')||null);
   const[editingId,setEditingId]    = React.useState(null);
   const[prefillData,setPrefillData] = React.useState(null);
-  // Année persistée en localStorage
   const[annee,setAnneeState]       = React.useState(()=>localStorage.getItem('f_annee')||String(new Date().getFullYear()));
   const[visibility,setVisibility]   = React.useState({saisie:true,historique:true,graphiques:true,carte:true,bingo:true,calendrier:false});
   const[lists,setLists]            = React.useState({
@@ -245,12 +242,38 @@ function App(){
   const[online,setOnline]          = React.useState(navigator.onLine);
   const[showPicker,setShowPicker]   = React.useState(false);
 
+  // Ref pour l'event delegation sur les vues avec filtre conseiller
+  const viewRef = React.useRef(null);
+
   // ── Helpers ───────────────────────────────────────────────────
   function setAnnee(v){ localStorage.setItem('f_annee',v); setAnneeState(v); }
-  // resetConseiller : uniquement appelé par "Retour accueil"
   function resetConseiller(){ localStorage.removeItem('f_conseiller'); setFiltreConseiller(null); }
 
-  // ── Chargement (silent=true → pas de spinner pour la sync auto) ──
+  // ── Sync couleur depuis les selects internes (shared.js) ──────
+  // VueHistorique/VueCalendrier gèrent leur propre state interne.
+  // On écoute les change events via event delegation : quand la valeur
+  // d'un select correspond à un conseiller connu, on met à jour l'identité.
+  React.useEffect(()=>{
+    if(!viewRef.current) return;
+    const handler = e => {
+      if(e.target.tagName !== 'SELECT') return;
+      const val = e.target.value;
+      if(lists.conseillers.includes(val)){
+        // Conseiller sélectionné dans un filtre interne → sync identité
+        localStorage.setItem('f_conseiller', val);
+        setFiltreConseiller(val);
+      } else if(!val || val === '' || val === 'all') {
+        // Filtre remis à "Tous" → on efface l'identité courante
+        // mais uniquement si c'est bien le select du filtre conseiller
+        // (on ne veut pas réinitialiser sur le select mois ou commune)
+      }
+    };
+    const el = viewRef.current;
+    el.addEventListener('change', handler);
+    return ()=> el.removeEventListener('change', handler);
+  }, [view, lists.conseillers]);
+
+  // ── Chargement ────────────────────────────────────────────────
   async function loadData(attempt=1, silent=false){
     if(!silent) setLoading(true);
     setError(null);
@@ -291,7 +314,6 @@ function App(){
 
   const isFirstLoad=React.useRef(true);
 
-  // Online / offline
   React.useEffect(()=>{
     const on=()=>setOnline(true);
     const off=()=>setOnline(false);
@@ -300,7 +322,6 @@ function App(){
     return()=>{ window.removeEventListener('online',on); window.removeEventListener('offline',off); };
   },[]);
 
-  // Fermer le picker sur clic extérieur
   React.useEffect(()=>{
     if(!showPicker)return;
     const close=()=>setShowPicker(false);
@@ -310,19 +331,16 @@ function App(){
 
   React.useEffect(()=>{loadCommunes47().catch(()=>{});},[]);
 
-  // Chargement initial + rechargement sur changement d'année
   React.useEffect(()=>{
     if(isFirstLoad.current){isFirstLoad.current=false;loadData();}
     else{setSeenIds(new Set());loadData();}
   },[annee]);
 
-  // Sync auto silencieuse toutes les 5 min
   React.useEffect(()=>{
     const id=setInterval(()=>loadData(1,true),5*60*1000);
     return()=>clearInterval(id);
   },[annee]);
 
-  // Title dynamique selon la vue
   React.useEffect(()=>{
     const label=view==='accueil'?'Accueil':VIEW_META_F[view]?.label||view;
     document.title=`${label} — Ateliers Inclusion Numérique`;
@@ -420,7 +438,6 @@ function App(){
           title:`${newEntries.length} nouveaux ateliers`,
           onClick:()=>{setView('historique');window._filterNewEntries&&window._filterNewEntries(newEntries.map(e=>e._id));setNewEntries([]);}
         }, CE('span',null,'🔔'), CE('span',null,newEntries.length)),
-        // Retour accueil = seul endroit qui efface l'identité
         CE('button',{
           className:'sidebar-accueil-btn', title:'Retour accueil',
           onClick:()=>{ resetConseiller(); setView('accueil'); }
@@ -440,7 +457,6 @@ function App(){
           ),
           loading&&CE('span',{style:{fontSize:11,color:'#9ca3af',display:'flex',alignItems:'center',gap:4}},
             CE('span',{className:'spinner',style:{borderTopColor:'#1e3a8a',borderColor:'#e2e8f0'}}), 'Chargement…'),
-          // Badge conseiller cliquable — picker de switch
           filtreConseiller&&CE('div',{style:{position:'relative'},onMouseDown:e=>e.stopPropagation()},
             CE('button',{
               className:'app-topbar-conseiller',
@@ -471,10 +487,9 @@ function App(){
         loading&&!error&&CE('div',null,
           [1,2,3].map(i=>CE('div',{key:i,className:'skeleton skeleton-card'}))
         ),
-        !loading&&!error&&CE('div',null,
+        // viewRef sur le wrapper — capte les change events des selects internes
+        !loading&&!error&&CE('div',{ref:viewRef},
           view==='saisie'&&visibility.saisie&&CE(VueSaisie,{entries,onSaved:handleSaved,onNewEntry:e=>{setNewEntries(n=>[e,...n]);setSeenIds(s=>{const ns=new Set(s);ns.add(e._id);return ns;});},lists,editingId,onClearEdit:()=>setEditingId(null),prefillData,onClearPrefill:()=>setPrefillData(null),accentColor:conseillerColor(filtreConseiller||'')}),
-          // onResetConseiller = no-op : "Réinitialiser" remet les filtres internes
-          // mais NE touche PAS à l'identité topbar/sidebar
           view==='historique'&&visibility.historique&&CE(VueHistorique,{entries,onEdit:handleEdit,onDelete:handleDelete,onRefresh:loadData,onDuplicate:handleDuplicate,initConseiller:filtreConseiller,onResetConseiller:()=>{},canDelete:true}),
           view==='calendrier'&&visibility.calendrier&&CE(VueCalendrier,{entries,onEdit:handleEdit,onDelete:handleDelete,onRefresh:loadData,onDuplicate:handleDuplicate,initConseiller:filtreConseiller,onResetConseiller:()=>{},canDelete:true}),
           view==='graphiques'&&visibility.graphiques&&CE(VueGraphiques,{entries}),
