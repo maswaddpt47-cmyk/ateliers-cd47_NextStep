@@ -909,7 +909,7 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
 // ═══════════════════════════════════════════════════════════
 // VUE HISTORIQUE — v9.0 : duplication + flux de clôture
 // ═══════════════════════════════════════════════════════════
-function VueHistorique({entries,onEdit,onDelete,onRefresh,onDuplicate,initConseiller,onResetConseiller,canDelete}){
+function VueHistorique({entries,onEdit,onDelete,onRefresh,onDuplicate,initConseiller,onResetConseiller,canDelete,onChangeConseiller}){
   const[search,setSearch]=React.useState('');
   const[dSearch,setDSearch]=React.useState('');
   const[filtStatut,setFiltStatut]=React.useState('Planifié');
@@ -1035,7 +1035,7 @@ function VueHistorique({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
           CE('option',{value:'Tous'},'Tous les mois'),moisDispo.map(m=>CE('option',{key:m,value:m},m))),
         CE('select',{style:{padding:'6px 8px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:12},value:filtCommune,onChange:e=>setFiltCommune(e.target.value)},
           CE('option',{value:'Toutes'},'Toutes communes'),COMMUNES.map(c=>CE('option',{key:c,value:c},c))),
-        CE('select',{style:{padding:'6px 8px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:12},value:filtConseiller,onChange:e=>setFiltConseiller(e.target.value)},
+        CE('select',{style:{padding:'6px 8px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:12},value:filtConseiller,onChange:e=>{setFiltConseiller(e.target.value);if(onChangeConseiller)onChangeConseiller(e.target.value);}},
           CE('option',{value:'Tous'},'Tous conseillers'),CONSEILLERS.map(c=>CE('option',{key:c,value:c},c)))
       ),
       CE('div',{style:{display:'flex',gap:8,flexWrap:'wrap',alignItems:'center',marginTop:8}},
@@ -1134,7 +1134,7 @@ function VueHistorique({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
 // ═══════════════════════════════════════════════════════════
 // VUE CALENDRIER — v9.2
 // ═══════════════════════════════════════════════════════════
-function VueCalendrier({entries,onEdit,onDelete,onRefresh,onDuplicate,initConseiller,onResetConseiller,canDelete}){
+function VueCalendrier({entries,onEdit,onDelete,onRefresh,onDuplicate,initConseiller,onResetConseiller,canDelete,onChangeConseiller}){
   const today=new Date();
   const todayStr=today.toISOString().slice(0,10);
   const[calDate,setCalDate]=React.useState(new Date(today.getFullYear(),today.getMonth(),1));
@@ -1227,7 +1227,7 @@ function VueCalendrier({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
         ),
         CE('div',{style:{display:'flex',alignItems:'center',gap:8}},
           CE('label',{style:{fontSize:12,fontWeight:600,color:'#4a5568',margin:0,whiteSpace:'nowrap'}},'Conseiller :'),
-          CE('select',{value:filtConseiller,onChange:e=>setFiltConseiller(e.target.value),style:{padding:'5px 10px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:13}},
+          CE('select',{value:filtConseiller,onChange:e=>{setFiltConseiller(e.target.value);if(onChangeConseiller)onChangeConseiller(e.target.value);},style:{padding:'5px 10px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:13}},
             CE('option',{value:'Tous'},'Tous'),
             CONSEILLERS.map(c=>CE('option',{key:c,value:c},c))
           )
