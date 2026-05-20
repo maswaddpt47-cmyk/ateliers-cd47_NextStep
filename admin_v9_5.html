@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Ateliers Inclusion Numérique — Admin v9.5</title>
+<title>Ateliers Inclusion Numérique — Admin v9.5.4</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
@@ -876,20 +876,13 @@ function App(){
   if(!adminConseiller)return CE('div',{className:'login-wrap'},
     CE('div',{className:'login-card'},
       CE('h2',null,'👤 Qui êtes-vous ?'),
-      loading
-        ? CE('div',{style:{display:'flex',flexDirection:'column',alignItems:'center',gap:12,padding:'24px 0',color:'#9ca3af'}},
-            CE('span',{className:'spinner',style:{width:24,height:24,borderWidth:3}}),
-            CE('span',{style:{fontSize:13}},'Chargement en cours…')
-          )
-        : CE(React.Fragment,null,
-            CE('p',{style:{fontSize:13,color:'#718096',margin:'8px 0 20px'}},'Pour personnaliser votre interface'),
-            (lists.conseillers||CONSEILLERS_DEFAULT).map(c=>
-              CE('button',{key:c,onClick:()=>{localStorage.setItem('adm_conseiller',c);setAdminConseiller(c);},
-                style:{display:'block',width:'100%',marginBottom:10,padding:'11px 16px',border:`2px solid ${conseillerColor(c)}22`,borderRadius:10,background:`${conseillerColor(c)}11`,color:conseillerColor(c),fontSize:14,fontWeight:700,cursor:'pointer',textAlign:'left',transition:'all .15s'}},
-                CE('span',{style:{display:'inline-block',width:10,height:10,borderRadius:'50%',background:conseillerColor(c),marginRight:8}}),c)
-            ),
-            CE('button',{onClick:()=>{localStorage.setItem('adm_conseiller','admin');setAdminConseiller('admin');},style:{display:'block',width:'100%',padding:'11px 16px',border:'2px solid #e2e8f0',borderRadius:10,background:'#f8fafc',color:'#718096',fontSize:13,cursor:'pointer',marginTop:4}},'Continuer sans personnalisation')
-          )
+      CE('p',{style:{fontSize:13,color:'#718096',margin:'8px 0 20px'}},'Pour personnaliser votre interface'),
+      (lists.conseillers.length>0?lists.conseillers:CONSEILLERS_DEFAULT).map(c=>
+        CE('button',{key:c,onClick:()=>{localStorage.setItem('adm_conseiller',c);setAdminConseiller(c);},
+          style:{display:'block',width:'100%',marginBottom:10,padding:'11px 16px',border:`2px solid ${conseillerColor(c)}22`,borderRadius:10,background:`${conseillerColor(c)}11`,color:conseillerColor(c),fontSize:14,fontWeight:700,cursor:'pointer',textAlign:'left',transition:'all .15s'}},
+          CE('span',{style:{display:'inline-block',width:10,height:10,borderRadius:'50%',background:conseillerColor(c),marginRight:8}}),c)
+      ),
+      CE('button',{onClick:()=>{localStorage.setItem('adm_conseiller','admin');setAdminConseiller('admin');},style:{display:'block',width:'100%',padding:'11px 16px',border:'2px solid #e2e8f0',borderRadius:10,background:'#f8fafc',color:'#718096',fontSize:13,cursor:'pointer',marginTop:4}},'Continuer sans personnalisation')
     )
   );
 
