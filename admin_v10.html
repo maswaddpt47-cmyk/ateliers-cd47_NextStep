@@ -216,7 +216,42 @@
     const MOIS=['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
     const moisInvalid=moisDeb>moisFin;
 
-    return CE(React.Fragment,null,
+    // v10.0 : handleExport Timeline (restauré depuis v9.5)
+  async function handleExport(){
+    setTlRunning(true);setTlLogs([]);setLastExport(null);
+    try{
+      const yr=parseInt(annee||new Date().getFullYear());
+      if(moisDeb>moisFin)throw new Error('Mois de début postérieur au mois de fin.');
+      const months=[];for(let m=moisDeb;m<=moisFin;m++)months.push(m);
+      addTlLog(`Traitement de ${entries.length} ateliers pour ${yr}…`);
+      const df=[];
+      for(const e of entries){
+        if(!e.date||!e.conseiller)continue;
+        const s=String(e.date).trim();let d=null;
+        const mFr=s.match(/^(?:\w+\s+)?(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+        if(mFr)d=new Date(Date.UTC(parseInt(mFr[3]),parseInt(mFr[2])-1,parseInt(mFr[1])));
+        if(!d){const mIso=s.match(/^(\d{4})-(\d{2})-(\d{2})/);if(mIso)d=new Date(Date.UTC(+mIso[1],+mIso[2]-1,+mIso[3]));}
+        if(!d||isNaN(d.getTime()))continue;
+        if(d.getUTCFullYear()!==yr)continue;
+        if(!months.includes(d.getUTCMonth()+1))continue;
+        df.push({date:d,horaire:e.horaire||'9H00',ampm:'',conseiller:String(e.conseiller).trim(),orienteur:String(e.orienteur||'').trim()||'—',statut:String(e.statut||'').trim()});
+      }
+      addTlLog(`✓ ${df.length} ateliers valides`,'ok');
+      const cons=conseillersList||[];
+      addTlLog(`→ ${cons.length} conseillers : ${cons.join(', ')}`);
+      if(df.length===0)throw new Error('Aucun atelier trouvé pour cette période.');
+      const wb=window.generateCalendrier(df,yr,months,cons,addTlLog);
+      const outData=XLSX.write(wb,{type:'base64',bookType:'xlsx'});
+      const fileName=`Calendrier_ateliers_${yr}.xlsx`;
+      const dataUrl='data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,'+outData;
+      setLastExport({url:dataUrl,name:fileName});
+      const a=document.createElement('a');a.href=dataUrl;a.download=fileName;document.body.appendChild(a);a.click();document.body.removeChild(a);
+      addTlLog(`✓ "${fileName}" téléchargé`,'ok');
+    }catch(err){addTlLog('✗ '+err.message,'err');}
+    finally{setTlRunning(false);}
+  }
+
+  return CE(React.Fragment,null,
       CE(_VueAdmin_orig,props),
 
       CE('div',{className:'admin-section'},
@@ -1292,6 +1327,55 @@ function ImportRapportModal({rapport,onClose}){
   );
 }
 
+// ════════════════════════════════════════════════════════════
+// ── v10.0 : Composants restaurés depuis v9.5 ───────────────
+// ════════════════════════════════════════════════════════════
+
+function ChangerMotDePasse(){
+  const[pwd,setPwd]=React.useState('');
+  const[pwd2,setPwd2]=React.useState('');
+  const[show,setShow]=React.useState(false);
+  const[saving,setSaving]=React.useState(false);
+  const[msg,setMsg]=React.useState(null);
+
+  async function handleSave(){
+    if(pwd.length<4){setMsg({ok:false,txt:'4 caractères minimum'});return;}
+    if(pwd!==pwd2){setMsg({ok:false,txt:'Les mots de passe ne correspondent pas'});return;}
+    setSaving(true);setMsg(null);
+    try{
+      const res=await apiFetch('setPassword',{pwd});
+      if(res.ok){setMsg({ok:true,txt:'✅ Mot de passe mis à jour'});setPwd('');setPwd2('');}
+      else setMsg({ok:false,txt:res.error||'Erreur'});
+    }catch(e){setMsg({ok:false,txt:'Erreur réseau'});}
+    finally{setSaving(false);}
+  }
+
+  const inputStyle={marginTop:4,display:'block',padding:'8px 36px 8px 12px',border:'1px solid #e2e8f0',borderRadius:6,fontSize:13,boxSizing:'border-box',width:'100%'};
+  const eyeStyle={position:'absolute',right:8,top:'50%',transform:'translateY(-50%)',background:'none',border:'none',cursor:'pointer',fontSize:14,color:'#718096',padding:0};
+
+  return CE('div',{className:'admin-section'},
+    CE('h3',null,'🔑 Changer le mot de passe admin'),
+    CE('div',{style:{display:'flex',gap:10,flexWrap:'wrap',alignItems:'flex-end'}},
+      CE('div',null,
+        CE('label',null,'Nouveau mot de passe'),
+        CE('div',{style:{position:'relative'}},
+          CE('input',{type:show?'text':'password',value:pwd,onChange:e=>setPwd(e.target.value),placeholder:'Min. 4 caractères',style:inputStyle}),
+          CE('button',{onClick:()=>setShow(s=>!s),style:eyeStyle},show?'🙈':'👁️')
+        )
+      ),
+      CE('div',null,
+        CE('label',null,'Confirmer'),
+        CE('div',{style:{position:'relative'}},
+          CE('input',{type:show?'text':'password',value:pwd2,onChange:e=>setPwd2(e.target.value),placeholder:'Répéter',style:inputStyle}),
+          CE('button',{onClick:()=>setShow(s=>!s),style:eyeStyle},show?'🙈':'👁️')
+        )
+      ),
+      CE('button',{className:'btn btn-primary',disabled:saving||!pwd||!pwd2,onClick:handleSave,style:{alignSelf:'flex-end'}},saving?'Sauvegarde…':'💾 Sauvegarder')
+    ),
+    msg&&CE('p',{style:{marginTop:8,fontSize:13,color:msg.ok?'#276749':'#c53030'}},msg.txt)
+  );
+}
+
 // ── VueAdmin override ──────────────────────────────────────
 function VueAdmin({entries,onRefresh,addLog,conseillersList,onSaveColors,annee}){
   const[resetStep,setResetStep]=React.useState(0);
@@ -1307,6 +1391,17 @@ function VueAdmin({entries,onRefresh,addLog,conseillersList,onSaveColors,annee})
   const cancelRef=React.useRef(false);
   const pendingRowsRef=React.useRef([]);
   const preErrorCountRef=React.useRef(0);
+  // v10.0 : Timeline export (restauré depuis v9.5)
+  const MOIS_CAL=['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+  const MOIS_SHORT_CAL=['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
+  const[moisDeb,setMoisDeb]=React.useState(()=>parseInt(localStorage.getItem('cal_moisDeb')||'1'));
+  const[moisFin,setMoisFin]=React.useState(()=>parseInt(localStorage.getItem('cal_moisFin')||'12'));
+  const[tlRunning,setTlRunning]=React.useState(false);
+  const[tlLogs,setTlLogs]=React.useState([]);
+  const[lastExport,setLastExport]=React.useState(null);
+  function addTlLog(msg,type='info'){setTlLogs(l=>[...l,{msg,type,t:new Date().toLocaleTimeString('fr-FR')}]);}
+  function changeMoisDeb(v){localStorage.setItem('cal_moisDeb',v);setMoisDeb(v);setLastExport(null);}
+  function changeMoisFin(v){localStorage.setItem('cal_moisFin',v);setMoisFin(v);setLastExport(null);}
   const VIS_ITEMS=[{key:'saisie',label:'✏️ Saisie',sub:'Formulaire de saisie'},{key:'historique',label:'📋 Historique',sub:'Liste des ateliers'},{key:'calendrier',label:'📅 Calendrier',sub:'Vue calendrier mensuelle'},{key:'graphiques',label:'📊 Graphiques',sub:'Tableaux de bord'},{key:'carte',label:'🗺️ Carte',sub:'Carte des communes'},{key:'bingo',label:'🎯 Bingo',sub:'Vue par commune'}];
 
   React.useEffect(()=>{apiFetch('getVisibility').then(res=>{if(res.ok)setVisibility(res.visibility);}).catch(()=>{});},[]);
@@ -1531,7 +1626,36 @@ function VueAdmin({entries,onRefresh,addLog,conseillersList,onSaveColors,annee})
           CE('button',{className:'btn btn-danger',onClick:handleReset},resetLabels[resetStep]),
           resetStep>0&&CE('button',{className:'btn btn-secondary',onClick:()=>setResetStep(0)},'Annuler')
         )
-      )
+      ),
+
+      // v10.0 : Export Timeline (restauré depuis v9.5)
+      CE('div',{className:'admin-section'},
+        CE('h3',null,'📅 Export Timeline Ateliers'),
+        CE('p',{style:{fontSize:12,color:'#4a5568',marginBottom:14}},'Génère le planning timeline directement depuis les données chargées. Année et conseillers pris depuis la sidebar.'),
+        CE('div',{style:{display:'flex',gap:12,alignItems:'flex-end',flexWrap:'wrap',marginBottom:moisDeb>moisFin?6:10}},
+          CE('div',null,CE('label',null,'Mois début'),CE('select',{value:moisDeb,onChange:e=>changeMoisDeb(+e.target.value),style:{marginTop:4}},MOIS_CAL.map((m,i)=>CE('option',{key:i,value:i+1},m)))),
+          CE('div',null,CE('label',null,'Mois fin'),CE('select',{value:moisFin,onChange:e=>changeMoisFin(+e.target.value),style:{marginTop:4}},MOIS_CAL.map((m,i)=>CE('option',{key:i,value:i+1},m)))),
+          CE('button',{className:'btn btn-success',style:{alignSelf:'flex-end'},disabled:tlRunning||moisDeb>moisFin||entries.filter(e=>e.date&&e.conseiller).length===0,onClick:handleExport},
+            tlRunning?CE('span',null,CE('span',{className:'spinner'}),'Génération…'):'📥 Générer & Télécharger')
+        ),
+        moisDeb>moisFin&&CE('p',{style:{fontSize:12,color:'#c53030',marginBottom:10}},'⚠️ Le mois de début doit être antérieur ou égal au mois de fin.'),
+        !( moisDeb>moisFin)&&CE('div',{style:{display:'flex',gap:8,marginBottom:12,flexWrap:'wrap'}},
+          CE('span',{style:{fontSize:12,background:'#ebf8ff',border:'1px solid #bee3f8',color:'#2b6cb0',borderRadius:6,padding:'3px 10px'}},
+            `📊 ${entries.filter(e=>{if(!e.date||!e.conseiller)return false;const m=String(e.date).match(/^(\d{4})-(\d{2})/);return m&&parseInt(m[1])===parseInt(annee)&&parseInt(m[2])>=moisDeb&&parseInt(m[2])<=moisFin;}).length} ateliers · ${conseillersList?conseillersList.length:0} conseillers`),
+          CE('span',{style:{fontSize:12,background:'#f0fff4',border:'1px solid #9ae6b4',color:'#276749',borderRadius:6,padding:'3px 10px'}},
+            `📅 ${MOIS_SHORT_CAL[moisDeb-1]} → ${MOIS_SHORT_CAL[moisFin-1]} ${annee}`)
+        ),
+        tlLogs.length>0&&CE('div',{style:{background:'#f8fafc',border:'1px solid #e2e8f0',borderRadius:8,padding:'10px 14px',maxHeight:160,overflowY:'auto',fontSize:12}},
+          tlLogs.map((l,i)=>CE('div',{key:i,className:'log-entry log-'+l.type,style:{marginBottom:4}},CE('span',{className:'log-time'},l.t+' '),CE('span',null,l.msg)))
+        ),
+        lastExport&&CE('div',{style:{marginTop:10,padding:'10px 14px',background:'#f0fff4',border:'1px solid #9ae6b4',borderRadius:8,display:'flex',alignItems:'center',gap:10,fontSize:13}},
+          CE('span',null,'📎 Si le téléchargement ne s\'est pas lancé :'),
+          CE('a',{href:lastExport.url,download:lastExport.name,style:{color:'#276749',fontWeight:700,textDecoration:'underline'}},lastExport.name)
+        )
+      ),
+
+      // v10.0 : Changement mot de passe (restauré depuis v9.5)
+      CE(ChangerMotDePasse,null)
     )
   );
 }
