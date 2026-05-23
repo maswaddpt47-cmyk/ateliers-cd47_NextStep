@@ -319,25 +319,6 @@
   .app-topbar { padding: 0 12px; }
   .app-topbar-date { display:none !important; }
 }
-
-/* ── v10.0 : Modal confirmation suppression ─────────────── */
-.confirm-overlay {
-  position:fixed; inset:0; background:rgba(0,0,0,.48);
-  display:flex; align-items:center; justify-content:center;
-  z-index:9999; animation:fadeIn .15s ease;
-}
-@keyframes fadeIn { from{opacity:0} to{opacity:1} }
-.confirm-card {
-  background:#fff; border-radius:14px;
-  padding:28px 28px 22px; max-width:420px; width:90%;
-  box-shadow:0 12px 48px rgba(0,0,0,.22);
-  animation:slideUp .18s ease;
-}
-@keyframes slideUp { from{transform:translateY(12px);opacity:0} to{transform:translateY(0);opacity:1} }
-.confirm-card h3 { margin:0 0 8px; font-size:16px; color:#1a202c; }
-.confirm-card p  { font-size:13px; color:#4a5568; margin:0 0 22px; line-height:1.55;
-  background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:10px 14px; }
-.confirm-actions { display:flex; gap:10px; justify-content:flex-end; }
 </style>
 </head>
 <body>
@@ -377,35 +358,6 @@
   };
 })();
 
-// ════════════════════════════════════════════════════════════
-// ── v10.0 : ConfirmModal suppression ───────────────────────
-// Identique à admin_v10 — évite les suppressions accidentelles.
-// ════════════════════════════════════════════════════════════
-function ConfirmModal({item,onConfirm,onCancel}){
-  if(!item) return null;
-  React.useEffect(()=>{
-    function onKey(e){ if(e.key==='Escape')onCancel(); if(e.key==='Enter')onConfirm(); }
-    window.addEventListener('keydown',onKey);
-    return()=>window.removeEventListener('keydown',onKey);
-  },[]);
-  return CE('div',{className:'confirm-overlay',onClick:onCancel},
-    CE('div',{className:'confirm-card',onClick:e=>e.stopPropagation()},
-      CE('h3',null,'🗑️ Supprimer cet atelier ?'),
-      CE('p',null,item.label),
-      CE('div',{className:'confirm-actions'},
-        CE('button',{
-          onClick:onCancel,
-          style:{padding:'8px 18px',border:'1px solid #e2e8f0',borderRadius:8,background:'#f8fafc',cursor:'pointer',fontSize:13,fontWeight:600,color:'#4a5568'}
-        },'Annuler'),
-        CE('button',{
-          onClick:onConfirm,autoFocus:true,
-          style:{padding:'8px 18px',border:'none',borderRadius:8,background:'#dc2626',cursor:'pointer',fontSize:13,fontWeight:700,color:'#fff',boxShadow:'0 2px 8px rgba(220,38,38,.3)'}
-        },'Supprimer')
-      )
-    )
-  );
-}
-
 // ── App Frontend (conseillers) v10.0 ─────────────────────────
 var VIEW_META_F = {
   saisie:     {ico:'✏️',  label:'Saisie',      group:'Action'},
@@ -436,7 +388,6 @@ function App(){
   const[online,setOnline]          = React.useState(navigator.onLine);
   const[showPicker,setShowPicker]   = React.useState(false);
   const[sidebarPinned,setSidebarPinned] = React.useState(()=>localStorage.getItem('sidebar_pinned')==='1');
-  const[confirmDelete,setConfirmDelete] = React.useState(null); // v10.0
 
   // Ref pour l'event delegation sur les vues avec filtre conseiller
   const viewRef = React.useRef(null);
@@ -560,14 +511,8 @@ function App(){
   }
   function handleEdit(id){setEditingId(id);setPrefillData(null);setView('saisie');}
   function handleSaved(){loadData();setView('historique');}
-  // v10.0 : suppression avec confirmation modale
-  function handleDelete(id){
-    const e=entries.find(x=>x._id===id);
-    const label=e?[e.date,e.thematique,e.conseiller].filter(Boolean).join(' — '):id;
-    setConfirmDelete({id,label});
-  }
-  async function doDelete(id){
-    setConfirmDelete(null);
+  // v10.0 : handleDelete direct — VueHistorique/VueCalendrier gèrent leur propre confirmation
+  async function handleDelete(id){
     try{const res=await apiFetch('delete',{_id:id});if(!res.ok)throw new Error(res.error);showToast('✅ Atelier supprimé');loadData();}
     catch(err){showToast('❌ '+err.message,false);}
   }
@@ -757,11 +702,6 @@ function App(){
       )
     ),
 
-    CE(ConfirmModal,{
-      item:confirmDelete,
-      onConfirm:()=>doDelete(confirmDelete.id),
-      onCancel:()=>setConfirmDelete(null)
-    }),
     CE('div',{id:'toast',className:'toast',style:{opacity:0}})
   );
 }
