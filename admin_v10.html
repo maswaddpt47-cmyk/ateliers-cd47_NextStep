@@ -883,12 +883,24 @@ function App(){
   const[confirmDelete,setConfirmDelete]= React.useState(null); // v9.5
 
   // v9.5 : logs persistants via localStorage
-  const[logs,setLogs]=React.useState(()=>{try{return JSON.parse(localStorage.getItem('adm_logs')||'[]');}catch{return[];}});
+  // v10.0 : logs avec timestamp ms pour purge +30j, limite 200, auto-purge au démarrage
+  const LOGS_PURGE_MS=30*24*60*60*1000;
+  const[logs,setLogs]=React.useState(()=>{
+    try{
+      const raw=JSON.parse(localStorage.getItem('adm_logs')||'[]');
+      const cutoff=Date.now()-30*24*60*60*1000;
+      return raw.filter(e=>!e.ts||e.ts>=cutoff);
+    }catch{return[];}
+  });
   function addLog(msg,type='info'){
-    const entry={msg,type,t:new Date().toLocaleTimeString('fr-FR')};
-    setLogs(l=>{const nl=[entry,...l].slice(0,100);try{localStorage.setItem('adm_logs',JSON.stringify(nl));}catch{}return nl;});
+    const entry={msg,type,t:new Date().toLocaleTimeString('fr-FR'),ts:Date.now()};
+    setLogs(l=>{const nl=[entry,...l].slice(0,200);try{localStorage.setItem('adm_logs',JSON.stringify(nl));}catch{}return nl;});
   }
   function clearLogs(){setLogs([]);try{localStorage.removeItem('adm_logs');}catch{}}
+  function purgeLogs(){
+    const cutoff=Date.now()-LOGS_PURGE_MS;
+    setLogs(l=>{const nl=l.filter(e=>!e.ts||e.ts>=cutoff);try{localStorage.setItem('adm_logs',JSON.stringify(nl));}catch{}return nl;});
+  }
 
   // ── v10.0 : Session expirante ──────────────────────────────
   // Déconnexion automatique après 30 min d'inactivité.
@@ -1139,19 +1151,34 @@ function App(){
           view==='bingo'&&CE(VueBingo,{entries}),
           view==='admin'&&CE(VueAdmin,{entries,onRefresh:loadData,addLog,conseillersList:lists.conseillers,onSaveColors:(c)=>{applyColors(c);},annee}),
           view==='logs'&&CE('div',{className:'card'},
-            CE('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14}},
+            CE('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14,flexWrap:'wrap',gap:8}},
               CE('h2',{style:{margin:0}},'📜 Journal des opérations'),
-              CE('div',{style:{display:'flex',gap:8,alignItems:'center'}},
+              CE('div',{style:{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}},
                 CE('span',{style:{fontSize:11,color:'#9ca3af'}},'Persistant · '+logs.length+' entrée'+(logs.length!==1?'s':'')),
+                // v10.0 : purge +30j
+                (()=>{
+                  const cutoff=Date.now()-30*24*60*60*1000;
+                  const old30=logs.filter(e=>!e.ts||e.ts<cutoff).length;
+                  return old30>0&&CE('button',{
+                    onClick:purgeLogs,
+                    title:'Supprimer les '+old30+' entrée'+(old30>1?'s':'')+' de plus de 30 jours',
+                    style:{fontSize:11,padding:'3px 10px',border:'1px solid #fbd38d',borderRadius:6,background:'#fffbeb',cursor:'pointer',color:'#b45309'}
+                  },'🕐 Purger +30j ('+old30+')');
+                })(),
                 logs.length>0&&CE('button',{
                   onClick:clearLogs,
                   style:{fontSize:11,padding:'3px 10px',border:'1px solid #e2e8f0',borderRadius:6,background:'#f8fafc',cursor:'pointer',color:'#718096'}
-                },'🗑️ Effacer')
+                },'🗑️ Tout effacer')
               )
             ),
             logs.length===0
               ?CE('p',{style:{color:'#718096',fontSize:13}},'Aucune opération enregistrée.')
-              :logs.map((l,i)=>CE('div',{key:i,className:`log-entry log-${l.type}`},CE('span',{className:'log-time'},l.t),CE('span',null,l.msg)))
+              :logs.map((l,i)=>{
+                const dateStr=l.ts?new Date(l.ts).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit'}):'';
+                return CE('div',{key:i,className:'log-entry log-'+l.type},
+                  CE('span',{className:'log-time'},dateStr&&(dateStr+' '),l.t),
+                  CE('span',null,l.msg));
+              })
           )
         )
       )
@@ -1232,6 +1259,36 @@ function ImportPreviewModal({preview, onConfirm, onCancel}){
   );
 }
 
+// ── v10.0 : Rapport post-import ───────────────────────────
+function ImportRapportModal({rapport,onClose}){
+  if(!rapport) return null;
+  const {total,envoyes,batchErrors,anomaliesPre,annule,ts}=rapport;
+  const ok=envoyes===total&&!annule&&batchErrors.length===0;
+  const partial=envoyes>0&&(annule||batchErrors.length>0);
+  const couleur=ok?'#276749':partial?'#92400e':'#9b2335';
+  const bg=ok?'#f0fff4':partial?'#fffbeb':'#fff5f5';
+  const border=ok?'#9ae6b4':partial?'#fbd38d':'#fed7d7';
+  return CE('div',{className:'confirm-overlay',onClick:onClose},
+    CE('div',{onClick:e=>e.stopPropagation(),style:{background:'#fff',borderRadius:14,padding:'28px',maxWidth:460,width:'92%',boxShadow:'0 16px 64px rgba(0,0,0,.25)',animation:'slideUp .18s ease'}},
+      CE('h3',{style:{margin:'0 0 16px',fontSize:16,color:'#1a202c'}},'📊 Rapport d'import'),
+      CE('div',{style:{background:bg,border:'1px solid '+border,borderRadius:10,padding:'14px 18px',marginBottom:16}},
+        CE('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:anomaliesPre>0||batchErrors.length>0?12:0}},
+          CE('div',{style:{textAlign:'center'}},CE('div',{style:{fontSize:28,fontWeight:800,color:'#1a202c'}},total),CE('div',{style:{fontSize:11,color:'#718096'}},'Lignes détectées')),
+          CE('div',{style:{textAlign:'center'}},CE('div',{style:{fontSize:28,fontWeight:800,color:envoyes===total?'#276749':'#dd6b20'}},envoyes),CE('div',{style:{fontSize:11,color:'#718096'}},'Envoyées ✓'))
+        ),
+        anomaliesPre>0&&CE('div',{style:{fontSize:12,color:'#92400e',marginBottom:4}},'⚠️ '+anomaliesPre+' anomalie'+(anomaliesPre>1?'s':'')+' détectée'+(anomaliesPre>1?'s':'')+' avant envoi'),
+        annule&&CE('div',{style:{fontSize:12,color:'#c53030',marginBottom:4}},'⛔ Import annulé manuellement'),
+        batchErrors.length>0&&CE('div',null,
+          CE('div',{style:{fontSize:12,color:'#c53030',fontWeight:700,marginBottom:4}},batchErrors.length+' lot'+(batchErrors.length>1?'s':'')+' en erreur :'),
+          batchErrors.map((e,i)=>CE('div',{key:i,style:{fontSize:11,color:'#c53030',marginBottom:2}},'• Lignes '+e.from+'–'+e.to+' : '+e.msg))
+        )
+      ),
+      CE('div',{style:{fontSize:11,color:'#9ca3af',marginBottom:16}},'Import du '+ts),
+      CE('button',{onClick:onClose,style:{width:'100%',padding:'10px',border:'none',borderRadius:8,background:'#1e3a8a',color:'#fff',fontWeight:700,fontSize:13,cursor:'pointer'}},'Fermer')
+    )
+  );
+}
+
 // ── VueAdmin override ──────────────────────────────────────
 function VueAdmin({entries,onRefresh,addLog,conseillersList,onSaveColors,annee}){
   const[resetStep,setResetStep]=React.useState(0);
@@ -1243,8 +1300,10 @@ function VueAdmin({entries,onRefresh,addLog,conseillersList,onSaveColors,annee})
   const[importProgress,setImportProgress]=React.useState(0);
   const[importMsg,setImportMsg]=React.useState('');
   const[importPreview,setImportPreview]=React.useState(null); // v10 : aperçu avant envoi
+  const[importRapport,setImportRapport]=React.useState(null); // v10 : rapport post-import
   const cancelRef=React.useRef(false);
   const pendingRowsRef=React.useRef([]);
+  const preErrorCountRef=React.useRef(0);
   const VIS_ITEMS=[{key:'saisie',label:'✏️ Saisie',sub:'Formulaire de saisie'},{key:'historique',label:'📋 Historique',sub:'Liste des ateliers'},{key:'calendrier',label:'📅 Calendrier',sub:'Vue calendrier mensuelle'},{key:'graphiques',label:'📊 Graphiques',sub:'Tableaux de bord'},{key:'carte',label:'🗺️ Carte',sub:'Carte des communes'},{key:'bingo',label:'🎯 Bingo',sub:'Vue par commune'}];
 
   React.useEffect(()=>{apiFetch('getVisibility').then(res=>{if(res.ok)setVisibility(res.visibility);}).catch(()=>{});},[]);
@@ -1301,19 +1360,29 @@ function VueAdmin({entries,onRefresh,addLog,conseillersList,onSaveColors,annee})
 
   async function doUpload(rows_raw){
     setImportPreview(null);setImporting(true);setImportProgress(0);
-    const BATCH=5;let done=0;
+    const BATCH=5;let done=0;const batchErrors=[];let annule=false;
     try{
       setImportMsg(`${rows_raw.length} lignes — envoi vers Google Sheets…`);
       for(let i=0;i<rows_raw.length;i+=BATCH){
-        if(cancelRef.current){showToast(`⛔ Annulé — ${done} lignes importées`,false);addLog(`Import annulé à ${done}/${rows_raw.length}`,'info');return;}
+        if(cancelRef.current){annule=true;break;}
         const batch=rows_raw.slice(i,i+BATCH);
         const params=new URLSearchParams({action:'saveMany',entries:JSON.stringify(batch)});
-        const res=await Promise.race([fetch(`${GS_URL}?${params.toString()}`),new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')),45000))]);
-        const data=await res.json();if(!data.ok)throw new Error(data.error);
-        done+=batch.length;setImportProgress(Math.round(done/rows_raw.length*100));
+        try{
+          const res=await Promise.race([fetch(`${GS_URL}?${params.toString()}`),new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')),45000))]);
+          const data=await res.json();
+          if(!data.ok)throw new Error(data.error||'Erreur batch');
+          done+=batch.length;
+        }catch(be){batchErrors.push({from:i+1,to:Math.min(i+BATCH,rows_raw.length),msg:be.message});}
+        setImportProgress(Math.round(Math.min(done+(batchErrors.length*BATCH),rows_raw.length)/rows_raw.length*100));
         setImportMsg(`${done}/${rows_raw.length} lignes importées…`);
       }
-      addLog(`Import : ${rows_raw.length} ateliers`,'ok');showToast(`✅ ${rows_raw.length} ateliers importés`);onRefresh();
+      // v10.0 : rapport d'import
+      const rapport={total:rows_raw.length,envoyes:done,batchErrors,anomaliesPre:preErrorCountRef.current,annule,ts:new Date().toLocaleString('fr-FR')};
+      setImportRapport(rapport);
+      const logMsg=`Import : ${done}/${rows_raw.length} envoyés`+(batchErrors.length>0?` · ${batchErrors.length} erreur(s) batch`:'')+(annule?' · annulé':'');
+      addLog(logMsg,batchErrors.length>0||annule?'err':'ok');
+      if(!annule&&batchErrors.length===0)showToast(`✅ ${done} ateliers importés`);
+      onRefresh();
     }catch(err){showToast('❌ '+err.message,false);addLog('Erreur import : '+err.message,'err');}
     finally{setImporting(false);setImportProgress(0);setImportMsg('');cancelRef.current=false;}
   }
@@ -1362,7 +1431,8 @@ function VueAdmin({entries,onRefresh,addLog,conseillersList,onSaveColors,annee})
   const STATUT_COLOR={'Planifié':'#9683EC','Réalisé':'#70AD47','Annulé':'#FF5050','Non réalisé':'#FFC000','Reporté':'#ED7D31'};
 
   return CE(React.Fragment,null,
-    CE(ImportPreviewModal,{preview:importPreview,onCancel:()=>{setImportPreview(null);pendingRowsRef.current=[];},onConfirm:()=>doUpload(pendingRowsRef.current)}),
+    CE(ImportPreviewModal,{preview:importPreview,onCancel:()=>{setImportPreview(null);pendingRowsRef.current=[];},onConfirm:()=>{preErrorCountRef.current=importPreview.errors.length;doUpload(pendingRowsRef.current);}}),
+    CE(ImportRapportModal,{rapport:importRapport,onClose:()=>setImportRapport(null)}),
     CE('div',null,
 
       // ── v10.0 : KPIs enrichis ──
