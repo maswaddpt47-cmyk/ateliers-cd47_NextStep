@@ -726,19 +726,42 @@ function clearSession(){
   localStorage.removeItem(SESSION_KEY);
 }
 
-// ── Login admin via GAS (v9.4 — hash supprimé du client) ──
+// ════════════════════════════════════════════════════════════
+// ── v10.0 : AdminLogin avec anti-brute force ───────────────
+// 3 échecs → blocage 5 min, countdown visible, reset auto.
+// ════════════════════════════════════════════════════════════
 function AdminLogin({onLogin,savedName,onResetProfil}){
+  const FAIL_KEY='adm_fail_count', LOCK_KEY='adm_lock_until';
+  const MAX_FAILS=3, LOCK_MS=5*60*1000;
+
   const[pwd,setPwd]=React.useState('');
   const[err,setErr]=React.useState('');
   const[loading,setLoading]=React.useState(false);
   const[hint,setHint]=React.useState('');
   const[show,setShow]=React.useState(false);
+  const[failCount,setFailCount]=React.useState(()=>parseInt(localStorage.getItem(FAIL_KEY)||'0',10));
+  const[lockUntil,setLockUntil]=React.useState(()=>parseInt(localStorage.getItem(LOCK_KEY)||'0',10));
+  const[countdown,setCountdown]=React.useState(0);
+
+  // Tick du countdown
+  React.useEffect(()=>{
+    if(!lockUntil||lockUntil<=Date.now()) return;
+    const tick=()=>{
+      const left=lockUntil-Date.now();
+      if(left<=0){setCountdown(0);setLockUntil(0);setFailCount(0);localStorage.removeItem(FAIL_KEY);localStorage.removeItem(LOCK_KEY);}
+      else setCountdown(Math.ceil(left/1000));
+    };
+    tick();
+    const id=setInterval(tick,1000);
+    return()=>clearInterval(id);
+  },[lockUntil]);
+
+  const isLocked=lockUntil>Date.now()||countdown>0;
 
   async function handleSubmit(){
-    if(!pwd.trim())return;
+    if(!pwd.trim()||isLocked) return;
     setLoading(true);setErr('');setHint('');
     const isMobile=/Android|iPhone|iPad/i.test(navigator.userAgent);
-    // Messages progressifs pendant le cold start
     const t1=setTimeout(()=>setHint('Connexion au serveur…'),2000);
     const t2=setTimeout(()=>setHint('Démarrage de Google Apps Script…'),6000);
     const t3=isMobile?setTimeout(()=>setHint('Réseau mobile détecté, patience…'),12000):null;
@@ -747,11 +770,26 @@ function AdminLogin({onLogin,savedName,onResetProfil}){
         apiFetch('checkPassword',{pwd}),
         new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')),isMobile?25000:10000))
       ]);
-      if(res.ok){touchSession();onLogin();}
-      else setErr(res.error||'Mot de passe incorrect');
+      if(res.ok){
+        localStorage.removeItem(FAIL_KEY);localStorage.removeItem(LOCK_KEY);
+        setFailCount(0);setLockUntil(0);
+        touchSession();onLogin();
+      }else{
+        const nf=failCount+1;
+        setFailCount(nf);localStorage.setItem(FAIL_KEY,String(nf));
+        if(nf>=MAX_FAILS){
+          const until=Date.now()+LOCK_MS;
+          setLockUntil(until);localStorage.setItem(LOCK_KEY,String(until));
+          setErr('🔒 Trop de tentatives — accès bloqué 5 minutes.');
+        }else{
+          setErr(`Mot de passe incorrect (${nf}/${MAX_FAILS} tentative${nf>1?'s':''})`);
+        }
+      }
     }catch(e){setErr('Erreur réseau : '+e.message);}
     finally{setLoading(false);setHint('');clearTimeout(t1);clearTimeout(t2);if(t3)clearTimeout(t3);}
   }
+
+  const mins=Math.floor(countdown/60), secs=String(countdown%60).padStart(2,'0');
 
   return CE('div',{className:'login-wrap'},
     CE('div',{className:'login-card'},
@@ -760,25 +798,27 @@ function AdminLogin({onLogin,savedName,onResetProfil}){
         CE('span',{style:{color:'#1e3a8a',fontWeight:700}},'👤 Connecté en tant que : '+savedName),
         CE('button',{onClick:onResetProfil,style:{background:'none',border:'none',color:'#9ca3af',cursor:'pointer',fontSize:11,textDecoration:'underline'}},'Changer')
       ),
-      CE('div',{style:{position:'relative',marginBottom:10}},
-        CE('input',{
-          type:show?'text':'password',placeholder:'Mot de passe',value:pwd,
-          onChange:e=>setPwd(e.target.value),
-          onKeyDown:e=>e.key==='Enter'&&handleSubmit(),
-          style:{width:'100%',padding:'10px 40px 10px 14px',border:'1px solid #e2e8f0',borderRadius:8,fontSize:14,outline:'none',boxSizing:'border-box'}
-        }),
-        CE('button',{
-          onClick:()=>setShow(s=>!s),
-          style:{position:'absolute',right:10,top:'50%',transform:'translateY(-50%)',background:'none',border:'none',cursor:'pointer',fontSize:16,color:'#718096',padding:0}
-        },show?'🙈':'👁️')
-      ),
-      err&&CE('p',{style:{color:'#c53030',fontSize:13,marginBottom:8}},err),
-      hint&&!err&&CE('p',{style:{color:'#718096',fontSize:12,marginBottom:8,display:'flex',alignItems:'center',gap:6}},
-        CE('span',{className:'spinner',style:{width:12,height:12,borderWidth:2}}),hint),
-      CE('button',{
-        onClick:handleSubmit,disabled:loading||!pwd.trim(),
-        style:{width:'100%',padding:'11px',background:'#1e3a8a',color:'#fff',border:'none',borderRadius:8,fontSize:14,fontWeight:700,cursor:'pointer'}
-      },loading?'Vérification…':'Connexion')
+      isLocked
+        ? CE('div',{style:{textAlign:'center',padding:'28px 0'}},
+            CE('div',{style:{fontSize:44,marginBottom:10}},'🔒'),
+            CE('div',{style:{fontSize:15,fontWeight:700,color:'#c53030',marginBottom:6}},'Accès temporairement bloqué'),
+            CE('div',{style:{fontSize:28,fontWeight:800,color:'#1a202c',fontVariantNumeric:'tabular-nums'}},mins+'m'+secs+'s'),
+            CE('div',{style:{fontSize:12,color:'#9ca3af',marginTop:4}},'Trop de tentatives incorrectes')
+          )
+        : CE(React.Fragment,null,
+            CE('div',{style:{position:'relative',marginBottom:10}},
+              CE('input',{
+                type:show?'text':'password',placeholder:'Mot de passe',value:pwd,
+                onChange:e=>setPwd(e.target.value),
+                onKeyDown:e=>e.key==='Enter'&&handleSubmit(),
+                style:{width:'100%',padding:'10px 40px 10px 14px',border:'1px solid #e2e8f0',borderRadius:8,fontSize:14,outline:'none',boxSizing:'border-box'}
+              }),
+              CE('button',{onClick:()=>setShow(s=>!s),style:{position:'absolute',right:10,top:'50%',transform:'translateY(-50%)',background:'none',border:'none',cursor:'pointer',fontSize:16,color:'#718096',padding:0}},show?'🙈':'👁️')
+            ),
+            err&&CE('p',{style:{color:'#c53030',fontSize:13,marginBottom:8}},err),
+            hint&&!err&&CE('p',{style:{color:'#718096',fontSize:12,marginBottom:8,display:'flex',alignItems:'center',gap:6}},CE('span',{className:'spinner',style:{width:12,height:12,borderWidth:2}}),hint),
+            CE('button',{onClick:handleSubmit,disabled:loading||!pwd.trim(),style:{width:'100%',padding:'11px',background:'#1e3a8a',color:'#fff',border:'none',borderRadius:8,fontSize:14,fontWeight:700,cursor:'pointer'}},loading?'Vérification…':'Connexion')
+          )
     )
   );
 }
@@ -1133,6 +1173,265 @@ function App(){
       onCancel:()=>setConfirmDelete(null)
     }),
     CE('div',{id:'toast',className:'toast',style:{opacity:0}})
+  );
+}
+
+// ════════════════════════════════════════════════════════════
+// ── v10.0 : VueAdmin — Override shared.js ──────────────────
+//   • KPIs enrichis (4 indicateurs + taux + mois)
+//   • Validation pré-import CSV & XLSX (modal aperçu)
+// ════════════════════════════════════════════════════════════
+
+// ── Modale aperçu import ───────────────────────────────────
+function ImportPreviewModal({preview, onConfirm, onCancel}){
+  if(!preview) return null;
+  const {rows, errors, type} = preview;
+  const COLS=['statut','date','horaire','conseiller','commune','thematique','orienteur'];
+  return CE('div',{className:'confirm-overlay',onClick:onCancel},
+    CE('div',{onClick:e=>e.stopPropagation(),style:{
+      background:'#fff',borderRadius:14,padding:'24px',maxWidth:760,width:'95%',
+      maxHeight:'85vh',overflowY:'auto',boxShadow:'0 16px 64px rgba(0,0,0,.25)',
+      animation:'slideUp .18s ease'
+    }},
+      CE('h3',{style:{margin:'0 0 4px',fontSize:16,color:'#1a202c'}},'📋 Aperçu — Import '+type),
+      CE('p',{style:{margin:'0 0 16px',fontSize:13,color:'#4a5568'}},
+        rows.length+' ligne'+(rows.length>1?'s':'')+' détectée'+(rows.length>1?'s':'')+
+        (errors.length>0?' · '+CE : '')),
+
+      // Bandeau erreurs
+      errors.length>0&&CE('div',{style:{background:'#fff5f5',border:'1px solid #fed7d7',borderRadius:8,padding:'10px 14px',marginBottom:14}},
+        CE('div',{style:{fontWeight:700,fontSize:13,color:'#c53030',marginBottom:6}},'⚠️ '+errors.length+' anomalie'+(errors.length>1?'s':'')+' détectée'+(errors.length>1?'s':'')+' :'),
+        errors.slice(0,8).map((e,i)=>CE('div',{key:i,style:{fontSize:12,color:'#c53030',marginBottom:2}},'• '+e)),
+        errors.length>8&&CE('div',{style:{fontSize:11,color:'#9ca3af',marginTop:4}},'… et '+(errors.length-8)+' autre'+(errors.length-8>1?'s':''))
+      ),
+
+      // Tableau aperçu (5 premières lignes)
+      CE('div',{style:{overflowX:'auto',marginBottom:16}},
+        CE('table',{style:{width:'100%',borderCollapse:'collapse',fontSize:11,minWidth:500}},
+          CE('thead',null,CE('tr',null,
+            COLS.map(c=>CE('th',{key:c,style:{background:'#f1f5f9',padding:'6px 8px',textAlign:'left',fontSize:11,fontWeight:700,color:'#4a5568',borderBottom:'2px solid #e2e8f0',whiteSpace:'nowrap'}},c))
+          )),
+          CE('tbody',null,
+            rows.slice(0,5).map((r,i)=>CE('tr',{key:i,style:{background:i%2?'#f8fafc':'#fff'}},
+              COLS.map(c=>CE('td',{key:c,style:{padding:'5px 8px',borderBottom:'1px solid #f0f0f0',maxWidth:120,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',color:!r[c]&&['statut','date','conseiller'].includes(c)?'#fc8181':'#1a202c'}},
+                String(r[c]||'—')
+              ))
+            ))
+          )
+        )
+      ),
+      rows.length>5&&CE('p',{style:{fontSize:11,color:'#9ca3af',margin:'-10px 0 14px',textAlign:'right'}},
+        '… '+( rows.length-5)+' ligne'+(rows.length-5>1?'s':'')+' supplémentaire'+(rows.length-5>1?'s':'')+' non affichée'+(rows.length-5>1?'s':'')),
+
+      CE('div',{style:{display:'flex',gap:10,justifyContent:'flex-end'}},
+        CE('button',{onClick:onCancel,style:{padding:'9px 20px',border:'1px solid #e2e8f0',borderRadius:8,background:'#f8fafc',cursor:'pointer',fontSize:13,fontWeight:600,color:'#4a5568'}},'Annuler'),
+        CE('button',{onClick:onConfirm,autoFocus:true,style:{padding:'9px 20px',border:'none',borderRadius:8,background:errors.length>0?'#dd6b20':'#1e3a8a',cursor:'pointer',fontSize:13,fontWeight:700,color:'#fff'}},
+          errors.length>0?'⚠️ Importer quand même':'✅ Confirmer l\'import'
+        )
+      )
+    )
+  );
+}
+
+// ── VueAdmin override ──────────────────────────────────────
+function VueAdmin({entries,onRefresh,addLog,conseillersList,onSaveColors,annee}){
+  const[resetStep,setResetStep]=React.useState(0);
+  const[visibility,setVisibility]=React.useState(null);
+  const[visSaving,setVisSaving]=React.useState(false);
+  const[importing,setImporting]=React.useState(false);
+  const[colorDraft,setColorDraft]=React.useState({...CONSEILLER_COLORS});
+  const[colorSaving,setColorSaving]=React.useState(false);
+  const[importProgress,setImportProgress]=React.useState(0);
+  const[importMsg,setImportMsg]=React.useState('');
+  const[importPreview,setImportPreview]=React.useState(null); // v10 : aperçu avant envoi
+  const cancelRef=React.useRef(false);
+  const pendingRowsRef=React.useRef([]);
+  const VIS_ITEMS=[{key:'saisie',label:'✏️ Saisie',sub:'Formulaire de saisie'},{key:'historique',label:'📋 Historique',sub:'Liste des ateliers'},{key:'calendrier',label:'📅 Calendrier',sub:'Vue calendrier mensuelle'},{key:'graphiques',label:'📊 Graphiques',sub:'Tableaux de bord'},{key:'carte',label:'🗺️ Carte',sub:'Carte des communes'},{key:'bingo',label:'🎯 Bingo',sub:'Vue par commune'}];
+
+  React.useEffect(()=>{apiFetch('getVisibility').then(res=>{if(res.ok)setVisibility(res.visibility);}).catch(()=>{});},[]);
+  React.useEffect(()=>{setColorDraft(d=>{const draft={...CONSEILLER_COLORS,...d};(conseillersList||[]).forEach(c=>{if(!draft[c])draft[c]='#6B7280';});return draft;});},[conseillersList]);
+
+  // ── v10.0 : KPIs enrichis ─────────────────────────────────
+  const kpis=React.useMemo(()=>{
+    const now=new Date();
+    const moisActuel=now.getMonth(), anneeActuelle=now.getFullYear();
+    const total=entries.length;
+    const realises=entries.filter(e=>e.statut==='Réalisé').length;
+    const annules=entries.filter(e=>e.statut==='Annulé').length;
+    const base=total-annules;
+    const taux=base>0?Math.round(realises/base*100):0;
+    const ceMois=entries.filter(e=>{
+      if(!e.date)return false;
+      const d=new Date(e.date);
+      return d.getFullYear()===anneeActuelle&&d.getMonth()===moisActuel;
+    }).length;
+    const parConseiller={};
+    entries.forEach(e=>{if(e.conseiller){parConseiller[e.conseiller]=(parConseiller[e.conseiller]||0)+1;}});
+    const topConseiller=Object.entries(parConseiller).sort((a,b)=>b[1]-a[1])[0];
+    return{total,realises,taux,ceMois,topConseiller,annules};
+  },[entries,annee]);
+
+  async function handleSaveColors(){
+    setColorSaving(true);
+    try{const res=await apiFetch('saveColors',{colors:JSON.stringify(colorDraft)});if(!res.ok)throw new Error(res.error);applyColors(colorDraft);if(onSaveColors)onSaveColors(colorDraft);showToast('✅ Couleurs sauvegardées');addLog('Couleurs conseillers mises à jour','ok');}
+    catch(err){showToast('❌ '+err.message,false);}
+    finally{setColorSaving(false);}
+  }
+
+  async function handleSaveVisibility(){
+    setVisSaving(true);
+    try{const res=await apiFetch('saveVisibility',{visibility:JSON.stringify(visibility)});if(res.ok){showToast('✅ Visibilité sauvegardée');addLog('Visibilité frontend mise à jour','ok');}else throw new Error(res.error);}
+    catch(err){showToast('❌ '+err.message,false);}
+    finally{setVisSaving(false);}
+  }
+
+  function handleReset(){if(resetStep===0){setResetStep(1);return;}if(resetStep===1){setResetStep(2);return;}addLog('Réinitialisation BDD locale','info');showToast('✅ BDD locale vidée (Google Sheet intact)');setResetStep(0);onRefresh();}
+
+  // ── v10.0 : Validation pré-import ─────────────────────────
+  function detectErrors(rows){
+    const errs=[];
+    rows.forEach((r,i)=>{
+      const ln='Ligne '+(i+2);
+      if(!r.statut)errs.push(ln+' : statut vide');
+      if(!r.date||r.date==='Invalid Date'||r.date==='NaN-NaN-NaN')errs.push(ln+' : date invalide ('+JSON.stringify(r.date)+')');
+      if(!r.conseiller)errs.push(ln+' : conseiller vide');
+      if(!r.commune)errs.push(ln+' : commune vide');
+    });
+    return errs;
+  }
+
+  async function doUpload(rows_raw){
+    setImportPreview(null);setImporting(true);setImportProgress(0);
+    const BATCH=5;let done=0;
+    try{
+      setImportMsg(`${rows_raw.length} lignes — envoi vers Google Sheets…`);
+      for(let i=0;i<rows_raw.length;i+=BATCH){
+        if(cancelRef.current){showToast(`⛔ Annulé — ${done} lignes importées`,false);addLog(`Import annulé à ${done}/${rows_raw.length}`,'info');return;}
+        const batch=rows_raw.slice(i,i+BATCH);
+        const params=new URLSearchParams({action:'saveMany',entries:JSON.stringify(batch)});
+        const res=await Promise.race([fetch(`${GS_URL}?${params.toString()}`),new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')),45000))]);
+        const data=await res.json();if(!data.ok)throw new Error(data.error);
+        done+=batch.length;setImportProgress(Math.round(done/rows_raw.length*100));
+        setImportMsg(`${done}/${rows_raw.length} lignes importées…`);
+      }
+      addLog(`Import : ${rows_raw.length} ateliers`,'ok');showToast(`✅ ${rows_raw.length} ateliers importés`);onRefresh();
+    }catch(err){showToast('❌ '+err.message,false);addLog('Erreur import : '+err.message,'err');}
+    finally{setImporting(false);setImportProgress(0);setImportMsg('');cancelRef.current=false;}
+  }
+
+  async function handleImportCSV(e){
+    const file=e.target.files[0];if(!file)return;e.target.value='';
+    try{
+      const text=await file.text();const lines=text.split('\n').filter(l=>l.trim());
+      if(lines.length<2)throw new Error('Fichier vide ou invalide');
+      const sep=(lines[0].split(';').length>lines[0].split(',').length)?';':',';
+      function parseCSVLine(line){const res=[];let cur='',inQ=false;for(let i=0;i<line.length;i++){const c=line[i];if(c==='"')inQ=!inQ;else if(c===sep&&!inQ){res.push(cur.trim());cur='';}else cur+=c;}res.push(cur.trim());return res;}
+      const headers=parseCSVLine(lines[0]).map(h=>h.replace(/^"|"$/g,'').trim());
+      const rows_raw=[];
+      for(let i=1;i<lines.length;i++){const vals=parseCSVLine(lines[i]);if(vals.length<3)continue;const row={};headers.forEach((h,idx)=>{row[h]=vals[idx]?vals[idx].replace(/^"|"$/g,'').trim():'';});if(!row._id&&!row.statut&&!row['Statut'])continue;
+        const g=(...keys)=>{for(const k of keys){if(row[k]!==undefined&&row[k]!=='')return row[k];}return '';};
+        rows_raw.push({_id:g('_id')||genId(),_n:parseInt(g('_n','N°'))||0,statut:g('statut','Statut')||'Planifié',date:normalizeDate(g('date','Date')),horaire:normalizeHoraire(g('horaire','Horaire')),ampm:g('ampm','AM/PM')||'AM',orienteur:g('orienteur','Orienteur'),commune:normalizeCommune(g('commune','Commune')),lieu:g('lieu','Lieu',"Lieu de l'atelier"),thematique:g('thematique','Thématique','Thematique'),inscrits:g('inscrits','Inscrits')===''?'':parseInt(g('inscrits','Inscrits'))||0,presents:g('presents','Présents')===''?'':parseInt(g('presents','Présents'))||0,public:g('pub','public','Public')||'Tous publics',conseiller:g('conseiller','Conseiller','Conseiller numérique'),materiel:MATERIELS.filter(m=>String(g(m)).trim().toUpperCase()==='OUI'),residence:g('residence','Résidence','Résidence des participants'),remarques:g('remarques','Remarques')});
+      }
+      pendingRowsRef.current=rows_raw;
+      setImportPreview({rows:rows_raw,errors:detectErrors(rows_raw),type:'CSV'});
+    }catch(err){showToast('❌ '+err.message,false);addLog('Erreur lecture CSV : '+err.message,'err');}
+  }
+
+  async function handleImportXLSX(e){
+    const file=e.target.files[0];if(!file)return;e.target.value='';
+    try{
+      const ab=await file.arrayBuffer();const wb=XLSX.read(ab);const ws=wb.Sheets[wb.SheetNames[0]];const rows=XLSX.utils.sheet_to_json(ws,{defval:''});
+      const g=(r,...keys)=>{for(const k of keys){if(r[k]!==undefined&&r[k]!=='')return r[k];}return '';};
+      const rows_raw=rows.map(r=>({
+        _id:g(r,'_id')||genId(),_n:parseInt(g(r,'_n','N°','n'))||0,
+        statut:g(r,'statut','Statut')||'Planifié',date:normalizeDate(g(r,'date','Date')),
+        horaire:normalizeHoraire(g(r,'horaire','Horaire')),ampm:g(r,'ampm','AM/PM')||'AM',
+        orienteur:g(r,'orienteur','Orienteur'),commune:normalizeCommune(g(r,'commune','Commune')),
+        lieu:g(r,'lieu','Lieu',"Lieu de l'atelier"),thematique:g(r,'thematique','Thématique','Thematique'),
+        inscrits:g(r,'inscrits','Inscrits')===''?'':parseInt(g(r,'inscrits','Inscrits'))||0,
+        presents:g(r,'presents','Présents','Presents')===''?'':parseInt(g(r,'presents','Présents','Presents'))||0,
+        public:g(r,'public','Public')||'Tous publics',conseiller:g(r,'conseiller','Conseiller','Conseiller numérique'),
+        materiel:MATERIELS.filter(m=>String(g(r,m)).trim().toUpperCase()==='OUI'),
+        residence:g(r,'residence','Résidence','Résidence des participants'),remarques:g(r,'remarques','Remarques'),
+      })).filter(r=>r.statut);
+      pendingRowsRef.current=rows_raw;
+      setImportPreview({rows:rows_raw,errors:detectErrors(rows_raw),type:'XLSX'});
+    }catch(err){showToast('❌ '+err.message,false);addLog('Erreur lecture XLSX : '+err.message,'err');}
+  }
+
+  const resetLabels=['🗑️ Réinitialiser la BDD locale','⚠️ Confirmer (1/2)','🚨 Confirmer définitivement (2/2)'];
+  const STATUT_COLOR={'Planifié':'#9683EC','Réalisé':'#70AD47','Annulé':'#FF5050','Non réalisé':'#FFC000','Reporté':'#ED7D31'};
+
+  return CE(React.Fragment,null,
+    CE(ImportPreviewModal,{preview:importPreview,onCancel:()=>{setImportPreview(null);pendingRowsRef.current=[];},onConfirm:()=>doUpload(pendingRowsRef.current)}),
+    CE('div',null,
+
+      // ── v10.0 : KPIs enrichis ──
+      CE('div',{className:'card'},
+        CE('h2',{style:{marginBottom:14}},'⚙️ Panneau Administrateur'),
+        CE('div',{style:{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(130px,1fr))',gap:12,marginBottom:4}},
+          CE('div',{className:'kpi'},CE('div',{className:'val'},kpis.total),CE('div',{className:'lbl'},'Total ateliers')),
+          CE('div',{className:'kpi'},CE('div',{className:'val',style:{color:'#70AD47'}},kpis.realises),CE('div',{className:'lbl'},'Réalisés')),
+          CE('div',{className:'kpi'},CE('div',{className:'val',style:{color:kpis.taux>=75?'#70AD47':kpis.taux>=50?'#FFC000':'#FF5050'}},kpis.taux+'%'),CE('div',{className:'lbl'},'Taux réalisation')),
+          CE('div',{className:'kpi'},CE('div',{className:'val',style:{color:'#9683EC'}},kpis.ceMois),CE('div',{className:'lbl'},'Ce mois-ci'))
+        ),
+        kpis.topConseiller&&CE('p',{style:{fontSize:11,color:'#9ca3af',marginTop:6,marginBottom:0}},
+          '🏆 Top conseiller : '+kpis.topConseiller[0]+' ('+kpis.topConseiller[1]+' atelier'+(kpis.topConseiller[1]>1?'s':'')+')'
+        )
+      ),
+
+      CE('div',{className:'admin-section'},
+        CE('h3',null,'🎨 Couleurs des conseillers'),
+        CE('p',{style:{fontSize:12,color:'#4a5568',marginBottom:16}},"Personnalisez la couleur de chaque conseiller numérique. S'applique au bandeau, au formulaire et aux cartes."),
+        CE('div',{style:{display:'flex',flexDirection:'column',gap:10}},
+          (conseillersList||Object.keys(CONSEILLER_COLORS)).map(c=>{
+            const hexVal=(colorDraft[c]||'#6B7280').toUpperCase();
+            return CE('div',{key:c,style:{display:'flex',alignItems:'center',gap:12,padding:'10px 14px',background:'#f8fafc',borderRadius:10,border:'1.5px solid #e2e8f0'}},
+              CE('input',{type:'color',value:(colorDraft[c]||'#6B7280').toLowerCase(),onChange:e=>setColorDraft(d=>({...d,[c]:e.target.value.toUpperCase()})),style:{width:44,height:44,borderRadius:8,border:'none',cursor:'pointer',padding:2,background:'none',flexShrink:0}}),
+              CE('div',{style:{width:36,height:36,borderRadius:8,background:colorDraft[c]||'#6B7280',flexShrink:0,boxShadow:'0 2px 6px rgba(0,0,0,.15)'}}),
+              CE('span',{style:{flex:1,fontWeight:700,fontSize:14,color:'#1a202c'}},c),
+              CE('input',{type:'text',value:hexVal,maxLength:7,onChange:e=>setColorDraft(d=>({...d,[c]:e.target.value.toUpperCase()})),onBlur:e=>{const v=e.target.value;if(/^#[0-9A-Fa-f]{6}$/.test(v))setColorDraft(d=>({...d,[c]:v.toUpperCase()}));else setColorDraft(d=>({...d,[c]:colorDraft[c]||'#6B7280'}));},style:{width:88,fontFamily:'monospace',fontSize:13,fontWeight:700,color:'#1a202c',padding:'6px 10px',border:'1.5px solid #e2e8f0',borderRadius:8,background:'#fff',textAlign:'center'}}),
+              CE('button',{onClick:()=>{const orig=CONSEILLER_COLORS[c]||'#6B7280';setColorDraft(d=>({...d,[c]:orig}));},style:{padding:'4px 10px',border:'1px solid #e2e8f0',borderRadius:6,fontSize:11,color:'#718096',cursor:'pointer',background:'#fff',flexShrink:0}},'↩ Reset')
+            );
+          })
+        ),
+        CE('button',{className:'btn btn-primary',style:{marginTop:16},onClick:handleSaveColors,disabled:colorSaving},colorSaving?'…':'💾 Sauvegarder les couleurs')
+      ),
+
+      visibility&&CE('div',{className:'admin-section'},
+        CE('h3',null,'👁️ Visibilité — Frontend conseillers'),
+        CE('p',{style:{fontSize:12,color:'#4a5568',marginBottom:12}},"Choisissez les onglets visibles dans l'interface conseiller."),
+        VIS_ITEMS.map(item=>CE('div',{key:item.key,className:'toggle-row'},
+          CE('div',null,CE('div',{className:'toggle-label'},item.label),CE('div',{className:'toggle-sub'},item.sub)),
+          CE('label',{className:'tgl'},CE('input',{type:'checkbox',checked:!!visibility[item.key],onChange:()=>setVisibility(v=>({...v,[item.key]:!v[item.key]}))}),CE('span',{className:'tgl-track'}))
+        )),
+        CE('button',{className:'btn btn-primary',style:{marginTop:16},onClick:handleSaveVisibility,disabled:visSaving},visSaving?'…':'💾 Enregistrer la visibilité')
+      ),
+
+      CE('div',{className:'admin-section'},
+        CE('h3',null,'📥 Import CSV'),
+        CE('p',{style:{fontSize:12,color:'#4a5568',marginBottom:12}},'Importe un fichier CSV compatible. Les entrées existantes sont fusionnées.'),
+        importing?CE('div',null,CE('p',{style:{fontSize:12,color:'#4a5568',marginBottom:6}},importMsg),CE('div',{className:'progress-bar'},CE('div',{className:'progress-fill',style:{width:importProgress+'%'}})),CE('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginTop:6}},CE('p',{style:{fontSize:11,color:'#718096'}},importProgress+'%'),CE('button',{className:'btn btn-danger btn-sm',onClick:()=>cancelRef.current=true},'⛔ Annuler'))):
+          CE('label',{style:{display:'inline-block',cursor:'pointer'}},CE('span',{className:'btn btn-primary'},'📂 Choisir un fichier CSV'),CE('input',{type:'file',accept:'.csv',style:{display:'none'},onChange:handleImportCSV}))
+      ),
+
+      CE('div',{className:'admin-section'},
+        CE('h3',null,'📊 Import XLSX'),
+        CE('p',{style:{fontSize:12,color:'#4a5568',marginBottom:12}},'Réimporte un fichier .xlsx précédemment exporté.'),
+        importing?CE('div',null,CE('p',{style:{fontSize:12,color:'#4a5568',marginBottom:6}},importMsg||'Import en cours…'),CE('div',{className:'progress-bar'},CE('div',{className:'progress-fill',style:{width:importProgress+'%'}})),CE('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginTop:6}},CE('p',{style:{fontSize:11,color:'#718096'}},importProgress+'%'),CE('button',{className:'btn btn-danger btn-sm',onClick:()=>cancelRef.current=true},'⛔ Annuler'))):
+          CE('label',{style:{display:'inline-block',cursor:'pointer'}},CE('span',{className:'btn btn-warn'},'📂 Choisir un fichier XLSX'),CE('input',{type:'file',accept:'.xlsx',style:{display:'none'},onChange:handleImportXLSX}))
+      ),
+
+      CE('div',{className:'admin-section'},
+        CE('h3',null,'🗑️ Réinitialiser la base de données'),
+        CE('p',{style:{fontSize:12,color:'#4a5568',marginBottom:12}},'Vide uniquement le cache local. Le Google Sheet reste intact.'),
+        resetStep>0&&CE('div',{className:'confirm-box'},CE('p',null,resetStep===1?'Êtes-vous sûr ? Cette action vide le cache local.':'Dernière confirmation — cliquez pour confirmer.')),
+        CE('div',{style:{display:'flex',gap:10}},
+          CE('button',{className:'btn btn-danger',onClick:handleReset},resetLabels[resetStep]),
+          resetStep>0&&CE('button',{className:'btn btn-secondary',onClick:()=>setResetStep(0)},'Annuler')
+        )
+      )
+    )
   );
 }
 
