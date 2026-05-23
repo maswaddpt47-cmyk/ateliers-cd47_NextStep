@@ -470,14 +470,17 @@ function App(){
     return ()=> el.removeEventListener('change', handler);
   }, [view, lists.conseillers]);
 
-  // ── Chargement ────────────────────────────────────────────────
+  // ── Chargement v10.0 — timeout adaptatif mobile/desktop ─────
   async function loadData(attempt=1, silent=false){
     if(!silent) setLoading(true);
     setError(null);
     try{
+      const isMobile=/Android|iPhone|iPad/i.test(navigator.userAgent);
+      const timeouts=isMobile?[20000,25000,30000]:[8000,10000,12000];
+      const timeoutMs=timeouts[attempt-1]||timeouts[timeouts.length-1];
       const res=await Promise.race([
         fetch(`${GS_URL}?action=getAll&year=${annee}`),
-        new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')),12000))
+        new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')),timeoutMs))
       ]);
       const data=await res.json();
       if(!data.ok)throw new Error(data.error||'Erreur serveur');
@@ -504,8 +507,13 @@ function App(){
       });
       setLoading(false);
     }catch(err){
-      if(err.message==='timeout'&&attempt<3){setTimeout(()=>loadData(attempt+1,silent),2000);}
-      else{setError(attempt>1?'Google Sheets ne répond pas après 3 tentatives.':'Impossible de charger : '+err.message);setLoading(false);}
+      if(err.message==='timeout'&&attempt<3){
+        const isMobile=/Android|iPhone|iPad/i.test(navigator.userAgent);
+        setTimeout(()=>loadData(attempt+1,silent),isMobile?[3000,6000][attempt-1]:2000);
+      }else{
+        setError(attempt>1?'Google Sheets ne répond pas après 3 tentatives.':'Impossible de charger : '+err.message);
+        setLoading(false);
+      }
     }
   }
 
@@ -575,11 +583,14 @@ function App(){
     // Mois précédent pour la tendance
     const prevDate=new Date(now.getFullYear(),now.getMonth()-1,1);
     const prevKey=`${prevDate.getFullYear()}-${String(prevDate.getMonth()+1).padStart(2,'0')}`;
-    const statsMois={};
-    const statsPrev={};
+    const statsMois={};const statsPrev={};const statsRealises={};const statsAnnules={};
     entries.forEach(e=>{
       if(!e.conseiller) return;
-      if(e.date&&e.date.startsWith(moisKey)) statsMois[e.conseiller]=(statsMois[e.conseiller]||0)+1;
+      if(e.date&&e.date.startsWith(moisKey)){
+        statsMois[e.conseiller]=(statsMois[e.conseiller]||0)+1;
+        if(e.statut==='Réalisé') statsRealises[e.conseiller]=(statsRealises[e.conseiller]||0)+1;
+        if(e.statut==='Annulé')  statsAnnules[e.conseiller]=(statsAnnules[e.conseiller]||0)+1;
+      }
       if(e.date&&e.date.startsWith(prevKey)) statsPrev[e.conseiller]=(statsPrev[e.conseiller]||0)+1;
     });
 
@@ -602,10 +613,16 @@ function App(){
                   const trendIco=diff>0?'↑':diff<0?'↓':'→';
                   const trendColor=diff>0?'#16a34a':diff<0?'#dc2626':'#9ca3af';
                   const color=conseillerColor(c);
+                  const realises=statsRealises[c]||0;
+                  const annules=statsAnnules[c]||0;
+                  const base=n-annules;
+                  const taux=base>0?Math.round(realises/base*100):null;
+                  const tauxColor=taux===null?'#9ca3af':taux>=75?'#16a34a':taux>=50?'#d97706':'#dc2626';
                   return CE('div',{key:c,className:'accueil-stat-chip',style:{background:color+'12',border:`1px solid ${color}30`,color}},
                     CE('span',{style:{fontWeight:700}},c.split(' ')[0]),
                     CE('span',{className:'accueil-stat-count',style:{background:color}},n),
                     CE('span',{style:{fontSize:10,color:'#9ca3af'}},'ce mois'),
+                    taux!==null&&CE('span',{style:{fontSize:10,fontWeight:700,color:tauxColor}},taux+'%'),
                     prev>0&&CE('span',{className:'accueil-stat-trend',style:{color:trendColor}},`${trendIco}${Math.abs(diff)}`)
                   );
                 })

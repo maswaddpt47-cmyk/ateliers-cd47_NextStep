@@ -881,6 +881,7 @@ function App(){
   const[lastSync,setLastSync]= React.useState(null); // v9.4
   const[syncing,setSyncing]= React.useState(false);  // v9.5
   const[confirmDelete,setConfirmDelete]= React.useState(null); // v9.5
+  const[logFilter,setLogFilter]= React.useState('all'); // v10.0 : filtre logs
 
   // v9.5 : logs persistants via localStorage
   // v10.0 : logs avec timestamp ms pour purge +30j, limite 200, auto-purge au démarrage
@@ -1154,8 +1155,19 @@ function App(){
             CE('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14,flexWrap:'wrap',gap:8}},
               CE('h2',{style:{margin:0}},'📜 Journal des opérations'),
               CE('div',{style:{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}},
-                CE('span',{style:{fontSize:11,color:'#9ca3af'}},'Persistant · '+logs.length+' entrée'+(logs.length!==1?'s':'')),
-                // v10.0 : purge +30j
+                // v10.0 : filtres par type
+                CE('div',{style:{display:'flex',gap:4}},
+                  ['all','ok','err','info'].map(f=>CE('button',{key:f,
+                    onClick:()=>setLogFilter(f),
+                    style:{fontSize:11,padding:'3px 9px',borderRadius:6,cursor:'pointer',fontWeight:logFilter===f?700:400,
+                      border:logFilter===f?'1.5px solid #1e3a8a':'1px solid #e2e8f0',
+                      background:logFilter===f?'#eff6ff':'#f8fafc',
+                      color:logFilter===f?'#1e3a8a':f==='ok'?'#16a34a':f==='err'?'#dc2626':'#718096'}
+                  },{all:'Tous',ok:'✅ OK',err:'❌ Erreurs',info:'ℹ️ Info'}[f]))
+                ),
+                CE('span',{style:{fontSize:11,color:'#9ca3af'}},
+                  (logFilter==='all'?logs:logs.filter(l=>l.type===logFilter)).length+' / '+logs.length
+                ),
                 (()=>{
                   const cutoff=Date.now()-30*24*60*60*1000;
                   const old30=logs.filter(e=>!e.ts||e.ts<cutoff).length;
@@ -1163,22 +1175,25 @@ function App(){
                     onClick:purgeLogs,
                     title:'Supprimer les '+old30+' entrée'+(old30>1?'s':'')+' de plus de 30 jours',
                     style:{fontSize:11,padding:'3px 10px',border:'1px solid #fbd38d',borderRadius:6,background:'#fffbeb',cursor:'pointer',color:'#b45309'}
-                  },'🕐 Purger +30j ('+old30+')');
+                  },'🕐 +30j ('+old30+')');
                 })(),
                 logs.length>0&&CE('button',{
-                  onClick:clearLogs,
+                  onClick:()=>{clearLogs();setLogFilter('all');},
                   style:{fontSize:11,padding:'3px 10px',border:'1px solid #e2e8f0',borderRadius:6,background:'#f8fafc',cursor:'pointer',color:'#718096'}
                 },'🗑️ Tout effacer')
               )
             ),
-            logs.length===0
-              ?CE('p',{style:{color:'#718096',fontSize:13}},'Aucune opération enregistrée.')
-              :logs.map((l,i)=>{
-                const dateStr=l.ts?new Date(l.ts).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit'}):'';
-                return CE('div',{key:i,className:'log-entry log-'+l.type},
-                  CE('span',{className:'log-time'},dateStr&&(dateStr+' '),l.t),
-                  CE('span',null,l.msg));
-              })
+            (()=>{
+              const filtered=logFilter==='all'?logs:logs.filter(l=>l.type===logFilter);
+              return filtered.length===0
+                ?CE('p',{style:{color:'#718096',fontSize:13}},logFilter==='all'?'Aucune opération enregistrée.':'Aucune entrée de ce type.')
+                :filtered.map((l,i)=>{
+                  const dateStr=l.ts?new Date(l.ts).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit'}):'';
+                  return CE('div',{key:i,className:'log-entry log-'+l.type},
+                    CE('span',{className:'log-time'},dateStr&&(dateStr+' '),l.t),
+                    CE('span',null,l.msg));
+                });
+            })()
           )
         )
       )
@@ -1489,6 +1504,35 @@ function VueAdmin({entries,onRefresh,addLog,conseillersList,onSaveColors,annee})
         CE('p',{style:{fontSize:12,color:'#4a5568',marginBottom:12}},'Réimporte un fichier .xlsx précédemment exporté.'),
         importing?CE('div',null,CE('p',{style:{fontSize:12,color:'#4a5568',marginBottom:6}},importMsg||'Import en cours…'),CE('div',{className:'progress-bar'},CE('div',{className:'progress-fill',style:{width:importProgress+'%'}})),CE('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginTop:6}},CE('p',{style:{fontSize:11,color:'#718096'}},importProgress+'%'),CE('button',{className:'btn btn-danger btn-sm',onClick:()=>cancelRef.current=true},'⛔ Annuler'))):
           CE('label',{style:{display:'inline-block',cursor:'pointer'}},CE('span',{className:'btn btn-warn'},'📂 Choisir un fichier XLSX'),CE('input',{type:'file',accept:'.xlsx',style:{display:'none'},onChange:handleImportXLSX}))
+      ),
+
+      CE('div',{className:'admin-section'},
+        CE('h3',null,'🔍 Vérification cohérence'),
+        CE('p',{style:{fontSize:12,color:'#4a5568',marginBottom:12}},'Analyse les données chargées pour détecter les anomalies.'),
+        CE('button',{className:'btn btn-primary',onClick:()=>{
+          const now=new Date();
+          const anomalies=[];
+          // Doublons _id
+          const ids=entries.map(e=>e._id);
+          const dupIds=ids.filter((id,i)=>ids.indexOf(id)!==i);
+          if(dupIds.length>0) anomalies.push('⚠️ '+dupIds.length+' doublon'+(dupIds.length>1?'s':'')+' d\'identifiant détecté'+(dupIds.length>1?'s':''));
+          // Dates dans le futur (> aujourd'hui + 30j)
+          const futurLimit=new Date(now.getTime()+30*24*60*60*1000);
+          const futurEntries=entries.filter(e=>{if(!e.date)return false;const d=new Date(e.date);return d>futurLimit;});
+          if(futurEntries.length>0) anomalies.push('📅 '+futurEntries.length+' atelier'+(futurEntries.length>1?'s':'')+' planifié'+(futurEntries.length>1?'s':'')+' à plus de 30j dans le futur');
+          // Ateliers sans conseiller
+          const sansConseiller=entries.filter(e=>!e.conseiller);
+          if(sansConseiller.length>0) anomalies.push('👤 '+sansConseiller.length+' atelier'+(sansConseiller.length>1?'s':'')+' sans conseiller');
+          // Ateliers sans date
+          const sansDate=entries.filter(e=>!e.date||e.date==='Invalid Date');
+          if(sansDate.length>0) anomalies.push('📅 '+sansDate.length+' atelier'+(sansDate.length>1?'s':'')+' sans date valide');
+          // Présents > inscrits
+          const presentsAberrants=entries.filter(e=>e.presents&&e.inscrits&&parseInt(e.presents)>parseInt(e.inscrits));
+          if(presentsAberrants.length>0) anomalies.push('📊 '+presentsAberrants.length+' atelier'+(presentsAberrants.length>1?'s':'')+' avec présents > inscrits');
+          const msg=anomalies.length===0?'OK : aucune anomalie ('+entries.length+' ateliers)':anomalies.join(' — ');
+          addLog('Vérification cohérence : '+(anomalies.length===0?'OK':anomalies.length+' anomalie'+(anomalies.length>1?'s':'')),anomalies.length===0?'ok':'err');
+          alert(msg);
+        }},'🔍 Analyser ('+entries.length+' ateliers)')
       ),
 
       CE('div',{className:'admin-section'},
