@@ -143,213 +143,7 @@
     return wb;
   };
 
-  // ── Surcharge VueAdmin — ajout section Export ──────────────────────────
-  const _VueAdmin_orig=window.VueAdmin;
-  window.VueAdmin=function VueAdmin(props){
-    const{entries,annee,conseillersList}=props;
-    // Fix #5 : persistance moisDeb/moisFin
-    const[moisDeb,setMoisDeb]=React.useState(()=>parseInt(localStorage.getItem('cal_moisDeb')||'1'));
-    const[moisFin,setMoisFin]=React.useState(()=>parseInt(localStorage.getItem('cal_moisFin')||'12'));
-    function changeMoisDeb(v){localStorage.setItem('cal_moisDeb',v);setMoisDeb(v);setLastExport(null);}
-    function changeMoisFin(v){localStorage.setItem('cal_moisFin',v);setMoisFin(v);setLastExport(null);}
-    const[running,setRunning]=React.useState(false);
-    const[xLogs,setXLogs]=React.useState([]);
-    const[lastExport,setLastExport]=React.useState(null);
 
-    function addXLog(msg,type='info'){setXLogs(l=>[...l,{msg,type,t:new Date().toLocaleTimeString('fr-FR')}]);}
-
-    // Fix #7 : aperçu en temps réel
-    const year=parseInt(annee||new Date().getFullYear());
-    const previewMonths=[];for(let m=moisDeb;m<=moisFin;m++)previewMonths.push(m);
-    const previewEntries=(entries||[]).filter(e=>{
-      if(!e.date||!e.conseiller)return false;
-      const mIso=String(e.date).match(/^(\d{4})-(\d{2})-(\d{2})/);
-      if(!mIso)return false;
-      return parseInt(mIso[1])===year&&previewMonths.includes(parseInt(mIso[2]));
-    });
-    const previewCons=[...new Set(previewEntries.map(e=>e.conseiller))].length;
-    const MOIS_SHORT=['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
-
-    async function handleExport(){
-      setRunning(true);setXLogs([]);setLastExport(null);
-      try{
-        const year=parseInt(annee||new Date().getFullYear());
-        // Fix #2 : guard mois (ne devrait pas arriver vu disabled, mais sécurité)
-        if(moisDeb>moisFin)throw new Error('Mois de début postérieur au mois de fin.');
-        const months=[];for(let m=moisDeb;m<=moisFin;m++)months.push(m);
-        addXLog(`Traitement de ${entries.length} ateliers pour ${year}…`);
-        const df=[];
-        for(const e of entries){
-          if(!e.date||!e.conseiller)continue;
-          const s=String(e.date).trim();let d=null;
-          const mFr=s.match(/^(?:\w+\s+)?(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-          if(mFr)d=new Date(Date.UTC(parseInt(mFr[3]),parseInt(mFr[2])-1,parseInt(mFr[1])));
-          if(!d){const mIso=s.match(/^(\d{4})-(\d{2})-(\d{2})/);if(mIso)d=new Date(Date.UTC(+mIso[1],+mIso[2]-1,+mIso[3]));}
-          if(!d||isNaN(d.getTime()))continue;
-          if(d.getUTCFullYear()!==year)continue;
-          if(!months.includes(d.getUTCMonth()+1))continue;
-          // ampm ignoré (stocké 'AM' par défaut dans GAS) — dérivé depuis l'horaire comme l'outil original
-          df.push({date:d,horaire:e.horaire||'9H00',ampm:'',conseiller:String(e.conseiller).trim(),orienteur:String(e.orienteur||'').trim()||'—',statut:String(e.statut||'').trim()});
-        }
-        addXLog(`✓ ${df.length} ateliers valides`,'ok');
-        // ── Diagnostic AM/PM (dérivé horaire) ──
-        const nAM=df.filter(e=>isAMCal(e.horaire)).length;
-        const nPM=df.length-nAM;
-        addXLog(`AM/PM (via horaire) → AM:${nAM} · PM:${nPM}`,'ok');
-        // ───────────────────────────────────────
-        const cons=conseillersList||[];
-        addXLog(`→ ${cons.length} conseillers : ${cons.join(', ')}`);
-        if(df.length===0)throw new Error('Aucun atelier trouvé pour cette période. Vérifiez l\'année et les mois sélectionnés.');
-        const wb=window.generateCalendrier(df,year,months,cons,addXLog);
-        const outData=XLSX.write(wb,{type:'base64',bookType:'xlsx'});
-        // Fix #1 : nom de fichier sans version hardcodée
-        const fileName=`Calendrier_ateliers_${year}.xlsx`;
-        const dataUrl='data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,'+outData;
-        // Fix #3 : stocker pour le bouton de secours AVANT le click auto
-        setLastExport({url:dataUrl,name:fileName});
-        const a=document.createElement('a');a.href=dataUrl;a.download=fileName;document.body.appendChild(a);a.click();document.body.removeChild(a);
-        addXLog(`✓ "${fileName}" téléchargé`,'ok');
-      }catch(err){addXLog('✗ '+err.message,'err');console.error(err);}
-      finally{setRunning(false);}
-    }
-
-    const MOIS=['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
-    const moisInvalid=moisDeb>moisFin;
-
-    // v10.0 : handleExport Timeline (restauré depuis v9.5)
-  async function handleExport(){
-    setTlRunning(true);setTlLogs([]);setLastExport(null);
-    try{
-      const yr=parseInt(annee||new Date().getFullYear());
-      if(moisDeb>moisFin)throw new Error('Mois de début postérieur au mois de fin.');
-      const months=[];for(let m=moisDeb;m<=moisFin;m++)months.push(m);
-      addTlLog(`Traitement de ${entries.length} ateliers pour ${yr}…`);
-      const df=[];
-      for(const e of entries){
-        if(!e.date||!e.conseiller)continue;
-        const s=String(e.date).trim();let d=null;
-        const mFr=s.match(/^(?:\w+\s+)?(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-        if(mFr)d=new Date(Date.UTC(parseInt(mFr[3]),parseInt(mFr[2])-1,parseInt(mFr[1])));
-        if(!d){const mIso=s.match(/^(\d{4})-(\d{2})-(\d{2})/);if(mIso)d=new Date(Date.UTC(+mIso[1],+mIso[2]-1,+mIso[3]));}
-        if(!d||isNaN(d.getTime()))continue;
-        if(d.getUTCFullYear()!==yr)continue;
-        if(!months.includes(d.getUTCMonth()+1))continue;
-        df.push({date:d,horaire:e.horaire||'9H00',ampm:'',conseiller:String(e.conseiller).trim(),orienteur:String(e.orienteur||'').trim()||'—',statut:String(e.statut||'').trim()});
-      }
-      addTlLog(`✓ ${df.length} ateliers valides`,'ok');
-      const cons=conseillersList||[];
-      addTlLog(`→ ${cons.length} conseillers : ${cons.join(', ')}`);
-      if(df.length===0)throw new Error('Aucun atelier trouvé pour cette période.');
-      const wb=window.generateCalendrier(df,yr,months,cons,addTlLog);
-      const outData=XLSX.write(wb,{type:'base64',bookType:'xlsx'});
-      const fileName=`Calendrier_ateliers_${yr}.xlsx`;
-      const dataUrl='data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,'+outData;
-      setLastExport({url:dataUrl,name:fileName});
-      const a=document.createElement('a');a.href=dataUrl;a.download=fileName;document.body.appendChild(a);a.click();document.body.removeChild(a);
-      addTlLog(`✓ "${fileName}" téléchargé`,'ok');
-    }catch(err){addTlLog('✗ '+err.message,'err');}
-    finally{setTlRunning(false);}
-  }
-
-  return CE(React.Fragment,null,
-      CE(_VueAdmin_orig,props),
-
-      CE('div',{className:'admin-section'},
-        CE('h3',null,'📅 Export Timeline Ateliers'),
-        CE('p',{style:{fontSize:12,color:'#4a5568',marginBottom:14}},'Génère le planning timeline directement depuis les données chargées. Année et conseillers pris depuis la sidebar.'),
-        CE('div',{style:{display:'flex',gap:12,alignItems:'flex-end',flexWrap:'wrap',marginBottom:moisInvalid?6:10}},
-          CE('div',null,
-            CE('label',null,'Mois début'),
-            CE('select',{value:moisDeb,onChange:e=>changeMoisDeb(+e.target.value),style:{marginTop:4}},
-              MOIS.map((m,i)=>CE('option',{key:i,value:i+1},m))
-            )
-          ),
-          CE('div',null,
-            CE('label',null,'Mois fin'),
-            CE('select',{value:moisFin,onChange:e=>changeMoisFin(+e.target.value),style:{marginTop:4}},
-              MOIS.map((m,i)=>CE('option',{key:i,value:i+1},m))
-            )
-          ),
-          CE('button',{
-            className:'btn btn-success',
-            style:{alignSelf:'flex-end'},
-            disabled:running||moisInvalid||previewEntries.length===0,
-            onClick:handleExport
-          },running?CE('span',null,CE('span',{className:'spinner'}),'Génération…'):'📥 Générer & Télécharger')
-        ),
-        moisInvalid&&CE('p',{style:{fontSize:12,color:'#c53030',marginBottom:10,display:'flex',alignItems:'center',gap:6}},
-          '⚠️ Le mois de début doit être antérieur ou égal au mois de fin.'
-        ),
-        // Fix #7 : aperçu en temps réel
-        !moisInvalid&&CE('div',{style:{display:'flex',gap:8,marginBottom:12,flexWrap:'wrap'}},
-          CE('span',{style:{fontSize:12,background:'#ebf8ff',border:'1px solid #bee3f8',color:'#2b6cb0',borderRadius:6,padding:'3px 10px'}},
-            `📊 ${previewEntries.length} atelier${previewEntries.length!==1?'s':''} · ${previewCons} conseiller${previewCons!==1?'s':''}`),
-          CE('span',{style:{fontSize:12,background:'#f0fff4',border:'1px solid #9ae6b4',color:'#276749',borderRadius:6,padding:'3px 10px'}},
-            `📅 ${MOIS_SHORT[moisDeb-1]} → ${MOIS_SHORT[moisFin-1]} ${year}`)
-        ),
-        xLogs.length>0&&CE('div',{style:{background:'#f8fafc',border:'1px solid #e2e8f0',borderRadius:8,padding:'10px 14px',maxHeight:160,overflowY:'auto',fontSize:12}},
-          xLogs.map((l,i)=>CE('div',{key:i,className:`log-entry log-${l.type}`,style:{marginBottom:4}},
-            CE('span',{className:'log-time'},l.t+' '),
-            CE('span',null,l.msg)
-          ))
-        ),
-        // Fix #3 : bouton de secours si le téléchargement auto a échoué (Safari, Firefox strict…)
-        lastExport&&CE('div',{style:{marginTop:10,padding:'10px 14px',background:'#f0fff4',border:'1px solid #9ae6b4',borderRadius:8,display:'flex',alignItems:'center',gap:10,fontSize:13}},
-          CE('span',null,'📎 Si le téléchargement ne s\'est pas lancé :'),
-          CE('a',{href:lastExport.url,download:lastExport.name,style:{color:'#276749',fontWeight:700,textDecoration:'underline'}},lastExport.name)
-        )
-      ),  // fin section calendrier
-      // v9.4 : changement de mot de passe admin
-      CE(ChangerMotDePasse,null)
-    );
-  };
-
-  function ChangerMotDePasse(){
-    const[pwd,setPwd]=React.useState('');
-    const[pwd2,setPwd2]=React.useState('');
-    const[show,setShow]=React.useState(false);
-    const[saving,setSaving]=React.useState(false);
-    const[msg,setMsg]=React.useState(null);
-
-    async function handleSave(){
-      if(pwd.length<4){setMsg({ok:false,txt:'4 caractères minimum'});return;}
-      if(pwd!==pwd2){setMsg({ok:false,txt:'Les mots de passe ne correspondent pas'});return;}
-      setSaving(true);setMsg(null);
-      try{
-        const res=await apiFetch('setPassword',{pwd});
-        if(res.ok){setMsg({ok:true,txt:'✅ Mot de passe mis à jour'});setPwd('');setPwd2('');}
-        else setMsg({ok:false,txt:res.error||'Erreur'});
-      }catch(e){setMsg({ok:false,txt:'Erreur réseau'});}
-      finally{setSaving(false);}
-    }
-
-    const inputStyle={marginTop:4,display:'block',padding:'8px 36px 8px 12px',border:'1px solid #e2e8f0',borderRadius:6,fontSize:13,boxSizing:'border-box',width:'100%'};
-    const eyeStyle={position:'absolute',right:8,top:'50%',transform:'translateY(-50%)',background:'none',border:'none',cursor:'pointer',fontSize:14,color:'#718096',padding:0};
-
-    return CE('div',{className:'admin-section'},
-      CE('h3',null,'🔑 Changer le mot de passe admin'),
-      CE('div',{style:{display:'flex',gap:10,flexWrap:'wrap',alignItems:'flex-end'}},
-        CE('div',null,
-          CE('label',null,'Nouveau mot de passe'),
-          CE('div',{style:{position:'relative'}},
-            CE('input',{type:show?'text':'password',value:pwd,onChange:e=>setPwd(e.target.value),placeholder:'Min. 4 caractères',style:inputStyle}),
-            CE('button',{onClick:()=>setShow(s=>!s),style:eyeStyle},show?'🙈':'👁️')
-          )
-        ),
-        CE('div',null,
-          CE('label',null,'Confirmer'),
-          CE('div',{style:{position:'relative'}},
-            CE('input',{type:show?'text':'password',value:pwd2,onChange:e=>setPwd2(e.target.value),placeholder:'Répéter',style:inputStyle}),
-            CE('button',{onClick:()=>setShow(s=>!s),style:eyeStyle},show?'🙈':'👁️')
-          )
-        ),
-        CE('button',{className:'btn btn-primary',disabled:saving||!pwd||!pwd2,onClick:handleSave,style:{alignSelf:'flex-end'}},saving?'Sauvegarde…':'💾 Sauvegarder')
-      ),
-      msg&&CE('p',{style:{marginTop:8,fontSize:13,color:msg.ok?'#276749':'#c53030'}},msg.txt)
-    );
-  }
-
-})();
 </script>
 <style>
 /* ── v9.4 : Sidebar expand redesign ─────────────────────────── */
@@ -1442,6 +1236,41 @@ function VueAdminV10({entries,onRefresh,addLog,conseillersList,onSaveColors,anne
   }
 
   function handleReset(){if(resetStep===0){setResetStep(1);return;}if(resetStep===1){setResetStep(2);return;}addLog('Réinitialisation BDD locale','info');showToast('✅ BDD locale vidée (Google Sheet intact)');setResetStep(0);onRefresh();}
+
+  // ── v10.0 : Export Timeline ────────────────────────────────
+  async function handleExport(){
+    setTlRunning(true);setTlLogs([]);setLastExport(null);
+    try{
+      const yr=parseInt(annee||new Date().getFullYear());
+      if(moisDeb>moisFin)throw new Error('Mois de début postérieur au mois de fin.');
+      const months=[];for(let m=moisDeb;m<=moisFin;m++)months.push(m);
+      addTlLog(`Traitement de ${entries.length} ateliers pour ${yr}…`);
+      const df=[];
+      for(const e of entries){
+        if(!e.date||!e.conseiller)continue;
+        const s=String(e.date).trim();let d=null;
+        const mFr=s.match(/^(?:\w+\s+)?(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+        if(mFr)d=new Date(Date.UTC(parseInt(mFr[3]),parseInt(mFr[2])-1,parseInt(mFr[1])));
+        if(!d){const mIso=s.match(/^(\d{4})-(\d{2})-(\d{2})/);if(mIso)d=new Date(Date.UTC(+mIso[1],+mIso[2]-1,+mIso[3]));}
+        if(!d||isNaN(d.getTime()))continue;
+        if(d.getUTCFullYear()!==yr)continue;
+        if(!months.includes(d.getUTCMonth()+1))continue;
+        df.push({date:d,horaire:e.horaire||'9H00',ampm:'',conseiller:String(e.conseiller).trim(),orienteur:String(e.orienteur||'').trim()||'—',statut:String(e.statut||'').trim()});
+      }
+      addTlLog(`✓ ${df.length} ateliers valides`,'ok');
+      const cons=conseillersList||[];
+      addTlLog(`→ ${cons.length} conseillers : ${cons.join(', ')}`);
+      if(df.length===0)throw new Error('Aucun atelier trouvé pour cette période. Vérifiez l\'année et les mois sélectionnés.');
+      const wb=window.generateCalendrier(df,yr,months,cons,addTlLog);
+      const outData=XLSX.write(wb,{type:'base64',bookType:'xlsx'});
+      const fileName=`Calendrier_ateliers_${yr}.xlsx`;
+      const dataUrl='data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,'+outData;
+      setLastExport({url:dataUrl,name:fileName});
+      const a=document.createElement('a');a.href=dataUrl;a.download=fileName;document.body.appendChild(a);a.click();document.body.removeChild(a);
+      addTlLog(`✓ "${fileName}" téléchargé`,'ok');
+    }catch(err){addTlLog('✗ '+err.message,'err');console.error(err);}
+    finally{setTlRunning(false);}
+  }
 
   // ── v10.0 : Validation pré-import ─────────────────────────
   function detectErrors(rows){
