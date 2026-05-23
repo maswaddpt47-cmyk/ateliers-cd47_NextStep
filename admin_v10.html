@@ -1222,7 +1222,7 @@ function ImportPreviewModal({preview, onConfirm, onCancel}){
       CE('h3',{style:{margin:'0 0 4px',fontSize:16,color:'#1a202c'}},'📋 Aperçu — Import '+type),
       CE('p',{style:{margin:'0 0 16px',fontSize:13,color:'#4a5568'}},
         rows.length+' ligne'+(rows.length>1?'s':'')+' détectée'+(rows.length>1?'s':'')+
-        (errors.length>0?' · '+CE : '')),
+        (errors.length>0?' · '+errors.length+' anomalie'+(errors.length>1?'s':'')+' détectée'+(errors.length>1?'s':'') : '')),
 
       // Bandeau erreurs
       errors.length>0&&CE('div',{style:{background:'#fff5f5',border:'1px solid #fed7d7',borderRadius:8,padding:'10px 14px',marginBottom:14}},
