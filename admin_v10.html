@@ -731,16 +731,15 @@ function clearSession(){
 // 3 échecs → blocage 5 min, countdown visible, reset auto.
 // ════════════════════════════════════════════════════════════
 function AdminLogin({onLogin,savedName,onResetProfil}){
-  const FAIL_KEY='adm_fail_count', LOCK_KEY='adm_lock_until';
-  const MAX_FAILS=3, LOCK_MS=5*60*1000;
+  const MAX_FAILS=3, LOCK_MS=5*60*1000; // v10.0 : mémoire React uniquement, pas localStorage
 
   const[pwd,setPwd]=React.useState('');
   const[err,setErr]=React.useState('');
   const[loading,setLoading]=React.useState(false);
   const[hint,setHint]=React.useState('');
   const[show,setShow]=React.useState(false);
-  const[failCount,setFailCount]=React.useState(()=>parseInt(localStorage.getItem(FAIL_KEY)||'0',10));
-  const[lockUntil,setLockUntil]=React.useState(()=>parseInt(localStorage.getItem(LOCK_KEY)||'0',10));
+  const[failCount,setFailCount]=React.useState(0);
+  const[lockUntil,setLockUntil]=React.useState(0);
   const[countdown,setCountdown]=React.useState(0);
 
   // Tick du countdown
@@ -748,7 +747,7 @@ function AdminLogin({onLogin,savedName,onResetProfil}){
     if(!lockUntil||lockUntil<=Date.now()) return;
     const tick=()=>{
       const left=lockUntil-Date.now();
-      if(left<=0){setCountdown(0);setLockUntil(0);setFailCount(0);localStorage.removeItem(FAIL_KEY);localStorage.removeItem(LOCK_KEY);}
+      if(left<=0){setCountdown(0);setLockUntil(0);setFailCount(0);}
       else setCountdown(Math.ceil(left/1000));
     };
     tick();
@@ -771,15 +770,15 @@ function AdminLogin({onLogin,savedName,onResetProfil}){
         new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')),isMobile?25000:10000))
       ]);
       if(res.ok){
-        localStorage.removeItem(FAIL_KEY);localStorage.removeItem(LOCK_KEY);
+        
         setFailCount(0);setLockUntil(0);
         touchSession();onLogin();
       }else{
         const nf=failCount+1;
-        setFailCount(nf);localStorage.setItem(FAIL_KEY,String(nf));
+        setFailCount(nf);
         if(nf>=MAX_FAILS){
           const until=Date.now()+LOCK_MS;
-          setLockUntil(until);localStorage.setItem(LOCK_KEY,String(until));
+          setLockUntil(until);
           setErr('🔒 Trop de tentatives — accès bloqué 5 minutes.');
         }else{
           setErr(`Mot de passe incorrect (${nf}/${MAX_FAILS} tentative${nf>1?'s':''})`);
