@@ -10,13 +10,14 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/prop-types/15.8.1/prop-types.min.js"></script>
-<script src="https://unpkg.com/recharts@2.12.7/umd/Recharts.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/recharts/2.12.7/Recharts.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 <script src="shared.js"></script>
 <style>
-/* ── v9.4 : Sidebar expand — Frontend ───────────────────────── */
+/* ── v9.5 : Sidebar pin + Mobile + Transitions + A11y ───────── */
 nav { display: none !important; }
 .app-shell { display: flex; min-height: 100vh; }
 
+/* ── Sidebar ─────────────────────────────────────────────────── */
 .sidebar {
   width: 72px; min-height: 100vh; position: fixed;
   top: 0; left: 0; display: flex; flex-direction: column;
@@ -25,12 +26,16 @@ nav { display: none !important; }
   box-shadow: 4px 0 24px rgba(0,0,0,.2), inset -1px 0 0 rgba(255,255,255,.08);
   overflow: hidden;
 }
-.sidebar:hover { width: 220px; }
+/* Expand : hover OU classe .pinned */
+.sidebar:hover,
+.sidebar.pinned { width: 220px; }
 .sidebar::before {
   content:''; position:absolute; top:0; left:0; right:0; height:120px;
   background:linear-gradient(180deg,rgba(255,255,255,.1) 0%,transparent 100%);
   pointer-events:none; z-index:0;
 }
+
+/* ── Logo ───────────────────────────────────────────────────── */
 .sidebar-logo {
   width:46px; height:46px; border-radius:14px;
   background:rgba(255,255,255,.18);
@@ -40,23 +45,31 @@ nav { display: none !important; }
   position:relative; z-index:1;
   transition:transform .22s, box-shadow .22s;
 }
-.sidebar:hover .sidebar-logo {
+.sidebar:hover .sidebar-logo,
+.sidebar.pinned .sidebar-logo {
   transform:scale(1.05);
   box-shadow:0 4px 18px rgba(0,0,0,.2),inset 0 1px 0 rgba(255,255,255,.35);
 }
+
+/* ── Count badge ────────────────────────────────────────────── */
 .sidebar-count {
   font-size:12px; font-weight:800;
   background:rgba(255,255,255,.2); color:#fff;
   padding:2px 9px; border-radius:20px; margin-bottom:10px;
   position:relative; z-index:1; letter-spacing:.02em;
 }
+
+/* ── Séparateurs ────────────────────────────────────────────── */
 .sidebar-sep {
   width:36px; height:1px;
   background:linear-gradient(90deg,transparent,rgba(255,255,255,.25),transparent);
   margin:5px 0; flex-shrink:0;
   transition:width .28s cubic-bezier(.4,0,.2,1);
 }
-.sidebar:hover .sidebar-sep { width:calc(100% - 24px); }
+.sidebar:hover .sidebar-sep,
+.sidebar.pinned .sidebar-sep { width:calc(100% - 24px); }
+
+/* ── Labels de groupe ───────────────────────────────────────── */
 .sidebar-group-label {
   font-size:9px; text-transform:uppercase; letter-spacing:.16em;
   color:rgba(255,255,255,.38); padding:0 16px;
@@ -64,7 +77,10 @@ nav { display: none !important; }
   max-height:0; opacity:0; margin:0;
   transition:max-height .28s, opacity .18s, margin .28s;
 }
-.sidebar:hover .sidebar-group-label { max-height:22px; opacity:1; margin:6px 0 2px; }
+.sidebar:hover .sidebar-group-label,
+.sidebar.pinned .sidebar-group-label { max-height:22px; opacity:1; margin:6px 0 2px; }
+
+/* ── Boutons nav ────────────────────────────────────────────── */
 .sidebar-btn {
   width:52px; height:44px; border-radius:12px;
   display:flex; flex-direction:row; align-items:center; justify-content:center;
@@ -73,8 +89,13 @@ nav { display: none !important; }
   border:none; background:none; color:rgba(255,255,255,.62);
   flex-shrink:0; position:relative; overflow:hidden; margin:2px 0;
 }
-.sidebar:hover .sidebar-btn { width:calc(220px - 20px); margin:2px 10px; justify-content:flex-start; }
+.sidebar:hover .sidebar-btn,
+.sidebar.pinned .sidebar-btn { width:calc(220px - 20px); margin:2px 10px; justify-content:flex-start; }
 .sidebar-btn:hover { background:rgba(255,255,255,.14); color:#fff; box-shadow:0 2px 10px rgba(0,0,0,.1); }
+.sidebar-btn:focus-visible {
+  outline:2px solid rgba(255,255,255,.8); outline-offset:2px;
+  background:rgba(255,255,255,.14); color:#fff;
+}
 .sidebar-btn.active { background:rgba(255,255,255,.22); color:#fff; box-shadow:inset 0 1px 0 rgba(255,255,255,.15),0 2px 10px rgba(0,0,0,.1); }
 .sidebar-btn.active::before {
   content:''; position:absolute; left:0; top:50%; transform:translateY(-50%);
@@ -82,14 +103,33 @@ nav { display: none !important; }
   box-shadow:0 0 10px rgba(255,255,255,.55);
 }
 .sidebar-btn-ico { font-size:18px; line-height:1; flex-shrink:0; width:52px; text-align:center; transition:width .28s cubic-bezier(.4,0,.2,1), transform .18s; }
-.sidebar:hover .sidebar-btn-ico { width:40px; }
+.sidebar:hover .sidebar-btn-ico,
+.sidebar.pinned .sidebar-btn-ico { width:40px; }
 .sidebar-btn:hover .sidebar-btn-ico { transform:scale(1.1); }
 .sidebar-btn-lbl {
   font-size:13px; font-weight:700; letter-spacing:.01em; line-height:1;
   white-space:nowrap; overflow:hidden; max-width:0; opacity:0;
   transition:max-width .28s cubic-bezier(.4,0,.2,1), opacity .18s .06s;
 }
-.sidebar:hover .sidebar-btn-lbl { max-width:160px; opacity:1; }
+.sidebar:hover .sidebar-btn-lbl,
+.sidebar.pinned .sidebar-btn-lbl { max-width:160px; opacity:1; }
+
+/* ── Bouton épingle ─────────────────────────────────────────── */
+.sidebar-pin-btn {
+  position:absolute; top:10px; right:8px;
+  width:22px; height:22px; border-radius:6px;
+  border:none; background:rgba(255,255,255,.12); color:rgba(255,255,255,.45);
+  font-size:12px; cursor:pointer; display:none; align-items:center; justify-content:center;
+  transition:background .15s, color .15s, opacity .28s;
+  z-index:2;
+}
+.sidebar:hover .sidebar-pin-btn,
+.sidebar.pinned .sidebar-pin-btn { display:flex; }
+.sidebar-pin-btn:hover { background:rgba(255,255,255,.22); color:#fff; }
+.sidebar.pinned .sidebar-pin-btn { color:#fff; background:rgba(255,255,255,.2); }
+.sidebar-pin-btn:focus-visible { outline:2px solid rgba(255,255,255,.8); }
+
+/* ── Zone basse sidebar ─────────────────────────────────────── */
 .sidebar-bottom {
   margin-top:auto; display:flex; flex-direction:column;
   align-items:center; gap:6px; padding:10px 0 0;
@@ -101,7 +141,8 @@ nav { display: none !important; }
   border-radius:8px; text-align:center; width:52px; cursor:pointer; outline:none;
   transition:width .28s cubic-bezier(.4,0,.2,1);
 }
-.sidebar:hover .sidebar-year { width:calc(220px - 20px); }
+.sidebar:hover .sidebar-year,
+.sidebar.pinned .sidebar-year { width:calc(220px - 20px); }
 .sidebar-year option { background:#197d89; color:#fff; }
 .sidebar-notif-btn {
   width:52px; height:36px; border-radius:10px; background:#dc2626;
@@ -111,7 +152,8 @@ nav { display: none !important; }
   box-shadow:0 2px 10px rgba(220,38,38,.4); overflow:hidden; white-space:nowrap;
   transition:width .28s cubic-bezier(.4,0,.2,1), flex-direction .1s;
 }
-.sidebar:hover .sidebar-notif-btn { width:calc(220px - 20px); flex-direction:row; margin:0 10px; }
+.sidebar:hover .sidebar-notif-btn,
+.sidebar.pinned .sidebar-notif-btn { width:calc(220px - 20px); flex-direction:row; margin:0 10px; }
 .sidebar-accueil-btn {
   width:52px; height:36px; border-radius:10px;
   background:rgba(255,255,255,.1); border:1px solid rgba(255,255,255,.2);
@@ -120,18 +162,23 @@ nav { display: none !important; }
   white-space:nowrap; overflow:hidden;
   transition:width .28s cubic-bezier(.4,0,.2,1), background .18s, color .18s;
 }
-.sidebar:hover .sidebar-accueil-btn { width:calc(220px - 20px); margin:0 10px; }
+.sidebar:hover .sidebar-accueil-btn,
+.sidebar.pinned .sidebar-accueil-btn { width:calc(220px - 20px); margin:0 10px; }
 .sidebar-accueil-btn:hover { background:rgba(255,255,255,.2); color:#fff; }
-
-/* Fix label bouton Accueil */
+.sidebar-accueil-btn:focus-visible { outline:2px solid rgba(255,255,255,.8); outline-offset:2px; }
 .sidebar-accueil-lbl {
   font-size:11px; font-weight:700; overflow:hidden;
   max-width:0; opacity:0; white-space:nowrap; margin-left:4px;
   transition:max-width .28s cubic-bezier(.4,0,.2,1), opacity .18s .06s;
 }
-.sidebar:hover .sidebar-accueil-lbl { max-width:100px; opacity:1; }
+.sidebar:hover .sidebar-accueil-lbl,
+.sidebar.pinned .sidebar-accueil-lbl { max-width:100px; opacity:1; }
 
-.app-content { margin-left:72px; flex:1; min-height:100vh; display:flex; flex-direction:column; }
+/* ── Contenu principal ──────────────────────────────────────── */
+.app-content { margin-left:72px; flex:1; min-height:100vh; display:flex; flex-direction:column; transition:margin-left .28s cubic-bezier(.4,0,.2,1); }
+.sidebar.pinned ~ .app-content { margin-left:220px; }
+
+/* ── Topbar ─────────────────────────────────────────────────── */
 .app-topbar {
   height:46px; display:flex; align-items:center; padding:0 22px;
   border-bottom:1px solid #e2e8f0; background:#fff;
@@ -140,6 +187,12 @@ nav { display: none !important; }
 }
 .app-topbar-title { font-size:14px; font-weight:700; color:#1a202c; }
 .app-topbar-sub { font-size:12px; color:#9ca3af; }
+.app-topbar-date {
+  font-size:11px; color:#9ca3af; background:#f8fafc;
+  border:1px solid #e2e8f0; border-radius:6px;
+  padding:2px 8px; white-space:nowrap; display:none;
+}
+@media(min-width:900px){ .app-topbar-date { display:inline-flex; align-items:center; gap:4px; } }
 .app-topbar-right { margin-left:auto; display:flex; align-items:center; gap:8px; }
 .app-topbar-conseiller {
   font-size:12px; font-weight:700; padding:4px 10px;
@@ -148,9 +201,17 @@ nav { display: none !important; }
   transition:filter .15s;
 }
 .app-topbar-conseiller:hover { filter:brightness(1.12); }
+.app-topbar-conseiller:focus-visible { outline:2px solid currentColor; outline-offset:2px; }
 .app-main { padding:20px; max-width:1200px; width:100%; }
 
-/* Picker switcher conseiller */
+/* ── Transition de vue ──────────────────────────────────────── */
+@keyframes fadeSlideIn {
+  from { opacity:0; transform:translateY(7px); }
+  to   { opacity:1; transform:translateY(0);   }
+}
+.view-anim { animation: fadeSlideIn .2s ease both; }
+
+/* ── Picker conseiller ──────────────────────────────────────── */
 .conseiller-picker {
   position:absolute; top:calc(100% + 8px); right:0;
   background:#fff; border:1px solid #e2e8f0; border-radius:10px;
@@ -166,7 +227,7 @@ nav { display: none !important; }
 .conseiller-picker-item.active { background:#f0f9ff; }
 .conseiller-picker-dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
 
-/* Skeleton loader */
+/* ── Skeleton loader ────────────────────────────────────────── */
 @keyframes shimmer {
   0%  { background-position: -400px 0; }
   100%{ background-position:  400px 0; }
@@ -179,7 +240,7 @@ nav { display: none !important; }
 }
 .skeleton-card { height: 76px; margin-bottom: 12px; width: 100%; }
 
-/* Badge hors ligne */
+/* ── Badge hors ligne ───────────────────────────────────────── */
 .offline-badge {
   font-size:11px; color:#c53030;
   background:#fff5f5; border:1px solid #feb2b2;
@@ -188,13 +249,13 @@ nav { display: none !important; }
   animation:pulse 1.5s infinite;
 }
 
-/* Sync info */
+/* ── Sync info ──────────────────────────────────────────────── */
 .topbar-sync-info {
   font-size:11px; color:#9ca3af;
   display:flex; align-items:center; gap:3px; cursor:default;
 }
 
-/* Stats accueil */
+/* ── Stats accueil ──────────────────────────────────────────── */
 .accueil-stats {
   display:flex; gap:8px; flex-wrap:wrap; justify-content:center;
   margin-bottom:16px; padding:0 20px;
@@ -207,12 +268,62 @@ nav { display: none !important; }
   font-size:11px; font-weight:800; border-radius:10px;
   padding:1px 7px; color:#fff;
 }
+.accueil-stat-trend {
+  font-size:10px; font-weight:700; opacity:.75;
+}
+
+/* ── Responsive mobile ──────────────────────────────────────── */
+@media (max-width: 640px) {
+  .sidebar {
+    width: 100% !important;
+    height: 56px;
+    min-height: unset;
+    flex-direction: row;
+    top: auto;
+    bottom: 0;
+    left: 0;
+    padding: 0 8px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 2px;
+    box-shadow: 0 -2px 16px rgba(0,0,0,.18);
+  }
+  .sidebar::before { display:none; }
+  .sidebar-logo,
+  .sidebar-count,
+  .sidebar-sep,
+  .sidebar-group-label,
+  .sidebar-bottom,
+  .sidebar-pin-btn { display: none !important; }
+  .sidebar-btn {
+    width: 52px !important; height: 48px !important;
+    margin: 0 !important; border-radius: 10px !important;
+    flex-direction: column; justify-content: center;
+    flex-shrink: 0;
+  }
+  .sidebar-btn-ico { width: auto !important; font-size:16px !important; }
+  .sidebar-btn-lbl {
+    max-width: 52px !important; opacity: 1 !important;
+    font-size: 9px !important; font-weight: 600 !important;
+    text-align: center; margin-top: 2px;
+  }
+  .sidebar-btn.active::before { display:none; }
+  .app-content {
+    margin-left: 0 !important;
+    margin-bottom: 56px;
+  }
+  .sidebar.pinned ~ .app-content { margin-left:0 !important; }
+  .app-topbar { padding: 0 12px; }
+  .app-topbar-date { display:none !important; }
+}
 </style>
 </head>
 <body>
 <div id="root"></div>
 <script>
-// ── App Frontend (conseillers) v9.4 ──────────────────────────
+// ── App Frontend (conseillers) v9.5 ──────────────────────────
 var VIEW_META_F = {
   saisie:     {ico:'✏️',  label:'Saisie',      group:'Action'},
   historique: {ico:'📋',  label:'Historique',   group:'Voir'},
@@ -241,6 +352,7 @@ function App(){
   const[lastSync,setLastSync]      = React.useState(null);
   const[online,setOnline]          = React.useState(navigator.onLine);
   const[showPicker,setShowPicker]   = React.useState(false);
+  const[sidebarPinned,setSidebarPinned] = React.useState(()=>localStorage.getItem('sidebar_pinned')==='1');
 
   // Ref pour l'event delegation sur les vues avec filtre conseiller
   const viewRef = React.useRef(null);
@@ -248,6 +360,7 @@ function App(){
   // ── Helpers ───────────────────────────────────────────────────
   function setAnnee(v){ localStorage.setItem('f_annee',v); setAnneeState(v); }
   function resetConseiller(){ localStorage.removeItem('f_conseiller'); setFiltreConseiller(null); }
+  function togglePin(){ setSidebarPinned(p=>{ const n=!p; localStorage.setItem('sidebar_pinned',n?'1':'0'); return n; }); }
 
   // ── Sync couleur depuis les selects internes (shared.js) ──────
   // VueHistorique/VueCalendrier gèrent leur propre state interne.
@@ -368,8 +481,16 @@ function App(){
   if(view==='accueil'){
     const now=new Date();
     const moisKey=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+    // Mois précédent pour la tendance
+    const prevDate=new Date(now.getFullYear(),now.getMonth()-1,1);
+    const prevKey=`${prevDate.getFullYear()}-${String(prevDate.getMonth()+1).padStart(2,'0')}`;
     const statsMois={};
-    entries.forEach(e=>{ if(e.date&&e.date.startsWith(moisKey)&&e.conseiller) statsMois[e.conseiller]=(statsMois[e.conseiller]||0)+1; });
+    const statsPrev={};
+    entries.forEach(e=>{
+      if(!e.conseiller) return;
+      if(e.date&&e.date.startsWith(moisKey)) statsMois[e.conseiller]=(statsMois[e.conseiller]||0)+1;
+      if(e.date&&e.date.startsWith(prevKey)) statsPrev[e.conseiller]=(statsPrev[e.conseiller]||0)+1;
+    });
 
     return CE('div',null,
       CE('nav',{style:{background:NAV_DEFAULT_COLOR}},
@@ -385,11 +506,16 @@ function App(){
               !loading&&entries.length>0&&CE('div',{className:'accueil-stats'},
                 lists.conseillers.map(c=>{
                   const n=statsMois[c]||0;
+                  const prev=statsPrev[c]||0;
+                  const diff=n-prev;
+                  const trendIco=diff>0?'↑':diff<0?'↓':'→';
+                  const trendColor=diff>0?'#16a34a':diff<0?'#dc2626':'#9ca3af';
                   const color=conseillerColor(c);
                   return CE('div',{key:c,className:'accueil-stat-chip',style:{background:color+'12',border:`1px solid ${color}30`,color}},
                     CE('span',{style:{fontWeight:700}},c.split(' ')[0]),
                     CE('span',{className:'accueil-stat-count',style:{background:color}},n),
-                    CE('span',{style:{fontSize:10,color:'#9ca3af'}},'ce mois')
+                    CE('span',{style:{fontSize:10,color:'#9ca3af'}},'ce mois'),
+                    prev>0&&CE('span',{className:'accueil-stat-trend',style:{color:trendColor}},`${trendIco}${Math.abs(diff)}`)
                   );
                 })
               ),
@@ -404,14 +530,37 @@ function App(){
   const accentColor = filtreConseiller ? conseillerColor(filtreConseiller) : NAV_DEFAULT_COLOR;
   const meta = VIEW_META_F[view]||{ico:'📄',label:view,group:''};
 
+  // Date courante pour la topbar
+  const dateLabel = new Date().toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'long'});
+
+  // Keyboard nav helper
   const sideBtn=(v,ico,lbl,visible=true)=>visible&&CE('button',{
-    key:v, className:'sidebar-btn'+(view===v?' active':''), title:lbl, onClick:()=>setView(v)
-  }, CE('span',{className:'sidebar-btn-ico'},ico), CE('span',{className:'sidebar-btn-lbl'},lbl));
+    key:v,
+    className:'sidebar-btn'+(view===v?' active':''),
+    title:lbl,
+    onClick:()=>setView(v),
+    tabIndex:0,
+    onKeyDown:e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); setView(v); } },
+    'aria-label':lbl,
+    'aria-current':view===v?'page':undefined
+  }, CE('span',{className:'sidebar-btn-ico','aria-hidden':'true'},ico), CE('span',{className:'sidebar-btn-lbl'},lbl));
 
   return CE('div',{className:'app-shell'},
 
-    CE('aside',{className:'sidebar',style:{background:accentColor}},
-      CE('div',{className:'sidebar-logo'},'🖥️'),
+    CE('aside',{
+      className:'sidebar'+(sidebarPinned?' pinned':''),
+      style:{background:accentColor},
+      role:'navigation',
+      'aria-label':'Menu principal'
+    },
+      CE('button',{
+        className:'sidebar-pin-btn',
+        title:sidebarPinned?'Désépingler la sidebar':'Épingler la sidebar',
+        onClick:togglePin,
+        'aria-pressed':sidebarPinned,
+        'aria-label':sidebarPinned?'Désépingler':'Épingler'
+      }, sidebarPinned?'📌':'📍'),
+      CE('div',{className:'sidebar-logo','aria-hidden':'true'},'🖥️'),
       entries.length>0&&CE('span',{className:'sidebar-count'},entries.length),
 
       CE('div',{className:'sidebar-sep'}),
@@ -447,9 +596,10 @@ function App(){
 
     CE('div',{className:'app-content'},
       CE('div',{className:'app-topbar'},
-        CE('span',{style:{fontSize:16}},meta.ico),
+        CE('span',{style:{fontSize:16},'aria-hidden':'true'},meta.ico),
         CE('span',{className:'app-topbar-title'},meta.label),
         meta.group&&CE('span',{className:'app-topbar-sub'},'— '+meta.group),
+        CE('span',{className:'app-topbar-date','aria-label':'Date du jour'},'📅 '+dateLabel),
         CE('div',{className:'app-topbar-right'},
           !online&&CE('span',{className:'offline-badge'},'📡 Hors ligne'),
           !loading&&lastSync&&CE('span',{className:'topbar-sync-info',title:'Sync auto toutes les 5 min'},
@@ -488,7 +638,7 @@ function App(){
           [1,2,3].map(i=>CE('div',{key:i,className:'skeleton skeleton-card'}))
         ),
         // viewRef sur le wrapper — capte les change events des selects internes
-        !loading&&!error&&CE('div',{ref:viewRef},
+        !loading&&!error&&CE('div',{ref:viewRef,className:'view-anim',key:view},
           view==='saisie'&&visibility.saisie&&CE(VueSaisie,{entries,onSaved:handleSaved,onNewEntry:e=>{setNewEntries(n=>[e,...n]);setSeenIds(s=>{const ns=new Set(s);ns.add(e._id);return ns;});},lists,editingId,onClearEdit:()=>setEditingId(null),prefillData,onClearPrefill:()=>setPrefillData(null),accentColor:conseillerColor(filtreConseiller||'')}),
           view==='historique'&&visibility.historique&&CE(VueHistorique,{entries,onEdit:handleEdit,onDelete:handleDelete,onRefresh:loadData,onDuplicate:handleDuplicate,initConseiller:filtreConseiller,onResetConseiller:()=>{},canDelete:true}),
           view==='calendrier'&&visibility.calendrier&&CE(VueCalendrier,{entries,onEdit:handleEdit,onDelete:handleDelete,onRefresh:loadData,onDuplicate:handleDuplicate,initConseiller:filtreConseiller,onResetConseiller:()=>{},canDelete:true}),
