@@ -1380,6 +1380,31 @@ function LineChart({data}){
   );
 }
 
+// v10.0 : Inscrits vs Présents — deux courbes sur le même graphique
+function DualLineChart({data}){
+  if(!data||data.length===0)return CE(NoData,null);
+  const mb=labelMarginBottom(data);
+  const CS={background:'#edf2f7',border:'1px solid #a0aec0',borderRadius:7,padding:'8px 12px',fontSize:12,boxShadow:'0 3px 10px rgba(0,0,0,.15)',lineHeight:1.6};
+  return CE(ResponsiveContainer,{width:'100%',height:220},
+    CE(RLineChart,{data,margin:{top:20,right:6,left:0,bottom:mb}},
+      CE(CartesianGrid,{strokeDasharray:'3 3',stroke:'#e2e8f0',vertical:false}),
+      CE(XAxis,{dataKey:'label',tick:{fontSize:10,fill:'#4a5568'},angle:-40,textAnchor:'end',interval:0}),
+      CE(YAxis,{tick:{fontSize:10,fill:'#718096'},allowDecimals:false,width:28}),
+      CE(Legend,{wrapperStyle:{fontSize:11,paddingTop:4}}),
+      CE(RTooltip,{cursor:{fill:'rgba(255,255,255,0.02)'},content:(props)=>{
+        if(!props.active||!props.payload||!props.payload.length)return null;
+        const label=props.label||'';
+        return CE('div',{style:CS},
+          CE('div',{style:{fontWeight:700,color:'#1e3a8a',marginBottom:4}},label),
+          props.payload.map((p,i)=>CE('div',{key:i,style:{color:p.color,fontWeight:600}},p.name+' : '+p.value))
+        );
+      }}),
+      CE(Line,{type:'monotone',dataKey:'inscrits',name:'Inscrits',stroke:'#2563eb',strokeWidth:2,dot:{r:3,fill:'#2563eb'},activeDot:{r:5}}),
+      CE(Line,{type:'monotone',dataKey:'presents',name:'Présents',stroke:'#16a34a',strokeWidth:2,dot:{r:3,fill:'#16a34a'},activeDot:{r:5}})
+    )
+  );
+}
+
 function RadialChart({data,colors,height=220}){
   if(!data||data.length===0)return CE(NoData,null);
   const colArr=Array.isArray(colors)?colors:['#1e3a8a'];
@@ -1442,6 +1467,18 @@ function VueGraphiques({entries}){
   const byMoisPresents={};passes.forEach(e=>{const m=e.date?e.date.slice(0,7):'?';if(m<todayYM)byMoisPresents[m]=(byMoisPresents[m]||0)+(parseInt(e.presents)||0);});
   const dataMoisPresents=Object.keys(byMoisPresents).sort().map(k=>({label:fmtML(k),value:byMoisPresents[k],tip:`${fmtML(k)} : ${byMoisPresents[k]} présent(s)`}));
 
+  // v10.0 : Inscrits vs Présents par mois
+  const byMoisDual={};passes.forEach(e=>{const m=e.date?e.date.slice(0,7):'?';if(m<todayYM){if(!byMoisDual[m])byMoisDual[m]={inscrits:0,presents:0};byMoisDual[m].inscrits+=(parseInt(e.inscrits)||0);byMoisDual[m].presents+=(parseInt(e.presents)||0);}});
+  const dataDual=Object.keys(byMoisDual).sort().map(k=>({label:fmtML(k),...byMoisDual[k]}));
+
+  // v10.0 : Répartition AM / PM
+  const amCount=filtered.filter(e=>e.ampm==='AM'||(!e.ampm&&e.horaire&&parseInt(e.horaire)<12)).length;
+  const pmCount=filtered.filter(e=>e.ampm==='PM'||(!e.ampm&&e.horaire&&parseInt(e.horaire)>=12)).length;
+  const dataAmPm=[
+    {label:'Matin (AM)',value:amCount,tip:`Matin : ${amCount} atelier(s) — ${filtered.length>0?Math.round(amCount/filtered.length*100):0}%`},
+    {label:'Après-midi (PM)',value:pmCount,tip:`Après-midi : ${pmCount} atelier(s) — ${filtered.length>0?Math.round(pmCount/filtered.length*100):0}%`},
+  ];
+
   const byFutur={};filtered.filter(e=>e.statut==='Planifié'&&e.date&&e.date.slice(0,7)>=todayYM).forEach(e=>{const m=e.date.slice(0,7);byFutur[m]=(byFutur[m]||0)+1;});
   const dataFutur=Object.keys(byFutur).sort().map(k=>({label:fmtML(k),value:byFutur[k],tip:`${fmtML(k)} : ${byFutur[k]} atelier(s) planifié(s)`}));
 
@@ -1485,7 +1522,9 @@ function VueGraphiques({entries}){
             CE('div',{className:'card'},CE('h2',null,'Par commune'),CE(BarChart,{data:dataCommune,colors:['#1e3a8a','#3b82f6','#60a5fa','#93c5fd','#1e40af','#2563eb','#1d4ed8','#1e3a8a']})),
             CE('div',{className:'card'},CE('h2',null,'Par type de public'),CE(BarChart,{data:dataPublic,colors:['#7C3AED','#2563EB','#059669','#DB2777','#d97706','#0891b2','#65a30d','#dc2626']})),
             CE('div',{className:'card'},CE('h2',null,'📅 Planifiés — mois à venir'),CE(BarChart,{data:dataFutur,colors:['#7c3aed','#8b5cf6','#a78bfa','#c4b5fd']})),
-            CE('div',{className:'card'},CE('h2',null,'Par statut'),CE(RadialChart,{data:dataStat,colors:['#276749','#2a69ac','#9b2c2c','#718096','#744210']}))
+            CE('div',{className:'card'},CE('h2',null,'Par statut'),CE(RadialChart,{data:dataStat,colors:['#276749','#2a69ac','#9b2c2c','#718096','#744210']})),
+            CE('div',{className:'card',style:{gridColumn:'1 / -1'}},CE('h2',null,'📈 Inscrits vs Présents par mois'),CE(DualLineChart,{data:dataDual})),
+            CE('div',{className:'card'},CE('h2',null,'🌅 Répartition Matin / Après-midi'),CE(BarChart,{data:dataAmPm,colors:['#f97316','#0891b2']}))
           )
         )
   );
