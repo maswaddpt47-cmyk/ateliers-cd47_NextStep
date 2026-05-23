@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════
-// shared.js — Ateliers CD47 v9.0
+// shared.js — Ateliers CD47 v10.0
 // Code commun frontend + admin
 // ═══════════════════════════════════════════════════════════
 
@@ -354,6 +354,13 @@ function badgePill(statut,retard){
   return CE('span',{className:'badge-pill '+cls},statut);
 }
 const STATUT_COLORS={'Planifié':'#3b82f6','Réalisé':'#22c55e','Annulé':'#ef4444','Reporté':'#f97316','Non réalisé':'#94a3b8'};
+// v10.0 : constante partagée — évite la duplication dans VueHistorique et VueCalendrier
+const CLOTURE_PRESETS=[
+  {label:'✅ Réalisé',    statut:'Réalisé',     bg:'#16a34a',color:'#fff'},
+  {label:'❌ Annulé',     statut:'Annulé',      bg:'#dc2626',color:'#fff'},
+  {label:'🚫 Non réalisé',statut:'Non réalisé', bg:'#6b7280',color:'#fff'},
+  {label:'📅 Reporté',    statut:'Reporté',     bg:'#d97706',color:'#fff'},
+];
 
 let _toastTimer;
 function showToast(msg,ok=true){
@@ -362,12 +369,22 @@ function showToast(msg,ok=true){
   clearTimeout(_toastTimer);_toastTimer=setTimeout(()=>{t.style.opacity='0';},3500);
 }
 
-// ── API ────────────────────────────────────────────────────
-async function apiFetch(action,body={}){
+// ── API v10.0 — retry automatique sur cold start GAS ──────
+// Overridé dans admin.html et index.html pour timeout adaptatif mobile.
+// Cette version sert de fallback si l'override n'est pas chargé.
+async function apiFetch(action,body={},_attempt=1){
   const params=new URLSearchParams({action});
   if(body&&Object.keys(body).length){Object.entries(body).forEach(([k,v])=>{params.set(k,typeof v==='object'?JSON.stringify(v):v);});}
-  const res=await Promise.race([fetch(`${GS_URL}?${params.toString()}`),new Promise((_,r)=>setTimeout(()=>r(new Error('Délai dépassé (10s)')),10000))]);
-  return res.json();
+  try{
+    const res=await Promise.race([fetch(`${GS_URL}?${params.toString()}`),new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')),12000))]);
+    return res.json();
+  }catch(err){
+    if(err.message==='timeout'&&_attempt===1){
+      await new Promise(r=>setTimeout(r,3000));
+      return apiFetch(action,body,2);
+    }
+    throw err;
+  }
 }
 async function loadCommunes47(){
   if(COMMUNES_47_CACHE)return COMMUNES_47_CACHE;
@@ -554,31 +571,7 @@ function VueListes({lists,onSave,onClose,emails,onSaveEmails}){
   );
 }
 
-// ═══════════════════════════════════════════════════════════
-// LOGIN — reçoit pwdHash en prop
-// ═══════════════════════════════════════════════════════════
-function Login({pwdHash,onLogin}){
-  const[pwd,setPwd]=React.useState('');
-  const[err,setErr]=React.useState('');
-  function tryLogin(){
-    async function check(){
-      const enc=new TextEncoder().encode(pwd);
-      const buf=await crypto.subtle.digest('SHA-256',enc);
-      const hash=Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
-      if(hash===pwdHash)onLogin();else setErr('Mot de passe incorrect');
-    }
-    check();
-  }
-  return CE('div',{className:'login-wrap'},
-    CE('div',{className:'login-card'},
-      CE('h2',null,'🔐 Accès Administrateur'),
-      CE('label',null,'Mot de passe'),
-      CE('input',{type:'password',value:pwd,onChange:e=>{setPwd(e.target.value);setErr('');},onKeyDown:e=>e.key==='Enter'&&tryLogin(),placeholder:'Mot de passe admin'}),
-      err&&CE('div',{className:'err-msg',style:{marginBottom:8}},err),
-      CE('button',{className:'btn btn-primary',style:{width:'100%'},onClick:tryLogin},'Connexion')
-    )
-  );
-}
+// Login — supprimé v10.0 (remplacé par AdminLogin dans admin.html)
 
 // ═══════════════════════════════════════════════════════════
 // VUE SAISIE — v9.1 : mode unique + mode lot (cycle)
@@ -992,12 +985,7 @@ function VueHistorique({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
   const BORDER_COLOR={'Planifié':'#3b82f6','Réalisé':'#22c55e','Annulé':'#ef4444','Reporté':'#f59e0b','Non réalisé':'#94a3b8'};
 
   // v9.0 : clôture rapide — preset statuts finaux
-  const CLOTURE_PRESETS=[
-    {label:'✅ Réalisé',   statut:'Réalisé',    bg:'#16a34a',color:'#fff'},
-    {label:'❌ Annulé',    statut:'Annulé',     bg:'#dc2626',color:'#fff'},
-    {label:'🚫 Non réalisé',statut:'Non réalisé',bg:'#6b7280',color:'#fff'},
-    {label:'📅 Reporté',   statut:'Reporté',    bg:'#d97706',color:'#fff'},
-  ];
+  // CLOTURE_PRESETS — v10.0 : défini globalement dans shared.js
 
   return CE('div',null,
     // KPIs
@@ -1155,12 +1143,7 @@ function VueCalendrier({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
   const monthStr=`${yr}-${String(mo+1).padStart(2,'0')}`;
   const MOIS_LONG=['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
   const JOURS_COURT=['Lun','Mar','Mer','Jeu','Ven','Sam','Dim'];
-  const CLOTURE_PRESETS=[
-    {label:'✅ Réalisé',statut:'Réalisé',bg:'#16a34a',color:'#fff'},
-    {label:'❌ Annulé',statut:'Annulé',bg:'#dc2626',color:'#fff'},
-    {label:'🚫 Non réalisé',statut:'Non réalisé',bg:'#6b7280',color:'#fff'},
-    {label:'📅 Reporté',statut:'Reporté',bg:'#d97706',color:'#fff'},
-  ];
+  // CLOTURE_PRESETS — v10.0 : défini globalement dans shared.js
 
   // Entrées du mois filtrées par conseiller
   const monthEntries=React.useMemo(()=>{
@@ -1593,7 +1576,7 @@ function VueAdmin({entries,onRefresh,addLog,conseillersList,onSaveColors}){
   const VIS_ITEMS=[{key:'saisie',label:'✏️ Saisie',sub:'Formulaire de saisie'},{key:'historique',label:'📋 Historique',sub:'Liste des ateliers'},{key:'calendrier',label:'📅 Calendrier',sub:'Vue calendrier mensuelle'},{key:'graphiques',label:'📊 Graphiques',sub:'Tableaux de bord'},{key:'carte',label:'🗺️ Carte',sub:'Carte des communes'},{key:'bingo',label:'🎯 Bingo',sub:'Vue par commune'}];
 
   React.useEffect(()=>{apiFetch('getVisibility').then(res=>{if(res.ok)setVisibility(res.visibility);}).catch(()=>{});},[]);
-  React.useEffect(()=>{apiFetch('getConfig').then(res=>{if(res.ok&&res.config)setRappelsActif(String(res.config['rappels_actifs'])!=='false');}).catch(()=>{});},[]);
+  // v10.0 : getConfig rappels supprimé de VueAdmin (setRappelsActif non défini ici)
 
   // Sync colorDraft quand la liste des conseillers change
   React.useEffect(()=>{
