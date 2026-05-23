@@ -338,10 +338,12 @@ function conseillerColor(c){return(c&&CONSEILLER_COLORS[c])||'#6B7280';}
 function applyColors(colors){if(colors&&typeof colors==='object')Object.assign(CONSEILLER_COLORS,colors);}
 const MOIS = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
 const JOURS = ['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'];
-const fmtDate = d=>{if(!d)return'';const[y,m,j]=d.split('-');const jour=JOURS[new Date(y,m-1,j).getDay()];return`${jour} ${j}/${m}/${y}`;};
+const fmtDate = d=>{if(!d)return'';const[y,m,j]=d.split('-');const jour=JOURS[new Date(parseInt(y),parseInt(m)-1,parseInt(j)).getDay()];return`${jour} ${j}/${m}/${y}`;};
 function fmtCardDate(d){if(!d)return{day:'',month:'',jour:''};const[y,m,j]=d.split('-');const jour=JOURS[new Date(parseInt(y),parseInt(m)-1,parseInt(j)).getDay()];return{day:j,month:MOIS[parseInt(m)-1],jour};}
-const isPasse = e=>e.date<new Date().toISOString().slice(0,10)&&e.statut==='Réalisé';
-const isRetard = e=>e.statut==='Planifié'&&e.date<new Date().toISOString().slice(0,10);
+// v10.0 : todayLocal() en heure locale (évite le bug UTC après 22h/23h en France)
+function todayLocal(){const d=new Date();return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
+const isPasse = e=>e.date<todayLocal()&&e.statut==='Réalisé';
+const isRetard = e=>e.statut==='Planifié'&&e.date<todayLocal();
 const genId = ()=>`atelier_${Date.now()}_${Math.random().toString(36).slice(2,7)}`;
 function stripAccents(str){return String(str||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();}
 function normalizeDate(val){if(!val)return'';const s=String(val).trim();if(/^\d{4}-\d{2}-\d{2}$/.test(s))return s;if(/^\d{4}-\d{2}-\d{2}T/.test(s))return s.split('T')[0];const m=s.match(/^(\d{2})\/(\d{2})\/(\d{4})/);if(m)return`${m[3]}-${m[2]}-${m[1]}`;return s;}

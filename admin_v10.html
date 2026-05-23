@@ -880,7 +880,6 @@ function App(){
   const[emails,setEmails]  = React.useState({});  // v9.3
   const[lastSync,setLastSync]= React.useState(null); // v9.4
   const[syncing,setSyncing]= React.useState(false);  // v9.5
-  const[confirmDelete,setConfirmDelete]= React.useState(null); // v9.5
   const[logFilter,setLogFilter]= React.useState('all'); // v10.0 : filtre logs
 
   // v9.5 : logs persistants via localStorage
@@ -979,14 +978,8 @@ function App(){
     return()=>clearInterval(id);
   },[annee]);
 
-  // v9.5 : confirmation avant suppression
-  function handleDelete(id){
-    const e=entries.find(x=>x._id===id);
-    const label=e?[e.date,e.thematique,e.conseiller].filter(Boolean).join(' — '):id;
-    setConfirmDelete({id,label});
-  }
-  async function doDelete(id){
-    setConfirmDelete(null);
+  // v10.0 : handleDelete direct — VueHistorique/VueCalendrier gèrent leur propre confirmation
+  async function handleDelete(id){
     try{const res=await apiFetch('delete',{_id:id});if(!res.ok)throw new Error(res.error);showToast('✅ Atelier supprimé');addLog('Suppression '+id,'ok');loadData();}
     catch(err){showToast('❌ '+err.message,false);}
   }
@@ -1207,12 +1200,7 @@ function App(){
       emails,
       onSaveEmails:handleSaveEmails
     }),
-    // v9.5 : modal confirmation suppression
-    CE(ConfirmModal,{
-      item:confirmDelete,
-      onConfirm:()=>doDelete(confirmDelete.id),
-      onCancel:()=>setConfirmDelete(null)
-    }),
+
     CE('div',{id:'toast',className:'toast',style:{opacity:0}})
   );
 }
