@@ -1377,7 +1377,7 @@ function ChangerMotDePasse(){
 }
 
 // ── VueAdmin override ──────────────────────────────────────
-function VueAdmin({entries,onRefresh,addLog,conseillersList,onSaveColors,annee}){
+function VueAdminV10({entries,onRefresh,addLog,conseillersList,onSaveColors,annee}){
   const[resetStep,setResetStep]=React.useState(0);
   const[visibility,setVisibility]=React.useState(null);
   const[visSaving,setVisSaving]=React.useState(false);
@@ -1659,6 +1659,10 @@ function VueAdmin({entries,onRefresh,addLog,conseillersList,onSaveColors,annee})
     )
   );
 }
+
+// v10.0 : Assignation explicite runtime — remplace le wrapper de Script 0
+// (évite les conflits de hoisting inter-scripts)
+window.VueAdmin = VueAdminV10;
 
 ReactDOM.createRoot(document.getElementById('root')).render(CE(App));
 </script>
