@@ -10,11 +10,12 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/prop-types/15.8.1/prop-types.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/recharts/2.12.7/Recharts.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://unpkg.com/recharts@2.12.7/umd/Recharts.js"></script>
 <script src="shared.js"></script>
 <style>
 /* ── v9.5 : Sidebar pin + Mobile + Transitions + A11y ───────── */
-nav { display: none !important; }
+/* Cache la nav uniquement dans le contexte sidebar (pas sur la landing) */
+.app-shell nav { display: none !important; }
 .app-shell { display: flex; min-height: 100vh; }
 
 /* ── Sidebar ─────────────────────────────────────────────────── */
