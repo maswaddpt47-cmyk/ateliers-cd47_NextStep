@@ -1434,6 +1434,297 @@ function RadialChart({data,colors,height=220}){
   );
 }
 
+// ═══════════════════════════════════════════════════════════
+// VUE DASHBOARD — v11.0 Tableau de bord de pilotage
+// ═══════════════════════════════════════════════════════════
+
+// ── Donut Chart (vrai PieChart Recharts) ───────────────────
+function DonutChart({data,colors,height=220}){
+  if(!data||data.length===0)return CE(NoData,null);
+  const RADIAN=Math.PI/180;
+  const renderLabel=({cx,cy,midAngle,innerRadius,outerRadius,percent})=>{
+    if(percent<0.05)return null;
+    const r=innerRadius+(outerRadius-innerRadius)*0.5;
+    const x=cx+r*Math.cos(-midAngle*RADIAN);
+    const y=cy+r*Math.sin(-midAngle*RADIAN);
+    return CE('text',{x,y,fill:'#fff',textAnchor:'middle',dominantBaseline:'central',fontSize:10,fontWeight:700},Math.round(percent*100)+'%');
+  };
+  const colArr=Array.isArray(colors)?colors:['#1e3a8a'];
+  const total=data.reduce((s,d)=>s+d.value,0);
+  return CE(ResponsiveContainer,{width:'100%',height},
+    CE(PieChart,null,
+      CE(Pie,{data:data.map((d,i)=>({name:d.label,value:d.value,fill:colArr[i%colArr.length]})),cx:'50%',cy:'45%',innerRadius:'32%',outerRadius:'62%',dataKey:'value',labelLine:false,label:renderLabel},
+        data.map((d,i)=>CE(Cell,{key:i,fill:colArr[i%colArr.length]}))
+      ),
+      CE(Legend,{wrapperStyle:{fontSize:11,marginTop:4}}),
+      CE(RTooltip,{content:(props)=>{
+        if(!props.active||!props.payload?.length)return null;
+        const p=props.payload[0];const pct=Math.round(p.value/total*100);
+        return CE('div',{style:{background:'#edf2f7',border:'1px solid #a0aec0',borderRadius:7,padding:'8px 12px',fontSize:12,boxShadow:'0 3px 10px rgba(0,0,0,.15)'}},
+          CE('div',{style:{fontWeight:700,color:p.payload.fill}},p.name),
+          CE('div',{style:{color:'#4a5568'}},p.value+' ('+pct+'%)')
+        );
+      }})
+    )
+  );
+}
+
+// ── KPI Card avec tendance ─────────────────────────────────
+function KpiCard({val,lbl,sub,trend,color,icon,bgColor}){
+  const up=trend>0,down=trend<0;
+  return CE('div',{className:'kpi',style:{background:bgColor||'#fff',borderLeft:'4px solid '+(color||'#1e3a8a'),textAlign:'left',padding:'14px 16px',position:'relative',overflow:'hidden'}},
+    CE('div',{style:{position:'absolute',right:10,top:8,fontSize:28,opacity:.08}},icon),
+    CE('div',{style:{display:'flex',alignItems:'flex-start',justifyContent:'space-between'}},
+      CE('div',null,
+        CE('div',{style:{fontSize:11,color:'#9ca3af',fontWeight:600,marginBottom:4,display:'flex',alignItems:'center',gap:4}},icon,' ',lbl),
+        CE('div',{className:'val',style:{color:color||'#1e3a8a',fontSize:26,lineHeight:1.1}},val),
+        sub&&CE('div',{style:{fontSize:11,color:'#9ca3af',marginTop:3}},sub)
+      ),
+      trend!==undefined&&CE('div',{style:{
+        fontSize:11,fontWeight:700,
+        color:up?'#16a34a':down?'#dc2626':'#718096',
+        background:up?'#f0fdf4':down?'#fef2f2':'#f8fafc',
+        padding:'2px 7px',borderRadius:8,whiteSpace:'nowrap',marginTop:2,alignSelf:'flex-start'
+      }},(up?'↑ +':down?'↓ ':'')+Math.abs(trend)+'%')
+    )
+  );
+}
+
+// ── Stacked Bar activité mensuelle ─────────────────────────
+function StackedActivityChart({data}){
+  if(!data||data.length===0)return CE(NoData,null);
+  const todayYM=new Date().toISOString().slice(0,7);
+  const fmtML=ym=>`${ym.slice(5,7)}/${ym.slice(2,4)}`;
+  const chartData=Object.keys(data).sort().map(k=>({
+    label:fmtML(k),...data[k],isFutur:k>=todayYM
+  }));
+  return CE(ResponsiveContainer,{width:'100%',height:220},
+    CE(RBarChart,{data:chartData,margin:{top:16,right:6,left:0,bottom:34}},
+      CE(CartesianGrid,{strokeDasharray:'3 3',stroke:'#e2e8f0',vertical:false}),
+      CE(XAxis,{dataKey:'label',tick:{fontSize:10,fill:'#4a5568'},angle:-35,textAnchor:'end',interval:0}),
+      CE(YAxis,{tick:{fontSize:10,fill:'#718096'},allowDecimals:false,width:24}),
+      CE(Legend,{wrapperStyle:{fontSize:10}}),
+      CE(RTooltip,{content:(props)=>{
+        if(!props.active||!props.payload?.length)return null;
+        const d=props.payload[0]?.payload;
+        return CE('div',{style:{background:'#edf2f7',border:'1px solid #a0aec0',borderRadius:7,padding:'8px 12px',fontSize:12,lineHeight:1.8}},
+          CE('div',{style:{fontWeight:700,color:'#1e3a8a',marginBottom:2}},d.label+(d.isFutur?' (à venir)':'')),
+          CE('div',{style:{color:'#16a34a'}},'✅ '+d.realises+' réalisés'),
+          CE('div',{style:{color:'#2563eb'}},'📅 '+d.planifies+' planifiés'),
+          CE('div',{style:{color:'#dc2626'}},'❌ '+d.annules+' annulés')
+        );
+      }}),
+      CE(Bar,{dataKey:'realises',name:'Réalisés',stackId:'a',fill:'#16a34a',maxBarSize:30}),
+      CE(Bar,{dataKey:'annules',name:'Annulés',stackId:'a',fill:'#dc2626',maxBarSize:30}),
+      CE(Bar,{dataKey:'planifies',name:'Planifiés',fill:'#93c5fd',radius:[3,3,0,0],maxBarSize:30,opacity:.9})
+    )
+  );
+}
+
+// ── Grouped Bar par conseiller ─────────────────────────────
+function ConseillerBarChart({entries}){
+  if(!entries||entries.length===0)return CE(NoData,null);
+  const cons={};
+  entries.forEach(e=>{
+    const c=e.conseiller||'?';
+    if(!cons[c])cons[c]={realises:0,planifies:0,annules:0,inscrits:0,presents:0};
+    if(e.statut==='Réalisé'){cons[c].realises++;cons[c].inscrits+=(parseInt(e.inscrits)||0);cons[c].presents+=(parseInt(e.presents)||0);}
+    else if(e.statut==='Planifié')cons[c].planifies++;
+    else if(e.statut==='Annulé')cons[c].annules++;
+  });
+  const data=Object.entries(cons).sort((a,b)=>b[1].realises-a[1].realises)
+    .map(([name,d])=>({name:trunc(name,12),...d,tx:d.inscrits>0?Math.round(d.presents/d.inscrits*100):0}));
+  if(!data.length)return CE(NoData,null);
+  const h=Math.max(180,120+data.length*28);
+  return CE(ResponsiveContainer,{width:'100%',height:h},
+    CE(RBarChart,{data,layout:'vertical',margin:{top:8,right:50,left:4,bottom:8}},
+      CE(CartesianGrid,{strokeDasharray:'3 3',stroke:'#e2e8f0',horizontal:false}),
+      CE(XAxis,{type:'number',tick:{fontSize:10,fill:'#718096'},allowDecimals:false}),
+      CE(YAxis,{type:'category',dataKey:'name',tick:{fontSize:11,fill:'#4a5568'},width:90}),
+      CE(Legend,{wrapperStyle:{fontSize:10}}),
+      CE(RTooltip,{content:(props)=>{
+        if(!props.active||!props.payload?.length)return null;
+        const d=props.payload[0]?.payload;
+        return CE('div',{style:{background:'#edf2f7',border:'1px solid #a0aec0',borderRadius:7,padding:'8px 12px',fontSize:12,lineHeight:1.8}},
+          CE('div',{style:{fontWeight:700,color:'#1e3a8a',marginBottom:2}},d.name),
+          CE('div',{style:{color:'#16a34a'}},'✅ Réalisés : '+d.realises),
+          CE('div',{style:{color:'#2563eb'}},'📅 Planifiés : '+d.planifies),
+          CE('div',{style:{color:'#dc2626'}},'❌ Annulés : '+d.annules),
+          CE('div',{style:{color:'#7c3aed',fontWeight:700}},'👥 Présents : '+d.presents+' / '+d.inscrits+' — Tx : '+d.tx+'%')
+        );
+      }}),
+      CE(Bar,{dataKey:'realises',name:'Réalisés',fill:'#16a34a',radius:[0,4,4,0],maxBarSize:14},
+        CE(LabelList,{dataKey:'realises',position:'right',style:{fontSize:10,fontWeight:700,fill:'#1a202c'}})
+      ),
+      CE(Bar,{dataKey:'planifies',name:'Planifiés',fill:'#2563eb',radius:[0,4,4,0],maxBarSize:14}),
+      CE(Bar,{dataKey:'annules',name:'Annulés',fill:'#dc2626',radius:[0,4,4,0],maxBarSize:14})
+    )
+  );
+}
+
+// ── MAIN : VueDashboard ────────────────────────────────────
+function VueDashboard({entries}){
+  if(!ResponsiveContainer)return CE('div',{className:'card'},CE('p',{style:{color:'#718096',textAlign:'center',padding:'40px 0'}},'⚠️ Recharts non chargé.'));
+
+  const[periodeIdx,setPeriodeIdx]=React.useState(1); // défaut : ce mois
+  const now=new Date();
+  const todayStr=now.toISOString().slice(0,10);
+  const todayYM=now.toISOString().slice(0,7);
+
+  function getDateFrom(idx){
+    if(idx===0)return '';
+    const d=new Date(now);
+    if(idx===1){d.setDate(1);return d.toISOString().slice(0,10);}
+    if(idx===2){d.setMonth(d.getMonth()-3);return d.toISOString().slice(0,10);}
+    if(idx===3){d.setMonth(d.getMonth()-6);return d.toISOString().slice(0,10);}
+    if(idx===4){d.setFullYear(d.getFullYear()-1);return d.toISOString().slice(0,10);}
+    return '';
+  }
+  const dateFrom=getDateFrom(periodeIdx);
+  const filtered=React.useMemo(()=>dateFrom?entries.filter(e=>e.date&&e.date>=dateFrom):entries,[entries,dateFrom]);
+
+  // Période précédente (même durée) pour tendances
+  const prevFiltered=React.useMemo(()=>{
+    if(periodeIdx===0)return[];
+    const df=new Date(dateFrom);const prevTo=new Date(dateFrom);prevTo.setDate(prevTo.getDate()-1);
+    const prevFrom=new Date(df);
+    if(periodeIdx===1)prevFrom.setMonth(prevFrom.getMonth()-1);
+    if(periodeIdx===2)prevFrom.setMonth(prevFrom.getMonth()-3);
+    if(periodeIdx===3)prevFrom.setMonth(prevFrom.getMonth()-6);
+    if(periodeIdx===4)prevFrom.setFullYear(prevFrom.getFullYear()-1);
+    const pf=prevFrom.toISOString().slice(0,10);const pt=prevTo.toISOString().slice(0,10);
+    return entries.filter(e=>e.date&&e.date>=pf&&e.date<=pt);
+  },[entries,periodeIdx,dateFrom]);
+
+  function mkTrend(curr,prev){
+    if(periodeIdx===0||prev===0)return undefined;
+    return Math.round((curr-prev)/prev*100);
+  }
+
+  // KPIs
+  const realises=filtered.filter(e=>e.statut==='Réalisé');
+  const annules=filtered.filter(e=>e.statut==='Annulé');
+  const planifies=filtered.filter(e=>e.statut==='Planifié'&&e.date>=todayStr);
+  const presents=realises.reduce((s,e)=>s+(parseInt(e.presents)||0),0);
+  const inscrits=realises.reduce((s,e)=>s+(parseInt(e.inscrits)||0),0);
+  const txPresence=inscrits>0?Math.round(presents/inscrits*100):0;
+  const txAnnul=filtered.length>0?Math.round(annules.length/filtered.length*100):0;
+  const prevR=prevFiltered.filter(e=>e.statut==='Réalisé');
+  const prevPresents=prevR.reduce((s,e)=>s+(parseInt(e.presents)||0),0);
+
+  // Statuts donut
+  const STATUS_COLORS={'Réalisé':'#16a34a','Planifié':'#2563eb','Annulé':'#dc2626','Non réalisé':'#d97706','Reporté':'#9683EC'};
+  const byStat={};filtered.forEach(e=>{byStat[e.statut]=(byStat[e.statut]||0)+1;});
+  const dataStat=Object.entries(byStat).map(([label,value])=>({label,value}));
+
+  // Activité mensuelle empilée
+  const byMoisAct={};filtered.forEach(e=>{
+    const m=e.date?e.date.slice(0,7):'?';
+    if(m==='?')return;
+    if(!byMoisAct[m])byMoisAct[m]={realises:0,annules:0,planifies:0};
+    if(e.statut==='Réalisé')byMoisAct[m].realises++;
+    else if(e.statut==='Annulé')byMoisAct[m].annules++;
+    else if(e.statut==='Planifié')byMoisAct[m].planifies++;
+  });
+
+  // Top communes
+  const byCommune={};realises.forEach(e=>{byCommune[e.commune]=(byCommune[e.commune]||0)+1;});
+  const topCommunes=Object.entries(byCommune).sort((a,b)=>b[1]-a[1]).slice(0,8).map(([label,value])=>({label,value}));
+
+  // Thématiques
+  const byTheme={};realises.forEach(e=>{const t=e.thematique||'Autre';byTheme[t]=(byTheme[t]||0)+1;});
+  const dataTheme=Object.entries(byTheme).sort((a,b)=>b[1]-a[1]).slice(0,8).map(([label,value])=>({label,value}));
+
+  // Public
+  const byPublic={};realises.forEach(e=>{const p=e.public||'Autres';byPublic[p]=(byPublic[p]||0)+1;});
+  const dataPublic=Object.entries(byPublic).sort((a,b)=>b[1]-a[1]).map(([label,value])=>({label,value}));
+
+  const PERIODES=[{l:'Tout'},{l:'Ce mois'},{l:'3 mois'},{l:'6 mois'},{l:'12 mois'}];
+  const accent='#1e3a8a';
+
+  return CE('div',null,
+
+    // ── Barre période ──
+    CE('div',{className:'card',style:{marginBottom:12,padding:'12px 16px'}},
+      CE('div',{style:{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}},
+        CE('span',{style:{fontSize:12,fontWeight:700,color:'#718096'}},'Période :'),
+        PERIODES.map((p,i)=>CE('button',{key:i,onClick:()=>setPeriodeIdx(i),style:{
+          padding:'4px 13px',borderRadius:20,fontSize:12,fontWeight:600,cursor:'pointer',
+          border:`1.5px solid ${periodeIdx===i?accent:'#e2e8f0'}`,
+          background:periodeIdx===i?accent:'#fff',
+          color:periodeIdx===i?'#fff':'#718096',transition:'all .15s'
+        }},p.l)),
+        CE('span',{style:{marginLeft:'auto',fontSize:11,color:'#9ca3af'}},filtered.length+' ateliers · '+now.toLocaleDateString('fr-FR'))
+      )
+    ),
+
+    // ── KPIs ──
+    CE('div',{style:{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))',gap:12,marginBottom:16}},
+      CE(KpiCard,{val:realises.length,lbl:'Ateliers réalisés',icon:'✅',color:'#16a34a',bgColor:'#f0fdf4',trend:mkTrend(realises.length,prevR.length)}),
+      CE(KpiCard,{val:planifies.length,lbl:'Planifiés à venir',icon:'📅',color:'#2563eb',bgColor:'#eff6ff'}),
+      CE(KpiCard,{val:presents,lbl:'Participants présents',icon:'👥',color:'#7c3aed',bgColor:'#faf5ff',trend:mkTrend(presents,prevPresents)}),
+      CE(KpiCard,{val:inscrits,lbl:'Inscrits total',icon:'📝',color:'#0891b2',bgColor:'#ecfeff'}),
+      CE(KpiCard,{val:txPresence+'%',lbl:'Taux de présence',icon:'🎯',
+        color:txPresence>=70?'#16a34a':txPresence>=50?'#d97706':'#dc2626',
+        bgColor:txPresence>=70?'#f0fdf4':txPresence>=50?'#fffbeb':'#fef2f2'}),
+      CE(KpiCard,{val:txAnnul+'%',lbl:'Taux d\'annulation',icon:'❌',
+        color:txAnnul<=10?'#16a34a':txAnnul<=20?'#d97706':'#dc2626',
+        bgColor:txAnnul<=10?'#f0fdf4':txAnnul<=20?'#fffbeb':'#fef2f2'})
+    ),
+
+    // ── Ligne 1 : Activité mensuelle + Donut statuts ──
+    CE('div',{style:{display:'grid',gridTemplateColumns:'2fr 1fr',gap:16,marginBottom:16}},
+      CE('div',{className:'card'},
+        CE('h2',null,'📈 Activité mensuelle'),
+        CE(StackedActivityChart,{data:byMoisAct})
+      ),
+      CE('div',{className:'card'},
+        CE('h2',null,'🔵 Répartition statuts'),
+        CE(DonutChart,{data:dataStat,colors:dataStat.map(d=>STATUS_COLORS[d.label]||'#718096'),height:220})
+      )
+    ),
+
+    // ── Ligne 2 : Par conseiller (pleine largeur) ──
+    CE('div',{className:'card',style:{marginBottom:16}},
+      CE('h2',null,'👤 Performance par conseiller'),
+      CE(ConseillerBarChart,{entries:filtered})
+    ),
+
+    // ── Ligne 3 : Communes + Thématiques ──
+    CE('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,marginBottom:16}},
+      CE('div',{className:'card'},
+        CE('h2',null,'📍 Top communes (réalisés)'),
+        CE(BarChart,{data:topCommunes,colors:['#1e3a8a','#2563eb','#3b82f6','#60a5fa','#93c5fd']})
+      ),
+      CE('div',{className:'card'},
+        CE('h2',null,'📚 Par thématique'),
+        CE(BarChart,{data:dataTheme,colors:['#7c3aed','#8b5cf6','#a78bfa','#c4b5fd']})
+      )
+    ),
+
+    // ── Ligne 4 : Public + AM/PM ──
+    CE('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}},
+      CE('div',{className:'card'},
+        CE('h2',null,'🧑‍🤝‍🧑 Par type de public'),
+        CE(BarChart,{data:dataPublic,colors:['#DB2777','#ec4899','#f472b6','#fbcfe8']})
+      ),
+      CE('div',{className:'card'},
+        CE('h2',null,'🌅 Matin vs Après-midi'),
+        CE(DonutChart,{
+          data:[
+            {label:'Matin (AM)',value:filtered.filter(e=>e.ampm==='AM'||(!e.ampm&&e.horaire&&parseInt(e.horaire)<12)).length},
+            {label:'Après-midi (PM)',value:filtered.filter(e=>e.ampm==='PM'||(!e.ampm&&e.horaire&&parseInt(e.horaire)>=12)).length}
+          ],
+          colors:['#f97316','#0891b2'],height:200
+        })
+      )
+    )
+  );
+}
+
+// ═══════════════════════════════════════════════════════════
+// VUE GRAPHIQUES (stats détaillées — inchangé)
+// ═══════════════════════════════════════════════════════════
 function VueGraphiques({entries}){
   if(!ResponsiveContainer)return CE('div',{className:'card'},CE('p',{style:{color:'#718096',textAlign:'center',padding:'40px 0'}},'⚠️ Recharts non chargé — vérifiez la connexion internet.'));
 
