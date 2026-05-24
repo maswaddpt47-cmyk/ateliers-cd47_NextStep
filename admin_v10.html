@@ -391,7 +391,36 @@ nav { display: none !important; }
   margin: 0 10px;
 }
 
-/* ── Zone contenu ─────────────────────────────────────────── */
+/* ── Sidebar épinglée ─────────────────────────────────────── */
+.sidebar--pinned { width: 220px !important; }
+.sidebar--pinned .sidebar-sep { width: calc(100% - 24px); }
+.sidebar--pinned .sidebar-group-label { max-height: 22px; opacity: 1; margin: 6px 0 2px; }
+.sidebar--pinned .sidebar-btn { width: calc(220px - 20px); margin: 2px 10px; justify-content: flex-start; }
+.sidebar--pinned .sidebar-btn-ico { width: 40px; }
+.sidebar--pinned .sidebar-btn-lbl { max-width: 160px; opacity: 1; }
+.sidebar--pinned .sidebar-year { width: calc(220px - 20px); }
+.sidebar--pinned .sidebar-notif-btn { width: calc(220px - 20px); flex-direction: row; margin: 0 10px; }
+.sidebar--pinned .sidebar-logo { transform: scale(1.05); box-shadow: 0 4px 18px rgba(0,0,0,.2), inset 0 1px 0 rgba(255,255,255,.35); }
+.app-content--pinned { margin-left: 220px !important; }
+
+.sidebar-pin-btn {
+  position: absolute;
+  top: 10px; right: 8px;
+  width: 22px; height: 22px;
+  border: none; background: none;
+  color: rgba(255,255,255,.45);
+  font-size: 14px;
+  cursor: pointer;
+  border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0;
+  transition: opacity .18s, color .18s, background .18s;
+  z-index: 2;
+  padding: 0;
+}
+.sidebar:hover .sidebar-pin-btn { opacity: 1; }
+.sidebar-pin-btn:hover { background: rgba(255,255,255,.18); color: #fff; }
+.sidebar-pin-btn.pinned { opacity: 1; color: #fff; }
 .app-content {
   margin-left: 72px;
   flex: 1;
@@ -710,6 +739,7 @@ function App(){
   const[lastSync,setLastSync]= React.useState(null); // v9.4
   const[syncing,setSyncing]= React.useState(false);  // v9.5
   const[logFilter,setLogFilter]= React.useState('all'); // v10.0 : filtre logs
+  const[pinned,setPinned]= React.useState(()=>localStorage.getItem('adm_sidebar_pinned')==='1'); // épingle sidebar
 
   // v9.5 : logs persistants via localStorage
   // v10.0 : logs avec timestamp ms pour purge +30j, limite 200, auto-purge au démarrage
@@ -874,7 +904,13 @@ function App(){
 
   return CE('div',{className:'app-shell'},
 
-    CE('aside',{className:'sidebar',style:{background:accentColor}},
+    CE('aside',{className:'sidebar'+(pinned?' sidebar--pinned':''),style:{background:accentColor}},
+
+      CE('button',{
+        className:'sidebar-pin-btn'+(pinned?' pinned':''),
+        title:pinned?'Désépingler le menu':'Épingler le menu',
+        onClick:()=>setPinned(p=>{const n=!p;localStorage.setItem('adm_sidebar_pinned',n?'1':'0');return n;})
+      },pinned?'📌':'📍'),
 
       CE('div',{className:'sidebar-logo'},'🖥️'),
       CE('span',{className:'sidebar-count'},entries.length),
@@ -934,7 +970,7 @@ function App(){
       )
     ),
 
-    CE('div',{className:'app-content'},
+    CE('div',{className:'app-content'+(pinned?' app-content--pinned':'')},
 
       CE('div',{className:'app-topbar'},
         CE('span',{style:{fontSize:16}},meta.ico),
