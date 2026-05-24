@@ -1190,7 +1190,7 @@ function VuePowerBI({entries, conseillers: conseillersList}){
     );
   }
 
-  const ttStyle={formatter:(v,n)=>[v,n],contentStyle:{background:'#1e2132',border:'1px solid #374151',borderRadius:6,fontSize:11},labelStyle:{color:'#f9fafb',fontWeight:700},itemStyle:{color:'#e5e7eb'}};
+  const ttStyle={formatter:(v,n)=>[v,n],contentStyle:{background:'#1e2132',border:'1px solid #374151',borderRadius:6,fontSize:11},labelStyle:{color:'#f9fafb',fontWeight:700},itemStyle:{color:'#e5e7eb'},cursor:false};
 
   // ── Pages ──────────────────────────────────────────────────
   const PAGES_PBI=[{id:'general',ico:'📊',label:'Général'},{id:'conseillers',ico:'👥',label:'Conseillers'},{id:'territoire',ico:'🗺️',label:'Territoire'}];
