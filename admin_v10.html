@@ -2038,61 +2038,94 @@ function VueRoadmap({entries,annee,conseillers}){
     ),
 
     // ── DENSITÉ ──────────────────────────────────────────────
-    viewMode==='densite'&&CE('div',{className:'card'},
-      CE('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:16,flexWrap:'wrap',gap:8}},
-        CE('h3',{style:{margin:0,fontSize:14,color:'#1a202c'}},'Ateliers par mois & conseiller'),
-        CE('div',{style:{display:'flex',gap:12,fontSize:11,color:'#9ca3af'}},
-          CE('span',null,'▪ Clair = planifiés/autres'),
-          CE('span',null,'▪ Plein = réalisés')
-        )
-      ),
-      CE('div',{style:{overflowX:'auto'}},
-        CE('table',{style:{width:'100%',borderCollapse:'collapse',minWidth:500}},
-          CE('thead',null,CE('tr',null,
-            CE('th',{style:{width:140,textAlign:'left',padding:'6px 10px',fontSize:11,fontWeight:700,color:'#9ca3af',borderBottom:'2px solid #e2e8f0'}},'Conseiller'),
-            MOIS_FR.map(m=>CE('th',{key:m,style:{textAlign:'center',padding:'6px 8px',fontSize:11,fontWeight:700,color:'#9ca3af',borderBottom:'2px solid #e2e8f0'}},m))
-          )),
-          CE('tbody',null,
-            displayedConseillers.map(conseiller=>{
-              const col=conseillerColor(conseiller)||'#1e3a8a';
-              const items=filtered.filter(e=>e.conseiller===conseiller);
-              const byMonth=[1,2,3,4,5,6,7,8,9,10,11,12].map(m=>({
-                count:items.filter(e=>parseInt(String(e.date||'').slice(5,7))===m).length,
-                realises:items.filter(e=>parseInt(String(e.date||'').slice(5,7))===m&&e.statut==='Réalisé').length,
-              }));
-              const maxVal=Math.max(...byMonth.map(m=>m.count),1);
-              return CE('tr',{key:conseiller},
-                CE('td',{style:{padding:'8px 10px',borderBottom:'1px solid #f0f4f8'}},
-                  CE('div',{style:{display:'flex',alignItems:'center',gap:6}},
-                    CE('div',{style:{width:8,height:8,borderRadius:'50%',background:col,flexShrink:0}}),
-                    CE('span',{style:{fontSize:12,fontWeight:700,color:'#1a202c'}},conseiller.split(' ')[0])
-                  )
-                ),
-                byMonth.map((m,i)=>CE('td',{key:i,style:{
-                  padding:'8px 4px',borderBottom:'1px solid #f0f4f8',
-                  verticalAlign:'bottom',textAlign:'center'
-                }},
-                  CE('div',{style:{display:'flex',flexDirection:'column',alignItems:'center',gap:2}},
-                    CE('div',{style:{
-                      width:26,background:col+'28',borderRadius:'4px 4px 0 0',
-                      height:Math.max(4,Math.round(m.count/maxVal*52))+'px',
-                      position:'relative',overflow:'hidden'
-                    }},
-                      CE('div',{style:{
-                        position:'absolute',bottom:0,left:0,right:0,
-                        height:(m.count>0?Math.round(m.realises/m.count*100):0)+'%',
-                        background:col,borderRadius:'4px 4px 0 0'
-                      }})
-                    ),
-                    m.count>0&&CE('span',{style:{fontSize:10,fontWeight:700,color:col}},m.count)
-                  )
-                ))
-              );
-            })
+    viewMode==='densite'&&(()=>{
+      // Calcul des mois visibles dans la plage dateFrom → dateTo
+      const visibleMonths=[];
+      const cur=new Date(dateFrom+'T00:00:00');
+      const endD=new Date(dateTo+'T00:00:00');
+      // On démarre au 1er du mois de dateFrom
+      cur.setDate(1);
+      while(cur<=endD){
+        visibleMonths.push({
+          year:cur.getFullYear(),
+          month:cur.getMonth()+1, // 1-12
+          label:MOIS_FR[cur.getMonth()]+(cur.getFullYear()!==parseInt(annee)?' '+String(cur.getFullYear()).slice(2):'')
+        });
+        cur.setMonth(cur.getMonth()+1);
+      }
+
+      // max global sur tous conseillers/mois pour harmoniser les barres
+      const allCounts=displayedConseillers.flatMap(conseiller=>{
+        const items=filtered.filter(e=>e.conseiller===conseiller);
+        return visibleMonths.map(({year,month})=>
+          items.filter(e=>{
+            const d=String(e.date||'');
+            return parseInt(d.slice(0,4))===year&&parseInt(d.slice(5,7))===month;
+          }).length
+        );
+      });
+      const globalMax=Math.max(...allCounts,1);
+
+      return CE('div',{className:'card'},
+        CE('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:16,flexWrap:'wrap',gap:8}},
+          CE('h3',{style:{margin:0,fontSize:14,color:'#1a202c'}},'Ateliers par mois & conseiller'),
+          CE('div',{style:{display:'flex',gap:12,fontSize:11,color:'#9ca3af'}},
+            CE('span',null,'▪ Clair = planifiés/autres'),
+            CE('span',null,'▪ Plein = réalisés')
           )
-        )
-      )
-    ),
+        ),
+        visibleMonths.length===0
+          ?CE('p',{style:{color:'#9ca3af',fontSize:13}},'Aucune période sélectionnée.')
+          :CE('div',{style:{overflowX:'auto'}},
+            CE('table',{style:{width:'100%',borderCollapse:'collapse',minWidth:Math.max(400,visibleMonths.length*52+140)}},
+              CE('thead',null,CE('tr',null,
+                CE('th',{style:{width:140,minWidth:140,textAlign:'left',padding:'6px 10px',fontSize:11,fontWeight:700,color:'#9ca3af',borderBottom:'2px solid #e2e8f0'}},'Conseiller'),
+                visibleMonths.map(({label},i)=>CE('th',{key:i,style:{textAlign:'center',padding:'6px 8px',fontSize:11,fontWeight:700,color:'#9ca3af',borderBottom:'2px solid #e2e8f0',whiteSpace:'nowrap'}},label))
+              )),
+              CE('tbody',null,
+                displayedConseillers.map(conseiller=>{
+                  const col=conseillerColor(conseiller)||'#1e3a8a';
+                  const items=filtered.filter(e=>e.conseiller===conseiller);
+                  const byMonth=visibleMonths.map(({year,month})=>{
+                    const inMonth=items.filter(e=>{
+                      const d=String(e.date||'');
+                      return parseInt(d.slice(0,4))===year&&parseInt(d.slice(5,7))===month;
+                    });
+                    return{count:inMonth.length,realises:inMonth.filter(e=>e.statut==='Réalisé').length};
+                  });
+                  return CE('tr',{key:conseiller},
+                    CE('td',{style:{padding:'8px 10px',borderBottom:'1px solid #f0f4f8',whiteSpace:'nowrap'}},
+                      CE('div',{style:{display:'flex',alignItems:'center',gap:6}},
+                        CE('div',{style:{width:8,height:8,borderRadius:'50%',background:col,flexShrink:0}}),
+                        CE('span',{style:{fontSize:12,fontWeight:700,color:'#1a202c'}},conseiller.split(' ')[0])
+                      )
+                    ),
+                    byMonth.map((m,i)=>CE('td',{key:i,style:{
+                      padding:'8px 4px',borderBottom:'1px solid #f0f4f8',
+                      verticalAlign:'bottom',textAlign:'center'
+                    }},
+                      CE('div',{style:{display:'flex',flexDirection:'column',alignItems:'center',gap:2}},
+                        CE('div',{style:{
+                          width:26,background:col+'28',borderRadius:'4px 4px 0 0',
+                          height:Math.max(4,Math.round(m.count/globalMax*52))+'px',
+                          position:'relative',overflow:'hidden'
+                        }},
+                          CE('div',{style:{
+                            position:'absolute',bottom:0,left:0,right:0,
+                            height:(m.count>0?Math.round(m.realises/m.count*100):0)+'%',
+                            background:col,borderRadius:'4px 4px 0 0'
+                          }})
+                        ),
+                        m.count>0&&CE('span',{style:{fontSize:10,fontWeight:700,color:col}},m.count)
+                      )
+                    ))
+                  );
+                })
+              )
+            )
+          )
+      );
+    })(),
 
     // ── Tooltip opaque ───────────────────────────────────────
     hoveredItem&&CE('div',{style:{
