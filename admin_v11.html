@@ -687,6 +687,7 @@ var VIEW_META = {
   agenda:     { ico: '🗓️', label: 'Agenda',          group: 'Consulter' },
   calendrier: { ico: '📅',  label: 'Calendrier',     group: 'Consulter' },
   carte:      { ico: '🗺️', label: 'Carte',          group: 'Consulter' },
+  roadmap:    { ico: '🛣️', label: 'Roadmap',         group: 'Consulter' },
   dashboard:  { ico: '🚀',  label: 'Dashboard',      group: 'Analyser' },
   graphiques: { ico: '📊',  label: 'Statistiques',   group: 'Analyser' },
   bingo:      { ico: '🎯',  label: 'Bingo',          group: 'Analyser' },
@@ -930,6 +931,7 @@ function App(){
       sideBtn('agenda','🗓️','Agenda'),
       sideBtn('calendrier','📅','Calendrier'),
       sideBtn('carte','🗺️','Carte'),
+      sideBtn('roadmap','🛣️','Roadmap'),
 
       // Groupe : Stats
       CE('div',{className:'sidebar-sep'}),
@@ -1013,6 +1015,7 @@ function App(){
           view==='graphiques'&&CE(VueGraphiques,{entries}),
           view==='dashboard'&&CE(VueDashboard,{entries}),
           view==='carte'&&CE(VueCarte,{entries,active:view==='carte'}),
+          view==='roadmap'&&CE(VueRoadmap,{entries,annee,conseillers:lists.conseillers}),
           view==='bingo'&&CE(VueBingo,{entries}),
           view==='admin'&&CE(VueAdmin,{entries,onRefresh:loadData,addLog,conseillersList:lists.conseillers,onSaveColors:(c)=>{applyColors(c);},annee}),
           view==='logs'&&CE('div',{className:'card'},
@@ -1238,7 +1241,7 @@ function VueAdminV10({entries,onRefresh,addLog,conseillersList,onSaveColors,anne
   function addTlLog(msg,type='info'){setTlLogs(l=>[...l,{msg,type,t:new Date().toLocaleTimeString('fr-FR')}]);}
   function changeMoisDeb(v){localStorage.setItem('cal_moisDeb',v);setMoisDeb(v);setLastExport(null);}
   function changeMoisFin(v){localStorage.setItem('cal_moisFin',v);setMoisFin(v);setLastExport(null);}
-  const VIS_ITEMS=[{key:'saisie',label:'✏️ Saisie',sub:'Formulaire de saisie'},{key:'historique',label:'📋 Historique',sub:'Liste des ateliers'},{key:'agenda',label:'🗓️ Agenda',sub:'Planning hebdo AM/PM'},{key:'calendrier',label:'📅 Calendrier',sub:'Vue calendrier mensuelle'},{key:'graphiques',label:'📊 Graphiques',sub:'Tableaux de bord'},{key:'carte',label:'🗺️ Carte',sub:'Carte des communes'},{key:'bingo',label:'🎯 Bingo',sub:'Vue par commune'}];
+  const VIS_ITEMS=[{key:'saisie',label:'✏️ Saisie',sub:'Formulaire de saisie'},{key:'historique',label:'📋 Historique',sub:'Liste des ateliers'},{key:'agenda',label:'🗓️ Agenda',sub:'Planning hebdo AM/PM'},{key:'calendrier',label:'📅 Calendrier',sub:'Vue calendrier mensuelle'},{key:'graphiques',label:'📊 Graphiques',sub:'Tableaux de bord'},{key:'carte',label:'🗺️ Carte',sub:'Carte des communes'},{key:'bingo',label:'🎯 Bingo',sub:'Vue par commune'},{key:'roadmap',label:'🛣️ Roadmap',sub:'Timeline & densité'}];
 
   React.useEffect(()=>{apiFetch('getVisibility').then(res=>{if(res.ok)setVisibility(res.visibility);}).catch(()=>{});},[]);
   React.useEffect(()=>{setColorDraft(d=>{const draft={...CONSEILLER_COLORS,...d};(conseillersList||[]).forEach(c=>{if(!draft[c])draft[c]='#6B7280';});return draft;});},[conseillersList]);
