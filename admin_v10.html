@@ -1760,6 +1760,11 @@ function VueRoadmap({entries,annee,conseillers}){
   const[hoveredItem,setHoveredItem]=React.useState(null);
   const[tooltipPos,setTooltipPos]=React.useState({x:0,y:0});
   const[viewMode,setViewMode]=React.useState('gantt');
+  const[dateFrom,setDateFrom]=React.useState(annee+'-01-01');
+  const[dateTo,setDateTo]=React.useState(annee+'-12-31');
+
+  // Resync période quand l'année sidebar change
+  React.useEffect(()=>{setDateFrom(annee+'-01-01');setDateTo(annee+'-12-31');},[annee]);
 
   const MOIS_FR=['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
 
@@ -1771,13 +1776,32 @@ function VueRoadmap({entries,annee,conseillers}){
     'Reporté':    {bg:'#9333ea',border:'#7e22ce',label:'↺'},
   };
 
-  const yearEntries=React.useMemo(()=>entries.filter(e=>e.date&&String(e.date).startsWith(annee)),[entries,annee]);
+  // Raccourcis de période
+  const PRESETS=[
+    {label:'Année',from:annee+'-01-01',to:annee+'-12-31'},
+    {label:'T1',from:annee+'-01-01',to:annee+'-03-31'},
+    {label:'T2',from:annee+'-04-01',to:annee+'-06-30'},
+    {label:'T3',from:annee+'-07-01',to:annee+'-09-30'},
+    {label:'T4',from:annee+'-10-01',to:annee+'-12-31'},
+    {label:'S1',from:annee+'-01-01',to:annee+'-06-30'},
+    {label:'S2',from:annee+'-07-01',to:annee+'-12-31'},
+  ];
+  const activePreset=PRESETS.find(p=>p.from===dateFrom&&p.to===dateTo)||null;
 
-  const filtered=React.useMemo(()=>yearEntries.filter(e=>{
+  // Validation : from <= to
+  const dateError=dateFrom&&dateTo&&dateFrom>dateTo;
+
+  const rangeEntries=React.useMemo(()=>entries.filter(e=>{
+    if(!e.date)return false;
+    const d=String(e.date).slice(0,10);
+    return d>=dateFrom&&d<=dateTo;
+  }),[entries,dateFrom,dateTo]);
+
+  const filtered=React.useMemo(()=>rangeEntries.filter(e=>{
     if(filterConseiller!=='Tous'&&e.conseiller!==filterConseiller)return false;
     if(filterStatut!=='Tous'&&e.statut!==filterStatut)return false;
     return true;
-  }),[yearEntries,filterConseiller,filterStatut]);
+  }),[rangeEntries,filterConseiller,filterStatut]);
 
   const kpis=React.useMemo(()=>{
     const total=filtered.length;
@@ -1787,25 +1811,38 @@ function VueRoadmap({entries,annee,conseillers}){
     return{total,realises,presents,taux};
   },[filtered]);
 
+  // posPercent basé sur la période sélectionnée
   function posPercent(dateStr){
     try{
       const d=new Date(String(dateStr).slice(0,10)+'T00:00:00');
-      const start=new Date(annee+'-01-01T00:00:00');
-      const end=new Date((parseInt(annee)+1)+'-01-01T00:00:00');
-      return Math.max(0,Math.min(100,((d-start)/(end-start))*100));
+      const start=new Date(dateFrom+'T00:00:00');
+      const end=new Date(dateTo+'T00:00:00');
+      const span=end-start||1;
+      return Math.max(0,Math.min(100,((d-start)/span)*100));
     }catch{return 0;}
   }
 
-  const monthMarkers=[0,1,2,3,4,5,6,7,8,9,10,11].map(m=>({
-    label:MOIS_FR[m],
-    pos:posPercent(annee+'-'+String(m+1).padStart(2,'0')+'-01')
-  }));
+  // Marqueurs de mois dans la plage sélectionnée
+  const monthMarkers=React.useMemo(()=>{
+    const markers=[];
+    const start=new Date(dateFrom+'T00:00:00');
+    const end=new Date(dateTo+'T00:00:00');
+    const cur=new Date(Date.UTC(start.getFullYear(),start.getMonth(),1));
+    while(cur<=end){
+      const label=MOIS_FR[cur.getMonth()]+(cur.getFullYear()!==parseInt(annee)?' '+String(cur.getFullYear()).slice(2):'');
+      const ds=cur.getFullYear()+'-'+String(cur.getMonth()+1).padStart(2,'0')+'-01';
+      markers.push({label,pos:posPercent(ds)});
+      cur.setMonth(cur.getMonth()+1);
+    }
+    return markers;
+  },[dateFrom,dateTo,annee]);
 
   const todayStr=new Date().toISOString().slice(0,10);
-  const todayPos=todayStr.startsWith(annee)?posPercent(todayStr):null;
+  const todayInRange=todayStr>=dateFrom&&todayStr<=dateTo;
+  const todayPos=todayInRange?posPercent(todayStr):null;
 
   const displayedConseillers=filterConseiller==='Tous'
-    ?(conseillers&&conseillers.length>0?conseillers:[...new Set(yearEntries.map(e=>e.conseiller).filter(Boolean))])
+    ?(conseillers&&conseillers.length>0?conseillers:[...new Set(rangeEntries.map(e=>e.conseiller).filter(Boolean))])
     :[filterConseiller];
 
   function handleMouseMove(e){setTooltipPos({x:e.clientX,y:e.clientY});}
@@ -1814,6 +1851,8 @@ function VueRoadmap({entries,annee,conseillers}){
 
     // ── KPIs + Filtres ──────────────────────────────────────
     CE('div',{className:'card',style:{marginBottom:12}},
+
+      // Titre + toggle vue
       CE('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:10,marginBottom:14}},
         CE('h2',{style:{margin:0}},'🛣️ Roadmap '+annee),
         CE('div',{style:{display:'flex',background:'#f1f5f9',borderRadius:8,padding:3,gap:2}},
@@ -1827,6 +1866,49 @@ function VueRoadmap({entries,annee,conseillers}){
           )
         )
       ),
+
+      // ── Sélecteur de période ────────────────────────────────
+      CE('div',{style:{
+        display:'flex',gap:10,alignItems:'center',flexWrap:'wrap',
+        background:'#f8fafc',borderRadius:8,padding:'10px 14px',
+        border:'1px solid '+(dateError?'#fca5a5':'#e2e8f0'),
+        marginBottom:14
+      }},
+        CE('span',{style:{fontSize:11,fontWeight:700,color:'#4a5568',whiteSpace:'nowrap'}},'📅 Période'),
+        // Raccourcis
+        CE('div',{style:{display:'flex',gap:4,flexWrap:'wrap'}},
+          PRESETS.map(p=>CE('button',{key:p.label,onClick:()=>{setDateFrom(p.from);setDateTo(p.to);},style:{
+            padding:'3px 9px',borderRadius:6,cursor:'pointer',fontSize:11,fontWeight:600,
+            border:'1.5px solid '+(activePreset&&activePreset.label===p.label?'#1e3a8a':'#e2e8f0'),
+            background:activePreset&&activePreset.label===p.label?'#1e3a8a':'#fff',
+            color:activePreset&&activePreset.label===p.label?'#fff':'#4a5568',
+            transition:'all .15s'
+          }},p.label))
+        ),
+        // Séparateur
+        CE('div',{style:{width:1,height:24,background:'#e2e8f0',flexShrink:0}}),
+        // Inputs date
+        CE('div',{style:{display:'flex',gap:6,alignItems:'center',flexWrap:'wrap'}},
+          CE('input',{type:'date',value:dateFrom,
+            onChange:e=>{setDateFrom(e.target.value);},
+            style:{
+              padding:'4px 8px',border:'1.5px solid '+(dateError?'#fca5a5':'#e2e8f0'),
+              borderRadius:6,fontSize:12,color:'#1a202c',background:'#fff',cursor:'pointer',outline:'none'
+            }
+          }),
+          CE('span',{style:{fontSize:12,color:'#9ca3af',fontWeight:600}},'→'),
+          CE('input',{type:'date',value:dateTo,
+            onChange:e=>{setDateTo(e.target.value);},
+            style:{
+              padding:'4px 8px',border:'1.5px solid '+(dateError?'#fca5a5':'#e2e8f0'),
+              borderRadius:6,fontSize:12,color:'#1a202c',background:'#fff',cursor:'pointer',outline:'none'
+            }
+          }),
+          dateError&&CE('span',{style:{fontSize:11,color:'#dc2626',fontWeight:600}},'⚠ Date de début > fin')
+        )
+      ),
+
+      // KPIs
       CE('div',{style:{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:10,marginBottom:14}},
         [
           {label:'Ateliers',value:kpis.total,color:'#1e3a8a'},
@@ -1841,6 +1923,8 @@ function VueRoadmap({entries,annee,conseillers}){
           CE('div',{style:{fontSize:11,color:'#718096',marginTop:2}},k.label)
         ))
       ),
+
+      // Filtres conseiller + statut
       CE('div',{style:{display:'flex',gap:12,flexWrap:'wrap',alignItems:'center'}},
         CE('div',{style:{display:'flex',gap:5,alignItems:'center',flexWrap:'wrap'}},
           CE('span',{style:{fontSize:11,color:'#9ca3af',fontWeight:600}},'Conseiller :'),
