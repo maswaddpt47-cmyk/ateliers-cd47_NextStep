@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Ateliers Inclusion Numérique — Conseillers</title>
+<title>Ateliers Inclusion Numérique — Conseillers v10.0</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
@@ -324,10 +324,71 @@
 <body>
 <div id="root"></div>
 <script>
-// ── App Frontend (conseillers) v9.5 ──────────────────────────
+// ════════════════════════════════════════════════════════════
+// ── v10.0 : Override apiFetch — retry automatique GAS ──────
+// Même logique que admin_v10 : timeout adaptatif + 1 retry.
+// ════════════════════════════════════════════════════════════
+(function(){
+  const MAX_RETRY   = 1;
+  const RETRY_DELAY = 3000;
+  const isMobile    = /Android|iPhone|iPad/i.test(navigator.userAgent);
+  const TIMEOUT_MS  = isMobile ? 20000 : 12000;
+
+  window.apiFetch = async function apiFetch(action, body={}, _attempt=1){
+    const params = new URLSearchParams({action});
+    if(body && Object.keys(body).length){
+      Object.entries(body).forEach(([k,v])=>{ params.set(k, typeof v==='object'?JSON.stringify(v):v); });
+    }
+    try{
+      const res = await Promise.race([
+        fetch(`${GS_URL}?${params.toString()}`),
+        new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')), TIMEOUT_MS))
+      ]);
+      return res.json();
+    }catch(err){
+      if(err.message==='timeout' && _attempt <= MAX_RETRY){
+        console.warn(`[apiFetch v10] Timeout "${action}" — retry ${_attempt}/${MAX_RETRY}`);
+        await new Promise(r=>setTimeout(r, RETRY_DELAY));
+        return window.apiFetch(action, body, _attempt + 1);
+      }
+      if(err.message==='timeout')
+        throw new Error('Le serveur ne répond pas — réessaie dans quelques secondes.');
+      throw err;
+    }
+  };
+})();
+
+// ── VueAgendaSemaine — Planning hebdo AM/PM ──────────────────
+function VueAgendaSemaine({entries,onEdit,onDelete,onDuplicate,canDelete,initConseiller,accentColor}){
+  const[weekOffset,setWeekOffset]=React.useState(0);
+  const[filterConseiller,setFilterConseiller]=React.useState(initConseiller||'Tous');
+  const[selectedEntry,setSelectedEntry]=React.useState(null);
+  const[confirmDel,setConfirmDel]=React.useState(null);
+  function getMondayOfWeek(offset){const t=new Date();const day=t.getDay();const diff=day===0?-6:1-day;const m=new Date(t);m.setDate(t.getDate()+diff+offset*7);m.setHours(0,0,0,0);return m;}
+  const monday=getMondayOfWeek(weekOffset);
+  const weekDays=Array.from({length:5},(_,i)=>{const d=new Date(monday);d.setDate(monday.getDate()+i);return d;});
+  const dk=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  const firstDay=dk(weekDays[0]);const lastDay=dk(weekDays[4]);
+  const conseillers=[...new Set(entries.map(e=>e.conseiller).filter(Boolean))].sort();
+  const weekEntries=entries.filter(e=>e.date>=firstDay&&e.date<=lastDay);
+  const filtered=filterConseiller==='Tous'?weekEntries:weekEntries.filter(e=>e.conseiller===filterConseiller);
+  function isAM(e){if(e.ampm)return e.ampm==='AM';const h=e.horaire?parseInt(String(e.horaire).replace(/[Hh]/,':').split(':')[0])||9:9;return h<12;}
+  const slots={};weekDays.forEach(d=>{const k=dk(d);slots[k]={AM:[],PM:[]};});
+  filtered.forEach(e=>{if(slots[e.date])slots[e.date][isAM(e)?'AM':'PM'].push(e);});
+  const MOIS_LONG=['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
+  function fmtWeekLabel(){const d1=weekDays[0];const d5=weekDays[4];if(d1.getMonth()===d5.getMonth())return`${d1.getDate()} – ${d5.getDate()} ${MOIS_LONG[d5.getMonth()]} ${d5.getFullYear()}`;return`${d1.getDate()} ${MOIS_LONG[d1.getMonth()]} – ${d5.getDate()} ${MOIS_LONG[d5.getMonth()]} ${d5.getFullYear()}`;}
+  const todayStr=todayLocal();
+  const totalW=filtered.length;const planifies=filtered.filter(e=>e.statut==='Planifié').length;const realises=filtered.filter(e=>e.statut==='Réalisé').length;const retards=filtered.filter(e=>isRetard(e)).length;
+  function renderCard(e){const color=conseillerColor(e.conseiller);const statColor=STATUT_COLORS[e.statut]||'#94a3b8';const retard=isRetard(e);return CE('div',{key:e._id,onClick:()=>setSelectedEntry(e),style:{background:'#fff',borderRadius:8,borderLeft:`4px solid ${color}`,padding:'6px 8px',marginBottom:4,cursor:'pointer',boxShadow:'0 1px 4px rgba(0,0,0,.09)',fontSize:11,outline:retard?`1.5px solid #fca5a5`:'none'}},CE('div',{style:{display:'flex',alignItems:'center',gap:4,marginBottom:2}},CE('span',{style:{width:6,height:6,borderRadius:'50%',background:statColor,flexShrink:0,display:'inline-block'}}),CE('span',{style:{fontWeight:700,color,fontSize:10,flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}},e.conseiller||'—')),CE('div',{style:{fontWeight:600,color:'#1a202c',lineHeight:1.25,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',marginBottom:1}},e.thematique||e.commune||'—'),e.commune&&e.thematique&&CE('div',{style:{color:'#718096',fontSize:10,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}},e.commune),e.horaire&&CE('div',{style:{color:'#a0aec0',fontSize:10,marginTop:1}},e.horaire),retard&&CE('div',{style:{color:'#dc2626',fontSize:9,fontWeight:700,marginTop:2}},'⚠ À mettre à jour'));}
+  function SidePanel(){if(!selectedEntry)return null;const e=selectedEntry;const color=conseillerColor(e.conseiller);return CE(React.Fragment,null,CE('div',{className:'side-panel-overlay',onClick:()=>setSelectedEntry(null)}),CE('div',{className:'side-panel open'},CE('div',{className:'side-panel-header'},CE('h3',{style:{fontSize:14}},e.thematique||e.commune||'Atelier'),CE('button',{onClick:()=>setSelectedEntry(null),style:{background:'none',border:'none',cursor:'pointer',fontSize:18,color:'#718096',padding:0}},'✕')),CE('div',{className:'side-panel-body'},CE('div',{className:'sp-field'},CE('label',null,'Statut'),badgePill(e.statut,isRetard(e))),CE('div',{className:'sp-field'},CE('label',null,'Conseiller'),CE('div',{style:{fontWeight:700,color,fontSize:13}},e.conseiller||'—')),CE('div',{className:'sp-field'},CE('label',null,'Date & Créneau'),CE('div',{style:{fontWeight:600}},fmtDate(e.date)+(e.horaire?' — '+e.horaire:'')+(e.ampm?' ('+e.ampm+')':''))),CE('div',{className:'sp-field'},CE('label',null,'Commune'),CE('div',null,e.commune||'—')),CE('div',{className:'sp-field'},CE('label',null,'Thématique'),CE('div',null,e.thematique||'—')),e.orienteur&&CE('div',{className:'sp-field'},CE('label',null,'Orienteur'),CE('div',null,e.orienteur)),(e.inscrits||e.presents)&&CE('div',{className:'sp-field'},CE('label',null,'Participants'),CE('div',null,(e.presents||'—')+' présents / '+(e.inscrits||'—')+' inscrits')),e.remarques&&CE('div',{className:'sp-field'},CE('label',null,'Remarques'),CE('div',{style:{fontSize:12,color:'#4a5568',fontStyle:'italic',lineHeight:1.5}},e.remarques))),CE('div',{className:'side-panel-footer'},onEdit&&CE('button',{className:'btn btn-primary btn-sm',onClick:()=>{onEdit(e._id);setSelectedEntry(null);}},'✏️ Modifier'),onDuplicate&&CE('button',{className:'btn btn-secondary btn-sm',onClick:()=>{onDuplicate(e);setSelectedEntry(null);}},'📋 Dupliquer'),canDelete&&CE('button',{className:'btn btn-danger btn-sm',onClick:()=>{setConfirmDel({id:e._id,label:`${fmtDate(e.date)} — ${e.thematique||e.commune||e._id}`});setSelectedEntry(null);}},'🗑️ Supprimer'))));}
+  return CE('div',null,CE('div',{className:'card'},CE('div',{style:{display:'flex',alignItems:'center',gap:8,marginBottom:14,flexWrap:'wrap'}},CE('div',{style:{display:'flex',gap:4}},CE('button',{className:'btn btn-secondary btn-sm',onClick:()=>setWeekOffset(w=>w-1)},'← Préc.'),CE('button',{className:'btn btn-secondary btn-sm',onClick:()=>setWeekOffset(0),disabled:weekOffset===0,style:{opacity:weekOffset===0?.4:1}},'Auj.'),CE('button',{className:'btn btn-secondary btn-sm',onClick:()=>setWeekOffset(w=>w+1)},'Suiv. →')),CE('h2',{style:{margin:0,flex:1,textAlign:'center',fontSize:14,fontWeight:700,color:'#1a202c'}},'🗓️ Semaine du '+fmtWeekLabel()),CE('div',{style:{display:'flex',gap:5,flexWrap:'wrap'}},CE('span',{style:{fontSize:11,background:'#f1f5f9',borderRadius:20,padding:'3px 10px',color:'#475569'}},totalW+' atelier'+(totalW!==1?'s':'')),planifies>0&&CE('span',{style:{fontSize:11,background:'#dbeafe',borderRadius:20,padding:'3px 10px',color:'#1d4ed8'}},planifies+' planifié'+(planifies>1?'s':'')),realises>0&&CE('span',{style:{fontSize:11,background:'#dcfce7',borderRadius:20,padding:'3px 10px',color:'#166534'}},realises+' réalisé'+(realises>1?'s':'')),retards>0&&CE('span',{style:{fontSize:11,background:'#fee2e2',borderRadius:20,padding:'3px 10px',color:'#991b1b',fontWeight:700}},'⚠ '+retards+' retard'+(retards>1?'s':'')))),CE('div',{className:'chip-bar',style:{marginBottom:14}},CE('span',{className:'chip chip-all'+(filterConseiller==='Tous'?' active':''),onClick:()=>setFilterConseiller('Tous')},CE('span',{className:'chip-dot'}),'Tous'),conseillers.map(c=>CE('span',{key:c,className:'chip'+(filterConseiller===c?' active':''),style:{color:conseillerColor(c)},onClick:()=>setFilterConseiller(f=>f===c?'Tous':c)},CE('span',{className:'chip-dot',style:{background:conseillerColor(c)}}),c))),CE('div',{style:{overflowX:'auto'}},CE('table',{style:{width:'100%',borderCollapse:'separate',borderSpacing:'4px 0',tableLayout:'fixed',minWidth:580}},CE('thead',null,CE('tr',null,CE('th',{style:{width:36,border:'none',background:'transparent'}}),weekDays.map(d=>{const dkey=dk(d);const isToday=dkey===todayStr;const count=slots[dkey]?slots[dkey].AM.length+slots[dkey].PM.length:0;const acc=isToday?accentColor:'#6b7280';return CE('th',{key:dkey,style:{padding:'10px 6px 8px',textAlign:'center',border:'none',background:isToday?accentColor+'15':'#f8fafc',borderRadius:'12px 12px 0 0',fontWeight:400}},CE('div',{style:{fontSize:10,fontWeight:800,textTransform:'uppercase',letterSpacing:'.08em',color:acc}},JOURS[d.getDay()]),CE('div',{style:{fontSize:26,fontWeight:800,lineHeight:1.1,color:isToday?accentColor:'#1a202c',margin:'2px 0'}},d.getDate()),CE('div',{style:{fontSize:10,color:'#9ca3af',marginBottom:4}},MOIS[d.getMonth()]),count>0&&CE('span',{style:{display:'inline-block',background:isToday?accentColor:'#e2e8f0',color:isToday?'#fff':'#4a5568',borderRadius:20,fontSize:10,fontWeight:700,padding:'1px 8px'}},count));}))),CE('tbody',null,['AM','PM'].map((slot,si)=>CE('tr',{key:slot},CE('td',{style:{textAlign:'center',fontWeight:800,fontSize:11,color:slot==='AM'?'#2563eb':'#d97706',background:slot==='AM'?'#eff6ff':'#fffbeb',borderRadius:8,padding:'6px 2px',verticalAlign:'middle',width:36}},slot),weekDays.map(d=>{const dkey=dk(d);const isToday=dkey===todayStr;const items=slots[dkey]?slots[dkey][slot]:[];return CE('td',{key:dkey+slot,style:{verticalAlign:'top',padding:4,background:isToday?(slot==='AM'?accentColor+'12':accentColor+'08'):(slot==='AM'?'#f8fafc':'#fafafa'),borderBottom:si===0?`1px dashed ${isToday?accentColor+'40':'#e2e8f0'}`:'none',borderRadius:si===1?'0 0 10px 10px':'0',minHeight:70}},items.length>0?items.map(e=>renderCard(e)):CE('div',{style:{height:66,display:'flex',alignItems:'center',justifyContent:'center'}},CE('span',{style:{fontSize:14,color:'#e2e8f0'}},slot==='AM'?'☀️':'🌙')));}))))))),CE(SidePanel,null),confirmDel&&CE(ConfirmModal,{item:confirmDel,onConfirm:async()=>{if(onDelete)await onDelete(confirmDel.id);setConfirmDel(null);},onCancel:()=>setConfirmDel(null)}));
+}
+
+// ── App Frontend (conseillers) v10.0 ─────────────────────────
 var VIEW_META_F = {
   saisie:     {ico:'✏️',  label:'Saisie',      group:'Action'},
   historique: {ico:'📋',  label:'Historique',   group:'Voir'},
+  agenda:     {ico:'🗓️', label:'Agenda',        group:'Voir'},
   calendrier: {ico:'📅',  label:'Calendrier',   group:'Voir'},
   carte:      {ico:'🗺️', label:'Carte',        group:'Voir'},
   graphiques: {ico:'📊',  label:'Statistiques', group:'Stats'},
@@ -345,7 +406,7 @@ function App(){
   const[editingId,setEditingId]    = React.useState(null);
   const[prefillData,setPrefillData] = React.useState(null);
   const[annee,setAnneeState]       = React.useState(()=>localStorage.getItem('f_annee')||String(new Date().getFullYear()));
-  const[visibility,setVisibility]   = React.useState({saisie:true,historique:true,graphiques:true,carte:true,bingo:true,calendrier:false});
+  const[visibility,setVisibility]   = React.useState({saisie:true,historique:true,graphiques:true,carte:true,bingo:true,calendrier:false,agenda:false});
   const[lists,setLists]            = React.useState({
     statuts:[...STATUTS_DEFAULT],conseillers:[...CONSEILLERS_DEFAULT],
     publics:[...PUBLICS_DEFAULT],materiels:[...MATERIELS_DEFAULT]
@@ -387,14 +448,17 @@ function App(){
     return ()=> el.removeEventListener('change', handler);
   }, [view, lists.conseillers]);
 
-  // ── Chargement ────────────────────────────────────────────────
+  // ── Chargement v10.0 — timeout adaptatif mobile/desktop ─────
   async function loadData(attempt=1, silent=false){
     if(!silent) setLoading(true);
     setError(null);
     try{
+      const isMobile=/Android|iPhone|iPad/i.test(navigator.userAgent);
+      const timeouts=isMobile?[20000,25000,30000]:[8000,10000,12000];
+      const timeoutMs=timeouts[attempt-1]||timeouts[timeouts.length-1];
       const res=await Promise.race([
         fetch(`${GS_URL}?action=getAll&year=${annee}`),
-        new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')),12000))
+        new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')),timeoutMs))
       ]);
       const data=await res.json();
       if(!data.ok)throw new Error(data.error||'Erreur serveur');
@@ -421,8 +485,13 @@ function App(){
       });
       setLoading(false);
     }catch(err){
-      if(err.message==='timeout'&&attempt<3){setTimeout(()=>loadData(attempt+1,silent),2000);}
-      else{setError(attempt>1?'Google Sheets ne répond pas après 3 tentatives.':'Impossible de charger : '+err.message);setLoading(false);}
+      if(err.message==='timeout'&&attempt<3){
+        const isMobile=/Android|iPhone|iPad/i.test(navigator.userAgent);
+        setTimeout(()=>loadData(attempt+1,silent),isMobile?[3000,6000][attempt-1]:2000);
+      }else{
+        setError(attempt>1?'Google Sheets ne répond pas après 3 tentatives.':'Impossible de charger : '+err.message);
+        setLoading(false);
+      }
     }
   }
 
@@ -469,6 +538,7 @@ function App(){
   }
   function handleEdit(id){setEditingId(id);setPrefillData(null);setView('saisie');}
   function handleSaved(){loadData();setView('historique');}
+  // v10.0 : handleDelete direct — VueHistorique/VueCalendrier gèrent leur propre confirmation
   async function handleDelete(id){
     try{const res=await apiFetch('delete',{_id:id});if(!res.ok)throw new Error(res.error);showToast('✅ Atelier supprimé');loadData();}
     catch(err){showToast('❌ '+err.message,false);}
@@ -485,11 +555,14 @@ function App(){
     // Mois précédent pour la tendance
     const prevDate=new Date(now.getFullYear(),now.getMonth()-1,1);
     const prevKey=`${prevDate.getFullYear()}-${String(prevDate.getMonth()+1).padStart(2,'0')}`;
-    const statsMois={};
-    const statsPrev={};
+    const statsMois={};const statsPrev={};const statsRealises={};const statsAnnules={};
     entries.forEach(e=>{
       if(!e.conseiller) return;
-      if(e.date&&e.date.startsWith(moisKey)) statsMois[e.conseiller]=(statsMois[e.conseiller]||0)+1;
+      if(e.date&&e.date.startsWith(moisKey)){
+        statsMois[e.conseiller]=(statsMois[e.conseiller]||0)+1;
+        if(e.statut==='Réalisé') statsRealises[e.conseiller]=(statsRealises[e.conseiller]||0)+1;
+        if(e.statut==='Annulé')  statsAnnules[e.conseiller]=(statsAnnules[e.conseiller]||0)+1;
+      }
       if(e.date&&e.date.startsWith(prevKey)) statsPrev[e.conseiller]=(statsPrev[e.conseiller]||0)+1;
     });
 
@@ -512,10 +585,16 @@ function App(){
                   const trendIco=diff>0?'↑':diff<0?'↓':'→';
                   const trendColor=diff>0?'#16a34a':diff<0?'#dc2626':'#9ca3af';
                   const color=conseillerColor(c);
+                  const realises=statsRealises[c]||0;
+                  const annules=statsAnnules[c]||0;
+                  const base=n-annules;
+                  const taux=base>0?Math.round(realises/base*100):null;
+                  const tauxColor=taux===null?'#9ca3af':taux>=75?'#16a34a':taux>=50?'#d97706':'#dc2626';
                   return CE('div',{key:c,className:'accueil-stat-chip',style:{background:color+'12',border:`1px solid ${color}30`,color}},
                     CE('span',{style:{fontWeight:700}},c.split(' ')[0]),
                     CE('span',{className:'accueil-stat-count',style:{background:color}},n),
                     CE('span',{style:{fontSize:10,color:'#9ca3af'}},'ce mois'),
+                    taux!==null&&CE('span',{style:{fontSize:10,fontWeight:700,color:tauxColor}},taux+'%'),
                     prev>0&&CE('span',{className:'accueil-stat-trend',style:{color:trendColor}},`${trendIco}${Math.abs(diff)}`)
                   );
                 })
@@ -571,6 +650,7 @@ function App(){
       CE('div',{className:'sidebar-sep'}),
       CE('span',{className:'sidebar-group-label'},'Voir'),
       sideBtn('historique','📋','Historique',visibility.historique),
+      sideBtn('agenda','🗓️','Agenda',visibility.agenda),
       sideBtn('calendrier','📅','Calendrier',visibility.calendrier),
       sideBtn('carte','🗺️','Carte',visibility.carte),
 
@@ -639,9 +719,10 @@ function App(){
           [1,2,3].map(i=>CE('div',{key:i,className:'skeleton skeleton-card'}))
         ),
         // viewRef sur le wrapper — capte les change events des selects internes
-        !loading&&!error&&CE('div',{ref:viewRef,className:'view-anim',key:view},
+        !loading&&!error&&CE('div',{ref:viewRef,className:'view-anim',key:view+'_'+(filtreConseiller||'all')},
           view==='saisie'&&visibility.saisie&&CE(VueSaisie,{entries,onSaved:handleSaved,onNewEntry:e=>{setNewEntries(n=>[e,...n]);setSeenIds(s=>{const ns=new Set(s);ns.add(e._id);return ns;});},lists,editingId,onClearEdit:()=>setEditingId(null),prefillData,onClearPrefill:()=>setPrefillData(null),accentColor:conseillerColor(filtreConseiller||'')}),
           view==='historique'&&visibility.historique&&CE(VueHistorique,{entries,onEdit:handleEdit,onDelete:handleDelete,onRefresh:loadData,onDuplicate:handleDuplicate,initConseiller:filtreConseiller,onResetConseiller:()=>{},canDelete:true}),
+          view==='agenda'&&visibility.agenda&&CE(VueAgendaSemaine,{entries,onEdit:handleEdit,onDelete:handleDelete,onDuplicate:handleDuplicate,canDelete:true,initConseiller:filtreConseiller,accentColor}),
           view==='calendrier'&&visibility.calendrier&&CE(VueCalendrier,{entries,onEdit:handleEdit,onDelete:handleDelete,onRefresh:loadData,onDuplicate:handleDuplicate,initConseiller:filtreConseiller,onResetConseiller:()=>{},canDelete:true}),
           view==='graphiques'&&visibility.graphiques&&CE(VueGraphiques,{entries}),
           view==='carte'&&visibility.carte&&CE(VueCarte,{entries,active:view==='carte'}),
