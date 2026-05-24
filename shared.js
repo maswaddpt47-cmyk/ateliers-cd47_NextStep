@@ -1457,7 +1457,7 @@ function DonutChart({data,colors,height=220}){
         data.map((d,i)=>CE(Cell,{key:i,fill:colArr[i%colArr.length]}))
       ),
       CE(Legend,{wrapperStyle:{fontSize:11,marginTop:4}}),
-      CE(RTooltip,{content:(props)=>{
+      CE(RTooltip,{cursor:false,content:(props)=>{
         if(!props.active||!props.payload?.length)return null;
         const p=props.payload[0];const pct=Math.round(p.value/total*100);
         return CE('div',{style:{background:'#edf2f7',border:'1px solid #a0aec0',borderRadius:7,padding:'8px 12px',fontSize:12,boxShadow:'0 3px 10px rgba(0,0,0,.15)'}},
@@ -1504,7 +1504,7 @@ function StackedActivityChart({data}){
       CE(XAxis,{dataKey:'label',tick:{fontSize:10,fill:'#4a5568'},angle:-35,textAnchor:'end',interval:0}),
       CE(YAxis,{tick:{fontSize:10,fill:'#718096'},allowDecimals:false,width:24}),
       CE(Legend,{wrapperStyle:{fontSize:10}}),
-      CE(RTooltip,{content:(props)=>{
+      CE(RTooltip,{cursor:false,content:(props)=>{
         if(!props.active||!props.payload?.length)return null;
         const d=props.payload[0]?.payload;
         return CE('div',{style:{background:'#edf2f7',border:'1px solid #a0aec0',borderRadius:7,padding:'8px 12px',fontSize:12,lineHeight:1.8}},
@@ -1542,7 +1542,7 @@ function ConseillerBarChart({entries}){
       CE(XAxis,{type:'number',tick:{fontSize:10,fill:'#718096'},allowDecimals:false}),
       CE(YAxis,{type:'category',dataKey:'name',tick:{fontSize:11,fill:'#4a5568'},width:90}),
       CE(Legend,{wrapperStyle:{fontSize:10}}),
-      CE(RTooltip,{content:(props)=>{
+      CE(RTooltip,{cursor:false,content:(props)=>{
         if(!props.active||!props.payload?.length)return null;
         const d=props.payload[0]?.payload;
         return CE('div',{style:{background:'#edf2f7',border:'1px solid #a0aec0',borderRadius:7,padding:'8px 12px',fontSize:12,lineHeight:1.8}},
