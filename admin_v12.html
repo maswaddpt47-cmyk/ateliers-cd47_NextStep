@@ -1094,6 +1094,74 @@ function App(){
 // Filtres croisés : mois, conseiller, statut
 // Données réelles issues de Google Sheets
 // ════════════════════════════════════════════════════════════
+// ── TableCommunes : tri par colonne ────────────────────────
+function TableCommunes({fd}){
+  const[sortKey,setSortKey]=React.useState('ateliers');
+  const[sortDir,setSortDir]=React.useState(-1); // -1 desc, 1 asc
+
+  function handleSort(key){
+    if(sortKey===key) setSortDir(d=>d*-1);
+    else{setSortKey(key);setSortDir(-1);}
+  }
+
+  const communes=[...new Set(fd.map(d=>d.commune).filter(Boolean))].map(c=>{
+    const r=fd.filter(d=>d.commune===c);
+    const rl=r.filter(d=>d.statut==='Réalisé').length;
+    const ins=r.reduce((s,d)=>s+(parseInt(d.inscrits)||0),0);
+    const pre=r.reduce((s,d)=>s+(parseInt(d.presents)||0),0);
+    const tp=ins?Math.round(pre/ins*100):0;
+    return{name:c,ateliers:r.length,realises:rl,inscrits:ins,presents:pre,presence:tp};
+  }).sort((a,b)=>sortDir*(a[sortKey]>b[sortKey]?1:a[sortKey]<b[sortKey]?-1:0));
+
+  const COLS=[
+    {key:'name',     label:'Commune'},
+    {key:'ateliers', label:'Atl.'},
+    {key:'realises', label:'Réal.'},
+    {key:'inscrits', label:'Inscrits'},
+    {key:'presents', label:'Présents'},
+    {key:'presence', label:'Présence'},
+  ];
+
+  function ThSort({col}){
+    const active=sortKey===col.key;
+    const arrow=active?(sortDir===-1?'↓':'↑'):'↕';
+    return CE('th',{
+      onClick:()=>handleSort(col.key),
+      style:{padding:'7px 8px',textAlign:'left',fontWeight:700,
+        color:active?'#2563EB':'#6b7280',borderBottom:'2px solid '+(active?'#2563EB':'#e5e7eb'),
+        fontSize:10,whiteSpace:'nowrap',cursor:'pointer',userSelect:'none',
+        background:active?'#eff6ff':'#f9fafb',transition:'all .15s'}
+    },
+      CE('span',null,col.label),
+      CE('span',{style:{marginLeft:4,opacity:active?1:.4,fontSize:9}},arrow)
+    );
+  }
+
+  return CE('div',{style:{overflowX:'auto'}},
+    CE('table',{style:{width:'100%',borderCollapse:'collapse',fontSize:11}},
+      CE('thead',null,CE('tr',null,COLS.map(col=>CE(ThSort,{key:col.key,col})))),
+      CE('tbody',null,communes.map((c,i)=>{
+        const tpColor=c.presence>70?'#16a34a':c.presence>40?'#d97706':'#ef4444';
+        return CE('tr',{key:c.name,style:{background:i%2?'#f9fafb':'#fff'}},
+          CE('td',{style:{padding:'6px 8px',fontWeight:600,fontSize:10}},c.name.slice(0,18)),
+          CE('td',{style:{padding:'6px 8px'}},c.ateliers),
+          CE('td',{style:{padding:'6px 8px',color:'#16a34a',fontWeight:600}},c.realises),
+          CE('td',{style:{padding:'6px 8px'}},c.inscrits),
+          CE('td',{style:{padding:'6px 8px'}},c.presents),
+          CE('td',{style:{padding:'6px 8px'}},
+            CE('div',{style:{display:'flex',alignItems:'center',gap:5}},
+              CE('div',{style:{height:5,width:36,background:'#f3f4f6',borderRadius:3}},
+                CE('div',{style:{height:5,borderRadius:3,width:c.presence+'%',background:tpColor}})
+              ),
+              CE('span',{style:{fontSize:10,fontWeight:700,color:tpColor}},c.presence+'%')
+            )
+          )
+        );
+      }))
+    )
+  );
+}
+
 function VuePowerBI({entries, conseillers: conseillersList}){
   const CONS = conseillersList && conseillersList.length ? conseillersList : CONSEILLERS_DEFAULT;
   const CONS_COLORS_PBI = ['#7C3AED','#2563EB','#059669','#DB2777','#d97706','#0891b2','#65a30d','#dc2626'];
@@ -1443,36 +1511,7 @@ function VuePowerBI({entries, conseillers: conseillersList}){
         ),
 
         CE(CardPBI,{title:'Détail communes'},
-          CE('div',{style:{overflowX:'auto'}},
-            CE('table',{style:{width:'100%',borderCollapse:'collapse',fontSize:11}},
-              CE('thead',null,CE('tr',{style:{background:'#f9fafb'}},
-                ['Commune','Atl.','Réal.','Inscrits','Présents','Présence'].map(h=>CE('th',{key:h,style:{padding:'7px 8px',textAlign:'left',fontWeight:700,color:'#6b7280',borderBottom:'2px solid #e5e7eb',fontSize:10,whiteSpace:'nowrap'}},h))
-              )),
-              CE('tbody',null,[...new Set(fd.map(d=>d.commune).filter(Boolean))].slice(0,15).map((c,i)=>{
-                const r=fd.filter(d=>d.commune===c);
-                const rl=r.filter(d=>d.statut==='Réalisé').length;
-                const ins=r.reduce((s,d)=>s+(parseInt(d.inscrits)||0),0);
-                const pre=r.reduce((s,d)=>s+(parseInt(d.presents)||0),0);
-                const tp=ins?Math.round(pre/ins*100):0;
-                const tpColor=tp>70?'#16a34a':tp>40?'#d97706':'#ef4444';
-                return CE('tr',{key:c,style:{background:i%2?'#f9fafb':'#fff'}},
-                  CE('td',{style:{padding:'6px 8px',fontWeight:600,fontSize:10}},c.slice(0,16)),
-                  CE('td',{style:{padding:'6px 8px'}},r.length),
-                  CE('td',{style:{padding:'6px 8px',color:'#16a34a',fontWeight:600}},rl),
-                  CE('td',{style:{padding:'6px 8px'}},ins),
-                  CE('td',{style:{padding:'6px 8px'}},pre),
-                  CE('td',{style:{padding:'6px 8px'}},
-                    CE('div',{style:{display:'flex',alignItems:'center',gap:5}},
-                      CE('div',{style:{height:5,width:36,background:'#f3f4f6',borderRadius:3}},
-                        CE('div',{style:{height:5,borderRadius:3,width:tp+'%',background:tpColor}})
-                      ),
-                      CE('span',{style:{fontSize:10,fontWeight:700,color:tpColor}},tp+'%')
-                    )
-                  )
-                );
-              }))
-            )
-          )
+          CE(TableCommunes,{fd})
         )
       ),
 
