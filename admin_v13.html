@@ -1157,6 +1157,185 @@ function TableCommunes({fd}){
 
 
 // ── VueDashboardTabs — Dashboard unifié (3 onglets) ──────────
+function VueDashboard({entries}){
+  if(!window.echarts)return CE('div',{className:'card'},CE('p',{style:{color:'#718096',textAlign:'center',padding:'40px 0'}},'⚠️ ECharts non chargé.'));
+
+  const[periodeIdx,setPeriodeIdx]=React.useState(1); // défaut : ce mois
+  const[selectedMonths,setSelectedMonths]=React.useState([]); // mois sélectionnés (1-12)
+  const MOIS_LABELS=['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
+  function toggleMonth(m){ setSelectedMonths(s=>s.includes(m)?s.filter(x=>x!==m):[...s,m]); }
+  const now=new Date();
+  const todayStr=now.toISOString().slice(0,10);
+  const todayYM=now.toISOString().slice(0,7);
+
+  function getDateFrom(idx){
+    if(idx===0)return '';
+    const d=new Date(now);
+    if(idx===1){d.setDate(1);return d.toISOString().slice(0,10);}
+    if(idx===2){d.setMonth(d.getMonth()-3);return d.toISOString().slice(0,10);}
+    if(idx===3){d.setMonth(d.getMonth()-6);return d.toISOString().slice(0,10);}
+    if(idx===4){d.setFullYear(d.getFullYear()-1);return d.toISOString().slice(0,10);}
+    return '';
+  }
+  const dateFrom=getDateFrom(periodeIdx);
+  const filtered=React.useMemo(()=>{
+    let r=dateFrom?entries.filter(e=>e.date&&e.date>=dateFrom):entries;
+    if(selectedMonths.length>0) r=r.filter(e=>e.date&&selectedMonths.includes(parseInt(e.date.slice(5,7))));
+    return r;
+  },[entries,dateFrom,selectedMonths]);
+
+  // Période précédente (même durée) pour tendances
+  const prevFiltered=React.useMemo(()=>{
+    if(periodeIdx===0)return[];
+    const df=new Date(dateFrom);const prevTo=new Date(dateFrom);prevTo.setDate(prevTo.getDate()-1);
+    const prevFrom=new Date(df);
+    if(periodeIdx===1)prevFrom.setMonth(prevFrom.getMonth()-1);
+    if(periodeIdx===2)prevFrom.setMonth(prevFrom.getMonth()-3);
+    if(periodeIdx===3)prevFrom.setMonth(prevFrom.getMonth()-6);
+    if(periodeIdx===4)prevFrom.setFullYear(prevFrom.getFullYear()-1);
+    const pf=prevFrom.toISOString().slice(0,10);const pt=prevTo.toISOString().slice(0,10);
+    return entries.filter(e=>e.date&&e.date>=pf&&e.date<=pt);
+  },[entries,periodeIdx,dateFrom]);
+
+  function mkTrend(curr,prev){
+    if(periodeIdx===0||prev===0)return undefined;
+    return Math.round((curr-prev)/prev*100);
+  }
+
+  // KPIs
+  const realises=filtered.filter(e=>e.statut==='Réalisé');
+  const annules=filtered.filter(e=>e.statut==='Annulé');
+  const planifies=filtered.filter(e=>e.statut==='Planifié'&&e.date>=todayStr);
+  const presents=realises.reduce((s,e)=>s+(parseInt(e.presents)||0),0);
+  const inscrits=realises.reduce((s,e)=>s+(parseInt(e.inscrits)||0),0);
+  const txPresence=inscrits>0?Math.round(presents/inscrits*100):0;
+  const txAnnul=filtered.length>0?Math.round(annules.length/filtered.length*100):0;
+  const prevR=prevFiltered.filter(e=>e.statut==='Réalisé');
+  const prevPresents=prevR.reduce((s,e)=>s+(parseInt(e.presents)||0),0);
+
+  // Statuts donut
+  const STATUS_COLORS={'Réalisé':'#16a34a','Planifié':'#2563eb','Annulé':'#dc2626','Non réalisé':'#d97706','Reporté':'#9683EC'};
+  const byStat={};filtered.forEach(e=>{byStat[e.statut]=(byStat[e.statut]||0)+1;});
+  const dataStat=Object.entries(byStat).map(([label,value])=>({label,value}));
+
+  // Activité mensuelle empilée
+  const byMoisAct={};filtered.forEach(e=>{
+    const m=e.date?e.date.slice(0,7):'?';
+    if(m==='?')return;
+    if(!byMoisAct[m])byMoisAct[m]={realises:0,annules:0,planifies:0};
+    if(e.statut==='Réalisé')byMoisAct[m].realises++;
+    else if(e.statut==='Annulé')byMoisAct[m].annules++;
+    else if(e.statut==='Planifié')byMoisAct[m].planifies++;
+  });
+
+  // Top communes
+  const byCommune={};realises.forEach(e=>{byCommune[e.commune]=(byCommune[e.commune]||0)+1;});
+  const topCommunes=Object.entries(byCommune).sort((a,b)=>b[1]-a[1]).slice(0,8).map(([label,value])=>({label,value}));
+
+  // Thématiques
+  const byTheme={};realises.forEach(e=>{const t=e.thematique||'Autre';byTheme[t]=(byTheme[t]||0)+1;});
+  const dataTheme=Object.entries(byTheme).sort((a,b)=>b[1]-a[1]).slice(0,8).map(([label,value])=>({label,value}));
+
+  // Public
+  const byPublic={};realises.forEach(e=>{const p=e.public||'Autres';byPublic[p]=(byPublic[p]||0)+1;});
+  const dataPublic=Object.entries(byPublic).sort((a,b)=>b[1]-a[1]).map(([label,value])=>({label,value}));
+
+  const PERIODES=[{l:'Tout'},{l:'Ce mois'},{l:'3 mois'},{l:'6 mois'},{l:'12 mois'}];
+  const accent='#1e3a8a';
+
+  return CE('div',null,
+
+    // ── Barre période ──
+    CE('div',{className:'card',style:{marginBottom:12,padding:'12px 16px'}},
+      CE('div',{style:{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}},
+        CE('span',{style:{fontSize:12,fontWeight:700,color:'#718096'}},'Période :'),
+        PERIODES.map((p,i)=>CE('button',{key:i,onClick:()=>setPeriodeIdx(i),style:{
+          padding:'4px 13px',borderRadius:20,fontSize:12,fontWeight:600,cursor:'pointer',
+          border:`1.5px solid ${periodeIdx===i?accent:'#e2e8f0'}`,
+          background:periodeIdx===i?accent:'#fff',
+          color:periodeIdx===i?'#fff':'#718096',transition:'all .15s'
+        }},p.l)),
+        CE('span',{style:{marginLeft:'auto',fontSize:11,color:'#9ca3af'}},filtered.length+' ateliers · '+now.toLocaleDateString('fr-FR'))
+      ),
+      CE('div',{style:{display:'flex',alignItems:'center',gap:6,flexWrap:'wrap',marginTop:8,paddingTop:8,borderTop:'1px solid #f1f5f9'}},
+        CE('span',{style:{fontSize:12,fontWeight:700,color:'#718096'}},'Mois :'),
+        MOIS_LABELS.map((m,i)=>{const mo=i+1;return CE('button',{key:mo,onClick:()=>toggleMonth(mo),style:{
+          padding:'3px 10px',borderRadius:20,fontSize:11,fontWeight:600,cursor:'pointer',
+          border:`1.5px solid ${selectedMonths.includes(mo)?accent:'#e2e8f0'}`,
+          background:selectedMonths.includes(mo)?accent:'#fff',
+          color:selectedMonths.includes(mo)?'#fff':'#718096',transition:'all .15s'
+        }},m);}),
+        selectedMonths.length>0&&CE('button',{onClick:()=>setSelectedMonths([]),style:{
+          padding:'3px 10px',borderRadius:20,fontSize:11,cursor:'pointer',
+          border:'1.5px solid #fca5a5',background:'#fff',color:'#ef4444',fontWeight:600
+        }},'✕ Effacer')
+      )
+    ),
+
+    // ── KPIs ──
+    CE('div',{style:{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))',gap:12,marginBottom:16}},
+      CE(KpiCard,{val:realises.length,lbl:'Ateliers réalisés',icon:'✅',color:'#16a34a',bgColor:'#f0fdf4',trend:mkTrend(realises.length,prevR.length)}),
+      CE(KpiCard,{val:planifies.length,lbl:'Planifiés à venir',icon:'📅',color:'#2563eb',bgColor:'#eff6ff'}),
+      CE(KpiCard,{val:presents,lbl:'Participants présents',icon:'👥',color:'#7c3aed',bgColor:'#faf5ff',trend:mkTrend(presents,prevPresents)}),
+      CE(KpiCard,{val:inscrits,lbl:'Inscrits total',icon:'📝',color:'#0891b2',bgColor:'#ecfeff'}),
+      CE(KpiCard,{val:txPresence+'%',lbl:'Taux de présence',icon:'🎯',
+        color:txPresence>=70?'#16a34a':txPresence>=50?'#d97706':'#dc2626',
+        bgColor:txPresence>=70?'#f0fdf4':txPresence>=50?'#fffbeb':'#fef2f2'}),
+      CE(KpiCard,{val:txAnnul+'%',lbl:'Taux d\'annulation',icon:'❌',
+        color:txAnnul<=10?'#16a34a':txAnnul<=20?'#d97706':'#dc2626',
+        bgColor:txAnnul<=10?'#f0fdf4':txAnnul<=20?'#fffbeb':'#fef2f2'})
+    ),
+
+    // ── Ligne 1 : Activité mensuelle + Donut statuts ──
+    CE('div',{style:{display:'grid',gridTemplateColumns:'2fr 1fr',gap:16,marginBottom:16}},
+      CE('div',{className:'card'},
+        CE('h2',null,'📈 Activité mensuelle'),
+        CE(StackedActivityChart,{data:byMoisAct})
+      ),
+      CE('div',{className:'card'},
+        CE('h2',null,'🔵 Répartition statuts'),
+        CE(DonutChart,{data:dataStat,colors:dataStat.map(d=>STATUS_COLORS[d.label]||'#718096'),height:220})
+      )
+    ),
+
+    // ── Ligne 2 : Par conseiller (pleine largeur) ──
+    CE('div',{className:'card',style:{marginBottom:16}},
+      CE('h2',null,'👤 Performance par conseiller'),
+      CE(ConseillerBarChart,{entries:filtered})
+    ),
+
+    // ── Ligne 3 : Communes + Thématiques ──
+    CE('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,marginBottom:16}},
+      CE('div',{className:'card'},
+        CE('h2',null,'📍 Top communes (réalisés)'),
+        CE(BarChart,{data:topCommunes,colors:['#1e3a8a','#2563eb','#3b82f6','#60a5fa','#93c5fd']})
+      ),
+      CE('div',{className:'card'},
+        CE('h2',null,'📚 Par thématique'),
+        CE(BarChart,{data:dataTheme,colors:['#7c3aed','#8b5cf6','#a78bfa','#c4b5fd']})
+      )
+    ),
+
+    // ── Ligne 4 : Public + AM/PM ──
+    CE('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}},
+      CE('div',{className:'card'},
+        CE('h2',null,'🧑‍🤝‍🧑 Par type de public'),
+        CE(BarChart,{data:dataPublic,colors:['#DB2777','#ec4899','#f472b6','#fbcfe8']})
+      ),
+      CE('div',{className:'card'},
+        CE('h2',null,'🌅 Matin vs Après-midi'),
+        CE(DonutChart,{
+          data:[
+            {label:'Matin (AM)',value:filtered.filter(e=>e.ampm==='AM'||(!e.ampm&&e.horaire&&parseInt(e.horaire)<12)).length},
+            {label:'Après-midi (PM)',value:filtered.filter(e=>e.ampm==='PM'||(!e.ampm&&e.horaire&&parseInt(e.horaire)>=12)).length}
+          ],
+          colors:['#f97316','#0891b2'],height:200
+        })
+      )
+    )
+  );
+}
+
 function VueDashboardTabs({entries, conseillers}){
   const[tab,setTab]=React.useState('dashboard');
   const TABS=[
