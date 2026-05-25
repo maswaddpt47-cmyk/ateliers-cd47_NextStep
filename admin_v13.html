@@ -1160,9 +1160,9 @@ function TableCommunes({fd}){
 function VueDashboardTabs({entries, conseillers}){
   const[tab,setTab]=React.useState('dashboard');
   const TABS=[
-    {id:'dashboard', ico:'🚀', label:'Dashboard'},
-    {id:'graphiques', ico:'📊', label:'Statistiques'},
-    {id:'powerbi',    ico:'📈', label:'Power BI'},
+    {id:'dashboard', ico:'🚀', label:'Synthèse'},
+    {id:'graphiques', ico:'📊', label:'Graphiques'},
+    {id:'powerbi',    ico:'🗺️', label:'Territoire'},
   ];
   return CE('div',null,
     CE('div',{style:{display:'flex',borderBottom:'2px solid #e5e7eb',marginBottom:16,gap:4}},
