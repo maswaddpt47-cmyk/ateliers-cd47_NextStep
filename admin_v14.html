@@ -1,0 +1,2494 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Ateliers Inclusion Numérique — Admin v13.0</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
+<script src="xlsxstyle.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prop-types/15.8.1/prop-types.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.4.3/echarts.min.js"></script>
+<script src="shared.js"></script>
+<script>
+// ── Export Calendrier — injecté dans VueAdmin ──────────────────────────────
+(function(){
+
+  // ── Helpers generateCalendrier ─────────────────────────────────────────
+  const MONTH_NAMES_FR_CAL={1:'JANVIER',2:'FÉVRIER',3:'MARS',4:'AVRIL',5:'MAI',6:'JUIN',7:'JUILLET',8:'AOÛT',9:'SEPTEMBRE',10:'OCTOBRE',11:'NOVEMBRE',12:'DÉCEMBRE'};
+  const DAY_FR_CAL=['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'];
+  const STATUT_COLORS_CAL={'Réalisé':'70AD47','Annulé':'FF5050','Planifié':'9683EC','Non réalisé':'FFC000','Reporté':'ED7D31'};
+  const STATUT_SYMBOLS_CAL={'Réalisé':'R','Annulé':'A','Planifié':'P','Non réalisé':'NR','Reporté':'RP'};
+
+  function isAMCal(h){try{return parseInt(String(h).replace('H',':').split(':')[0])<12;}catch{return true;}}
+  function getWorkingDaysCal(year,month){const days=[];const d=new Date(Date.UTC(year,month-1,1));while(d.getUTCMonth()===month-1){if(d.getUTCDay()!==0&&d.getUTCDay()!==6)days.push(new Date(d));d.setUTCDate(d.getUTCDate()+1);}return days;}
+  function dateKeyCal(d){return`${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,'0')}-${String(d.getUTCDate()).padStart(2,'0')}`;}
+  function argbOfCal(hex){return'FF'+hex.toUpperCase();}
+
+  function cellStyleCal(bold=false,bgHex=null,fgHex='000000',sz=8){
+    const s={font:{bold,sz,color:{rgb:fgHex}},alignment:{horizontal:'center',vertical:'center',wrapText:true},border:{top:{style:'thin',color:{rgb:'AAAAAA'}},bottom:{style:'thin',color:{rgb:'AAAAAA'}},left:{style:'thin',color:{rgb:'AAAAAA'}},right:{style:'thin',color:{rgb:'AAAAAA'}}}};
+    if(bgHex)s.fill={fgColor:{rgb:argbOfCal(bgHex)},patternType:'solid'};return s;
+  }
+  function cellStyleLeftCal(bold=false,bgHex=null,fgHex='000000',sz=8){
+    const s={font:{bold,sz,color:{rgb:fgHex}},alignment:{horizontal:'left',vertical:'center'},border:{top:{style:'thin',color:{rgb:'AAAAAA'}},bottom:{style:'thin',color:{rgb:'AAAAAA'}},left:{style:'thin',color:{rgb:'AAAAAA'}},right:{style:'thin',color:{rgb:'AAAAAA'}}}};
+    if(bgHex)s.fill={fgColor:{rgb:argbOfCal(bgHex)},patternType:'solid'};return s;
+  }
+
+  window.generateCalendrier=function(df,year,months,conseillers,logFn){
+    const wb=XLSX.utils.book_new();
+    for(const month of months){
+      const monthName=MONTH_NAMES_FR_CAL[month];
+      const workingDays=getWorkingDaysCal(year,month);
+      const dfMonth=df.filter(r=>r.date.getUTCFullYear()===year&&r.date.getUTCMonth()+1===month);
+      const aoa=[];const merges=[];const styles={};
+      let currentRow=0;
+      function S(r,c,style){styles[`${r},${c}`]=style;}
+      function W(r,c,v,style){while(aoa.length<=r)aoa.push([]);while(aoa[r].length<=c)aoa[r].push(null);aoa[r][c]=v;if(style)S(r,c,style);}
+      const DATE_START_COL=2;
+
+      for(const conseiller of conseillers){
+        const consNorm=conseiller.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+        const dfCons=dfMonth.filter(r=>{const rn=(r.conseiller||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');return rn===consNorm;});
+        const recapCounts={};
+        for(const row of dfCons){const am=row.ampm?row.ampm==='AM':isAMCal(row.horaire);const dk=dateKeyCal(row.date)+(am?'_AM':'_PM');recapCounts[dk]=(recapCounts[dk]||0)+1;}
+        function normOrg(s){return String(s||'—').trim().replace(/\s+/g,' ').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');}
+        const seenOrgsKeys=[];const seenOrgs=[];
+        for(const row of dfCons){const raw=String(row.orienteur||'—').trim().replace(/\s+/g,' ');const key=normOrg(raw);if(!seenOrgsKeys.includes(key)){seenOrgsKeys.push(key);seenOrgs.push(raw);}}
+        const nDataRows=Math.max(1,seenOrgs.length);
+        const orgSessions={};
+        for(const row of dfCons){const key=normOrg(row.orienteur||'—');if(!orgSessions[key])orgSessions[key]=[];orgSessions[key].push(row);}
+
+        // Titre
+        const titleRow=currentRow;
+        const titleLastCol=DATE_START_COL+workingDays.length*2-1;
+        const titleStyle={font:{bold:true,sz:26,name:'Calibri',color:{rgb:'FFFFFF'}},fill:{fgColor:{rgb:'FF8DB4E2'},patternType:'solid'},alignment:{horizontal:'center',vertical:'center'}};
+        W(titleRow,0,`PLANNING ATELIERS — ${conseiller.toUpperCase()}`,titleStyle);
+        for(let c=1;c<=titleLastCol;c++)W(titleRow,c,null,titleStyle);
+        merges.push({s:{r:titleRow,c:0},e:{r:titleRow,c:titleLastCol}});currentRow++;
+
+        // Sous-titre mois
+        const subRow=currentRow;
+        const subStyle={font:{bold:true,sz:18,name:'Calibri',color:{rgb:'16365C'}},fill:{fgColor:{rgb:'FFC5D9F1'},patternType:'solid'},alignment:{horizontal:'center',vertical:'center'}};
+        W(subRow,0,`${monthName} ${year}`,subStyle);
+        for(let c=1;c<=titleLastCol;c++)W(subRow,c,null,subStyle);
+        merges.push({s:{r:subRow,c:0},e:{r:subRow,c:titleLastCol}});currentRow++;
+
+        // En-tête jours
+        const hrow=currentRow;
+        W(hrow,0,'CoNum',cellStyleCal(true,'1F4E79','FFFFFF',9));
+        W(hrow,1,'Organisme',cellStyleCal(true,'1F4E79','FFFFFF',9));
+        for(let di=0;di<workingDays.length;di++){const day=workingDays[di];const colAM=DATE_START_COL+di*2;const label=`${DAY_FR_CAL[day.getDay()]} ${String(day.getDate()).padStart(2,'0')}`;W(hrow,colAM,label,cellStyleCal(true,'2E75B6','FFFFFF',8));W(hrow,colAM+1,null,cellStyleCal(true,'2E75B6','FFFFFF',8));merges.push({s:{r:hrow,c:colAM},e:{r:hrow,c:colAM+1}});}
+        currentRow++;
+
+        // AM/PM
+        const srow=currentRow;
+        W(srow,0,null,cellStyleCal(false,null,'000000',8));W(srow,1,null,cellStyleCal(false,null,'000000',8));
+        for(let di=0;di<workingDays.length;di++){const colAM=DATE_START_COL+di*2;W(srow,colAM,'AM',cellStyleCal(true,'BDD7EE','1F3864',8));W(srow,colAM+1,'PM',cellStyleCal(true,'9DC3E6','1F3864',8));}
+        currentRow++;
+
+        // Lignes données
+        for(let oi=0;oi<nDataRows;oi++){
+          const rn=currentRow+oi;const org=seenOrgs[oi]||'';
+          W(rn,0,conseiller,cellStyleCal(false,null,'000000',8));W(rn,1,org,cellStyleLeftCal(false,null,'000000',8));
+          const creneau={};
+          for(const sess of(orgSessions[normOrg(org)]||[])){const am=sess.ampm?sess.ampm==='AM':isAMCal(sess.horaire);const ck=dateKeyCal(sess.date)+(am?'_AM':'_PM');if(!creneau[ck])creneau[ck]=[];creneau[ck].push(sess);}
+          for(let di=0;di<workingDays.length;di++){
+            const day=workingDays[di];const dk=dateKeyCal(day);const colAM=DATE_START_COL+di*2;
+            for(const[suffix,col]of[['_AM',colAM],['_PM',colAM+1]]){
+              const ck=dk+suffix;
+              if(creneau[ck]){const list=creneau[ck];if(list.length===1){const s=list[0].statut;W(rn,col,STATUT_SYMBOLS_CAL[s]||(s?s.slice(0,2):'?'),cellStyleCal(true,STATUT_COLORS_CAL[s]||'D9D9D9','000000',8));}else{W(rn,col,`⚠×${list.length}`,cellStyleCal(true,'7B2FBE','FFFFFF',7));if(logFn)logFn(`⚠ Conflit ${conseiller} | ${org} | ${dk} ${suffix.slice(1)} (${list.length} sessions)`,'err');}}
+              else W(rn,col,null,cellStyleCal(false));
+            }
+          }
+        }
+
+        // Recap
+        const recapRow=currentRow+nDataRows;
+        W(recapRow,0,conseiller,cellStyleLeftCal(true,'D6E4F0','1F3864',8));
+        W(recapRow,1,`RECAP ${monthName}`,cellStyleLeftCal(true,'D6E4F0','1F3864',8));
+        for(let di=0;di<workingDays.length;di++){const dk=dateKeyCal(workingDays[di]);const colAM=DATE_START_COL+di*2;for(const[isAMSlot,col]of[[true,colAM],[false,colAM+1]]){const count=recapCounts[dk+(isAMSlot?'_AM':'_PM')]||0;W(recapRow,col,count>0?count:null,cellStyleCal(true,'D6E4F0','1F3864',9));}}
+
+        // Légende
+        const legendRow=recapRow+1;
+        let tP=0,tA=0,tR=0,tRP=0,tNR=0,tAlert=0;
+        for(const row of dfCons){const s=(row.statut||'').trim();if(s==='Planifié')tP++;else if(s==='Annulé')tA++;else if(s==='Réalisé')tR++;else if(s==='Reporté')tRP++;else if(s==='Non réalisé')tNR++;}
+        for(let ri=titleRow;ri<=recapRow;ri++){if(!aoa[ri])continue;for(const cell of aoa[ri]){if(typeof cell==='string'&&cell.startsWith('⚠'))tAlert++;}}
+        const lastLegendCol=DATE_START_COL+workingDays.length*2-1;const totalCols=lastLegendCol+1;
+        const segments=[{label:`P | Prévus : ${tP}`,bg:'9683EC',fg:'FFFFFF'},{label:`A | Annulés : ${tA}`,bg:'FF5050',fg:'FFFFFF'},{label:`R | Réalisés : ${tR}`,bg:'70AD47',fg:'FFFFFF'},{label:`RP | Reportés : ${tRP}`,bg:'ED7D31',fg:'FFFFFF'},{label:`NR | Non réalisés : ${tNR}`,bg:'FFC000',fg:'7F4000'},{label:`⚠ | Alertes : ${tAlert}`,bg:'7B2FBE',fg:'FFFFFF'}];
+        const nSeg=segments.length;const baseWidth=Math.floor(totalCols/nSeg);const remainder=totalCols-baseWidth*nSeg;
+        const bThin=col=>({style:'thin',color:{rgb:col}});
+        let colCursor=0;
+        for(let si=0;si<nSeg;si++){const seg=segments[si];const width=baseWidth+(si<remainder?1:0);const colS=colCursor;const colE=colCursor+width-1;const segStyle={font:{name:'Calibri',sz:10,bold:true,color:{rgb:seg.fg}},fill:{fgColor:{rgb:'FF'+seg.bg},patternType:'solid'},alignment:{horizontal:'center',vertical:'center',wrapText:false},border:{top:bThin('999999'),bottom:bThin('999999'),left:bThin('CCCCCC'),right:bThin('CCCCCC')}};W(legendRow,colS,seg.label,segStyle);for(let c=colS+1;c<=colE;c++)W(legendRow,c,null,segStyle);if(colS<colE)merges.push({s:{r:legendRow,c:colS},e:{r:legendRow,c:colE}});colCursor+=width;}
+
+        currentRow=legendRow+2;
+
+        // Mention MàJ (dernier conseiller)
+        const consNormCheck=conseiller.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+        if(consNormCheck===conseillers[conseillers.length-1].trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'')){
+          const today=new Date();const dd=String(today.getDate()).padStart(2,'0');const mm=String(today.getMonth()+1).padStart(2,'0');const yyyy=today.getFullYear();
+          W(currentRow,0,`mise a jour : ${dd}/${mm}/${yyyy}`,{font:{name:'Calibri',sz:9,italic:true,color:{rgb:'6B7280'}},alignment:{horizontal:'left',vertical:'center'}});
+          currentRow+=2;
+        }
+      }
+
+      // Largeurs colonnes
+      const colInfo=[{wch:18},{wch:36}];
+      for(let di=0;di<workingDays.length;di++)colInfo.push({wch:5},{wch:5});
+      const ws=XLSX.utils.aoa_to_sheet(aoa);ws['!merges']=merges;ws['!cols']=colInfo;
+      for(const[key,style]of Object.entries(styles)){const[r,c]=key.split(',').map(Number);const cellAddr=XLSX.utils.encode_cell({r,c});if(!ws[cellAddr])ws[cellAddr]={t:'s',v:''};ws[cellAddr].s=style;}
+      XLSX.utils.book_append_sheet(wb,ws,`Planning ${String(month).padStart(2,'0')}-${year}`);
+    }
+    return wb;
+  };
+
+})();
+</script>
+<style>
+/* ── v9.4 : Sidebar expand redesign ─────────────────────────── */
+nav { display: none !important; }
+
+.app-shell {
+  display: flex;
+  min-height: 100vh;
+}
+
+/* ── Sidebar ──────────────────────────────────────────────── */
+.sidebar {
+  width: 72px;
+  height: 100vh;
+  position: fixed;
+  top: 0; left: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 14px 0 16px;
+  z-index: 200;
+  transition: width .28s cubic-bezier(.4,0,.2,1), background .3s;
+  box-shadow: 4px 0 24px rgba(0,0,0,.2), inset -1px 0 0 rgba(255,255,255,.08);
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,.15) transparent;
+}
+.sidebar::-webkit-scrollbar { width: 4px; }
+.sidebar::-webkit-scrollbar-track { background: transparent; }
+.sidebar::-webkit-scrollbar-thumb { background: rgba(255,255,255,.15); border-radius: 2px; }
+
+.sidebar:hover { width: 220px; }
+
+/* Gradient overlay subtil */
+.sidebar::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 120px;
+  background: linear-gradient(180deg, rgba(255,255,255,.1) 0%, transparent 100%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ── Logo ──────────────────────────────────────────────────── */
+.sidebar-logo {
+  width: 46px; height: 46px;
+  border-radius: 14px;
+  background: rgba(255,255,255,.18);
+  box-shadow: 0 2px 12px rgba(0,0,0,.15), inset 0 1px 0 rgba(255,255,255,.3);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 22px;
+  margin-bottom: 5px;
+  flex-shrink: 0;
+  position: relative; z-index: 1;
+  transition: transform .22s, box-shadow .22s;
+}
+.sidebar:hover .sidebar-logo {
+  transform: scale(1.05);
+  box-shadow: 0 4px 18px rgba(0,0,0,.2), inset 0 1px 0 rgba(255,255,255,.35);
+}
+
+.sidebar-count {
+  font-size: 12px; font-weight: 800;
+  background: rgba(255,255,255,.2);
+  color: #fff;
+  padding: 2px 9px;
+  border-radius: 20px;
+  margin-bottom: 5px;
+  position: relative; z-index: 1;
+  letter-spacing: .02em;
+}
+
+.sidebar-admin-badge {
+  background: #dc2626;
+  box-shadow: 0 2px 8px rgba(220,38,38,.4);
+  color: #fff;
+  font-size: 9px;
+  font-weight: 800;
+  padding: 2px 8px;
+  border-radius: 5px;
+  letter-spacing: .1em;
+  margin-bottom: 10px;
+  position: relative; z-index: 1;
+}
+
+/* ── Séparateur ──────────────────────────────────────────── */
+.sidebar-sep {
+  width: 36px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.25), transparent);
+  margin: 5px 0;
+  flex-shrink: 0;
+  transition: width .28s cubic-bezier(.4,0,.2,1);
+}
+.sidebar:hover .sidebar-sep {
+  width: calc(100% - 24px);
+}
+
+/* ── Group labels ────────────────────────────────────────── */
+.sidebar-group-label {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: .16em;
+  color: rgba(255,255,255,.38);
+  padding: 0 16px;
+  align-self: stretch;
+  white-space: nowrap;
+  overflow: hidden;
+  max-height: 0;
+  opacity: 0;
+  margin: 0;
+  transition: max-height .28s, opacity .18s, margin .28s;
+}
+.sidebar:hover .sidebar-group-label {
+  max-height: 22px;
+  opacity: 1;
+  margin: 6px 0 2px;
+}
+
+/* ── Boutons nav ─────────────────────────────────────────── */
+.sidebar-btn {
+  width: 52px;
+  height: 44px;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: width .28s cubic-bezier(.4,0,.2,1), background .18s, color .18s, margin .28s, box-shadow .18s;
+  border: none;
+  background: none;
+  color: rgba(255,255,255,.62);
+  flex-shrink: 0;
+  position: relative;
+  overflow: hidden;
+  margin: 2px 0;
+}
+.sidebar:hover .sidebar-btn {
+  width: calc(220px - 20px);
+  margin: 2px 10px;
+  justify-content: flex-start;
+}
+
+.sidebar-btn:hover {
+  background: rgba(255,255,255,.14);
+  color: #fff;
+  box-shadow: 0 2px 10px rgba(0,0,0,.1);
+}
+.sidebar-btn.active {
+  background: rgba(255,255,255,.22);
+  color: #fff;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.15), 0 2px 10px rgba(0,0,0,.1);
+}
+.sidebar-btn.active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%; transform: translateY(-50%);
+  width: 3px; height: 22px;
+  background: #fff;
+  border-radius: 0 3px 3px 0;
+  box-shadow: 0 0 10px rgba(255,255,255,.55);
+}
+
+.sidebar-btn-ico {
+  font-size: 18px;
+  line-height: 1;
+  flex-shrink: 0;
+  width: 52px;
+  text-align: center;
+  transition: width .28s cubic-bezier(.4,0,.2,1), transform .18s;
+}
+.sidebar:hover .sidebar-btn-ico { width: 40px; }
+.sidebar-btn:hover .sidebar-btn-ico { transform: scale(1.1); }
+
+.sidebar-btn-lbl {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: .01em;
+  line-height: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  max-width: 0;
+  opacity: 0;
+  transition: max-width .28s cubic-bezier(.4,0,.2,1), opacity .18s .06s;
+}
+.sidebar:hover .sidebar-btn-lbl {
+  max-width: 160px;
+  opacity: 1;
+}
+
+/* Bouton listes — style neutre (même apparence que les autres boutons) */
+
+/* ── Bottom ──────────────────────────────────────────────── */
+.sidebar-bottom {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 0 0;
+  border-top: 1px solid rgba(255,255,255,.12);
+  width: 100%;
+}
+
+.sidebar-year {
+  background: rgba(255,255,255,.1);
+  border: 1px solid rgba(255,255,255,.2);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 5px 6px;
+  border-radius: 8px;
+  text-align: center;
+  width: 52px;
+  cursor: pointer;
+  outline: none;
+  transition: width .28s cubic-bezier(.4,0,.2,1);
+}
+.sidebar:hover .sidebar-year { width: calc(220px - 20px); }
+.sidebar-year option { background: #197d89; color: #fff; }
+
+.sidebar-notif-btn {
+  width: 52px; height: 36px;
+  border-radius: 10px;
+  background: #dc2626;
+  border: none;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center; gap: 4px;
+  animation: pulse 1.5s infinite;
+  flex-direction: column;
+  line-height: 1;
+  box-shadow: 0 2px 10px rgba(220,38,38,.4);
+  overflow: hidden;
+  white-space: nowrap;
+  transition: width .28s cubic-bezier(.4,0,.2,1), flex-direction .1s;
+}
+.sidebar:hover .sidebar-notif-btn {
+  width: calc(220px - 20px);
+  flex-direction: row;
+  margin: 0 10px;
+}
+
+/* ── Sidebar épinglée ─────────────────────────────────────── */
+.sidebar--pinned { width: 220px !important; }
+.sidebar--pinned .sidebar-sep { width: calc(100% - 24px); }
+.sidebar--pinned .sidebar-group-label { max-height: 22px; opacity: 1; margin: 6px 0 2px; }
+.sidebar--pinned .sidebar-btn { width: calc(220px - 20px); margin: 2px 10px; justify-content: flex-start; }
+.sidebar--pinned .sidebar-btn-ico { width: 40px; }
+.sidebar--pinned .sidebar-btn-lbl { max-width: 160px; opacity: 1; }
+.sidebar--pinned .sidebar-year { width: calc(220px - 20px); }
+.sidebar--pinned .sidebar-notif-btn { width: calc(220px - 20px); flex-direction: row; margin: 0 10px; }
+.sidebar--pinned .sidebar-logo { transform: scale(1.05); box-shadow: 0 4px 18px rgba(0,0,0,.2), inset 0 1px 0 rgba(255,255,255,.35); }
+.app-content--pinned { margin-left: 220px !important; }
+
+.sidebar-pin-btn {
+  position: absolute;
+  top: 10px; right: 8px;
+  width: 22px; height: 22px;
+  border: none; background: none;
+  color: rgba(255,255,255,.45);
+  font-size: 14px;
+  cursor: pointer;
+  border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0;
+  transition: opacity .18s, color .18s, background .18s;
+  z-index: 2;
+  padding: 0;
+}
+.sidebar:hover .sidebar-pin-btn { opacity: 1; }
+.sidebar-pin-btn:hover { background: rgba(255,255,255,.18); color: #fff; }
+.sidebar-pin-btn.pinned { opacity: 1; color: #fff; }
+.app-content {
+  margin-left: 72px;
+  flex: 1;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-topbar {
+  height: 46px;
+  display: flex;
+  align-items: center;
+  padding: 0 22px;
+  border-bottom: 1px solid #e2e8f0;
+  background: #fff;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: 0 1px 5px rgba(0,0,0,.06);
+  gap: 10px;
+}
+
+.app-topbar-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #1a202c;
+}
+
+.app-topbar-sub {
+  font-size: 12px;
+  color: #9ca3af;
+}
+
+.app-topbar-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.app-topbar-conseiller {
+  font-size: 12px;
+  font-weight: 700;
+  padding: 4px 12px;
+  border-radius: 20px;
+  color: #fff;
+}
+
+.topbar-sync-info {
+  font-size: 11px;
+  color: #9ca3af;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: default;
+}
+
+.app-main {
+  padding: 20px;
+  max-width: 1200px;
+  width: 100%;
+}
+
+/* ── v9.5 : Modal confirmation suppression ────────────────── */
+.confirm-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.48);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 9999;
+  animation: fadeIn .15s ease;
+}
+@keyframes fadeIn { from{opacity:0} to{opacity:1} }
+.confirm-card {
+  background: #fff; border-radius: 14px;
+  padding: 28px 28px 22px; max-width: 420px; width: 90%;
+  box-shadow: 0 12px 48px rgba(0,0,0,.22);
+  animation: slideUp .18s ease;
+}
+@keyframes slideUp { from{transform:translateY(12px);opacity:0} to{transform:translateY(0);opacity:1} }
+.confirm-card h3 { margin: 0 0 8px; font-size: 16px; color: #1a202c; }
+.confirm-card p  { font-size: 13px; color: #4a5568; margin: 0 0 22px; line-height: 1.55;
+  background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 14px; }
+.confirm-actions { display: flex; gap: 10px; justify-content: flex-end; }
+
+/* ── v9.5 : Badges statuts topbar ────────────────────────── */
+.topbar-status-badges { display: flex; gap: 4px; align-items: center; flex-wrap: wrap; }
+.status-badge {
+  font-size: 10px; font-weight: 700;
+  padding: 2px 7px; border-radius: 10px; white-space: nowrap;
+  cursor: default;
+}
+
+/* ── v9.5 : Animation sync en cours ─────────────────────── */
+@keyframes syncpulse { 0%,100%{opacity:.5} 50%{opacity:1} }
+.topbar-syncing {
+  font-size: 11px; color: #3b82f6;
+  display: flex; align-items: center; gap: 4px;
+  animation: syncpulse 1.2s ease infinite;
+}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script>
+// ════════════════════════════════════════════════════════════
+// ── v10.0 : Override apiFetch — retry automatique sur GAS ──
+// Remplace la version de shared.js (10s, sans retry).
+// Comportement : 1 retry auto après 3s sur timeout, timeout
+// adaptatif mobile/PC, log console discret.
+// ════════════════════════════════════════════════════════════
+(function(){
+  const MAX_RETRY    = 1;
+  const RETRY_DELAY  = 3000;   // ms avant le retry
+  const isMobile     = /Android|iPhone|iPad/i.test(navigator.userAgent);
+  const TIMEOUT_MS   = isMobile ? 20000 : 12000;
+
+  window.apiFetch = async function apiFetch(action, body={}, _attempt=1){
+    const params = new URLSearchParams({action});
+    if(body && Object.keys(body).length){
+      Object.entries(body).forEach(([k,v])=>{
+        params.set(k, typeof v==='object' ? JSON.stringify(v) : v);
+      });
+    }
+    try{
+      const res = await Promise.race([
+        fetch(`${GS_URL}?${params.toString()}`),
+        new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')), TIMEOUT_MS))
+      ]);
+      return res.json();
+    }catch(err){
+      if(err.message==='timeout' && _attempt <= MAX_RETRY){
+        console.warn(`[apiFetch v10] Timeout "${action}" — retry ${_attempt}/${MAX_RETRY} dans ${RETRY_DELAY/1000}s`);
+        await new Promise(r=>setTimeout(r, RETRY_DELAY));
+        return window.apiFetch(action, body, _attempt + 1);
+      }
+      // Si toujours en timeout après retry, message clair
+      if(err.message==='timeout')
+        throw new Error('Le serveur ne répond pas (GAS cold start ?) — réessaie dans quelques secondes.');
+      throw err;
+    }
+  };
+})();
+
+// ════════════════════════════════════════════════════════════
+// ── v10.0 : Session expirante — 30 min d'inactivité ────────
+// Stocke le timestamp du dernier geste utilisateur.
+// Vérifié à chaque reprise du focus + toutes les minutes.
+// Sur expiration : déconnexion propre + toast informatif.
+// ════════════════════════════════════════════════════════════
+const SESSION_KEY        = 'adm_last_activity';
+const SESSION_TIMEOUT_MS = 30 * 60 * 1000; // 30 min
+
+function touchSession(){
+  localStorage.setItem(SESSION_KEY, String(Date.now()));
+}
+function isSessionExpired(){
+  const last = parseInt(localStorage.getItem(SESSION_KEY) || '0', 10);
+  return last > 0 && (Date.now() - last) > SESSION_TIMEOUT_MS;
+}
+function clearSession(){
+  localStorage.removeItem(SESSION_KEY);
+}
+
+// ════════════════════════════════════════════════════════════
+// ── v10.0 : AdminLogin avec anti-brute force ───────────────
+// 3 échecs → blocage 5 min, countdown visible, reset auto.
+// ════════════════════════════════════════════════════════════
+function AdminLogin({onLogin,savedName,onResetProfil}){
+  const MAX_FAILS=3, LOCK_MS=5*60*1000; // v10.0 : mémoire React uniquement, pas localStorage
+
+  const[pwd,setPwd]=React.useState('');
+  const[err,setErr]=React.useState('');
+  const[loading,setLoading]=React.useState(false);
+  const[hint,setHint]=React.useState('');
+  const[show,setShow]=React.useState(false);
+  const[failCount,setFailCount]=React.useState(0);
+  const[lockUntil,setLockUntil]=React.useState(0);
+  const[countdown,setCountdown]=React.useState(0);
+
+  // Tick du countdown
+  React.useEffect(()=>{
+    if(!lockUntil||lockUntil<=Date.now()) return;
+    const tick=()=>{
+      const left=lockUntil-Date.now();
+      if(left<=0){setCountdown(0);setLockUntil(0);setFailCount(0);}
+      else setCountdown(Math.ceil(left/1000));
+    };
+    tick();
+    const id=setInterval(tick,1000);
+    return()=>clearInterval(id);
+  },[lockUntil]);
+
+  const isLocked=lockUntil>Date.now()||countdown>0;
+
+  async function handleSubmit(){
+    if(!pwd.trim()||isLocked) return;
+    setLoading(true);setErr('');setHint('');
+    const isMobile=/Android|iPhone|iPad/i.test(navigator.userAgent);
+    const t1=setTimeout(()=>setHint('Connexion au serveur…'),2000);
+    const t2=setTimeout(()=>setHint('Démarrage de Google Apps Script…'),6000);
+    const t3=isMobile?setTimeout(()=>setHint('Réseau mobile détecté, patience…'),12000):null;
+    try{
+      const res=await Promise.race([
+        apiFetch('checkPassword',{pwd}),
+        new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')),isMobile?25000:10000))
+      ]);
+      if(res.ok){
+        
+        setFailCount(0);setLockUntil(0);
+        touchSession();onLogin();
+      }else{
+        const nf=failCount+1;
+        setFailCount(nf);
+        if(nf>=MAX_FAILS){
+          const until=Date.now()+LOCK_MS;
+          setLockUntil(until);
+          setErr('🔒 Trop de tentatives — accès bloqué 5 minutes.');
+        }else{
+          setErr(`Mot de passe incorrect (${nf}/${MAX_FAILS} tentative${nf>1?'s':''})`);
+        }
+      }
+    }catch(e){setErr('Erreur réseau : '+e.message);}
+    finally{setLoading(false);setHint('');clearTimeout(t1);clearTimeout(t2);if(t3)clearTimeout(t3);}
+  }
+
+  const mins=Math.floor(countdown/60), secs=String(countdown%60).padStart(2,'0');
+
+  return CE('div',{className:'login-wrap'},
+    CE('div',{className:'login-card'},
+      CE('h2',null,'🔐 Accès Admin'),
+      savedName&&savedName!=='admin'&&CE('div',{style:{background:'#eff6ff',border:'1px solid #bfdbfe',borderRadius:8,padding:'8px 12px',marginBottom:12,display:'flex',alignItems:'center',justifyContent:'space-between',fontSize:12}},
+        CE('span',{style:{color:'#1e3a8a',fontWeight:700}},'👤 Connecté en tant que : '+savedName),
+        CE('button',{onClick:onResetProfil,style:{background:'none',border:'none',color:'#9ca3af',cursor:'pointer',fontSize:11,textDecoration:'underline'}},'Changer')
+      ),
+      isLocked
+        ? CE('div',{style:{textAlign:'center',padding:'28px 0'}},
+            CE('div',{style:{fontSize:44,marginBottom:10}},'🔒'),
+            CE('div',{style:{fontSize:15,fontWeight:700,color:'#c53030',marginBottom:6}},'Accès temporairement bloqué'),
+            CE('div',{style:{fontSize:28,fontWeight:800,color:'#1a202c',fontVariantNumeric:'tabular-nums'}},mins+'m'+secs+'s'),
+            CE('div',{style:{fontSize:12,color:'#9ca3af',marginTop:4}},'Trop de tentatives incorrectes')
+          )
+        : CE(React.Fragment,null,
+            CE('div',{style:{position:'relative',marginBottom:10}},
+              CE('input',{
+                type:show?'text':'password',placeholder:'Mot de passe',value:pwd,
+                onChange:e=>setPwd(e.target.value),
+                onKeyDown:e=>e.key==='Enter'&&handleSubmit(),
+                style:{width:'100%',padding:'10px 40px 10px 14px',border:'1px solid #e2e8f0',borderRadius:8,fontSize:14,outline:'none',boxSizing:'border-box'}
+              }),
+              CE('button',{onClick:()=>setShow(s=>!s),style:{position:'absolute',right:10,top:'50%',transform:'translateY(-50%)',background:'none',border:'none',cursor:'pointer',fontSize:16,color:'#718096',padding:0}},show?'🙈':'👁️')
+            ),
+            err&&CE('p',{style:{color:'#c53030',fontSize:13,marginBottom:8}},err),
+            hint&&!err&&CE('p',{style:{color:'#718096',fontSize:12,marginBottom:8,display:'flex',alignItems:'center',gap:6}},CE('span',{className:'spinner',style:{width:12,height:12,borderWidth:2}}),hint),
+            CE('button',{onClick:handleSubmit,disabled:loading||!pwd.trim(),style:{width:'100%',padding:'11px',background:'#1e3a8a',color:'#fff',border:'none',borderRadius:8,fontSize:14,fontWeight:700,cursor:'pointer'}},loading?'Vérification…':'Connexion')
+          )
+    )
+  );
+}
+
+// ── v9.3 : labels des vues ─────────────────────────────────
+var VIEW_META = {
+  saisie:     { ico: '✏️',  label: 'Saisie',        group: 'Action' },
+  historique: { ico: '📋',  label: 'Historique',     group: 'Consulter' },
+  agenda:     { ico: '🗓️', label: 'Agenda',          group: 'Consulter' },
+  calendrier: { ico: '📅',  label: 'Calendrier',     group: 'Consulter' },
+  carte:      { ico: '🗺️', label: 'Carte',          group: 'Consulter' },
+  roadmap:    { ico: '🛣️', label: 'Roadmap',         group: 'Consulter' },
+  dashboard:  { ico: '🚀',  label: 'Dashboard',      group: 'Analyser' },
+  graphiques: { ico: '📊',  label: 'Statistiques',   group: 'Analyser' },
+  bingo:      { ico: '🎯',  label: 'Bingo',          group: 'Analyser' },
+  powerbi:    { ico: '📈',  label: 'Power BI',       group: 'Analyser' },
+  admin:      { ico: '⚙️', label: 'Admin',          group: 'Config' },
+  logs:       { ico: '📜',  label: 'Logs',           group: 'Config' },
+};
+
+// ── v9.5 : Modal confirmation suppression ─────────────────
+function ConfirmModal({item,onConfirm,onCancel}){
+  if(!item)return null;
+  React.useEffect(()=>{
+    function onKey(e){if(e.key==='Escape')onCancel();if(e.key==='Enter')onConfirm();}
+    window.addEventListener('keydown',onKey);return()=>window.removeEventListener('keydown',onKey);
+  },[]);
+  return CE('div',{className:'confirm-overlay',onClick:onCancel},
+    CE('div',{className:'confirm-card',onClick:e=>e.stopPropagation()},
+      CE('h3',null,'🗑️ Supprimer cet atelier ?'),
+      CE('p',null,item.label),
+      CE('div',{className:'confirm-actions'},
+        CE('button',{
+          onClick:onCancel,
+          style:{padding:'8px 18px',border:'1px solid #e2e8f0',borderRadius:8,background:'#f8fafc',cursor:'pointer',fontSize:13,fontWeight:600,color:'#4a5568'}
+        },'Annuler'),
+        CE('button',{
+          onClick:onConfirm,autoFocus:true,
+          style:{padding:'8px 18px',border:'none',borderRadius:8,background:'#dc2626',cursor:'pointer',fontSize:13,fontWeight:700,color:'#fff',boxShadow:'0 2px 8px rgba(220,38,38,.3)'}
+        },'Supprimer')
+      )
+    )
+  );
+}
+
+// ── App Admin ──────────────────────────────────────────────
+function App(){
+  const[auth,setAuth]           = React.useState(false);
+  const[adminConseiller,setAdminConseiller]= React.useState(()=>localStorage.getItem('adm_conseiller')||'');
+  const[view,setView]           = React.useState('historique');
+  const[entries,setEntries]= React.useState([]);
+  const[loading,setLoading]= React.useState(true);
+  const[error,setError]    = React.useState(null);
+  const[newEntries,setNewEntries]= React.useState([]);
+  const[seenIds,setSeenIds]= React.useState(new Set());
+  const[showListes,setShowListes]= React.useState(false);
+  const[editingId,setEditingId]  = React.useState(null);
+  const[prefillData,setPrefillData]= React.useState(null);
+  const[annee,setAnnee]    = React.useState(String(new Date().getFullYear()));
+  const[lists,setLists]    = React.useState({
+    statuts:[...STATUTS_DEFAULT],conseillers:[...CONSEILLERS_DEFAULT],
+    publics:[...PUBLICS_DEFAULT],materiels:[...MATERIELS_DEFAULT]
+  });
+  const[emails,setEmails]  = React.useState({});  // v9.3
+  const[lastSync,setLastSync]= React.useState(null); // v9.4
+  const[syncing,setSyncing]= React.useState(false);  // v9.5
+  const[logFilter,setLogFilter]= React.useState('all'); // v10.0 : filtre logs
+  const[pinned,setPinned]= React.useState(()=>localStorage.getItem('adm_sidebar_pinned')==='1'); // épingle sidebar
+
+  // v9.5 : logs persistants via localStorage
+  // v10.0 : logs avec timestamp ms pour purge +30j, limite 200, auto-purge au démarrage
+  const LOGS_PURGE_MS=30*24*60*60*1000;
+  const[logs,setLogs]=React.useState(()=>{
+    try{
+      const raw=JSON.parse(localStorage.getItem('adm_logs')||'[]');
+      const cutoff=Date.now()-30*24*60*60*1000;
+      return raw.filter(e=>!e.ts||e.ts>=cutoff);
+    }catch{return[];}
+  });
+  function addLog(msg,type='info'){
+    const entry={msg,type,t:new Date().toLocaleTimeString('fr-FR'),ts:Date.now()};
+    setLogs(l=>{const nl=[entry,...l].slice(0,200);try{localStorage.setItem('adm_logs',JSON.stringify(nl));}catch{}return nl;});
+  }
+  function clearLogs(){setLogs([]);try{localStorage.removeItem('adm_logs');}catch{}}
+  function purgeLogs(){
+    const cutoff=Date.now()-LOGS_PURGE_MS;
+    setLogs(l=>{const nl=l.filter(e=>!e.ts||e.ts>=cutoff);try{localStorage.setItem('adm_logs',JSON.stringify(nl));}catch{}return nl;});
+  }
+
+  // ── v10.0 : Session expirante ──────────────────────────────
+  // Déconnexion automatique après 30 min d'inactivité.
+  // touchSession() appelé sur chaque interaction clavier/souris.
+  function doSessionExpire(){
+    clearSession();
+    setAuth(false);
+    showToast('⏱️ Session expirée — reconnecte-toi.',false);
+    addLog('Session expirée (30 min inactivité)','info');
+  }
+  React.useEffect(()=>{
+    if(!auth) return;
+    touchSession();
+    // Vérification toutes les 60s
+    const interval = setInterval(()=>{
+      if(isSessionExpired()) doSessionExpire();
+    }, 60*1000);
+    // Vérification au retour sur l'onglet
+    function onFocus(){ if(isSessionExpired()) doSessionExpire(); else touchSession(); }
+    window.addEventListener('focus', onFocus);
+    // Touch sur toute interaction utilisateur
+    function onActivity(){ touchSession(); }
+    window.addEventListener('keydown', onActivity, {passive:true});
+    window.addEventListener('mousedown', onActivity, {passive:true});
+    window.addEventListener('touchstart', onActivity, {passive:true});
+    return ()=>{
+      clearInterval(interval);
+      window.removeEventListener('focus', onFocus);
+      window.removeEventListener('keydown', onActivity);
+      window.removeEventListener('mousedown', onActivity);
+      window.removeEventListener('touchstart', onActivity);
+    };
+  },[auth]);
+
+  async function loadData(attempt=1, silent=false){
+    setSyncing(true); // v9.5
+    if(!silent) setLoading(true);setError(null);
+    try{
+      // Timeout adaptatif : court sur PC/fibre, long sur mobile/4G
+      const isMobile=/Android|iPhone|iPad/i.test(navigator.userAgent);
+      const timeouts=isMobile?[20000,25000,30000]:[8000,10000,12000];
+      const timeoutMs=timeouts[attempt-1]||timeouts[timeouts.length-1];
+      const res=await Promise.race([fetch(`${GS_URL}?action=getAll&year=${annee}`),new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')),timeoutMs))]);
+      const data=await res.json();
+      if(!data.ok)throw new Error(data.error||'Erreur serveur');
+      const incoming=data.entries||[];
+      setEntries(incoming);
+      if(data.lists){
+        const l=data.lists;
+        const nl={statuts:Array.isArray(l.statuts)?l.statuts:[...STATUTS_DEFAULT],conseillers:Array.isArray(l.conseillers)?l.conseillers:[...CONSEILLERS_DEFAULT],publics:Array.isArray(l.publics)?l.publics:[...PUBLICS_DEFAULT],materiels:Array.isArray(l.materiels)?l.materiels:[...MATERIELS_DEFAULT]};
+        setLists(nl);STATUTS=[...nl.statuts];CONSEILLERS=[...nl.conseillers];PUBLICS=[...nl.publics];MATERIELS=[...nl.materiels];
+        addLog('Listes synchronisées','ok');
+      }
+      if(data.conseiller_colors){applyColors(data.conseiller_colors);}
+      if(data.emails){setEmails(data.emails);addLog('Emails chargés','ok');}  // v9.3
+      addLog(`${incoming.length} ateliers chargés (${annee})`,'ok');
+      setLastSync(new Date());
+      setSeenIds(prev=>{if(prev.size===0)return new Set(incoming.map(e=>e._id));const nouvs=incoming.filter(e=>!prev.has(e._id));if(nouvs.length>0)setNewEntries(n=>[...nouvs,...n]);return new Set(incoming.map(e=>e._id));});
+      setLoading(false);setSyncing(false); // v9.5
+    }catch(err){
+      if(err.message==='timeout'&&attempt<3){addLog(`Tentative ${attempt}/3…`,'info');const isMobile=/Android|iPhone|iPad/i.test(navigator.userAgent);setTimeout(()=>loadData(attempt+1,silent),isMobile?[3000,6000][attempt-1]:2000);}
+      else{setError(attempt>1?'Google Sheets ne répond pas après 3 tentatives.':'Impossible de charger : '+err.message);addLog('Erreur : '+err.message,'err');setLoading(false);setSyncing(false);} // v9.5
+    }
+  }
+
+  const isFirstLoad=React.useRef(true);
+  React.useEffect(()=>{loadCommunes47().catch(()=>{});},[]);
+  React.useEffect(()=>{
+    if(isFirstLoad.current){isFirstLoad.current=false;loadData();}
+    else{setSeenIds(new Set());loadData();}
+  },[annee]);
+  // v9.4 : sync auto toutes les 5 min
+  React.useEffect(()=>{
+    const id=setInterval(()=>loadData(1,true),5*60*1000);
+    return()=>clearInterval(id);
+  },[annee]);
+
+  // v10.0 : handleDelete direct — VueHistorique/VueCalendrier gèrent leur propre confirmation
+  async function handleDelete(id){
+    try{const res=await apiFetch('delete',{_id:id});if(!res.ok)throw new Error(res.error);showToast('✅ Atelier supprimé');addLog('Suppression '+id,'ok');loadData();}
+    catch(err){showToast('❌ '+err.message,false);}
+  }
+
+  function handleEdit(id){setEditingId(id);setPrefillData(null);setView('saisie');}
+  function handleSaved(){loadData();setView('historique');}
+
+  function handleDuplicate(entry){
+    const{_id,_n,date,horaire,ampm,inscrits,presents,remarques,...rest}=entry;
+    setPrefillData({...rest});setEditingId(null);setView('saisie');
+  }
+
+  function handleSaveLists(newLists){
+    setLists(newLists);STATUTS=[...newLists.statuts];CONSEILLERS=[...newLists.conseillers];PUBLICS=[...newLists.publics];MATERIELS=[...newLists.materiels];
+  }
+
+  function handleSaveEmails(newEmails){  // v9.3
+    setEmails(newEmails);
+  }
+
+  // v9.5 : compteurs par statut — doit être AVANT les early returns (Rules of Hooks)
+  const STATUS_PALETTE={'Planifié':'#9683EC','Réalisé':'#70AD47','Annulé':'#FF5050','Non réalisé':'#FFC000','Reporté':'#ED7D31'};
+  const statusCounts=React.useMemo(()=>{
+    const c={};
+    entries.forEach(e=>{const s=e.statut||'?';c[s]=(c[s]||0)+1;});
+    return Object.entries(STATUS_PALETTE).filter(([s])=>c[s]>0).map(([s,color])=>({s,v:c[s],color}));
+  },[entries]);
+
+  if(!auth)return CE(AdminLogin,{onLogin:()=>setAuth(true),savedName:adminConseiller,onResetProfil:()=>{localStorage.removeItem('adm_conseiller');setAdminConseiller('');}})
+
+  if(!adminConseiller)return CE('div',{className:'login-wrap'},
+    CE('div',{className:'login-card'},
+      CE('h2',null,'👤 Qui êtes-vous ?'),
+      loading
+        ? CE('div',{style:{display:'flex',flexDirection:'column',alignItems:'center',gap:12,padding:'24px 0',color:'#9ca3af'}},
+            CE('span',{className:'spinner',style:{width:24,height:24,borderWidth:3}}),
+            CE('span',{style:{fontSize:13}},'Chargement en cours…')
+          )
+        : CE(React.Fragment,null,
+            CE('p',{style:{fontSize:13,color:'#718096',margin:'8px 0 20px'}},'Pour personnaliser votre interface'),
+            (lists.conseillers||CONSEILLERS_DEFAULT).map(c=>
+              CE('button',{key:c,onClick:()=>{localStorage.setItem('adm_conseiller',c);setAdminConseiller(c);},
+                style:{display:'block',width:'100%',marginBottom:10,padding:'11px 16px',border:`2px solid ${conseillerColor(c)}22`,borderRadius:10,background:`${conseillerColor(c)}11`,color:conseillerColor(c),fontSize:14,fontWeight:700,cursor:'pointer',textAlign:'left',transition:'all .15s'}},
+                CE('span',{style:{display:'inline-block',width:10,height:10,borderRadius:'50%',background:conseillerColor(c),marginRight:8}}),c)
+            ),
+            CE('button',{onClick:()=>{localStorage.setItem('adm_conseiller','admin');setAdminConseiller('admin');},style:{display:'block',width:'100%',padding:'11px 16px',border:'2px solid #e2e8f0',borderRadius:10,background:'#f8fafc',color:'#718096',fontSize:13,cursor:'pointer',marginTop:4}},'Continuer sans personnalisation')
+          )
+    )
+  );
+
+  const sideBtn=(v,ico,lbl,extraClass)=>CE('button',{
+    key:v,
+    className:'sidebar-btn'+(view===v?' active':'')+(extraClass?' '+extraClass:''),
+    title:lbl,
+    onClick:()=>setView(v)
+  },
+    CE('span',{className:'sidebar-btn-ico'},ico),
+    CE('span',{className:'sidebar-btn-lbl'},lbl)
+  );
+
+  const accentColor = conseillerColor(adminConseiller)||NAV_DEFAULT_COLOR;
+  const meta = VIEW_META[view]||{ico:'📄',label:view,group:''};
+
+  return CE('div',{className:'app-shell'},
+
+    CE('aside',{className:'sidebar'+(pinned?' sidebar--pinned':''),style:{background:accentColor}},
+
+      CE('button',{
+        className:'sidebar-pin-btn'+(pinned?' pinned':''),
+        title:pinned?'Désépingler le menu':'Épingler le menu',
+        onClick:()=>setPinned(p=>{const n=!p;localStorage.setItem('adm_sidebar_pinned',n?'1':'0');return n;})
+      },pinned?'📌':'📍'),
+
+      CE('div',{className:'sidebar-logo'},'🖥️'),
+      CE('span',{className:'sidebar-count'},entries.length),
+      CE('span',{className:'sidebar-admin-badge'},'ADMIN'),
+
+      // Groupe : Action
+      CE('div',{className:'sidebar-sep'}),
+      CE('span',{className:'sidebar-group-label'},'Action'),
+      sideBtn('saisie','✏️','Saisie'),
+
+      // Groupe : Voir
+      CE('div',{className:'sidebar-sep'}),
+      CE('span',{className:'sidebar-group-label'},'Voir'),
+      sideBtn('historique','📋','Historique'),
+      sideBtn('agenda','🗓️','Agenda'),
+      sideBtn('calendrier','📅','Calendrier'),
+      sideBtn('carte','🗺️','Carte'),
+      sideBtn('roadmap','🛣️','Roadmap'),
+
+      // Groupe : Stats
+      CE('div',{className:'sidebar-sep'}),
+      CE('span',{className:'sidebar-group-label'},'Analyser'),
+      sideBtn('dashboard','📊','Dashboard'),
+      sideBtn('bingo','🎯','Bingo'),
+
+      // Groupe : Config — Listes ICI (remonté v9.3b)
+      CE('div',{className:'sidebar-sep'}),
+      CE('span',{className:'sidebar-group-label'},'Config'),
+      CE('button',{
+        className:'sidebar-btn sidebar-btn-listes',
+        title:'Gérer les listes déroulantes',
+        onClick:()=>setShowListes(true)
+      },
+        CE('span',{className:'sidebar-btn-ico'},'📋'),
+        CE('span',{className:'sidebar-btn-lbl'},'Listes')
+      ),
+      sideBtn('admin','⚙️','Admin'),
+      sideBtn('logs','📜','Logs'),
+
+      // Bas : sélecteur année + notifs
+      CE('div',{className:'sidebar-bottom'},
+        CE('select',{
+          className:'sidebar-year',
+          value:annee,
+          onChange:e=>setAnnee(e.target.value),
+          title:'Année chargée'
+        },
+          [String(new Date().getFullYear()-1),String(new Date().getFullYear()),String(new Date().getFullYear()+1)]
+            .map(y=>CE('option',{key:y,value:y},y))
+        ),
+        newEntries.length>0&&CE('button',{
+          className:'sidebar-notif-btn',
+          title:`${newEntries.length} nouveaux ateliers`,
+          onClick:()=>{setView('historique');window._filterNewEntries&&window._filterNewEntries(newEntries.map(e=>e._id));setNewEntries([]);}
+        },
+          CE('span',null,'🔔'),
+          CE('span',null,newEntries.length)
+        )
+      )
+    ),
+
+    CE('div',{className:'app-content'+(pinned?' app-content--pinned':'')},
+
+      CE('div',{className:'app-topbar'},
+        CE('span',{style:{fontSize:16}},meta.ico),
+        CE('span',{className:'app-topbar-title'},meta.label),
+        meta.group&&CE('span',{className:'app-topbar-sub'},'— '+meta.group),
+        CE('div',{className:'app-topbar-right'},
+          // v9.5 : animation sync en arrière-plan
+          syncing&&!loading&&CE('span',{className:'topbar-syncing',title:'Synchronisation en cours'},'🔄 Sync'),
+          lastSync&&!syncing&&CE('span',{
+            className:'topbar-sync-info',
+            title:'Sync auto toutes les 5 min'
+          },'🔄 '+lastSync.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})),
+          adminConseiller&&adminConseiller!=='admin'&&CE('span',{
+            className:'app-topbar-conseiller',
+            style:{background:accentColor}
+          },adminConseiller),
+          CE('button',{
+            onClick:()=>{localStorage.removeItem('adm_conseiller');setAdminConseiller('');},
+            title:'Changer d\'identité',
+            style:{background:'none',border:'1px solid #e2e8f0',borderRadius:6,padding:'3px 8px',fontSize:11,color:'#718096',cursor:'pointer'}
+          },'👤 Changer')
+        )
+      ),
+
+      CE('div',{className:'app-main'},
+        loading&&CE('div',{style:{display:'flex',alignItems:'center',justifyContent:'center',flexDirection:'column',gap:16,height:260,color:'#9ca3af'}},
+          CE('span',{className:'spinner',style:{width:32,height:32,borderWidth:3,borderTopColor:accentColor,borderColor:accentColor+'33'}}),
+          CE('span',{style:{fontSize:13,fontWeight:600}},'Chargement des données…')
+        ),
+        error&&CE('div',{className:'error-box'},CE('strong',null,'❌ Impossible de charger'),CE('span',null,error),CE('button',{className:'btn btn-primary',onClick:loadData},'🔄 Réessayer')),
+        !loading&&!error&&CE('div',{key:view,className:'view-anim'},
+          view==='saisie'&&CE(VueSaisie,{entries,onSaved:handleSaved,onNewEntry:e=>{setNewEntries(n=>[e,...n]);setSeenIds(s=>{const ns=new Set(s);ns.add(e._id);return ns;});},lists,editingId,onClearEdit:()=>setEditingId(null),prefillData,onClearPrefill:()=>setPrefillData(null),accentColor:conseillerColor(adminConseiller)}),
+          view==='historique'&&CE(VueHistorique,{key:'hist_'+adminConseiller,entries,onEdit:handleEdit,onDelete:handleDelete,onRefresh:loadData,onDuplicate:handleDuplicate,canDelete:true,initConseiller:adminConseiller&&adminConseiller!=='admin'?adminConseiller:null,onResetConseiller:()=>{},onChangeConseiller:(c)=>{const nom=c==='Tous'?'admin':c;localStorage.setItem('adm_conseiller',nom);setAdminConseiller(nom);}}),
+          view==='agenda'&&CE(VueAgendaSemaine,{key:'agenda_'+adminConseiller,entries,onEdit:handleEdit,onDelete:handleDelete,onDuplicate:handleDuplicate,canDelete:true,initConseiller:adminConseiller&&adminConseiller!=='admin'?adminConseiller:null,accentColor}),
+          view==='calendrier'&&CE(VueCalendrier,{key:'cal_'+adminConseiller,entries,onEdit:handleEdit,onDelete:handleDelete,onRefresh:loadData,onDuplicate:handleDuplicate,canDelete:true,initConseiller:adminConseiller&&adminConseiller!=='admin'?adminConseiller:null,onResetConseiller:()=>{},onChangeConseiller:(c)=>{const nom=c==='Tous'?'admin':c;localStorage.setItem('adm_conseiller',nom);setAdminConseiller(nom);}}),
+          view==='dashboard'&&CE(VueDashboardTabs,{entries,conseillers:lists.conseillers}),
+          view==='carte'&&CE(VueCarte,{entries,active:view==='carte'}),
+          view==='roadmap'&&CE(VueRoadmap,{entries,annee,conseillers:lists.conseillers}),
+          view==='bingo'&&CE(VueBingo,{entries}),
+
+          view==='admin'&&CE(VueAdmin,{entries,onRefresh:loadData,addLog,conseillersList:lists.conseillers,onSaveColors:(c)=>{applyColors(c);},annee}),
+          view==='logs'&&CE('div',{className:'card'},
+            CE('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14,flexWrap:'wrap',gap:8}},
+              CE('h2',{style:{margin:0}},'📜 Journal des opérations'),
+              CE('div',{style:{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}},
+                // v10.0 : filtres par type
+                CE('div',{style:{display:'flex',gap:4}},
+                  ['all','ok','err','info'].map(f=>CE('button',{key:f,
+                    onClick:()=>setLogFilter(f),
+                    style:{fontSize:11,padding:'3px 9px',borderRadius:6,cursor:'pointer',fontWeight:logFilter===f?700:400,
+                      border:logFilter===f?'1.5px solid #1e3a8a':'1px solid #e2e8f0',
+                      background:logFilter===f?'#eff6ff':'#f8fafc',
+                      color:logFilter===f?'#1e3a8a':f==='ok'?'#16a34a':f==='err'?'#dc2626':'#718096'}
+                  },{all:'Tous',ok:'✅ OK',err:'❌ Erreurs',info:'ℹ️ Info'}[f]))
+                ),
+                CE('span',{style:{fontSize:11,color:'#9ca3af'}},
+                  (logFilter==='all'?logs:logs.filter(l=>l.type===logFilter)).length+' / '+logs.length
+                ),
+                (()=>{
+                  const cutoff=Date.now()-30*24*60*60*1000;
+                  const old30=logs.filter(e=>!e.ts||e.ts<cutoff).length;
+                  return old30>0&&CE('button',{
+                    onClick:purgeLogs,
+                    title:'Supprimer les '+old30+' entrée'+(old30>1?'s':'')+' de plus de 30 jours',
+                    style:{fontSize:11,padding:'3px 10px',border:'1px solid #fbd38d',borderRadius:6,background:'#fffbeb',cursor:'pointer',color:'#b45309'}
+                  },'🕐 +30j ('+old30+')');
+                })(),
+                logs.length>0&&CE('button',{
+                  onClick:()=>{clearLogs();setLogFilter('all');},
+                  style:{fontSize:11,padding:'3px 10px',border:'1px solid #e2e8f0',borderRadius:6,background:'#f8fafc',cursor:'pointer',color:'#718096'}
+                },'🗑️ Tout effacer')
+              )
+            ),
+            (()=>{
+              const filtered=logFilter==='all'?logs:logs.filter(l=>l.type===logFilter);
+              return filtered.length===0
+                ?CE('p',{style:{color:'#718096',fontSize:13}},logFilter==='all'?'Aucune opération enregistrée.':'Aucune entrée de ce type.')
+                :filtered.map((l,i)=>{
+                  const dateStr=l.ts?new Date(l.ts).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit'}):'';
+                  return CE('div',{key:i,className:'log-entry log-'+l.type},
+                    CE('span',{className:'log-time'},dateStr&&(dateStr+' '),l.t),
+                    CE('span',null,l.msg));
+                });
+            })()
+          )
+        )
+      )
+    ),
+
+    // Modale listes — avec emails v9.3
+    showListes&&CE(VueListes,{
+      lists,
+      onSave:handleSaveLists,
+      onClose:()=>setShowListes(false),
+      emails,
+      onSaveEmails:handleSaveEmails
+    }),
+
+    CE('div',{id:'toast',className:'toast',style:{opacity:0}})
+  );
+}
+
+// ════════════════════════════════════════════════════════════
+// Pages : Général · Conseillers · Territoire
+// Filtres croisés : mois, conseiller, statut
+// Données réelles issues de Google Sheets
+// ════════════════════════════════════════════════════════════
+// ── TableCommunes : tri par colonne ────────────────────────
+function TableCommunes({fd}){
+  const[sortKey,setSortKey]=React.useState('ateliers');
+  const[sortDir,setSortDir]=React.useState(-1); // -1 desc, 1 asc
+
+  function handleSort(key){
+    if(sortKey===key) setSortDir(d=>d*-1);
+    else{setSortKey(key);setSortDir(-1);}
+  }
+
+  const communes=[...new Set(fd.map(d=>d.commune).filter(Boolean))].map(c=>{
+    const r=fd.filter(d=>d.commune===c);
+    const rl=r.filter(d=>d.statut==='Réalisé').length;
+    const ins=r.reduce((s,d)=>s+(parseInt(d.inscrits)||0),0);
+    const pre=r.reduce((s,d)=>s+(parseInt(d.presents)||0),0);
+    const tp=ins?Math.round(pre/ins*100):0;
+    return{name:c,ateliers:r.length,realises:rl,inscrits:ins,presents:pre,presence:tp};
+  }).sort((a,b)=>sortDir*(a[sortKey]>b[sortKey]?1:a[sortKey]<b[sortKey]?-1:0));
+
+  const COLS=[
+    {key:'name',     label:'Commune'},
+    {key:'ateliers', label:'Atl.'},
+    {key:'realises', label:'Réal.'},
+    {key:'inscrits', label:'Inscrits'},
+    {key:'presents', label:'Présents'},
+    {key:'presence', label:'Présence'},
+  ];
+
+  function ThSort({col}){
+    const active=sortKey===col.key;
+    const arrow=active?(sortDir===-1?'↓':'↑'):'↕';
+    return CE('th',{
+      onClick:()=>handleSort(col.key),
+      style:{padding:'7px 8px',textAlign:'left',fontWeight:700,
+        color:active?'#2563EB':'#6b7280',borderBottom:'2px solid '+(active?'#2563EB':'#e5e7eb'),
+        fontSize:10,whiteSpace:'nowrap',cursor:'pointer',userSelect:'none',
+        background:active?'#eff6ff':'#f9fafb',transition:'all .15s'}
+    },
+      CE('span',null,col.label),
+      CE('span',{style:{marginLeft:4,opacity:active?1:.4,fontSize:9}},arrow)
+    );
+  }
+
+  return CE('div',{style:{overflowX:'auto'}},
+    CE('table',{style:{width:'100%',borderCollapse:'collapse',fontSize:11}},
+      CE('thead',null,CE('tr',null,COLS.map(col=>CE(ThSort,{key:col.key,col})))),
+      CE('tbody',null,communes.map((c,i)=>{
+        const tpColor=c.presence>70?'#16a34a':c.presence>40?'#d97706':'#ef4444';
+        return CE('tr',{key:c.name,style:{background:i%2?'#f9fafb':'#fff'}},
+          CE('td',{style:{padding:'6px 8px',fontWeight:600,fontSize:10}},c.name.slice(0,18)),
+          CE('td',{style:{padding:'6px 8px'}},c.ateliers),
+          CE('td',{style:{padding:'6px 8px',color:'#16a34a',fontWeight:600}},c.realises),
+          CE('td',{style:{padding:'6px 8px'}},c.inscrits),
+          CE('td',{style:{padding:'6px 8px'}},c.presents),
+          CE('td',{style:{padding:'6px 8px'}},
+            CE('div',{style:{display:'flex',alignItems:'center',gap:5}},
+              CE('div',{style:{height:5,width:36,background:'#f3f4f6',borderRadius:3}},
+                CE('div',{style:{height:5,borderRadius:3,width:c.presence+'%',background:tpColor}})
+              ),
+              CE('span',{style:{fontSize:10,fontWeight:700,color:tpColor}},c.presence+'%')
+            )
+          )
+        );
+      }))
+    )
+  );
+}
+
+
+// ── VueDashboardTabs — Dashboard unifié (3 onglets) ──────────
+function VueDashboard({entries}){
+  if(!window.echarts)return CE('div',{className:'card'},CE('p',{style:{color:'#718096',textAlign:'center',padding:'40px 0'}},'⚠️ ECharts non chargé.'));
+
+  const[periodeIdx,setPeriodeIdx]=React.useState(0); // défaut : tout
+  const[selectedMonths,setSelectedMonths]=React.useState([]); // mois sélectionnés (1-12)
+  const MOIS_LABELS=['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
+  function toggleMonth(m){ setSelectedMonths(s=>s.includes(m)?s.filter(x=>x!==m):[...s,m]); }
+  const now=new Date();
+  const todayStr=now.toISOString().slice(0,10);
+  const todayYM=now.toISOString().slice(0,7);
+
+  function getDateFrom(idx){
+    if(idx===0)return '';
+    const d=new Date(now);
+    if(idx===1){d.setDate(1);return d.toISOString().slice(0,10);}
+    if(idx===2){d.setMonth(d.getMonth()-3);return d.toISOString().slice(0,10);}
+    if(idx===3){d.setMonth(d.getMonth()-6);return d.toISOString().slice(0,10);}
+    if(idx===4){d.setFullYear(d.getFullYear()-1);return d.toISOString().slice(0,10);}
+    return '';
+  }
+  const dateFrom=getDateFrom(periodeIdx);
+  const filtered=React.useMemo(()=>{
+    let r=dateFrom?entries.filter(e=>e.date&&e.date>=dateFrom):entries;
+    if(selectedMonths.length>0) r=r.filter(e=>e.date&&selectedMonths.includes(parseInt(e.date.slice(5,7))));
+    return r;
+  },[entries,dateFrom,selectedMonths]);
+
+  // Période précédente (même durée) pour tendances
+  const prevFiltered=React.useMemo(()=>{
+    if(periodeIdx===0)return[];
+    const df=new Date(dateFrom);const prevTo=new Date(dateFrom);prevTo.setDate(prevTo.getDate()-1);
+    const prevFrom=new Date(df);
+    if(periodeIdx===1)prevFrom.setMonth(prevFrom.getMonth()-1);
+    if(periodeIdx===2)prevFrom.setMonth(prevFrom.getMonth()-3);
+    if(periodeIdx===3)prevFrom.setMonth(prevFrom.getMonth()-6);
+    if(periodeIdx===4)prevFrom.setFullYear(prevFrom.getFullYear()-1);
+    const pf=prevFrom.toISOString().slice(0,10);const pt=prevTo.toISOString().slice(0,10);
+    return entries.filter(e=>e.date&&e.date>=pf&&e.date<=pt);
+  },[entries,periodeIdx,dateFrom]);
+
+  function mkTrend(curr,prev){
+    if(periodeIdx===0||prev===0)return undefined;
+    return Math.round((curr-prev)/prev*100);
+  }
+
+  // KPIs
+  const realises=filtered.filter(e=>e.statut==='Réalisé');
+  const annules=filtered.filter(e=>e.statut==='Annulé');
+  const planifies=filtered.filter(e=>e.statut==='Planifié'&&e.date>=todayStr);
+  const presents=realises.reduce((s,e)=>s+(parseInt(e.presents)||0),0);
+  const inscrits=realises.reduce((s,e)=>s+(parseInt(e.inscrits)||0),0);
+  const txPresence=inscrits>0?Math.round(presents/inscrits*100):0;
+  const txAnnul=filtered.length>0?Math.round(annules.length/filtered.length*100):0;
+  const prevR=prevFiltered.filter(e=>e.statut==='Réalisé');
+  const prevPresents=prevR.reduce((s,e)=>s+(parseInt(e.presents)||0),0);
+
+  // Statuts donut
+  const STATUS_COLORS={'Réalisé':'#16a34a','Planifié':'#2563eb','Annulé':'#dc2626','Non réalisé':'#d97706','Reporté':'#9683EC'};
+  const byStat={};filtered.forEach(e=>{byStat[e.statut]=(byStat[e.statut]||0)+1;});
+  const dataStat=Object.entries(byStat).map(([label,value])=>({label,value}));
+
+  // Activité mensuelle empilée
+  const byMoisAct={};filtered.forEach(e=>{
+    const m=e.date?e.date.slice(0,7):'?';
+    if(m==='?')return;
+    if(!byMoisAct[m])byMoisAct[m]={realises:0,annules:0,planifies:0};
+    if(e.statut==='Réalisé')byMoisAct[m].realises++;
+    else if(e.statut==='Annulé')byMoisAct[m].annules++;
+    else if(e.statut==='Planifié')byMoisAct[m].planifies++;
+  });
+
+  // Top communes
+  const byCommune={};realises.forEach(e=>{byCommune[e.commune]=(byCommune[e.commune]||0)+1;});
+  const topCommunes=Object.entries(byCommune).sort((a,b)=>b[1]-a[1]).slice(0,8).map(([label,value])=>({label,value}));
+
+  // Thématiques
+  const byTheme={};realises.forEach(e=>{const t=e.thematique||'Autre';byTheme[t]=(byTheme[t]||0)+1;});
+  const dataTheme=Object.entries(byTheme).sort((a,b)=>b[1]-a[1]).slice(0,8).map(([label,value])=>({label,value}));
+
+  // Public
+  const byPublic={};realises.forEach(e=>{const p=e.public||'Autres';byPublic[p]=(byPublic[p]||0)+1;});
+  const dataPublic=Object.entries(byPublic).sort((a,b)=>b[1]-a[1]).map(([label,value])=>({label,value}));
+
+  const PERIODES=[{l:'Tout'},{l:'Ce mois'},{l:'3 mois'},{l:'6 mois'},{l:'12 mois'}];
+  const accent='#1e3a8a';
+
+  return CE('div',null,
+
+    // ── Barre période ──
+    CE('div',{className:'card',style:{marginBottom:12,padding:'12px 16px'}},
+      CE('div',{style:{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}},
+        CE('span',{style:{fontSize:12,fontWeight:700,color:'#718096'}},'Période :'),
+        PERIODES.map((p,i)=>CE('button',{key:i,onClick:()=>setPeriodeIdx(i),style:{
+          padding:'4px 13px',borderRadius:20,fontSize:12,fontWeight:600,cursor:'pointer',
+          border:`1.5px solid ${periodeIdx===i?accent:'#e2e8f0'}`,
+          background:periodeIdx===i?accent:'#fff',
+          color:periodeIdx===i?'#fff':'#718096',transition:'all .15s'
+        }},p.l)),
+        CE('span',{style:{marginLeft:'auto',fontSize:11,color:'#9ca3af'}},filtered.length+' ateliers · '+now.toLocaleDateString('fr-FR'))
+      ),
+      CE('div',{style:{display:'flex',alignItems:'center',gap:6,flexWrap:'wrap',marginTop:8,paddingTop:8,borderTop:'1px solid #f1f5f9'}},
+        CE('span',{style:{fontSize:12,fontWeight:700,color:'#718096'}},'Mois :'),
+        MOIS_LABELS.map((m,i)=>{const mo=i+1;return CE('button',{key:mo,onClick:()=>toggleMonth(mo),style:{
+          padding:'3px 10px',borderRadius:20,fontSize:11,fontWeight:600,cursor:'pointer',
+          border:`1.5px solid ${selectedMonths.includes(mo)?accent:'#e2e8f0'}`,
+          background:selectedMonths.includes(mo)?accent:'#fff',
+          color:selectedMonths.includes(mo)?'#fff':'#718096',transition:'all .15s'
+        }},m);}),
+        selectedMonths.length>0&&CE('button',{onClick:()=>setSelectedMonths([]),style:{
+          padding:'3px 10px',borderRadius:20,fontSize:11,cursor:'pointer',
+          border:'1.5px solid #fca5a5',background:'#fff',color:'#ef4444',fontWeight:600
+        }},'✕ Effacer')
+      )
+    ),
+
+    // ── KPIs ──
+    CE('div',{style:{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))',gap:12,marginBottom:16}},
+      CE(KpiCard,{val:realises.length,lbl:'Ateliers réalisés',icon:'✅',color:'#16a34a',bgColor:'#f0fdf4',trend:mkTrend(realises.length,prevR.length)}),
+      CE(KpiCard,{val:planifies.length,lbl:'Planifiés à venir',icon:'📅',color:'#2563eb',bgColor:'#eff6ff'}),
+      CE(KpiCard,{val:presents,lbl:'Participants présents',icon:'👥',color:'#7c3aed',bgColor:'#faf5ff',trend:mkTrend(presents,prevPresents)}),
+      CE(KpiCard,{val:inscrits,lbl:'Inscrits total',icon:'📝',color:'#0891b2',bgColor:'#ecfeff'}),
+      CE(KpiCard,{val:txPresence+'%',lbl:'Taux de présence',icon:'🎯',
+        color:txPresence>=70?'#16a34a':txPresence>=50?'#d97706':'#dc2626',
+        bgColor:txPresence>=70?'#f0fdf4':txPresence>=50?'#fffbeb':'#fef2f2'}),
+      CE(KpiCard,{val:txAnnul+'%',lbl:'Taux d\'annulation',icon:'❌',
+        color:txAnnul<=10?'#16a34a':txAnnul<=20?'#d97706':'#dc2626',
+        bgColor:txAnnul<=10?'#f0fdf4':txAnnul<=20?'#fffbeb':'#fef2f2'})
+    ),
+
+    // ── Ligne 1 : Activité mensuelle + Donut statuts ──
+    CE('div',{style:{display:'grid',gridTemplateColumns:'2fr 1fr',gap:16,marginBottom:16}},
+      CE('div',{className:'card'},
+        CE('h2',null,'📈 Activité mensuelle'),
+        CE(StackedActivityChart,{data:byMoisAct})
+      ),
+      CE('div',{className:'card'},
+        CE('h2',null,'🔵 Répartition statuts'),
+        CE(DonutChart,{data:dataStat,colors:dataStat.map(d=>STATUS_COLORS[d.label]||'#718096'),height:220})
+      )
+    ),
+
+    // ── Ligne 2 : Par conseiller (pleine largeur) ──
+    CE('div',{className:'card',style:{marginBottom:16}},
+      CE('h2',null,'👤 Performance par conseiller'),
+      CE(ConseillerBarChart,{entries:filtered})
+    ),
+
+    // ── Ligne 3 : Communes + Thématiques ──
+    CE('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,marginBottom:16}},
+      CE('div',{className:'card'},
+        CE('h2',null,'📍 Top communes (réalisés)'),
+        CE(BarChart,{data:topCommunes,colors:['#1e3a8a','#2563eb','#3b82f6','#60a5fa','#93c5fd']})
+      ),
+      CE('div',{className:'card'},
+        CE('h2',null,'📚 Par thématique'),
+        CE(BarChart,{data:dataTheme,colors:['#7c3aed','#8b5cf6','#a78bfa','#c4b5fd']})
+      )
+    ),
+
+    // ── Ligne 4 : Public + AM/PM ──
+    CE('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}},
+      CE('div',{className:'card'},
+        CE('h2',null,'🧑‍🤝‍🧑 Par type de public'),
+        CE(BarChart,{data:dataPublic,colors:['#DB2777','#ec4899','#f472b6','#fbcfe8']})
+      ),
+      CE('div',{className:'card'},
+        CE('h2',null,'🌅 Matin vs Après-midi'),
+        CE(DonutChart,{
+          data:[
+            {label:'Matin (AM)',value:filtered.filter(e=>e.ampm==='AM'||(!e.ampm&&e.horaire&&parseInt(e.horaire)<12)).length},
+            {label:'Après-midi (PM)',value:filtered.filter(e=>e.ampm==='PM'||(!e.ampm&&e.horaire&&parseInt(e.horaire)>=12)).length}
+          ],
+          colors:['#f97316','#0891b2'],height:200
+        })
+      )
+    )
+  );
+}
+
+function VueDashboardTabs({entries, conseillers}){
+  const[tab,setTab]=React.useState('dashboard');
+  const TABS=[
+    {id:'dashboard', ico:'🚀', label:'Synthèse'},
+    {id:'graphiques', ico:'📊', label:'Graphiques'},
+    {id:'powerbi',    ico:'🗺️', label:'Territoire'},
+  ];
+  return CE('div',null,
+    CE('div',{style:{display:'flex',borderBottom:'2px solid #e5e7eb',marginBottom:16,gap:4}},
+      TABS.map(t=>CE('button',{
+        key:t.id,
+        onClick:()=>setTab(t.id),
+        style:{
+          padding:'8px 18px',border:'none',background:'none',cursor:'pointer',
+          fontSize:13,fontWeight:tab===t.id?700:400,fontFamily:'inherit',
+          color:tab===t.id?'var(--accent,#0ea5e9)':'#6b7280',
+          borderBottom:tab===t.id?'3px solid var(--accent,#0ea5e9)':'3px solid transparent',
+          marginBottom:-2,transition:'all .15s'
+        }
+      }, t.ico+' '+t.label))
+    ),
+    tab==='dashboard'  && CE(VueDashboard,{entries}),
+    tab==='graphiques' && CE(VueGraphiques,{entries}),
+    tab==='powerbi'    && CE(VuePowerBI,{entries,conseillers})
+  );
+}
+
+
+// ════════════════════════════════════════════════════════════
+// ── v10.0 : VueAdmin — Override shared.js ──────────────────
+//   • KPIs enrichis (4 indicateurs + taux + mois)
+//   • Validation pré-import CSV & XLSX (modal aperçu)
+// ════════════════════════════════════════════════════════════
+
+// ── Modale aperçu import ───────────────────────────────────
+function ImportPreviewModal({preview, onConfirm, onCancel}){
+  if(!preview) return null;
+  const {rows, errors, type} = preview;
+  const COLS=['statut','date','horaire','conseiller','commune','thematique','orienteur'];
+  return CE('div',{className:'confirm-overlay',onClick:onCancel},
+    CE('div',{onClick:e=>e.stopPropagation(),style:{
+      background:'#fff',borderRadius:14,padding:'24px',maxWidth:760,width:'95%',
+      maxHeight:'85vh',overflowY:'auto',boxShadow:'0 16px 64px rgba(0,0,0,.25)',
+      animation:'slideUp .18s ease'
+    }},
+      CE('h3',{style:{margin:'0 0 4px',fontSize:16,color:'#1a202c'}},'📋 Aperçu — Import '+type),
+      CE('p',{style:{margin:'0 0 16px',fontSize:13,color:'#4a5568'}},
+        rows.length+' ligne'+(rows.length>1?'s':'')+' détectée'+(rows.length>1?'s':'')+
+        (errors.length>0?' · '+errors.length+' anomalie'+(errors.length>1?'s':'')+' détectée'+(errors.length>1?'s':'') : '')),
+
+      // Bandeau erreurs
+      errors.length>0&&CE('div',{style:{background:'#fff5f5',border:'1px solid #fed7d7',borderRadius:8,padding:'10px 14px',marginBottom:14}},
+        CE('div',{style:{fontWeight:700,fontSize:13,color:'#c53030',marginBottom:6}},'⚠️ '+errors.length+' anomalie'+(errors.length>1?'s':'')+' détectée'+(errors.length>1?'s':'')+' :'),
+        errors.slice(0,8).map((e,i)=>CE('div',{key:i,style:{fontSize:12,color:'#c53030',marginBottom:2}},'• '+e)),
+        errors.length>8&&CE('div',{style:{fontSize:11,color:'#9ca3af',marginTop:4}},'… et '+(errors.length-8)+' autre'+(errors.length-8>1?'s':''))
+      ),
+
+      // Tableau aperçu (5 premières lignes)
+      CE('div',{style:{overflowX:'auto',marginBottom:16}},
+        CE('table',{style:{width:'100%',borderCollapse:'collapse',fontSize:11,minWidth:500}},
+          CE('thead',null,CE('tr',null,
+            COLS.map(c=>CE('th',{key:c,style:{background:'#f1f5f9',padding:'6px 8px',textAlign:'left',fontSize:11,fontWeight:700,color:'#4a5568',borderBottom:'2px solid #e2e8f0',whiteSpace:'nowrap'}},c))
+          )),
+          CE('tbody',null,
+            rows.slice(0,5).map((r,i)=>CE('tr',{key:i,style:{background:i%2?'#f8fafc':'#fff'}},
+              COLS.map(c=>CE('td',{key:c,style:{padding:'5px 8px',borderBottom:'1px solid #f0f0f0',maxWidth:120,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',color:!r[c]&&['statut','date','conseiller'].includes(c)?'#fc8181':'#1a202c'}},
+                String(r[c]||'—')
+              ))
+            ))
+          )
+        )
+      ),
+      rows.length>5&&CE('p',{style:{fontSize:11,color:'#9ca3af',margin:'-10px 0 14px',textAlign:'right'}},
+        '… '+( rows.length-5)+' ligne'+(rows.length-5>1?'s':'')+' supplémentaire'+(rows.length-5>1?'s':'')+' non affichée'+(rows.length-5>1?'s':'')),
+
+      CE('div',{style:{display:'flex',gap:10,justifyContent:'flex-end'}},
+        CE('button',{onClick:onCancel,style:{padding:'9px 20px',border:'1px solid #e2e8f0',borderRadius:8,background:'#f8fafc',cursor:'pointer',fontSize:13,fontWeight:600,color:'#4a5568'}},'Annuler'),
+        CE('button',{onClick:onConfirm,autoFocus:true,style:{padding:'9px 20px',border:'none',borderRadius:8,background:errors.length>0?'#dd6b20':'#1e3a8a',cursor:'pointer',fontSize:13,fontWeight:700,color:'#fff'}},
+          errors.length>0?'⚠️ Importer quand même':'✅ Confirmer l\'import'
+        )
+      )
+    )
+  );
+}
+
+// ── v10.0 : Rapport post-import ───────────────────────────
+function ImportRapportModal({rapport,onClose}){
+  if(!rapport) return null;
+  const {total,envoyes,batchErrors,anomaliesPre,annule,ts}=rapport;
+  const ok=envoyes===total&&!annule&&batchErrors.length===0;
+  const partial=envoyes>0&&(annule||batchErrors.length>0);
+  const couleur=ok?'#276749':partial?'#92400e':'#9b2335';
+  const bg=ok?'#f0fff4':partial?'#fffbeb':'#fff5f5';
+  const border=ok?'#9ae6b4':partial?'#fbd38d':'#fed7d7';
+  return CE('div',{className:'confirm-overlay',onClick:onClose},
+    CE('div',{onClick:e=>e.stopPropagation(),style:{background:'#fff',borderRadius:14,padding:'28px',maxWidth:460,width:'92%',boxShadow:'0 16px 64px rgba(0,0,0,.25)',animation:'slideUp .18s ease'}},
+      CE('h3',{style:{margin:'0 0 16px',fontSize:16,color:'#1a202c'}},'📊 Rapport d\'import'),
+      CE('div',{style:{background:bg,border:'1px solid '+border,borderRadius:10,padding:'14px 18px',marginBottom:16}},
+        CE('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:anomaliesPre>0||batchErrors.length>0?12:0}},
+          CE('div',{style:{textAlign:'center'}},CE('div',{style:{fontSize:28,fontWeight:800,color:'#1a202c'}},total),CE('div',{style:{fontSize:11,color:'#718096'}},'Lignes détectées')),
+          CE('div',{style:{textAlign:'center'}},CE('div',{style:{fontSize:28,fontWeight:800,color:envoyes===total?'#276749':'#dd6b20'}},envoyes),CE('div',{style:{fontSize:11,color:'#718096'}},'Envoyées ✓'))
+        ),
+        anomaliesPre>0&&CE('div',{style:{fontSize:12,color:'#92400e',marginBottom:4}},'⚠️ '+anomaliesPre+' anomalie'+(anomaliesPre>1?'s':'')+' détectée'+(anomaliesPre>1?'s':'')+' avant envoi'),
+        annule&&CE('div',{style:{fontSize:12,color:'#c53030',marginBottom:4}},'⛔ Import annulé manuellement'),
+        batchErrors.length>0&&CE('div',null,
+          CE('div',{style:{fontSize:12,color:'#c53030',fontWeight:700,marginBottom:4}},batchErrors.length+' lot'+(batchErrors.length>1?'s':'')+' en erreur :'),
+          batchErrors.map((e,i)=>CE('div',{key:i,style:{fontSize:11,color:'#c53030',marginBottom:2}},'• Lignes '+e.from+'–'+e.to+' : '+e.msg))
+        )
+      ),
+      CE('div',{style:{fontSize:11,color:'#9ca3af',marginBottom:16}},'Import du '+ts),
+      CE('button',{onClick:onClose,style:{width:'100%',padding:'10px',border:'none',borderRadius:8,background:'#1e3a8a',color:'#fff',fontWeight:700,fontSize:13,cursor:'pointer'}},'Fermer')
+    )
+  );
+}
+
+// ════════════════════════════════════════════════════════════
+// ── v10.0 : Composants restaurés depuis v9.5 ───────────────
+// ════════════════════════════════════════════════════════════
+
+function ChangerMotDePasse(){
+  const[pwd,setPwd]=React.useState('');
+  const[pwd2,setPwd2]=React.useState('');
+  const[show,setShow]=React.useState(false);
+  const[saving,setSaving]=React.useState(false);
+  const[msg,setMsg]=React.useState(null);
+
+  async function handleSave(){
+    if(pwd.length<4){setMsg({ok:false,txt:'4 caractères minimum'});return;}
+    if(pwd!==pwd2){setMsg({ok:false,txt:'Les mots de passe ne correspondent pas'});return;}
+    setSaving(true);setMsg(null);
+    try{
+      const res=await apiFetch('setPassword',{pwd});
+      if(res.ok){setMsg({ok:true,txt:'✅ Mot de passe mis à jour'});setPwd('');setPwd2('');}
+      else setMsg({ok:false,txt:res.error||'Erreur'});
+    }catch(e){setMsg({ok:false,txt:'Erreur réseau'});}
+    finally{setSaving(false);}
+  }
+
+  const inputStyle={marginTop:4,display:'block',padding:'8px 36px 8px 12px',border:'1px solid #e2e8f0',borderRadius:6,fontSize:13,boxSizing:'border-box',width:'100%'};
+  const eyeStyle={position:'absolute',right:8,top:'50%',transform:'translateY(-50%)',background:'none',border:'none',cursor:'pointer',fontSize:14,color:'#718096',padding:0};
+
+  return CE('div',{className:'admin-section'},
+    CE('h3',null,'🔑 Changer le mot de passe admin'),
+    CE('div',{style:{display:'flex',gap:10,flexWrap:'wrap',alignItems:'flex-end'}},
+      CE('div',null,
+        CE('label',null,'Nouveau mot de passe'),
+        CE('div',{style:{position:'relative'}},
+          CE('input',{type:show?'text':'password',value:pwd,onChange:e=>setPwd(e.target.value),placeholder:'Min. 4 caractères',style:inputStyle}),
+          CE('button',{onClick:()=>setShow(s=>!s),style:eyeStyle},show?'🙈':'👁️')
+        )
+      ),
+      CE('div',null,
+        CE('label',null,'Confirmer'),
+        CE('div',{style:{position:'relative'}},
+          CE('input',{type:show?'text':'password',value:pwd2,onChange:e=>setPwd2(e.target.value),placeholder:'Répéter',style:inputStyle}),
+          CE('button',{onClick:()=>setShow(s=>!s),style:eyeStyle},show?'🙈':'👁️')
+        )
+      ),
+      CE('button',{className:'btn btn-primary',disabled:saving||!pwd||!pwd2,onClick:handleSave,style:{alignSelf:'flex-end'}},saving?'Sauvegarde…':'💾 Sauvegarder')
+    ),
+    msg&&CE('p',{style:{marginTop:8,fontSize:13,color:msg.ok?'#276749':'#c53030'}},msg.txt)
+  );
+}
+
+// ── VueAdmin override ──────────────────────────────────────
+function VueAdminV10({entries,onRefresh,addLog,conseillersList,onSaveColors,annee}){
+  const adminRef=React.useRef(null);
+  React.useEffect(()=>{
+    if(!adminRef.current)return;
+    const sections=adminRef.current.querySelectorAll('.admin-section');
+    sections.forEach((el,i)=>{
+      el.style.opacity='0';el.style.transform='translateY(12px)';el.style.transition='opacity .5s ease,transform .5s ease';
+      setTimeout(()=>{el.style.opacity='1';el.style.transform='translateY(0)';},i*100+30);
+    });
+  },[]);
+  const[resetStep,setResetStep]=React.useState(0);
+  const[visibility,setVisibility]=React.useState(null);
+  const[visSaving,setVisSaving]=React.useState(false);
+  const[importing,setImporting]=React.useState(false);
+  const[colorDraft,setColorDraft]=React.useState({...CONSEILLER_COLORS});
+  const[colorSaving,setColorSaving]=React.useState(false);
+  const[importProgress,setImportProgress]=React.useState(0);
+  const[importMsg,setImportMsg]=React.useState('');
+  const[importPreview,setImportPreview]=React.useState(null); // v10 : aperçu avant envoi
+  const[importRapport,setImportRapport]=React.useState(null); // v10 : rapport post-import
+  const cancelRef=React.useRef(false);
+  const pendingRowsRef=React.useRef([]);
+  const preErrorCountRef=React.useRef(0);
+  // v10.0 : Timeline export (restauré depuis v9.5)
+  const MOIS_CAL=['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+  const MOIS_SHORT_CAL=['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
+  const[moisDeb,setMoisDeb]=React.useState(()=>parseInt(localStorage.getItem('cal_moisDeb')||'1'));
+  const[moisFin,setMoisFin]=React.useState(()=>parseInt(localStorage.getItem('cal_moisFin')||'12'));
+  const[tlRunning,setTlRunning]=React.useState(false);
+  const[tlLogs,setTlLogs]=React.useState([]);
+  const[lastExport,setLastExport]=React.useState(null);
+  function addTlLog(msg,type='info'){setTlLogs(l=>[...l,{msg,type,t:new Date().toLocaleTimeString('fr-FR')}]);}
+  function changeMoisDeb(v){localStorage.setItem('cal_moisDeb',v);setMoisDeb(v);setLastExport(null);}
+  function changeMoisFin(v){localStorage.setItem('cal_moisFin',v);setMoisFin(v);setLastExport(null);}
+  const VIS_ITEMS=[{key:'saisie',label:'✏️ Saisie',sub:'Formulaire de saisie'},{key:'historique',label:'📋 Historique',sub:'Liste des ateliers'},{key:'agenda',label:'🗓️ Agenda',sub:'Planning hebdo AM/PM'},{key:'calendrier',label:'📅 Calendrier',sub:'Vue calendrier mensuelle'},{key:'dashboard',label:'📊 Dashboard',sub:'Synthèse · Graphiques · Territoire'},{key:'carte',label:'🗺️ Carte',sub:'Carte des communes'},{key:'bingo',label:'🎯 Bingo',sub:'Vue par commune'},{key:'roadmap',label:'🛣️ Roadmap',sub:'Timeline & densité'}];
+
+  React.useEffect(()=>{apiFetch('getVisibility').then(res=>{if(res.ok)setVisibility(res.visibility);}).catch(()=>{});},[]);
+  React.useEffect(()=>{setColorDraft(d=>{const draft={...CONSEILLER_COLORS,...d};(conseillersList||[]).forEach(c=>{if(!draft[c])draft[c]='#6B7280';});return draft;});},[conseillersList]);
+
+  // ── v10.0 : KPIs enrichis ─────────────────────────────────
+  const kpis=React.useMemo(()=>{
+    const now=new Date();
+    const moisActuel=now.getMonth(), anneeActuelle=now.getFullYear();
+    const total=entries.length;
+    const realises=entries.filter(e=>e.statut==='Réalisé').length;
+    const annules=entries.filter(e=>e.statut==='Annulé').length;
+    const base=total-annules;
+    const taux=base>0?Math.round(realises/base*100):0;
+    const ceMois=entries.filter(e=>{
+      if(!e.date)return false;
+      const d=new Date(e.date);
+      return d.getFullYear()===anneeActuelle&&d.getMonth()===moisActuel;
+    }).length;
+    const parConseiller={};
+    entries.forEach(e=>{if(e.conseiller){parConseiller[e.conseiller]=(parConseiller[e.conseiller]||0)+1;}});
+    const topConseiller=Object.entries(parConseiller).sort((a,b)=>b[1]-a[1])[0];
+    return{total,realises,taux,ceMois,topConseiller,annules};
+  },[entries,annee]);
+
+  async function handleSaveColors(){
+    setColorSaving(true);
+    try{const res=await apiFetch('saveColors',{colors:JSON.stringify(colorDraft)});if(!res.ok)throw new Error(res.error);applyColors(colorDraft);if(onSaveColors)onSaveColors(colorDraft);showToast('✅ Couleurs sauvegardées');addLog('Couleurs conseillers mises à jour','ok');}
+    catch(err){showToast('❌ '+err.message,false);}
+    finally{setColorSaving(false);}
+  }
+
+  async function handleSaveVisibility(){
+    setVisSaving(true);
+    try{const res=await apiFetch('saveVisibility',{visibility:JSON.stringify(visibility)});if(res.ok){showToast('✅ Visibilité sauvegardée');addLog('Visibilité frontend mise à jour','ok');}else throw new Error(res.error);}
+    catch(err){showToast('❌ '+err.message,false);}
+    finally{setVisSaving(false);}
+  }
+
+  function handleReset(){if(resetStep===0){setResetStep(1);return;}if(resetStep===1){setResetStep(2);return;}addLog('Réinitialisation BDD locale','info');showToast('✅ BDD locale vidée (Google Sheet intact)');setResetStep(0);onRefresh();}
+
+  // ── v10.0 : Export Timeline ────────────────────────────────
+  async function handleExport(){
+    setTlRunning(true);setTlLogs([]);setLastExport(null);
+    try{
+      const yr=parseInt(annee||new Date().getFullYear());
+      if(moisDeb>moisFin)throw new Error('Mois de début postérieur au mois de fin.');
+      const months=[];for(let m=moisDeb;m<=moisFin;m++)months.push(m);
+      addTlLog(`Traitement de ${entries.length} ateliers pour ${yr}…`);
+      const df=[];
+      for(const e of entries){
+        if(!e.date||!e.conseiller)continue;
+        const s=String(e.date).trim();let d=null;
+        const mFr=s.match(/^(?:\w+\s+)?(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+        if(mFr)d=new Date(Date.UTC(parseInt(mFr[3]),parseInt(mFr[2])-1,parseInt(mFr[1])));
+        if(!d){const mIso=s.match(/^(\d{4})-(\d{2})-(\d{2})/);if(mIso)d=new Date(Date.UTC(+mIso[1],+mIso[2]-1,+mIso[3]));}
+        if(!d||isNaN(d.getTime()))continue;
+        if(d.getUTCFullYear()!==yr)continue;
+        if(!months.includes(d.getUTCMonth()+1))continue;
+        df.push({date:d,horaire:e.horaire||'9H00',ampm:'',conseiller:String(e.conseiller).trim(),orienteur:String(e.orienteur||'').trim()||'—',statut:String(e.statut||'').trim()});
+      }
+      addTlLog(`✓ ${df.length} ateliers valides`,'ok');
+      const cons=conseillersList||[];
+      addTlLog(`→ ${cons.length} conseillers : ${cons.join(', ')}`);
+      if(df.length===0)throw new Error('Aucun atelier trouvé pour cette période. Vérifiez l\'année et les mois sélectionnés.');
+      const wb=window.generateCalendrier(df,yr,months,cons,addTlLog);
+      const outData=XLSX.write(wb,{type:'base64',bookType:'xlsx'});
+      const fileName=`Calendrier_ateliers_${yr}.xlsx`;
+      const dataUrl='data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,'+outData;
+      setLastExport({url:dataUrl,name:fileName});
+      const a=document.createElement('a');a.href=dataUrl;a.download=fileName;document.body.appendChild(a);a.click();document.body.removeChild(a);
+      addTlLog(`✓ "${fileName}" téléchargé`,'ok');
+    }catch(err){addTlLog('✗ '+err.message,'err');console.error(err);}
+    finally{setTlRunning(false);}
+  }
+
+  // ── v10.0 : Validation pré-import ─────────────────────────
+  function detectErrors(rows){
+    const errs=[];
+    rows.forEach((r,i)=>{
+      const ln='Ligne '+(i+2);
+      if(!r.statut)errs.push(ln+' : statut vide');
+      if(!r.date||r.date==='Invalid Date'||r.date==='NaN-NaN-NaN')errs.push(ln+' : date invalide ('+JSON.stringify(r.date)+')');
+      if(!r.conseiller)errs.push(ln+' : conseiller vide');
+      if(!r.commune)errs.push(ln+' : commune vide');
+    });
+    return errs;
+  }
+
+  async function doUpload(rows_raw){
+    setImportPreview(null);setImporting(true);setImportProgress(0);
+    const BATCH=5;let done=0;const batchErrors=[];let annule=false;
+    try{
+      setImportMsg(`${rows_raw.length} lignes — envoi vers Google Sheets…`);
+      for(let i=0;i<rows_raw.length;i+=BATCH){
+        if(cancelRef.current){annule=true;break;}
+        const batch=rows_raw.slice(i,i+BATCH);
+        const params=new URLSearchParams({action:'saveMany',entries:JSON.stringify(batch)});
+        try{
+          const res=await Promise.race([fetch(`${GS_URL}?${params.toString()}`),new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')),45000))]);
+          const data=await res.json();
+          if(!data.ok)throw new Error(data.error||'Erreur batch');
+          done+=batch.length;
+        }catch(be){batchErrors.push({from:i+1,to:Math.min(i+BATCH,rows_raw.length),msg:be.message});}
+        setImportProgress(Math.round(Math.min(done+(batchErrors.length*BATCH),rows_raw.length)/rows_raw.length*100));
+        setImportMsg(`${done}/${rows_raw.length} lignes importées…`);
+      }
+      // v10.0 : rapport d'import
+      const rapport={total:rows_raw.length,envoyes:done,batchErrors,anomaliesPre:preErrorCountRef.current,annule,ts:new Date().toLocaleString('fr-FR')};
+      setImportRapport(rapport);
+      const logMsg=`Import : ${done}/${rows_raw.length} envoyés`+(batchErrors.length>0?` · ${batchErrors.length} erreur(s) batch`:'')+(annule?' · annulé':'');
+      addLog(logMsg,batchErrors.length>0||annule?'err':'ok');
+      if(!annule&&batchErrors.length===0)showToast(`✅ ${done} ateliers importés`);
+      onRefresh();
+    }catch(err){showToast('❌ '+err.message,false);addLog('Erreur import : '+err.message,'err');}
+    finally{setImporting(false);setImportProgress(0);setImportMsg('');cancelRef.current=false;}
+  }
+
+  async function handleImportCSV(e){
+    const file=e.target.files[0];if(!file)return;e.target.value='';
+    try{
+      const text=await file.text();const lines=text.split('\n').filter(l=>l.trim());
+      if(lines.length<2)throw new Error('Fichier vide ou invalide');
+      const sep=(lines[0].split(';').length>lines[0].split(',').length)?';':',';
+      function parseCSVLine(line){const res=[];let cur='',inQ=false;for(let i=0;i<line.length;i++){const c=line[i];if(c==='"')inQ=!inQ;else if(c===sep&&!inQ){res.push(cur.trim());cur='';}else cur+=c;}res.push(cur.trim());return res;}
+      const headers=parseCSVLine(lines[0]).map(h=>h.replace(/^"|"$/g,'').trim());
+      const rows_raw=[];
+      for(let i=1;i<lines.length;i++){const vals=parseCSVLine(lines[i]);if(vals.length<3)continue;const row={};headers.forEach((h,idx)=>{row[h]=vals[idx]?vals[idx].replace(/^"|"$/g,'').trim():'';});if(!row._id&&!row.statut&&!row['Statut'])continue;
+        const g=(...keys)=>{for(const k of keys){if(row[k]!==undefined&&row[k]!=='')return row[k];}return '';};
+        rows_raw.push({_id:g('_id')||genId(),_n:parseInt(g('_n','N°'))||0,statut:g('statut','Statut')||'Planifié',date:normalizeDate(g('date','Date')),horaire:normalizeHoraire(g('horaire','Horaire')),ampm:g('ampm','AM/PM')||'AM',orienteur:g('orienteur','Orienteur'),commune:normalizeCommune(g('commune','Commune')),lieu:g('lieu','Lieu',"Lieu de l'atelier"),thematique:g('thematique','Thématique','Thematique'),inscrits:g('inscrits','Inscrits')===''?'':parseInt(g('inscrits','Inscrits'))||0,presents:g('presents','Présents')===''?'':parseInt(g('presents','Présents'))||0,public:g('pub','public','Public')||'Tous publics',conseiller:g('conseiller','Conseiller','Conseiller numérique'),materiel:MATERIELS.filter(m=>String(g(m)).trim().toUpperCase()==='OUI'),residence:g('residence','Résidence','Résidence des participants'),remarques:g('remarques','Remarques')});
+      }
+      pendingRowsRef.current=rows_raw;
+      setImportPreview({rows:rows_raw,errors:detectErrors(rows_raw),type:'CSV'});
+    }catch(err){showToast('❌ '+err.message,false);addLog('Erreur lecture CSV : '+err.message,'err');}
+  }
+
+  async function handleImportXLSX(e){
+    const file=e.target.files[0];if(!file)return;e.target.value='';
+    try{
+      const ab=await file.arrayBuffer();const wb=XLSX.read(ab);const ws=wb.Sheets[wb.SheetNames[0]];const rows=XLSX.utils.sheet_to_json(ws,{defval:''});
+      const g=(r,...keys)=>{for(const k of keys){if(r[k]!==undefined&&r[k]!=='')return r[k];}return '';};
+      const rows_raw=rows.map(r=>({
+        _id:g(r,'_id')||genId(),_n:parseInt(g(r,'_n','N°','n'))||0,
+        statut:g(r,'statut','Statut')||'Planifié',date:normalizeDate(g(r,'date','Date')),
+        horaire:normalizeHoraire(g(r,'horaire','Horaire')),ampm:g(r,'ampm','AM/PM')||'AM',
+        orienteur:g(r,'orienteur','Orienteur'),commune:normalizeCommune(g(r,'commune','Commune')),
+        lieu:g(r,'lieu','Lieu',"Lieu de l'atelier"),thematique:g(r,'thematique','Thématique','Thematique'),
+        inscrits:g(r,'inscrits','Inscrits')===''?'':parseInt(g(r,'inscrits','Inscrits'))||0,
+        presents:g(r,'presents','Présents','Presents')===''?'':parseInt(g(r,'presents','Présents','Presents'))||0,
+        public:g(r,'public','Public')||'Tous publics',conseiller:g(r,'conseiller','Conseiller','Conseiller numérique'),
+        materiel:MATERIELS.filter(m=>String(g(r,m)).trim().toUpperCase()==='OUI'),
+        residence:g(r,'residence','Résidence','Résidence des participants'),remarques:g(r,'remarques','Remarques'),
+      })).filter(r=>r.statut);
+      pendingRowsRef.current=rows_raw;
+      setImportPreview({rows:rows_raw,errors:detectErrors(rows_raw),type:'XLSX'});
+    }catch(err){showToast('❌ '+err.message,false);addLog('Erreur lecture XLSX : '+err.message,'err');}
+  }
+
+  const resetLabels=['🗑️ Réinitialiser la BDD locale','⚠️ Confirmer (1/2)','🚨 Confirmer définitivement (2/2)'];
+  const STATUT_COLOR={'Planifié':'#9683EC','Réalisé':'#70AD47','Annulé':'#FF5050','Non réalisé':'#FFC000','Reporté':'#ED7D31'};
+
+  return CE(React.Fragment,null,
+    CE(ImportPreviewModal,{preview:importPreview,onCancel:()=>{setImportPreview(null);pendingRowsRef.current=[];},onConfirm:()=>{preErrorCountRef.current=importPreview.errors.length;doUpload(pendingRowsRef.current);}}),
+    CE(ImportRapportModal,{rapport:importRapport,onClose:()=>setImportRapport(null)}),
+    CE('div',{ref:adminRef},
+
+      // ── v10.0 : KPIs enrichis ──
+      CE('div',{className:'card'},
+        CE('h2',{style:{marginBottom:14}},'⚙️ Panneau Administrateur'),
+        CE('div',{style:{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(130px,1fr))',gap:12,marginBottom:4}},
+          CE(FadeItem,{delay:0},CE('div',{className:'kpi',style:{borderLeft:'4px solid #1e3a8a',background:'#f0f4ff',textAlign:'left'}},CE('div',{className:'val',style:{color:'#1e3a8a'}},kpis.total),CE('div',{className:'lbl'},'Total ateliers'))),
+          CE(FadeItem,{delay:0.08},CE('div',{className:'kpi',style:{borderLeft:'4px solid #16a34a',background:'#f0fdf4',textAlign:'left'}},CE('div',{className:'val',style:{color:'#16a34a'}},kpis.realises),CE('div',{className:'lbl'},'Réalisés'))),
+          CE(FadeItem,{delay:0.16},CE('div',{className:'kpi',style:{borderLeft:'4px solid '+(kpis.taux>=75?'#16a34a':kpis.taux>=50?'#d97706':'#dc2626'),background:kpis.taux>=75?'#f0fdf4':kpis.taux>=50?'#fffbeb':'#fff5f5',textAlign:'left'}},CE('div',{className:'val',style:{color:kpis.taux>=75?'#16a34a':kpis.taux>=50?'#d97706':'#dc2626'}},kpis.taux+'%'),CE('div',{className:'lbl'},'Taux réalisation'))),
+          CE(FadeItem,{delay:0.24},CE('div',{className:'kpi',style:{borderLeft:'4px solid #9683EC',background:'#f5f3ff',textAlign:'left'}},CE('div',{className:'val',style:{color:'#9683EC'}},kpis.ceMois),CE('div',{className:'lbl'},'Ce mois-ci')))
+        ),
+        kpis.topConseiller&&CE('p',{style:{fontSize:11,color:'#9ca3af',marginTop:6,marginBottom:0}},
+          '🏆 Top conseiller : '+kpis.topConseiller[0]+' ('+kpis.topConseiller[1]+' atelier'+(kpis.topConseiller[1]>1?'s':'')+')'
+        )
+      ),
+
+      CE('div',{className:'admin-section'},
+        CE('h3',null,'🎨 Couleurs des conseillers'),
+        CE('p',{style:{fontSize:12,color:'#4a5568',marginBottom:16}},"Personnalisez la couleur de chaque conseiller numérique. S'applique au bandeau, au formulaire et aux cartes."),
+        CE('div',{style:{display:'flex',flexDirection:'column',gap:10}},
+          (conseillersList||Object.keys(CONSEILLER_COLORS)).map(c=>{
+            const hexVal=(colorDraft[c]||'#6B7280').toUpperCase();
+            return CE('div',{key:c,style:{display:'flex',alignItems:'center',gap:12,padding:'10px 14px',background:'#f8fafc',borderRadius:10,border:'1.5px solid #e2e8f0'}},
+              CE('input',{type:'color',value:(colorDraft[c]||'#6B7280').toLowerCase(),onChange:e=>setColorDraft(d=>({...d,[c]:e.target.value.toUpperCase()})),style:{width:44,height:44,borderRadius:8,border:'none',cursor:'pointer',padding:2,background:'none',flexShrink:0}}),
+              CE('div',{style:{width:36,height:36,borderRadius:8,background:colorDraft[c]||'#6B7280',flexShrink:0,boxShadow:'0 2px 6px rgba(0,0,0,.15)'}}),
+              CE('span',{style:{flex:1,fontWeight:700,fontSize:14,color:'#1a202c'}},c),
+              CE('input',{type:'text',value:hexVal,maxLength:7,onChange:e=>setColorDraft(d=>({...d,[c]:e.target.value.toUpperCase()})),onBlur:e=>{const v=e.target.value;if(/^#[0-9A-Fa-f]{6}$/.test(v))setColorDraft(d=>({...d,[c]:v.toUpperCase()}));else setColorDraft(d=>({...d,[c]:colorDraft[c]||'#6B7280'}));},style:{width:88,fontFamily:'monospace',fontSize:13,fontWeight:700,color:'#1a202c',padding:'6px 10px',border:'1.5px solid #e2e8f0',borderRadius:8,background:'#fff',textAlign:'center'}}),
+              CE('button',{onClick:()=>{const orig=CONSEILLER_COLORS[c]||'#6B7280';setColorDraft(d=>({...d,[c]:orig}));},style:{padding:'4px 10px',border:'1px solid #e2e8f0',borderRadius:6,fontSize:11,color:'#718096',cursor:'pointer',background:'#fff',flexShrink:0}},'↩ Reset')
+            );
+          })
+        ),
+        CE('button',{className:'btn btn-primary',style:{marginTop:16},onClick:handleSaveColors,disabled:colorSaving},colorSaving?'…':'💾 Sauvegarder les couleurs')
+      ),
+
+      visibility&&CE('div',{className:'admin-section'},
+        CE('h3',null,'👁️ Visibilité — Frontend conseillers'),
+        CE('p',{style:{fontSize:12,color:'#4a5568',marginBottom:12}},"Choisissez les onglets visibles dans l'interface conseiller."),
+        VIS_ITEMS.map(item=>CE('div',{key:item.key,className:'toggle-row'},
+          CE('div',null,CE('div',{className:'toggle-label'},item.label),CE('div',{className:'toggle-sub'},item.sub)),
+          CE('label',{className:'tgl'},CE('input',{type:'checkbox',checked:!!visibility[item.key],onChange:()=>setVisibility(v=>({...v,[item.key]:!v[item.key]}))}),CE('span',{className:'tgl-track'}))
+        )),
+        CE('button',{className:'btn btn-primary',style:{marginTop:16},onClick:handleSaveVisibility,disabled:visSaving},visSaving?'…':'💾 Enregistrer la visibilité')
+      ),
+
+      CE('div',{className:'admin-section'},
+        CE('h3',null,'📥 Import CSV'),
+        CE('p',{style:{fontSize:12,color:'#4a5568',marginBottom:12}},'Importe un fichier CSV compatible. Les entrées existantes sont fusionnées.'),
+        importing?CE('div',null,CE('p',{style:{fontSize:12,color:'#4a5568',marginBottom:6}},importMsg),CE('div',{className:'progress-bar'},CE('div',{className:'progress-fill',style:{width:importProgress+'%'}})),CE('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginTop:6}},CE('p',{style:{fontSize:11,color:'#718096'}},importProgress+'%'),CE('button',{className:'btn btn-danger btn-sm',onClick:()=>cancelRef.current=true},'⛔ Annuler'))):
+          CE('label',{style:{display:'inline-block',cursor:'pointer'}},CE('span',{className:'btn btn-primary'},'📂 Choisir un fichier CSV'),CE('input',{type:'file',accept:'.csv',style:{display:'none'},onChange:handleImportCSV}))
+      ),
+
+      CE('div',{className:'admin-section'},
+        CE('h3',null,'📊 Import XLSX'),
+        CE('p',{style:{fontSize:12,color:'#4a5568',marginBottom:12}},'Réimporte un fichier .xlsx précédemment exporté.'),
+        importing?CE('div',null,CE('p',{style:{fontSize:12,color:'#4a5568',marginBottom:6}},importMsg||'Import en cours…'),CE('div',{className:'progress-bar'},CE('div',{className:'progress-fill',style:{width:importProgress+'%'}})),CE('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginTop:6}},CE('p',{style:{fontSize:11,color:'#718096'}},importProgress+'%'),CE('button',{className:'btn btn-danger btn-sm',onClick:()=>cancelRef.current=true},'⛔ Annuler'))):
+          CE('label',{style:{display:'inline-block',cursor:'pointer'}},CE('span',{className:'btn btn-warn'},'📂 Choisir un fichier XLSX'),CE('input',{type:'file',accept:'.xlsx',style:{display:'none'},onChange:handleImportXLSX}))
+      ),
+
+      CE('div',{className:'admin-section'},
+        CE('h3',null,'🔍 Vérification cohérence'),
+        CE('p',{style:{fontSize:12,color:'#4a5568',marginBottom:12}},'Analyse les données chargées pour détecter les anomalies.'),
+        CE('button',{className:'btn btn-primary',onClick:()=>{
+          const now=new Date();
+          const anomalies=[];
+          // Doublons _id
+          const ids=entries.map(e=>e._id);
+          const dupIds=ids.filter((id,i)=>ids.indexOf(id)!==i);
+          if(dupIds.length>0) anomalies.push('⚠️ '+dupIds.length+' doublon'+(dupIds.length>1?'s':'')+' d\'identifiant détecté'+(dupIds.length>1?'s':''));
+          // Dates dans le futur (> aujourd'hui + 30j)
+          const futurLimit=new Date(now.getTime()+30*24*60*60*1000);
+          const futurEntries=entries.filter(e=>{if(!e.date)return false;const d=new Date(e.date);return d>futurLimit;});
+          if(futurEntries.length>0) anomalies.push('📅 '+futurEntries.length+' atelier'+(futurEntries.length>1?'s':'')+' planifié'+(futurEntries.length>1?'s':'')+' à plus de 30j dans le futur');
+          // Ateliers sans conseiller
+          const sansConseiller=entries.filter(e=>!e.conseiller);
+          if(sansConseiller.length>0) anomalies.push('👤 '+sansConseiller.length+' atelier'+(sansConseiller.length>1?'s':'')+' sans conseiller');
+          // Ateliers sans date
+          const sansDate=entries.filter(e=>!e.date||e.date==='Invalid Date');
+          if(sansDate.length>0) anomalies.push('📅 '+sansDate.length+' atelier'+(sansDate.length>1?'s':'')+' sans date valide');
+          // Présents > inscrits
+          const presentsAberrants=entries.filter(e=>e.presents&&e.inscrits&&parseInt(e.presents)>parseInt(e.inscrits));
+          if(presentsAberrants.length>0) anomalies.push('📊 '+presentsAberrants.length+' atelier'+(presentsAberrants.length>1?'s':'')+' avec présents > inscrits');
+          const msg=anomalies.length===0?'OK : aucune anomalie ('+entries.length+' ateliers)':anomalies.join(' — ');
+          addLog('Vérification cohérence : '+(anomalies.length===0?'OK':anomalies.length+' anomalie'+(anomalies.length>1?'s':'')),anomalies.length===0?'ok':'err');
+          alert(msg);
+        }},'🔍 Analyser ('+entries.length+' ateliers)')
+      ),
+
+      CE('div',{className:'admin-section'},
+        CE('h3',null,'🗑️ Réinitialiser la base de données'),
+        CE('p',{style:{fontSize:12,color:'#4a5568',marginBottom:12}},'Vide uniquement le cache local. Le Google Sheet reste intact.'),
+        resetStep>0&&CE('div',{className:'confirm-box'},CE('p',null,resetStep===1?'Êtes-vous sûr ? Cette action vide le cache local.':'Dernière confirmation — cliquez pour confirmer.')),
+        CE('div',{style:{display:'flex',gap:10}},
+          CE('button',{className:'btn btn-danger',onClick:handleReset},resetLabels[resetStep]),
+          resetStep>0&&CE('button',{className:'btn btn-secondary',onClick:()=>setResetStep(0)},'Annuler')
+        )
+      ),
+
+      // v10.0 : Export Timeline (restauré depuis v9.5)
+      CE('div',{className:'admin-section'},
+        CE('h3',null,'📅 Export Timeline Ateliers'),
+        CE('p',{style:{fontSize:12,color:'#4a5568',marginBottom:14}},'Génère le planning timeline directement depuis les données chargées. Année et conseillers pris depuis la sidebar.'),
+        CE('div',{style:{display:'flex',gap:12,alignItems:'flex-end',flexWrap:'wrap',marginBottom:moisDeb>moisFin?6:10}},
+          CE('div',null,CE('label',null,'Mois début'),CE('select',{value:moisDeb,onChange:e=>changeMoisDeb(+e.target.value),style:{marginTop:4}},MOIS_CAL.map((m,i)=>CE('option',{key:i,value:i+1},m)))),
+          CE('div',null,CE('label',null,'Mois fin'),CE('select',{value:moisFin,onChange:e=>changeMoisFin(+e.target.value),style:{marginTop:4}},MOIS_CAL.map((m,i)=>CE('option',{key:i,value:i+1},m)))),
+          CE('button',{className:'btn btn-success',style:{alignSelf:'flex-end'},disabled:tlRunning||moisDeb>moisFin||entries.filter(e=>e.date&&e.conseiller).length===0,onClick:handleExport},
+            tlRunning?CE('span',null,CE('span',{className:'spinner'}),'Génération…'):'📥 Générer & Télécharger')
+        ),
+        moisDeb>moisFin&&CE('p',{style:{fontSize:12,color:'#c53030',marginBottom:10}},'⚠️ Le mois de début doit être antérieur ou égal au mois de fin.'),
+        !( moisDeb>moisFin)&&CE('div',{style:{display:'flex',gap:8,marginBottom:12,flexWrap:'wrap'}},
+          CE('span',{style:{fontSize:12,background:'#ebf8ff',border:'1px solid #bee3f8',color:'#2b6cb0',borderRadius:6,padding:'3px 10px'}},
+            `📊 ${entries.filter(e=>{if(!e.date||!e.conseiller)return false;const m=String(e.date).match(/^(\d{4})-(\d{2})/);return m&&parseInt(m[1])===parseInt(annee)&&parseInt(m[2])>=moisDeb&&parseInt(m[2])<=moisFin;}).length} ateliers · ${conseillersList?conseillersList.length:0} conseillers`),
+          CE('span',{style:{fontSize:12,background:'#f0fff4',border:'1px solid #9ae6b4',color:'#276749',borderRadius:6,padding:'3px 10px'}},
+            `📅 ${MOIS_SHORT_CAL[moisDeb-1]} → ${MOIS_SHORT_CAL[moisFin-1]} ${annee}`)
+        ),
+        tlLogs.length>0&&CE('div',{style:{background:'#f8fafc',border:'1px solid #e2e8f0',borderRadius:8,padding:'10px 14px',maxHeight:160,overflowY:'auto',fontSize:12}},
+          tlLogs.map((l,i)=>CE('div',{key:i,className:'log-entry log-'+l.type,style:{marginBottom:4}},CE('span',{className:'log-time'},l.t+' '),CE('span',null,l.msg)))
+        ),
+        lastExport&&CE('div',{style:{marginTop:10,padding:'10px 14px',background:'#f0fff4',border:'1px solid #9ae6b4',borderRadius:8,display:'flex',alignItems:'center',gap:10,fontSize:13}},
+          CE('span',null,'📎 Si le téléchargement ne s\'est pas lancé :'),
+          CE('a',{href:lastExport.url,download:lastExport.name,style:{color:'#276749',fontWeight:700,textDecoration:'underline'}},lastExport.name)
+        )
+      ),
+
+      // v10.0 : Changement mot de passe (restauré depuis v9.5)
+      CE(ChangerMotDePasse,null)
+    )
+  );
+}
+
+// ════════════════════════════════════════════════════════════
+// ── VueAgendaSemaine — Planning hebdo AM/PM ─────────────────
+// ════════════════════════════════════════════════════════════
+function VueAgendaSemaine({entries,onEdit,onDelete,onDuplicate,canDelete,initConseiller,accentColor}){
+  const[weekOffset,setWeekOffset]=React.useState(0);
+  const[filterConseiller,setFilterConseiller]=React.useState(initConseiller||'Tous');
+  const[selectedEntry,setSelectedEntry]=React.useState(null);
+  const[confirmDel,setConfirmDel]=React.useState(null);
+
+  // ── Calcul semaine ──────────────────────────────────────────
+  function getMondayOfWeek(offset){
+    const t=new Date();const day=t.getDay();
+    const diff=day===0?-6:1-day;
+    const m=new Date(t);m.setDate(t.getDate()+diff+offset*7);m.setHours(0,0,0,0);return m;
+  }
+  const monday=getMondayOfWeek(weekOffset);
+  const weekDays=Array.from({length:5},(_,i)=>{const d=new Date(monday);d.setDate(monday.getDate()+i);return d;});
+  const dk=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  const firstDay=dk(weekDays[0]);const lastDay=dk(weekDays[4]);
+
+  // ── Filtres ─────────────────────────────────────────────────
+  const conseillers=[...new Set(entries.map(e=>e.conseiller).filter(Boolean))].sort();
+  const weekEntries=entries.filter(e=>e.date>=firstDay&&e.date<=lastDay);
+  const filtered=filterConseiller==='Tous'?weekEntries:weekEntries.filter(e=>e.conseiller===filterConseiller);
+
+  // ── AM/PM ───────────────────────────────────────────────────
+  function isAM(e){
+    if(e.ampm)return e.ampm==='AM';
+    const h=e.horaire?parseInt(String(e.horaire).replace(/[Hh]/,':').split(':')[0])||9:9;
+    return h<12;
+  }
+
+  // ── Slots par jour ──────────────────────────────────────────
+  const slots={};
+  weekDays.forEach(d=>{const k=dk(d);slots[k]={AM:[],PM:[]};});
+  filtered.forEach(e=>{if(slots[e.date])slots[e.date][isAM(e)?'AM':'PM'].push(e);});
+
+  // ── Libellés ────────────────────────────────────────────────
+  const MOIS_LONG=['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
+  function fmtWeekLabel(){
+    const d1=weekDays[0];const d5=weekDays[4];
+    if(d1.getMonth()===d5.getMonth())return`${d1.getDate()} – ${d5.getDate()} ${MOIS_LONG[d5.getMonth()]} ${d5.getFullYear()}`;
+    return`${d1.getDate()} ${MOIS_LONG[d1.getMonth()]} – ${d5.getDate()} ${MOIS_LONG[d5.getMonth()]} ${d5.getFullYear()}`;
+  }
+
+  // ── KPIs semaine ────────────────────────────────────────────
+  const todayStr=todayLocal();
+  const totalW=filtered.length;
+  const planifies=filtered.filter(e=>e.statut==='Planifié').length;
+  const realises=filtered.filter(e=>e.statut==='Réalisé').length;
+  const retards=filtered.filter(e=>isRetard(e)).length;
+
+  // ── Card atelier ────────────────────────────────────────────
+  function renderCard(e){
+    const color=conseillerColor(e.conseiller);
+    const statColor=STATUT_COLORS[e.statut]||'#94a3b8';
+    const retard=isRetard(e);
+    return CE('div',{
+      key:e._id,
+      onClick:()=>setSelectedEntry(e),
+      style:{
+        background:'#fff',borderRadius:8,borderLeft:`4px solid ${color}`,
+        padding:'6px 8px',marginBottom:4,cursor:'pointer',
+        boxShadow:'0 1px 4px rgba(0,0,0,.09)',fontSize:11,
+        transition:'box-shadow .15s, transform .12s',
+        outline: retard?`1.5px solid #fca5a5`:'none'
+      }
+    },
+      CE('div',{style:{display:'flex',alignItems:'center',gap:4,marginBottom:2}},
+        CE('span',{style:{width:6,height:6,borderRadius:'50%',background:statColor,flexShrink:0,display:'inline-block'}}),
+        CE('span',{style:{fontWeight:700,color,fontSize:10,flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}},e.conseiller||'—')
+      ),
+      CE('div',{style:{fontWeight:600,color:'#1a202c',lineHeight:1.25,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',marginBottom:1}},
+        e.thematique||e.commune||'—'),
+      e.commune&&e.thematique&&CE('div',{style:{color:'#718096',fontSize:10,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}},e.commune),
+      e.horaire&&CE('div',{style:{color:'#a0aec0',fontSize:10,marginTop:1}},e.horaire),
+      retard&&CE('div',{style:{color:'#dc2626',fontSize:9,fontWeight:700,marginTop:2}},'⚠ À mettre à jour')
+    );
+  }
+
+  // ── Side panel ──────────────────────────────────────────────
+  function SidePanel(){
+    if(!selectedEntry)return null;
+    const e=selectedEntry;const color=conseillerColor(e.conseiller);
+    return CE(React.Fragment,null,
+      CE('div',{className:'side-panel-overlay',onClick:()=>setSelectedEntry(null)}),
+      CE('div',{className:'side-panel open'},
+        CE('div',{className:'side-panel-header'},
+          CE('h3',{style:{fontSize:14}},e.thematique||e.commune||'Atelier'),
+          CE('button',{onClick:()=>setSelectedEntry(null),style:{background:'none',border:'none',cursor:'pointer',fontSize:18,color:'#718096',padding:0}},'✕')
+        ),
+        CE('div',{className:'side-panel-body'},
+          CE('div',{className:'sp-field'},CE('label',null,'Statut'),badgePill(e.statut,isRetard(e))),
+          CE('div',{className:'sp-field'},CE('label',null,'Conseiller'),CE('div',{style:{fontWeight:700,color,fontSize:13}},e.conseiller||'—')),
+          CE('div',{className:'sp-field'},CE('label',null,'Date & Créneau'),
+            CE('div',{style:{fontWeight:600}},fmtDate(e.date)+(e.horaire?' — '+e.horaire:'')+(e.ampm?' ('+e.ampm+')':''))),
+          CE('div',{className:'sp-field'},CE('label',null,'Commune'),CE('div',null,e.commune||'—')),
+          CE('div',{className:'sp-field'},CE('label',null,'Thématique'),CE('div',null,e.thematique||'—')),
+          e.orienteur&&CE('div',{className:'sp-field'},CE('label',null,'Orienteur'),CE('div',null,e.orienteur)),
+          (e.inscrits||e.presents)&&CE('div',{className:'sp-field'},CE('label',null,'Participants'),
+            CE('div',null,(e.presents||'—')+' présents / '+(e.inscrits||'—')+' inscrits')),
+          e.public&&CE('div',{className:'sp-field'},CE('label',null,'Public'),CE('div',null,e.public)),
+          e.remarques&&CE('div',{className:'sp-field'},CE('label',null,'Remarques'),
+            CE('div',{style:{fontSize:12,color:'#4a5568',fontStyle:'italic',lineHeight:1.5}},e.remarques))
+        ),
+        CE('div',{className:'side-panel-footer'},
+          onEdit&&CE('button',{className:'btn btn-primary btn-sm',onClick:()=>{onEdit(e._id);setSelectedEntry(null);}},'✏️ Modifier'),
+          onDuplicate&&CE('button',{className:'btn btn-secondary btn-sm',onClick:()=>{onDuplicate(e);setSelectedEntry(null);}},'📋 Dupliquer'),
+          canDelete&&CE('button',{className:'btn btn-danger btn-sm',
+            onClick:()=>{setConfirmDel({id:e._id,label:`${fmtDate(e.date)} — ${e.thematique||e.commune||e._id}`});setSelectedEntry(null);}
+          },'🗑️ Supprimer')
+        )
+      )
+    );
+  }
+
+  return CE('div',null,
+    CE('div',{className:'card'},
+
+      // ── Barre navigation ───────────────────────────────────
+      CE('div',{style:{display:'flex',alignItems:'center',gap:8,marginBottom:14,flexWrap:'wrap'}},
+        CE('div',{style:{display:'flex',gap:4}},
+          CE('button',{className:'btn btn-secondary btn-sm',onClick:()=>setWeekOffset(w=>w-1)},'← Préc.'),
+          CE('button',{className:'btn btn-secondary btn-sm',onClick:()=>setWeekOffset(0),disabled:weekOffset===0,style:{opacity:weekOffset===0?.4:1}},'Auj.'),
+          CE('button',{className:'btn btn-secondary btn-sm',onClick:()=>setWeekOffset(w=>w+1)},'Suiv. →')
+        ),
+        CE('h2',{style:{margin:0,flex:1,textAlign:'center',fontSize:14,fontWeight:700,color:'#1a202c'}},
+          '🗓️ Semaine du '+fmtWeekLabel()),
+        CE('div',{style:{display:'flex',gap:5,flexWrap:'wrap'}},
+          CE('span',{style:{fontSize:11,background:'#f1f5f9',borderRadius:20,padding:'3px 10px',color:'#475569'}},totalW+' atelier'+(totalW!==1?'s':'')),
+          planifies>0&&CE('span',{style:{fontSize:11,background:'#dbeafe',borderRadius:20,padding:'3px 10px',color:'#1d4ed8'}},planifies+' planifié'+(planifies>1?'s':'')),
+          realises>0&&CE('span',{style:{fontSize:11,background:'#dcfce7',borderRadius:20,padding:'3px 10px',color:'#166534'}},realises+' réalisé'+(realises>1?'s':'')),
+          retards>0&&CE('span',{style:{fontSize:11,background:'#fee2e2',borderRadius:20,padding:'3px 10px',color:'#991b1b',fontWeight:700}},'⚠ '+retards+' retard'+(retards>1?'s':''))
+        )
+      ),
+
+      // ── Chips conseillers ──────────────────────────────────
+      CE('div',{className:'chip-bar',style:{marginBottom:14}},
+        CE('span',{className:'chip chip-all'+(filterConseiller==='Tous'?' active':''),onClick:()=>setFilterConseiller('Tous')},
+          CE('span',{className:'chip-dot'}),'Tous'),
+        conseillers.map(c=>CE('span',{
+          key:c,className:'chip'+(filterConseiller===c?' active':''),
+          style:{color:conseillerColor(c)},
+          onClick:()=>setFilterConseiller(f=>f===c?'Tous':c)
+        },CE('span',{className:'chip-dot',style:{background:conseillerColor(c)}}),c))
+      ),
+
+      // ── Grille ────────────────────────────────────────────
+      CE('div',{style:{overflowX:'auto'}},
+        CE('table',{style:{width:'100%',borderCollapse:'separate',borderSpacing:'4px 0',tableLayout:'fixed',minWidth:580}},
+          CE('thead',null,
+            CE('tr',null,
+              CE('th',{style:{width:36,border:'none',background:'transparent'}}),
+              weekDays.map(d=>{
+                const dkey=dk(d);const isToday=dkey===todayStr;
+                const count=(slots[dkey]?slots[dkey].AM.length+slots[dkey].PM.length:0);
+                const acc=isToday?accentColor:'#6b7280';
+                return CE('th',{key:dkey,style:{
+                  padding:'10px 6px 8px',textAlign:'center',border:'none',
+                  background:isToday?accentColor+'15':'#f8fafc',
+                  borderRadius:'12px 12px 0 0',fontWeight:400
+                }},
+                  CE('div',{style:{fontSize:10,fontWeight:800,textTransform:'uppercase',letterSpacing:'.08em',color:acc}},JOURS[d.getDay()]),
+                  CE('div',{style:{fontSize:26,fontWeight:800,lineHeight:1.1,color:isToday?accentColor:'#1a202c',margin:'2px 0'}},d.getDate()),
+                  CE('div',{style:{fontSize:10,color:'#9ca3af',marginBottom:4}},MOIS[d.getMonth()]),
+                  count>0&&CE('span',{style:{
+                    display:'inline-block',background:isToday?accentColor:'#e2e8f0',
+                    color:isToday?'#fff':'#4a5568',borderRadius:20,
+                    fontSize:10,fontWeight:700,padding:'1px 8px'
+                  }},count)
+                );
+              })
+            )
+          ),
+          CE('tbody',null,
+            ['AM','PM'].map((slot,si)=>CE('tr',{key:slot},
+              CE('td',{style:{
+                textAlign:'center',fontWeight:800,fontSize:11,
+                color:slot==='AM'?'#2563eb':'#d97706',
+                background:slot==='AM'?'#eff6ff':'#fffbeb',
+                borderRadius:8,padding:'6px 2px',verticalAlign:'middle',width:36
+              }},slot),
+              weekDays.map(d=>{
+                const dkey=dk(d);const isToday=dkey===todayStr;
+                const items=slots[dkey]?slots[dkey][slot]:[];
+                return CE('td',{key:dkey+slot,style:{
+                  verticalAlign:'top',padding:4,
+                  background:isToday
+                    ?(slot==='AM'?accentColor+'12':accentColor+'08')
+                    :(slot==='AM'?'#f8fafc':'#fafafa'),
+                  borderBottom:si===0?`1px dashed ${isToday?accentColor+'40':'#e2e8f0'}`:'none',
+                  borderRadius:si===1?'0 0 10px 10px':'0',
+                  border:isToday&&si===1?`1px solid ${accentColor}30`:'',
+                  minHeight:70
+                }},
+                  items.length>0
+                    ?items.map(e=>renderCard(e))
+                    :CE('div',{style:{height:66,display:'flex',alignItems:'center',justifyContent:'center'}},
+                        CE('span',{style:{fontSize:14,color:'#e2e8f0'}},slot==='AM'?'☀️':'🌙')
+                      )
+                );
+              })
+            ))
+          )
+        )
+      )
+    ),
+
+    CE(SidePanel,null),
+
+    confirmDel&&CE(ConfirmModal,{
+      item:confirmDel,
+      onConfirm:async()=>{if(onDelete)await onDelete(confirmDel.id);setConfirmDel(null);},
+      onCancel:()=>setConfirmDel(null)
+    })
+  );
+}
+
+
+// (évite les conflits de hoisting inter-scripts)
+window.VueAdmin = VueAdminV10;
+
+
+// ── VueRoadmap — Timeline & Densité par conseiller ──────────
+// v10.0 — intégration native BDD Google Sheets
+// ════════════════════════════════════════════════════════════
+function VueRoadmap({entries,annee,conseillers}){
+  const[filterConseiller,setFilterConseiller]=React.useState('Tous');
+  const[filterStatut,setFilterStatut]=React.useState('Tous');
+  const[hoveredItem,setHoveredItem]=React.useState(null);
+  const[tooltipPos,setTooltipPos]=React.useState({x:0,y:0});
+  const[viewMode,setViewMode]=React.useState('gantt');
+  const[tooltip,setTooltip]=React.useState(null);
+  const[dateFrom,setDateFrom]=React.useState(annee+'-01-01');
+  const[dateTo,setDateTo]=React.useState(annee+'-12-31');
+
+  // Resync période quand l'année sidebar change
+  React.useEffect(()=>{setDateFrom(annee+'-01-01');setDateTo(annee+'-12-31');},[annee]);
+
+  const MOIS_FR=['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
+
+  const STATUT_STYLE={
+    'Réalisé':    {bg:'#16a34a',border:'#15803d',label:'✓'},
+    'Planifié':   {bg:'#2563eb',border:'#1d4ed8',label:'◷'},
+    'Annulé':     {bg:'#dc2626',border:'#b91c1c',label:'✕'},
+    'Non réalisé':{bg:'#d97706',border:'#b45309',label:'!'},
+    'Reporté':    {bg:'#9333ea',border:'#7e22ce',label:'↺'},
+  };
+
+  // Raccourcis de période
+  const PRESETS=[
+    {label:'Année',from:annee+'-01-01',to:annee+'-12-31'},
+    {label:'T1',from:annee+'-01-01',to:annee+'-03-31'},
+    {label:'T2',from:annee+'-04-01',to:annee+'-06-30'},
+    {label:'T3',from:annee+'-07-01',to:annee+'-09-30'},
+    {label:'T4',from:annee+'-10-01',to:annee+'-12-31'},
+    {label:'S1',from:annee+'-01-01',to:annee+'-06-30'},
+    {label:'S2',from:annee+'-07-01',to:annee+'-12-31'},
+  ];
+  const activePreset=PRESETS.find(p=>p.from===dateFrom&&p.to===dateTo)||null;
+
+  // Validation : from <= to
+  const dateError=dateFrom&&dateTo&&dateFrom>dateTo;
+
+  const rangeEntries=React.useMemo(()=>entries.filter(e=>{
+    if(!e.date)return false;
+    const d=String(e.date).slice(0,10);
+    return d>=dateFrom&&d<=dateTo;
+  }),[entries,dateFrom,dateTo]);
+
+  const filtered=React.useMemo(()=>rangeEntries.filter(e=>{
+    if(filterConseiller!=='Tous'&&e.conseiller!==filterConseiller)return false;
+    if(filterStatut!=='Tous'&&e.statut!==filterStatut)return false;
+    return true;
+  }),[rangeEntries,filterConseiller,filterStatut]);
+
+  const kpis=React.useMemo(()=>{
+    const total=filtered.length;
+    const realises=filtered.filter(e=>e.statut==='Réalisé').length;
+    const presents=filtered.reduce((s,e)=>s+(parseInt(e.presents)||0),0);
+    const taux=total>0?Math.round(realises/total*100):0;
+    return{total,realises,presents,taux};
+  },[filtered]);
+
+  // posPercent basé sur la période sélectionnée
+  function posPercent(dateStr){
+    try{
+      const d=new Date(String(dateStr).slice(0,10)+'T00:00:00');
+      const start=new Date(dateFrom+'T00:00:00');
+      const end=new Date(dateTo+'T00:00:00');
+      const span=end-start||1;
+      return Math.max(0,Math.min(100,((d-start)/span)*100));
+    }catch{return 0;}
+  }
+
+  // Marqueurs de mois dans la plage sélectionnée
+  const monthMarkers=React.useMemo(()=>{
+    const markers=[];
+    const start=new Date(dateFrom+'T00:00:00');
+    const end=new Date(dateTo+'T00:00:00');
+    const cur=new Date(Date.UTC(start.getFullYear(),start.getMonth(),1));
+    while(cur<=end){
+      const label=MOIS_FR[cur.getMonth()]+(cur.getFullYear()!==parseInt(annee)?' '+String(cur.getFullYear()).slice(2):'');
+      const ds=cur.getFullYear()+'-'+String(cur.getMonth()+1).padStart(2,'0')+'-01';
+      markers.push({label,pos:posPercent(ds)});
+      cur.setMonth(cur.getMonth()+1);
+    }
+    return markers;
+  },[dateFrom,dateTo,annee]);
+
+  const todayStr=new Date().toISOString().slice(0,10);
+  const todayInRange=todayStr>=dateFrom&&todayStr<=dateTo;
+  const todayPos=todayInRange?posPercent(todayStr):null;
+
+  const displayedConseillers=filterConseiller==='Tous'
+    ?(conseillers&&conseillers.length>0?conseillers:[...new Set(rangeEntries.map(e=>e.conseiller).filter(Boolean))])
+    :[filterConseiller];
+
+  function handleMouseMove(e){setTooltipPos({x:e.clientX,y:e.clientY});}
+
+  return CE('div',{onMouseMove:handleMouseMove},
+
+    // ── KPIs + Filtres ──────────────────────────────────────
+    CE('div',{className:'card',style:{marginBottom:12}},
+
+      // Titre + toggle vue
+      CE('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:10,marginBottom:14}},
+        CE('h2',{style:{margin:0}},'🛣️ Roadmap '+annee),
+        CE('div',{style:{display:'flex',background:'#f1f5f9',borderRadius:8,padding:3,gap:2}},
+          [['gantt','📊 Timeline'],['densite','🔥 Densité']].map(([v,l])=>
+            CE('button',{key:v,onClick:()=>setViewMode(v),style:{
+              padding:'5px 14px',borderRadius:6,border:'none',cursor:'pointer',
+              fontSize:12,fontWeight:600,
+              background:viewMode===v?'#1e3a8a':'transparent',
+              color:viewMode===v?'#fff':'#718096',transition:'all .2s'
+            }},l)
+          )
+        )
+      ),
+
+      // ── Sélecteur de période ────────────────────────────────
+      CE('div',{style:{
+        display:'flex',gap:10,alignItems:'center',flexWrap:'wrap',
+        background:'#f8fafc',borderRadius:8,padding:'10px 14px',
+        border:'1px solid '+(dateError?'#fca5a5':'#e2e8f0'),
+        marginBottom:14
+      }},
+        CE('span',{style:{fontSize:11,fontWeight:700,color:'#4a5568',whiteSpace:'nowrap'}},'📅 Période'),
+        // Raccourcis
+        CE('div',{style:{display:'flex',gap:4,flexWrap:'wrap'}},
+          PRESETS.map(p=>CE('button',{key:p.label,onClick:()=>{setDateFrom(p.from);setDateTo(p.to);},style:{
+            padding:'3px 9px',borderRadius:6,cursor:'pointer',fontSize:11,fontWeight:600,
+            border:'1.5px solid '+(activePreset&&activePreset.label===p.label?'#1e3a8a':'#e2e8f0'),
+            background:activePreset&&activePreset.label===p.label?'#1e3a8a':'#fff',
+            color:activePreset&&activePreset.label===p.label?'#fff':'#4a5568',
+            transition:'all .15s'
+          }},p.label))
+        ),
+        // Séparateur
+        CE('div',{style:{width:1,height:24,background:'#e2e8f0',flexShrink:0}}),
+        // Inputs date
+        CE('div',{style:{display:'flex',gap:6,alignItems:'center',flexWrap:'wrap'}},
+          CE('input',{type:'date',value:dateFrom,
+            onChange:e=>{setDateFrom(e.target.value);},
+            style:{
+              padding:'4px 8px',border:'1.5px solid '+(dateError?'#fca5a5':'#e2e8f0'),
+              borderRadius:6,fontSize:12,color:'#1a202c',background:'#fff',cursor:'pointer',outline:'none'
+            }
+          }),
+          CE('span',{style:{fontSize:12,color:'#9ca3af',fontWeight:600}},'→'),
+          CE('input',{type:'date',value:dateTo,
+            onChange:e=>{setDateTo(e.target.value);},
+            style:{
+              padding:'4px 8px',border:'1.5px solid '+(dateError?'#fca5a5':'#e2e8f0'),
+              borderRadius:6,fontSize:12,color:'#1a202c',background:'#fff',cursor:'pointer',outline:'none'
+            }
+          }),
+          dateError&&CE('span',{style:{fontSize:11,color:'#dc2626',fontWeight:600}},'⚠ Date de début > fin')
+        )
+      ),
+
+      // KPIs
+      CE('div',{style:{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:10,marginBottom:14}},
+        [
+          {label:'Ateliers',value:kpis.total,color:'#1e3a8a'},
+          {label:'Réalisés',value:kpis.realises,color:'#16a34a'},
+          {label:'Participants',value:kpis.presents,color:'#d97706'},
+          {label:'Taux réalisation',value:kpis.taux+'%',color:kpis.taux>=75?'#16a34a':kpis.taux>=50?'#d97706':'#dc2626'},
+        ].map(k=>CE('div',{key:k.label,style:{
+          background:'#f8fafc',borderRadius:8,padding:'10px 14px',
+          borderLeft:'3px solid '+k.color
+        }},
+          CE('div',{style:{fontSize:22,fontWeight:800,color:k.color}},k.value),
+          CE('div',{style:{fontSize:11,color:'#718096',marginTop:2}},k.label)
+        ))
+      ),
+
+      // Filtres conseiller + statut
+      CE('div',{style:{display:'flex',gap:12,flexWrap:'wrap',alignItems:'center'}},
+        CE('div',{style:{display:'flex',gap:5,alignItems:'center',flexWrap:'wrap'}},
+          CE('span',{style:{fontSize:11,color:'#9ca3af',fontWeight:600}},'Conseiller :'),
+          ['Tous',...(conseillers||[])].map(c=>CE('button',{key:c,onClick:()=>setFilterConseiller(c),style:{
+            padding:'3px 10px',borderRadius:20,cursor:'pointer',fontSize:11,
+            fontWeight:filterConseiller===c?700:400,
+            border:'1.5px solid '+(filterConseiller===c?conseillerColor(c)||'#1e3a8a':'#e2e8f0'),
+            background:filterConseiller===c?(conseillerColor(c)||'#1e3a8a')+'18':'transparent',
+            color:filterConseiller===c?conseillerColor(c)||'#1e3a8a':'#4a5568',
+            transition:'all .15s'
+          }},c==='Tous'?'Tous':c.split(' ')[0]))
+        ),
+        CE('div',{style:{display:'flex',gap:5,alignItems:'center',flexWrap:'wrap'}},
+          CE('span',{style:{fontSize:11,color:'#9ca3af',fontWeight:600}},'Statut :'),
+          ['Tous',...Object.keys(STATUT_STYLE)].map(s=>CE('button',{key:s,onClick:()=>setFilterStatut(s),style:{
+            padding:'3px 10px',borderRadius:20,cursor:'pointer',fontSize:11,
+            fontWeight:filterStatut===s?700:400,
+            border:'1.5px solid '+(filterStatut===s?(STATUT_STYLE[s]?.bg||'#1e3a8a'):'#e2e8f0'),
+            background:filterStatut===s?(STATUT_STYLE[s]?.bg||'#1e3a8a')+'18':'transparent',
+            color:filterStatut===s?(STATUT_STYLE[s]?.bg||'#1e3a8a'):'#4a5568',
+            transition:'all .15s'
+          }},s))
+        )
+      )
+    ),
+
+    // ── GANTT ────────────────────────────────────────────────
+    viewMode==='gantt'&&CE('div',{className:'card',style:{padding:0,overflow:'hidden'}},
+      // En-tête mois
+      CE('div',{style:{display:'flex',borderBottom:'1px solid #e2e8f0',background:'#f8fafc'}},
+        CE('div',{style:{width:170,minWidth:170,padding:'8px 16px',fontSize:10,fontWeight:700,color:'#9ca3af',textTransform:'uppercase',letterSpacing:'.08em',borderRight:'1px solid #e2e8f0'}},'Conseiller'),
+        CE('div',{style:{flex:1,position:'relative',height:32}},
+          monthMarkers.map((m,i)=>CE('div',{key:i,style:{
+            position:'absolute',left:m.pos+'%',top:0,height:'100%',
+            borderLeft:'1px dashed #e2e8f0',display:'flex',alignItems:'center',paddingLeft:5
+          }},CE('span',{style:{fontSize:10,fontWeight:700,color:'#9ca3af',whiteSpace:'nowrap'}},m.label))),
+          todayPos!==null&&CE('div',{style:{
+            position:'absolute',left:todayPos+'%',top:0,height:'100%',
+            borderLeft:'2px solid #dc2626',pointerEvents:'none'
+          }},CE('span',{style:{
+            position:'absolute',top:6,left:4,fontSize:9,color:'#dc2626',
+            fontWeight:700,whiteSpace:'nowrap',background:'#fff',padding:'0 2px',borderRadius:2
+          }},'Auj.'))
+        )
+      ),
+      // Lignes conseillers
+      displayedConseillers.map((conseiller,ci)=>{
+        const col=conseillerColor(conseiller)||'#1e3a8a';
+        const items=filtered.filter(e=>e.conseiller===conseiller);
+        return CE('div',{key:conseiller,style:{
+          display:'flex',background:ci%2===0?'#fff':'#fafbfc',
+          borderBottom:'1px solid #f0f4f8',minHeight:58
+        }},
+          CE('div',{style:{
+            width:170,minWidth:170,padding:'10px 16px',
+            borderRight:'1px solid #e2e8f0',
+            display:'flex',alignItems:'center',gap:8
+          }},
+            CE('div',{style:{width:8,height:8,borderRadius:'50%',background:col,flexShrink:0,boxShadow:'0 0 4px '+col+'88'}}),
+            CE('div',null,
+              CE('div',{style:{fontSize:12,fontWeight:700,color:'#1a202c',lineHeight:1.2}},conseiller.split(' ')[0]),
+              CE('div',{style:{fontSize:10,color:'#9ca3af'}},conseiller.split(' ').slice(1).join(' '))
+            ),
+            CE('span',{style:{
+              marginLeft:'auto',fontSize:10,fontWeight:700,
+              background:col+'18',color:col,padding:'2px 7px',
+              borderRadius:20,border:'1px solid '+col+'30'
+            }},items.length)
+          ),
+          CE('div',{style:{flex:1,position:'relative',minHeight:58}},
+            monthMarkers.map((m,i)=>CE('div',{key:i,style:{
+              position:'absolute',left:m.pos+'%',top:0,height:'100%',
+              borderLeft:'1px dashed #f0f4f8',pointerEvents:'none'
+            }})),
+            todayPos!==null&&CE('div',{style:{
+              position:'absolute',left:todayPos+'%',top:0,height:'100%',
+              borderLeft:'1px solid #dc262633',pointerEvents:'none'
+            }}),
+            items.map(item=>{
+              const pos=posPercent(item.date);
+              const st=STATUT_STYLE[item.statut]||{bg:'#9ca3af',border:'#6b7280',label:'?'};
+              const isH=hoveredItem&&hoveredItem._id===item._id;
+              return CE('div',{
+                key:item._id||item.date+item.conseiller+Math.random(),
+                onMouseEnter:()=>setHoveredItem(item),
+                onMouseLeave:()=>setHoveredItem(null),
+                style:{
+                  position:'absolute',left:'calc('+pos+'% - 9px)',
+                  top:'50%',transform:'translateY(-50%) scale('+(isH?1.35:1)+')',
+                  width:18,height:18,borderRadius:5,
+                  background:st.bg,border:'2px solid '+st.border,
+                  cursor:'pointer',zIndex:isH?20:1,
+                  boxShadow:isH?'0 0 10px '+st.bg+'88':'none',
+                  transition:'transform .12s,box-shadow .12s',
+                  display:'flex',alignItems:'center',justifyContent:'center',
+                  fontSize:8,color:'#fff',fontWeight:700,userSelect:'none'
+                }
+              },st.label);
+            })
+          )
+        );
+      }),
+      // Légende
+      CE('div',{style:{display:'flex',gap:14,padding:'10px 16px',background:'#f8fafc',borderTop:'1px solid #e2e8f0',flexWrap:'wrap'}},
+        Object.entries(STATUT_STYLE).map(([s,st])=>CE('div',{key:s,style:{display:'flex',alignItems:'center',gap:5,fontSize:11,color:'#4a5568'}},
+          CE('div',{style:{width:14,height:14,borderRadius:3,background:st.bg,display:'flex',alignItems:'center',justifyContent:'center',fontSize:7,color:'#fff',fontWeight:700}},st.label),
+          s
+        )),
+        filtered.length===0&&CE('span',{style:{fontSize:12,color:'#9ca3af',marginLeft:'auto'}},'Aucun atelier pour cette période')
+      )
+    ),
+
+    // ── DENSITÉ ──────────────────────────────────────────────
+    viewMode==='densite'&&(()=>{
+      // Calcul des mois visibles dans la plage dateFrom → dateTo
+      const visibleMonths=[];
+      const cur=new Date(dateFrom+'T00:00:00');
+      const endD=new Date(dateTo+'T00:00:00');
+      // On démarre au 1er du mois de dateFrom
+      cur.setDate(1);
+      while(cur<=endD){
+        visibleMonths.push({
+          year:cur.getFullYear(),
+          month:cur.getMonth()+1, // 1-12
+          label:MOIS_FR[cur.getMonth()]+(cur.getFullYear()!==parseInt(annee)?' '+String(cur.getFullYear()).slice(2):'')
+        });
+        cur.setMonth(cur.getMonth()+1);
+      }
+
+      // max global sur tous conseillers/mois pour harmoniser les barres
+      const allCounts=displayedConseillers.flatMap(conseiller=>{
+        const items=filtered.filter(e=>e.conseiller===conseiller);
+        return visibleMonths.map(({year,month})=>
+          items.filter(e=>{
+            const d=String(e.date||'');
+            return parseInt(d.slice(0,4))===year&&parseInt(d.slice(5,7))===month;
+          }).length
+        );
+      });
+      const globalMax=Math.max(...allCounts,1);
+
+      return CE('div',{className:'card'},
+        CE('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:16,flexWrap:'wrap',gap:8}},
+          CE('h3',{style:{margin:0,fontSize:14,color:'#1a202c'}},'Ateliers par mois & conseiller'),
+          CE('div',{style:{display:'flex',gap:12,fontSize:11,color:'#9ca3af'}},
+            CE('span',null,'▪ Clair = planifiés/autres'),
+            CE('span',null,'▪ Plein = réalisés')
+          )
+        ),
+        visibleMonths.length===0
+          ?CE('p',{style:{color:'#9ca3af',fontSize:13}},'Aucune période sélectionnée.')
+          :CE('div',{style:{overflowX:'auto'}},
+            CE('table',{style:{width:'100%',borderCollapse:'collapse',minWidth:Math.max(400,visibleMonths.length*52+140)}},
+              CE('thead',null,CE('tr',null,
+                CE('th',{style:{width:140,minWidth:140,textAlign:'left',padding:'6px 10px',fontSize:11,fontWeight:700,color:'#9ca3af',borderBottom:'2px solid #e2e8f0'}},'Conseiller'),
+                visibleMonths.map(({label},i)=>CE('th',{key:i,style:{textAlign:'center',padding:'6px 8px',fontSize:11,fontWeight:700,color:'#9ca3af',borderBottom:'2px solid #e2e8f0',whiteSpace:'nowrap'}},label))
+              )),
+              CE('tbody',null,
+                displayedConseillers.map(conseiller=>{
+                  const col=conseillerColor(conseiller)||'#1e3a8a';
+                  const items=filtered.filter(e=>e.conseiller===conseiller);
+                  const byMonth=visibleMonths.map(({year,month})=>{
+                    const inMonth=items.filter(e=>{
+                      const d=String(e.date||'');
+                      return parseInt(d.slice(0,4))===year&&parseInt(d.slice(5,7))===month;
+                    });
+                    return{count:inMonth.length,realises:inMonth.filter(e=>e.statut==='Réalisé').length};
+                  });
+                  return CE('tr',{key:conseiller},
+                    CE('td',{style:{padding:'8px 10px',borderBottom:'1px solid #f0f4f8',whiteSpace:'nowrap'}},
+                      CE('div',{style:{display:'flex',alignItems:'center',gap:6}},
+                        CE('div',{style:{width:8,height:8,borderRadius:'50%',background:col,flexShrink:0}}),
+                        CE('span',{style:{fontSize:12,fontWeight:700,color:'#1a202c'}},conseiller.split(' ')[0])
+                      )
+                    ),
+                    byMonth.map((m,mi)=>{
+                      const mLabel=visibleMonths[mi].label;
+                      const planifies=m.count-m.realises;
+                      return CE('td',{key:mi,style:{
+                        padding:'8px 4px',borderBottom:'1px solid #f0f4f8',
+                        verticalAlign:'bottom',textAlign:'center',position:'relative',cursor:m.count>0?'pointer':'default'
+                      },
+                      onMouseEnter:m.count>0?e=>{const r=e.currentTarget.getBoundingClientRect();setTooltip({conseiller,mois:mLabel,total:m.count,realises:m.realises,planifies,col,x:r.left+r.width/2,y:r.top});}:null,
+                      onMouseLeave:()=>setTooltip(null)
+                      },
+                        CE('div',{style:{display:'flex',flexDirection:'column',alignItems:'center',gap:2}},
+                          CE('div',{style:{
+                            width:26,background:col+'28',borderRadius:'4px 4px 0 0',
+                            height:Math.max(4,Math.round(m.count/globalMax*52))+'px',
+                            position:'relative',overflow:'hidden'
+                          }},
+                            CE('div',{style:{
+                              position:'absolute',bottom:0,left:0,right:0,
+                              height:(m.count>0?Math.round(m.realises/m.count*100):0)+'%',
+                              background:col,borderRadius:'4px 4px 0 0'
+                            }})
+                          ),
+                          m.count>0&&CE('span',{style:{fontSize:10,fontWeight:700,color:col}},m.count)
+                        )
+                      );
+                    })
+                  );
+                })
+              )
+            )
+          ),
+        tooltip&&CE('div',{style:{
+          position:'fixed',zIndex:9999,
+          left:Math.min(tooltip.x,window.innerWidth-160)+'px',
+          top:(tooltip.y-88)+'px',
+          transform:'translateX(-50%)',
+          background:'#1a202c',color:'#fff',
+          borderRadius:10,padding:'10px 14px',
+          fontSize:12,pointerEvents:'none',
+          boxShadow:'0 4px 20px rgba(0,0,0,.3)',
+          minWidth:140,lineHeight:1.7
+        }},
+          CE('div',{style:{fontWeight:700,color:tooltip.col,marginBottom:4}},tooltip.conseiller.split(' ')[0]+' — '+tooltip.mois),
+          CE('div',null,React.createElement(React.Fragment,null,'📦 Total : ',CE('strong',null,tooltip.total))),
+          CE('div',null,React.createElement(React.Fragment,null,'✅ Réalisés : ',CE('strong',{style:{color:'#4ade80'}},tooltip.realises))),
+          CE('div',null,React.createElement(React.Fragment,null,'📅 Planifiés : ',CE('strong',{style:{color:'#93c5fd'}},tooltip.planifies)))
+        )
+      );
+    })(),
+
+    // ── Tooltip opaque ───────────────────────────────────────
+    hoveredItem&&CE('div',{style:{
+      position:'fixed',
+      left:Math.min(tooltipPos.x+16,window.innerWidth-255)+'px',
+      top:(tooltipPos.y+18)+'px',
+      background:'#1a202c',
+      border:'1px solid #2d3748',
+      borderRadius:10,padding:'12px 16px',
+      boxShadow:'0 8px 24px rgba(0,0,0,.6)',
+      zIndex:9999,minWidth:230,
+      pointerEvents:'none',color:'#e2e8f0',
+    }},
+      CE('div',{style:{fontWeight:700,fontSize:13,color:'#fff',marginBottom:8,paddingBottom:8,borderBottom:'1px solid #2d3748'}},
+        hoveredItem.thematique||'—'),
+      CE('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'4px 10px',marginBottom:10}},
+        [
+          ['📅',String(hoveredItem.date||'—').slice(0,10)],
+          ['📍',hoveredItem.commune||'—'],
+          ['🏢',hoveredItem.lieu||'—'],
+          ['👤',(hoveredItem.conseiller||'—').split(' ')[0]],
+          ['📋',(hoveredItem.inscrits||'—')+' inscrits'],
+          ['✅',(hoveredItem.presents||'—')+' présents'],
+        ].map(([ico,val])=>CE('div',{key:ico,style:{fontSize:11,display:'flex',gap:4,alignItems:'center'}},
+          CE('span',null,ico),
+          CE('span',{style:{color:'#cbd5e1',fontWeight:600}},String(val))
+        ))
+      ),
+      CE('div',{style:{
+        display:'inline-block',padding:'3px 10px',borderRadius:20,
+        background:(STATUT_STYLE[hoveredItem.statut]||{bg:'#6b7280'}).bg,
+        color:'#fff',fontSize:11,fontWeight:700
+      }},
+        (STATUT_STYLE[hoveredItem.statut]||{label:'?'}).label+' '+(hoveredItem.statut||'—')
+      )
+    )
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(CE(App));
+</script>
+</body>
+</html>

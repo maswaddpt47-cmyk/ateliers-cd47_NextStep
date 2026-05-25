@@ -290,6 +290,9 @@ tr:hover td{background:#f7fafc}
 .cal-more:hover{color:#1e3a8a;background:#dbeafe}
 .cal-year-sel{padding:4px 8px;border:1.5px solid rgba(255,255,255,.35);border-radius:6px;background:rgba(255,255,255,.12);color:#fff;font-size:12px;font-weight:700;cursor:pointer;outline:none}
 .cal-year-sel option{background:#1e3a8a;color:#fff}
+@keyframes fadeInUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+@keyframes fadeSlideIn{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:translateY(0)}}
+.view-anim{animation:fadeSlideIn .22s ease both}
 `;
   document.head.appendChild(s);
 })();
