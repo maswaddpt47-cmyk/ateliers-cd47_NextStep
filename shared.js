@@ -300,10 +300,10 @@ tr:hover td{background:#f7fafc}
 // ── Globals ────────────────────────────────────────────────
 if(!window.React||!window.ReactDOM){throw new Error('React/ReactDOM non chargé — vérifiez les CDN dans le HTML');}
 const CE = React.createElement;
-function FadeItem({children,delay=0}){
+function FadeItem({children,delay=0,style={}}){
   const[v,setV]=React.useState(false);
   React.useEffect(()=>{const t=setTimeout(()=>setV(true),delay*1000+20);return()=>clearTimeout(t);},[]);
-  return CE('div',{style:{display:'contents',opacity:v?1:0,transition:'opacity .6s ease'}},children);
+  return CE('div',{style:{opacity:v?1:0,transition:'opacity .6s ease',...style}},children);
 }
 
 const GS_URL = 'https://script.google.com/macros/s/AKfycbw4u5tP97Drju1PiF16Lxl7KpnTwYMVWl18VwBbfm9AKuDI1F36dkNSvU08kKlifM6zbg/exec';
@@ -1000,11 +1000,11 @@ function VueHistorique({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
   return CE('div',null,
     // KPIs
     CE('div',{className:'kpi-row'},
-      CE(FadeItem,{delay:0},CE('div',{className:'kpi-mini',style:{borderLeft:'3px solid #1e3a8a',background:'#f0f4ff'}},CE('div',{className:'v',style:{color:'#1e3a8a'}},kpi.total),CE('div',{className:'l'},'Total'))),
-      CE(FadeItem,{delay:0.08},CE('div',{className:'kpi-mini',style:{borderLeft:'3px solid #16a34a',background:'#f0fdf4'}},CE('div',{className:'v',style:{color:'#166534'}},kpi.realises),CE('div',{className:'l'},'Réalisés'),CE('div',{className:'p',style:{color:'#166534'}},kpi.total?Math.round(kpi.realises/kpi.total*100)+'%':'-'))),
-      CE(FadeItem,{delay:0.16},CE('div',{className:'kpi-mini',style:{borderLeft:'3px solid #dc2626',background:'#fff5f5'}},CE('div',{className:'v',style:{color:'#991b1b'}},kpi.annules),CE('div',{className:'l'},'Annulés'),CE('div',{className:'p',style:{color:'#991b1b'}},kpi.total?Math.round(kpi.annules/kpi.total*100)+'%':'-'))),
-      CE(FadeItem,{delay:0.24},CE('div',{className:'kpi-mini',style:{borderLeft:'3px solid #2563eb',background:'#eff6ff'}},CE('div',{className:'v',style:{color:'#2563eb'}},kpi.inscrits),CE('div',{className:'l'},'Inscrits'))),
-      CE(FadeItem,{delay:0.32},CE('div',{className:'kpi-mini',style:{borderLeft:'3px solid #d97706',background:'#fffbeb'}},CE('div',{className:'v',style:{color:'#d97706'}},kpi.presents),CE('div',{className:'l'},'Présents'),CE('div',{className:'p',style:{color:'#d97706'}},kpi.tx+'%')))
+      CE(FadeItem,{delay:0,style:{flex:'1 1 0',minWidth:0}},CE('div',{className:'kpi-mini',style:{borderLeft:'3px solid #1e3a8a',background:'#f0f4ff'}},CE('div',{className:'v',style:{color:'#1e3a8a'}},kpi.total),CE('div',{className:'l'},'Total'))),
+      CE(FadeItem,{delay:0.08,style:{flex:'1 1 0',minWidth:0}},CE('div',{className:'kpi-mini',style:{borderLeft:'3px solid #16a34a',background:'#f0fdf4'}},CE('div',{className:'v',style:{color:'#166534'}},kpi.realises),CE('div',{className:'l'},'Réalisés'),CE('div',{className:'p',style:{color:'#166534'}},kpi.total?Math.round(kpi.realises/kpi.total*100)+'%':'-'))),
+      CE(FadeItem,{delay:0.16,style:{flex:'1 1 0',minWidth:0}},CE('div',{className:'kpi-mini',style:{borderLeft:'3px solid #dc2626',background:'#fff5f5'}},CE('div',{className:'v',style:{color:'#991b1b'}},kpi.annules),CE('div',{className:'l'},'Annulés'),CE('div',{className:'p',style:{color:'#991b1b'}},kpi.total?Math.round(kpi.annules/kpi.total*100)+'%':'-'))),
+      CE(FadeItem,{delay:0.24,style:{flex:'1 1 0',minWidth:0}},CE('div',{className:'kpi-mini',style:{borderLeft:'3px solid #2563eb',background:'#eff6ff'}},CE('div',{className:'v',style:{color:'#2563eb'}},kpi.inscrits),CE('div',{className:'l'},'Inscrits'))),
+      CE(FadeItem,{delay:0.32,style:{flex:'1 1 0',minWidth:0}},CE('div',{className:'kpi-mini',style:{borderLeft:'3px solid #d97706',background:'#fffbeb'}},CE('div',{className:'v',style:{color:'#d97706'}},kpi.presents),CE('div',{className:'l'},'Présents'),CE('div',{className:'p',style:{color:'#d97706'}},kpi.tx+'%')))
     ),
     // Alerte retards
     nRetard>0&&CE('div',{style:{background:'#fffbeb',border:'1px solid #fcd34d',borderRadius:10,padding:'10px 14px',marginBottom:10,display:'flex',gap:10,alignItems:'center'}},
@@ -1806,10 +1806,10 @@ function VueGraphiques({entries}){
       ?CE('div',{className:'card'},CE('p',{style:{color:'#718096',textAlign:'center',padding:'40px 0'}},hasFilter?'Aucun atelier réalisé sur cette période.':'Aucun atelier réalisé.'))
       :CE('div',null,
           CE('div',{className:'kpi-grid'},
-            CE(FadeItem,{delay:0},CE('div',{className:'kpi',style:{borderLeft:'4px solid #16a34a',background:'#f0fdf4',textAlign:'left'}},CE('div',{className:'val',style:{color:'#16a34a'}},total),CE('div',{className:'lbl'},'Ateliers réalisés'))),
-            CE(FadeItem,{delay:0.08},CE('div',{className:'kpi',style:{borderLeft:'4px solid #dc2626',background:'#fff5f5',textAlign:'left'}},CE('div',{className:'val',style:{color:'#dc2626'}},annules),CE('div',{className:'lbl'},'Annulés'))),
-            CE(FadeItem,{delay:0.16},CE('div',{className:'kpi',style:{borderLeft:'4px solid #7c3aed',background:'#faf5ff',textAlign:'left'}},CE('div',{className:'val',style:{color:'#7c3aed'}},totalPresents),CE('div',{className:'lbl'},'Participants présents'))),
-            CE(FadeItem,{delay:0.24},CE('div',{className:'kpi',style:{borderLeft:'4px solid #0891b2',background:'#ecfeff',textAlign:'left'}},CE('div',{className:'val',style:{color:'#0891b2'}},txPresence+'%'),CE('div',{className:'lbl'},'Taux de présence')))
+            CE(FadeItem,{delay:0,style:{display:'contents'}},CE('div',{className:'kpi',style:{borderLeft:'4px solid #16a34a',background:'#f0fdf4',textAlign:'left'}},CE('div',{className:'val',style:{color:'#16a34a'}},total),CE('div',{className:'lbl'},'Ateliers réalisés'))),
+            CE(FadeItem,{delay:0.08,style:{display:'contents'}},CE('div',{className:'kpi',style:{borderLeft:'4px solid #dc2626',background:'#fff5f5',textAlign:'left'}},CE('div',{className:'val',style:{color:'#dc2626'}},annules),CE('div',{className:'lbl'},'Annulés'))),
+            CE(FadeItem,{delay:0.16,style:{display:'contents'}},CE('div',{className:'kpi',style:{borderLeft:'4px solid #7c3aed',background:'#faf5ff',textAlign:'left'}},CE('div',{className:'val',style:{color:'#7c3aed'}},totalPresents),CE('div',{className:'lbl'},'Participants présents'))),
+            CE(FadeItem,{delay:0.24,style:{display:'contents'}},CE('div',{className:'kpi',style:{borderLeft:'4px solid #0891b2',background:'#ecfeff',textAlign:'left'}},CE('div',{className:'val',style:{color:'#0891b2'}},txPresence+'%'),CE('div',{className:'lbl'},'Taux de présence')))
           ),
           CE('div',{style:{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:16}},
             CE('div',{className:'card'},CE('h2',null,'Ateliers par mois (révolus)'),CE(LineChart,{data:dataMois})),
@@ -2015,7 +2015,7 @@ function VueAdmin({entries,onRefresh,addLog,conseillersList,onSaveColors}){
     CE('div',{className:'card'},
       CE('h2',null,'⚙️ Panneau Administrateur'),
       CE('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,marginBottom:8}},
-        CE(FadeItem,{delay:0},CE('div',{className:'kpi',style:{borderLeft:'4px solid #1e3a8a',background:'#f0f4ff',textAlign:'left'}},CE('div',{className:'val',style:{color:'#1e3a8a'}},entries.length),CE('div',{className:'lbl'},'Total ateliers'))),
+        CE(FadeItem,{delay:0,style:{display:'contents'}},CE('div',{className:'kpi',style:{borderLeft:'4px solid #1e3a8a',background:'#f0f4ff',textAlign:'left'}},CE('div',{className:'val',style:{color:'#1e3a8a'}},entries.length),CE('div',{className:'lbl'},'Total ateliers'))),
         CE(FadeItem,{delay:0.1},CE('div',{className:'kpi',style:{borderLeft:'4px solid #16a34a',background:'#f0fdf4',textAlign:'left'}},CE('div',{className:'val',style:{color:'#16a34a'}},entries.filter(e=>e.statut==='Réalisé').length),CE('div',{className:'lbl'},'Réalisés')))
       )
     ),
