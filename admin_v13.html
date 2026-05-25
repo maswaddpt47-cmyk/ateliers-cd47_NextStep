@@ -1636,7 +1636,7 @@ function VuePowerBI({entries, conseillers: conseillersList}){
             legend:{data:CONS.map(c=>c.split(' ')[0]),textStyle:{color:'#9ca3af',fontSize:9},bottom:0,icon:'roundRect',itemWidth:8,itemHeight:6},
             xAxis:{data:pConsMois.map(d=>d.mois),axisLine:{show:false},axisTick:{show:false},axisLabel:{color:'#9ca3af',fontSize:9}},
             yAxis:{splitLine:{lineStyle:{color:'#2d3250',type:'dashed'}},axisLabel:{color:'#9ca3af',fontSize:9},axisLine:{show:false},axisTick:{show:false}},
-            series:CONS.map(c=>({name:c.split(' ')[0],type:'bar',stackId:'a',barMaxWidth:30,data:pConsMois.map(d=>d[c]||0),itemStyle:{color:cColor(c)}}))}}),
+            series:CONS.map((c,ci)=>({name:c.split(' ')[0],type:'bar',stackId:'a',barMaxWidth:30,data:pConsMois.map(d=>d[c]||0),itemStyle:{color:cColor(c),borderRadius:ci===CONS.length-1?[3,3,0,0]:[0,0,0,0]}}))}}),
 
         CE(CardPBI,{title:'Tableau récapitulatif'},
           CE('div',{style:{overflowX:'auto'}},
