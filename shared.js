@@ -145,7 +145,7 @@ tr:hover td{background:#f7fafc}
 @media print{nav{display:none!important}.main{padding:0!important}.btn{display:none!important}.filters{display:none!important}.side-panel{display:none!important}}
 .btn-print{background:#f8fafc;color:#4a5568;border:1.5px solid #e2e8f0}.btn-print:hover{background:#e2e8f0}
 .badge-retard{background:#fecaca;color:#991b1b;border:1px solid #f87171;animation:blink-retard 1.4s ease-in-out infinite}
-.atelier-card{background:#fff;border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,.08);margin-bottom:10px;display:flex;overflow:hidden;transition:box-shadow .2s;cursor:pointer;animation:fadeInUp .35s ease both}
+.atelier-card{background:#fff;border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,.08);margin-bottom:10px;display:flex;overflow:hidden;transition:box-shadow .2s;cursor:pointer}
 .atelier-card:hover{box-shadow:0 4px 16px rgba(0,0,0,.12)}
 .atelier-card-border{width:5px;flex-shrink:0}
 .atelier-card-date{width:64px;flex-shrink:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:14px 8px;background:#f8fafc;border-right:1px solid #e2e8f0}
@@ -1066,7 +1066,7 @@ function VueHistorique({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
     // Liste des ateliers
     CE('div',null,filtered.map((e,ei)=>{
       const d=fmtCardDate(e.date);const retard=isRetard(e);const cColor=conseillerColor(e.conseiller);
-      return CE('div',{key:e._id,className:'atelier-card',style:{background:retard?'#fffbeb':hexToRgba(cColor,0.04),borderLeft:'none',animationDelay:Math.min(ei*0.04,0.4)+'s'},onClick:()=>openPanel(e)},
+      return CE('div',{key:e._id,className:'atelier-card',style:{background:retard?'#fffbeb':hexToRgba(cColor,0.04),borderLeft:'none',animation:`fadeInUp .35s ease ${Math.min(ei*0.04,0.4)}s both`},onClick:()=>openPanel(e)},
         CE('div',{className:'atelier-card-border',style:{background:cColor}}),
         CE('div',{className:'atelier-card-date',style:{background:hexToRgba(cColor,0.08),borderRight:`1px solid ${hexToRgba(cColor,0.2)}`}},
           CE('div',{className:'atelier-card-day'},d.day),CE('div',{className:'atelier-card-month'},d.month),
@@ -1256,7 +1256,7 @@ function VueCalendrier({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
       // Cellules
       CE('div',{className:'cal-grid'},
         cells.map((day,idx)=>{
-          if(day===null)return CE('div',{key:'e'+idx,className:'cal-cell cal-cell-empty',style:{animation:'fadeInUp .3s ease both',animationDelay:Math.min(idx*0.015,0.4)+'s'}});
+          if(day===null)return CE('div',{key:'e'+idx,className:'cal-cell cal-cell-empty',style:{animation:`fadeInUp .3s ease ${Math.min(idx*0.015,0.4)}s both`}});
           const ds=`${yr}-${String(mo+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
           const isToday=ds===todayStr;
           const dayAteliers=dayMap[day]||[];
@@ -1264,7 +1264,7 @@ function VueCalendrier({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
           const hidden=dayAteliers.length-MAX_VISIBLE;
           const expanded=expandDay===day;
           const visible=expanded?dayAteliers:dayAteliers.slice(0,MAX_VISIBLE);
-          return CE('div',{key:day,className:'cal-cell'+(isToday?' cal-today':''),style:{animation:'fadeInUp .3s ease both',animationDelay:Math.min(idx*0.015,0.4)+'s'}},
+          return CE('div',{key:day,className:'cal-cell'+(isToday?' cal-today':''),style:{animation:`fadeInUp .3s ease ${Math.min(idx*0.015,0.4)}s both`}},
             CE('div',{className:'cal-day-num'},
               isToday?CE('span',{className:'cal-today-num'},day):day
             ),
@@ -1865,8 +1865,8 @@ function VueCarte({entries,active}){
     });
   },[active]);
   return CE('div',null,
-    CE('div',{style:{display:'flex',justifyContent:'flex-end',marginBottom:8,animation:'fadeInUp .35s ease both'}},CE('button',{className:'btn btn-print btn-sm',onClick:()=>window.print()},'🖨️ Imprimer')),
-    CE('div',{className:'card',style:{animation:'fadeInUp .4s ease both',animationDelay:'.08s'}},
+    CE('div',{style:{display:'flex',justifyContent:'flex-end',marginBottom:8,animation:'fadeInUp .35s ease 0s both'}},CE('button',{className:'btn btn-print btn-sm',onClick:()=>window.print()},'🖨️ Imprimer')),
+    CE('div',{className:'card',style:{animation:'fadeInUp .4s ease .08s both'}},
       CE('h2',null,'🗺️ Carte des communes'),
       CE('div',{style:{display:'flex',gap:16,marginBottom:10,flexWrap:'wrap',fontSize:12,color:'#4a5568'}},
         CE('span',null,CE('span',{style:{display:'inline-block',width:12,height:12,borderRadius:'50%',background:'#22c55e',marginRight:5,verticalAlign:'middle'}}),'≥ 70% réalisés'),
@@ -1902,7 +1902,7 @@ function VueBingo({entries}){
       ),
       CE('button',{className:'btn btn-print btn-sm',onClick:()=>window.print()},'🖨️ Imprimer')
     ),
-    CE('div',{className:'bingo-grid'},communes.map((c,ci)=>{const col=getCircleColor(c.pct);return CE('div',{key:c.nom,className:'bingo-card'+(selected===c.nom?' selected':''),onClick:()=>setSelected(selected===c.nom?null:c.nom),style:{animation:'fadeInUp .35s ease both',animationDelay:(ci*0.04)+'s'}},CE('div',{className:'bingo-circle',style:{background:col.bg,borderColor:col.stroke,color:col.text}},c.total),CE('div',{className:'bingo-nom'},c.nom),CE('div',{className:'bingo-pct'},c.pct+'% réalisés'));})),
+    CE('div',{className:'bingo-grid'},communes.map((c,ci)=>{const col=getCircleColor(c.pct);return CE('div',{key:c.nom,className:'bingo-card'+(selected===c.nom?' selected':''),onClick:()=>setSelected(selected===c.nom?null:c.nom),style:{animation:`fadeInUp .35s ease ${ci*0.04}s both`}},CE('div',{className:'bingo-circle',style:{background:col.bg,borderColor:col.stroke,color:col.text}},c.total),CE('div',{className:'bingo-nom'},c.nom),CE('div',{className:'bingo-pct'},c.pct+'% réalisés'));})),
     sel&&CE('div',{className:'card'},
       CE('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}},
         CE('h2',{style:{borderBottom:'none',marginBottom:0,paddingBottom:0}},CE('span',{style:{color:'#1e3a8a'}},'📍 '+sel.nom),CE('span',{style:{fontSize:13,fontWeight:400,color:'#718096',marginLeft:8}},'— '+sel.total+' atelier(s)')),
@@ -2199,7 +2199,7 @@ function VuePowerBI({entries, conseillers: conseillersList}){
 
   // ── Sous-composants ────────────────────────────────────────
   function KpiPBI({label,value,sub,color,icon,delay=0}){
-    return CE('div',{style:{background:'#fff',borderRadius:6,padding:'14px',borderLeft:`4px solid ${color}`,boxShadow:'0 1px 6px rgba(0,0,0,.08)',animation:'fadeInUp .35s ease both',animationDelay:delay+'s'}},
+    return CE('div',{style:{background:'#fff',borderRadius:6,padding:'14px',borderLeft:`4px solid ${color}`,boxShadow:'0 1px 6px rgba(0,0,0,.08)',animation:`fadeInUp .35s ease ${delay}s both`}},
       CE('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}},
         CE('div',null,
           CE('div',{style:{fontSize:10,color:'#6b7280',fontWeight:700,textTransform:'uppercase',letterSpacing:'.06em',marginBottom:5}},label),
@@ -2221,7 +2221,7 @@ function VuePowerBI({entries, conseillers: conseillersList}){
   }
 
   function CardPBI({title,children,style={},delay=0}){
-    return CE('div',{style:{background:'#fff',borderRadius:6,padding:14,boxShadow:'0 1px 6px rgba(0,0,0,.08)',...style,animation:'fadeInUp .4s ease both',animationDelay:delay+'s'}},
+    return CE('div',{style:{background:'#fff',borderRadius:6,padding:14,boxShadow:'0 1px 6px rgba(0,0,0,.08)',...style,animation:`fadeInUp .4s ease ${delay}s both`}},
       CE('div',{style:{fontSize:10,fontWeight:700,color:'#374151',textTransform:'uppercase',letterSpacing:'.06em',marginBottom:12,paddingBottom:8,borderBottom:'1px solid #f3f4f6'}},title),
       children
     );
@@ -2398,7 +2398,7 @@ function VuePowerBI({entries, conseillers: conseillersList}){
             const pct=r.length?Math.round(rl/r.length*100):0;
             const pre=r.reduce((s,d)=>s+(parseInt(d.presents)||0),0);
             const ann=r.filter(d=>d.statut==='Annulé').length;
-            return CE('div',{key:c,style:{background:'#fff',borderRadius:6,padding:12,boxShadow:'0 1px 6px rgba(0,0,0,.08)',borderTop:`3px solid ${cColor(c)}`,animation:'fadeInUp .35s ease both',animationDelay:(ci*0.08)+'s'}},
+            return CE('div',{key:c,style:{background:'#fff',borderRadius:6,padding:12,boxShadow:'0 1px 6px rgba(0,0,0,.08)',borderTop:`3px solid ${cColor(c)}`,animation:`fadeInUp .35s ease ${ci*0.08}s both`}},
               CE('div',{style:{fontSize:11,fontWeight:700,color:cColor(c),marginBottom:8,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}},c),
               CE('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6,marginBottom:8}},
                 CE('div',null,CE('div',{style:{fontSize:20,fontWeight:800,color:'#111827'}},r.length),CE('div',{style:{fontSize:9,color:'#6b7280'}},'Ateliers')),
