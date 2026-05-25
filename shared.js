@@ -71,14 +71,8 @@ tr:hover td{background:#f7fafc}
 .pagination button:disabled{opacity:.4;cursor:default}
 .pagination span{font-size:12px;color:#718096}
 .error-box{background:#fff5f5;border:1.5px solid #fc8181;border-radius:8px;padding:16px;color:#9b2c2c;display:flex;flex-direction:column;gap:10px;align-items:flex-start}
-.admin-section{border:2px solid #fca5a5;border-radius:10px;padding:20px;margin-bottom:16px;background:#fff;animation:fadeInUp .4s ease both}
+.admin-section{border:2px solid #fca5a5;border-radius:10px;padding:20px;margin-bottom:16px;background:#fff}
 .admin-section h3{font-size:15px;font-weight:700;color:#dc2626;margin-bottom:12px;display:flex;align-items:center;gap:8px}
-.admin-section:nth-child(1){animation-delay:.04s}
-.admin-section:nth-child(2){animation-delay:.10s}
-.admin-section:nth-child(3){animation-delay:.16s}
-.admin-section:nth-child(4){animation-delay:.22s}
-.admin-section:nth-child(5){animation-delay:.28s}
-.admin-section:nth-child(6){animation-delay:.34s}
 .confirm-box{background:#fff5f5;border:1.5px solid #fc8181;border-radius:8px;padding:14px;margin-top:12px}
 .confirm-box p{font-size:13px;color:#9b2c2c;margin-bottom:10px}
 .login-wrap{display:flex;align-items:center;justify-content:center;min-height:calc(100vh - 52px)}
@@ -296,21 +290,6 @@ tr:hover td{background:#f7fafc}
 .cal-more:hover{color:#1e3a8a;background:#dbeafe}
 .cal-year-sel{padding:4px 8px;border:1.5px solid rgba(255,255,255,.35);border-radius:6px;background:rgba(255,255,255,.12);color:#fff;font-size:12px;font-weight:700;cursor:pointer;outline:none}
 .cal-year-sel option{background:#1e3a8a;color:#fff}
-@keyframes fadeInUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
-.kpi{animation:fadeInUp .35s ease both}
-.kpi:nth-child(1){animation-delay:.04s}
-.kpi:nth-child(2){animation-delay:.10s}
-.kpi:nth-child(3){animation-delay:.16s}
-.kpi:nth-child(4){animation-delay:.22s}
-.kpi:nth-child(5){animation-delay:.28s}
-.kpi:nth-child(6){animation-delay:.34s}
-.kpi-mini{animation:fadeInUp .35s ease both}
-.kpi-mini:nth-child(1){animation-delay:.04s}
-.kpi-mini:nth-child(2){animation-delay:.10s}
-.kpi-mini:nth-child(3){animation-delay:.16s}
-.kpi-mini:nth-child(4){animation-delay:.22s}
-.kpi-mini:nth-child(5){animation-delay:.28s}
-.kpi-mini:nth-child(6){animation-delay:.34s}
 `;
   document.head.appendChild(s);
 })();
@@ -318,14 +297,11 @@ tr:hover td{background:#f7fafc}
 // ── Globals ────────────────────────────────────────────────
 if(!window.React||!window.ReactDOM){throw new Error('React/ReactDOM non chargé — vérifiez les CDN dans le HTML');}
 const CE = React.createElement;
-
-// ── FadeItem — animation React state (transition CSS, 100% fiable) ──
-function FadeItem({children,delay=0,style={}}){
-  const[show,setShow]=React.useState(false);
-  React.useEffect(()=>{const t=setTimeout(()=>setShow(true),Math.round(delay*1000)+20);return()=>clearTimeout(t);},[]);
-  return CE('div',{style:{opacity:show?1:0,transform:show?'translateY(0)':'translateY(14px)',transition:'opacity .45s ease,transform .45s ease',...style}},children);
+function FadeItem({children,delay=0}){
+  const[v,setV]=React.useState(false);
+  React.useEffect(()=>{const t=setTimeout(()=>setV(true),delay*1000+20);return()=>clearTimeout(t);},[]);
+  return CE('div',{style:{opacity:v?1:0,transform:v?'none':'translateY(14px)',transition:'opacity .45s ease,transform .45s ease'}},children);
 }
-
 
 const GS_URL = 'https://script.google.com/macros/s/AKfycbw4u5tP97Drju1PiF16Lxl7KpnTwYMVWl18VwBbfm9AKuDI1F36dkNSvU08kKlifM6zbg/exec';
 
@@ -1021,11 +997,11 @@ function VueHistorique({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
   return CE('div',null,
     // KPIs
     CE('div',{className:'kpi-row'},
-      CE(FadeItem,{delay:0.0},CE('div',{className:'kpi-mini'},CE('div',{className:'v',style:{color:'#1e3a8a'}},kpi.total),CE('div',{className:'l'},'Total')),
-      CE(FadeItem,{delay:0.08},CE('div',{className:'kpi-mini'},CE('div',{className:'v',style:{color:'#166534'}},kpi.realises),CE('div',{className:'l'},'Réalisés'),CE('div',{className:'p',style:{color:'#166534'}},kpi.total?Math.round(kpi.realises/kpi.total*100)+'%':'-')),
-      CE(FadeItem,{delay:0.16},CE('div',{className:'kpi-mini'},CE('div',{className:'v',style:{color:'#991b1b'}},kpi.annules),CE('div',{className:'l'},'Annulés'),CE('div',{className:'p',style:{color:'#991b1b'}},kpi.total?Math.round(kpi.annules/kpi.total*100)+'%':'-')),
-      CE(FadeItem,{delay:0.24},CE('div',{className:'kpi-mini'},CE('div',{className:'v',style:{color:'#2563eb'}},kpi.inscrits),CE('div',{className:'l'},'Inscrits')),
-      CE(FadeItem,{delay:0.32},CE('div',{className:'kpi-mini'},CE('div',{className:'v',style:{color:'#d97706'}},kpi.presents),CE('div',{className:'l'},'Présents'),CE('div',{className:'p',style:{color:'#d97706'}},kpi.tx+'%'))
+      CE('div',{className:'kpi-mini'},CE('div',{className:'v',style:{color:'#1e3a8a'}},kpi.total),CE('div',{className:'l'},'Total')),
+      CE('div',{className:'kpi-mini'},CE('div',{className:'v',style:{color:'#166534'}},kpi.realises),CE('div',{className:'l'},'Réalisés'),CE('div',{className:'p',style:{color:'#166534'}},kpi.total?Math.round(kpi.realises/kpi.total*100)+'%':'-')),
+      CE('div',{className:'kpi-mini'},CE('div',{className:'v',style:{color:'#991b1b'}},kpi.annules),CE('div',{className:'l'},'Annulés'),CE('div',{className:'p',style:{color:'#991b1b'}},kpi.total?Math.round(kpi.annules/kpi.total*100)+'%':'-')),
+      CE('div',{className:'kpi-mini'},CE('div',{className:'v',style:{color:'#2563eb'}},kpi.inscrits),CE('div',{className:'l'},'Inscrits')),
+      CE('div',{className:'kpi-mini'},CE('div',{className:'v',style:{color:'#d97706'}},kpi.presents),CE('div',{className:'l'},'Présents'),CE('div',{className:'p',style:{color:'#d97706'}},kpi.tx+'%'))
     ),
     // Alerte retards
     nRetard>0&&CE('div',{style:{background:'#fffbeb',border:'1px solid #fcd34d',borderRadius:10,padding:'10px 14px',marginBottom:10,display:'flex',gap:10,alignItems:'center'}},
@@ -1072,9 +1048,9 @@ function VueHistorique({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
       CE('div',{style:{fontSize:11,color:'#718096',marginTop:8}},`${filtered.length} atelier(s) affiché(s) sur ${entries.length}`)
     ),
     // Liste des ateliers
-    CE('div',null,filtered.map((e,ei)=>{
+    CE('div',null,filtered.map(e=>{
       const d=fmtCardDate(e.date);const retard=isRetard(e);const cColor=conseillerColor(e.conseiller);
-      return CE(FadeItem,{key:e._id,delay:Math.min(ei*0.04,0.4)},CE('div',{className:'atelier-card',style:{background:retard?'#fffbeb':hexToRgba(cColor,0.04),borderLeft:'none'},onClick:()=>openPanel(e)},
+      return CE('div',{key:e._id,className:'atelier-card',style:{background:retard?'#fffbeb':hexToRgba(cColor,0.04),borderLeft:'none'},onClick:()=>openPanel(e)},
         CE('div',{className:'atelier-card-border',style:{background:cColor}}),
         CE('div',{className:'atelier-card-date',style:{background:hexToRgba(cColor,0.08),borderRight:`1px solid ${hexToRgba(cColor,0.2)}`}},
           CE('div',{className:'atelier-card-day'},d.day),CE('div',{className:'atelier-card-month'},d.month),
@@ -1087,9 +1063,8 @@ function VueHistorique({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
           CE('div',{className:'atelier-card-sub'},e.commune,' — ',e.lieu,(e.inscrits||e.presents)?CE('span',null,' · ',e.presents||0,'/',e.inscrits||0,' présents'):null)
         ),
         CE('div',{className:'atelier-card-arrow'},'›')
-      ));
+      );
     })),
-
     // Side panel overlay
     panel&&CE('div',{className:'side-panel-overlay',onClick:closePanel}),
     CE('div',{className:'side-panel'+(panel?' open':'')},
@@ -1265,7 +1240,7 @@ function VueCalendrier({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
       // Cellules
       CE('div',{className:'cal-grid'},
         cells.map((day,idx)=>{
-          if(day===null)return CE(FadeItem,{key:'e'+idx,delay:Math.min(idx*0.015,0.4),style:{height:'100%'}},CE('div',{className:'cal-cell cal-cell-empty'}));
+          if(day===null)return CE('div',{key:'e'+idx,className:'cal-cell cal-cell-empty'});
           const ds=`${yr}-${String(mo+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
           const isToday=ds===todayStr;
           const dayAteliers=dayMap[day]||[];
@@ -1273,8 +1248,7 @@ function VueCalendrier({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
           const hidden=dayAteliers.length-MAX_VISIBLE;
           const expanded=expandDay===day;
           const visible=expanded?dayAteliers:dayAteliers.slice(0,MAX_VISIBLE);
-          return CE(FadeItem,{key:day,delay:Math.min(idx*0.015,0.4),style:{height:'100%'}},CE('div',{className:'cal-cell'+(isToday?' cal-today':'')},
-          
+          return CE('div',{key:day,className:'cal-cell'+(isToday?' cal-today':'')},
             CE('div',{className:'cal-day-num'},
               isToday?CE('span',{className:'cal-today-num'},day):day
             ),
@@ -1379,14 +1353,8 @@ function EChart({option,height}){
     if(prevOpt.current===optStr)return;
     prevOpt.current=optStr;
     const merged={...EC_ANIM,...option};
-    if(isNew){
-      // Double rAF : laisse le navigateur peindre le conteneur vide avant l'animation
-      requestAnimationFrame(()=>requestAnimationFrame(()=>{
-        if(inst.current)inst.current.setOption(merged,{notMerge:true,lazyUpdate:false});
-      }));
-    }else{
-      inst.current.setOption(merged,{notMerge:false,lazyUpdate:false});
-    }
+    if(isNew){requestAnimationFrame(()=>requestAnimationFrame(()=>{if(inst.current)inst.current.setOption(merged,{notMerge:true,lazyUpdate:false});}));}
+    else{inst.current.setOption(merged,{notMerge:false,lazyUpdate:false});}
   });
   React.useEffect(()=>{return()=>{if(inst.current){if(inst.current._ro)inst.current._ro.disconnect();inst.current.dispose();inst.current=null;}};},[]); 
   return CE('div',{ref,style:{width:'100%',height:height||200}});
@@ -1570,10 +1538,9 @@ function lighten(hex){try{const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.sli
 
 // ── KPI Card avec tendance ─────────────────────────────────
 function KpiCard({val,lbl,sub,trend,color,icon,bgColor,delay=0}){
-  const[show,setShow]=React.useState(false);
-  React.useEffect(()=>{const t=setTimeout(()=>setShow(true),Math.round(delay*1000)+20);return()=>clearTimeout(t);},[]);
   const up=trend>0,down=trend<0;
-  return CE('div',{className:'kpi',style:{background:bgColor||'#fff',borderLeft:'4px solid '+(color||'#1e3a8a'),textAlign:'left',padding:'14px 16px',position:'relative',overflow:'hidden',opacity:show?1:0,transform:show?'translateY(0)':'translateY(14px)',transition:'opacity .45s ease,transform .45s ease'}},
+  const[sv,setSv]=React.useState(false);React.useEffect(()=>{const t=setTimeout(()=>setSv(true),delay*1000+20);return()=>clearTimeout(t);},[]);
+  return CE('div',{className:'kpi',style:{background:bgColor||'#fff',borderLeft:'4px solid '+(color||'#1e3a8a'),textAlign:'left',padding:'14px 16px',position:'relative',overflow:'hidden',opacity:sv?1:0,transform:sv?'none':'translateY(14px)',transition:'opacity .45s ease,transform .45s ease'}},
     CE('div',{style:{position:'absolute',right:10,top:8,fontSize:28,opacity:.08}},icon),
     CE('div',{style:{display:'flex',alignItems:'flex-start',justifyContent:'space-between'}},
       CE('div',null,
@@ -1877,8 +1844,8 @@ function VueCarte({entries,active}){
     });
   },[active]);
   return CE('div',null,
-    CE(FadeItem,{delay:0},CE('div',{style:{display:'flex',justifyContent:'flex-end',marginBottom:8}},CE('button',{className:'btn btn-print btn-sm',onClick:()=>window.print()},'🖨️ Imprimer'))),
-    CE(FadeItem,{delay:0.08},CE('div',{className:'card'},
+    CE('div',{style:{display:'flex',justifyContent:'flex-end',marginBottom:8}},CE('button',{className:'btn btn-print btn-sm',onClick:()=>window.print()},'🖨️ Imprimer')),
+    CE('div',{className:'card'},
       CE('h2',null,'🗺️ Carte des communes'),
       CE('div',{style:{display:'flex',gap:16,marginBottom:10,flexWrap:'wrap',fontSize:12,color:'#4a5568'}},
         CE('span',null,CE('span',{style:{display:'inline-block',width:12,height:12,borderRadius:'50%',background:'#22c55e',marginRight:5,verticalAlign:'middle'}}),'≥ 70% réalisés'),
@@ -1914,7 +1881,7 @@ function VueBingo({entries}){
       ),
       CE('button',{className:'btn btn-print btn-sm',onClick:()=>window.print()},'🖨️ Imprimer')
     ),
-    CE('div',{className:'bingo-grid'},communes.map((c,ci)=>{const col=getCircleColor(c.pct);return CE(FadeItem,{key:c.nom,delay:ci*0.04},CE('div',{className:'bingo-card'+(selected===c.nom?' selected':''),onClick:()=>setSelected(selected===c.nom?null:c.nom)},CE('div',{className:'bingo-circle'},style:{background:col.bg,borderColor:col.stroke,color:col.text}},c.total),CE('div',{className:'bingo-nom'},c.nom),CE('div',{className:'bingo-pct'},c.pct+'% réalisés'))));})),
+    CE('div',{className:'bingo-grid'},communes.map((c,ci)=>{const col=getCircleColor(c.pct);return CE(FadeItem,{key:c.nom,delay:ci*0.04},CE('div',{className:'bingo-card'+(selected===c.nom?' selected':''),onClick:()=>setSelected(selected===c.nom?null:c.nom)},CE('div',{className:'bingo-circle',style:{background:col.bg,borderColor:col.stroke,color:col.text}},c.total),CE('div',{className:'bingo-nom'},c.nom),CE('div',{className:'bingo-pct'},c.pct+'% réalisés')));})),
     sel&&CE('div',{className:'card'},
       CE('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}},
         CE('h2',{style:{borderBottom:'none',marginBottom:0,paddingBottom:0}},CE('span',{style:{color:'#1e3a8a'}},'📍 '+sel.nom),CE('span',{style:{fontSize:13,fontWeight:400,color:'#718096',marginLeft:8}},'— '+sel.total+' atelier(s)')),
@@ -2042,7 +2009,7 @@ function VueAdmin({entries,onRefresh,addLog,conseillersList,onSaveColors}){
       )
     ),
     // Couleurs conseillers
-    CE(FadeItem,{delay:0},CE('div',{className:'admin-section'},
+    CE('div',{className:'admin-section'},
       CE('h3',null,'🎨 Couleurs des conseillers'),
       CE('p',{style:{fontSize:12,color:'#4a5568',marginBottom:16}},'Personnalisez la couleur de chaque conseiller numérique. S\'applique au bandeau, au formulaire et aux cartes.'),
       CE('div',{style:{display:'flex',flexDirection:'column',gap:10}},
@@ -2078,7 +2045,7 @@ function VueAdmin({entries,onRefresh,addLog,conseillersList,onSaveColors}){
       ),
       CE('button',{className:'btn btn-primary',style:{marginTop:16},onClick:handleSaveColors,disabled:colorSaving},colorSaving?'…':'💾 Sauvegarder les couleurs')
     ),
-    visibility&&CE(FadeItem,{delay:.1},CE('div',{className:'admin-section'},
+    visibility&&CE('div',{className:'admin-section'},
       CE('h3',null,'👁️ Visibilité — Frontend conseillers'),
       CE('p',{style:{fontSize:12,color:'#4a5568',marginBottom:12}},'Choisissez les onglets visibles dans l\'interface conseiller.'),
       VIS_ITEMS.map(item=>CE('div',{key:item.key,className:'toggle-row'},
@@ -2087,17 +2054,17 @@ function VueAdmin({entries,onRefresh,addLog,conseillersList,onSaveColors}){
       )),
       CE('button',{className:'btn btn-primary',style:{marginTop:16},onClick:handleSaveVisibility,disabled:visSaving},visSaving?'…':'💾 Enregistrer la visibilité')
     ),
-    CE(FadeItem,{delay:.2},CE('div',{className:'admin-section'},
+    CE('div',{className:'admin-section'},
       CE('h3',null,'📥 Import CSV'),
       CE('p',{style:{fontSize:12,color:'#4a5568',marginBottom:12}},'Importe un fichier CSV compatible. Les entrées existantes sont fusionnées.'),
       importing?CE('div',null,CE('p',{style:{fontSize:12,color:'#4a5568',marginBottom:6}},importMsg),CE('div',{className:'progress-bar'},CE('div',{className:'progress-fill',style:{width:importProgress+'%'}})),CE('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginTop:6}},CE('p',{style:{fontSize:11,color:'#718096'}},importProgress+'%'),CE('button',{className:'btn btn-danger btn-sm',onClick:()=>cancelRef.current=true},'⛔ Annuler'))):CE('label',{style:{display:'inline-block',cursor:'pointer'}},CE('span',{className:'btn btn-primary'},'📂 Choisir un fichier CSV'),CE('input',{type:'file',accept:'.csv',style:{display:'none'},onChange:handleImportCSV}))
     ),
-    CE(FadeItem,{delay:.3},CE('div',{className:'admin-section'},
+    CE('div',{className:'admin-section'},
       CE('h3',null,'📊 Import XLSX'),
       CE('p',{style:{fontSize:12,color:'#4a5568',marginBottom:12}},'Réimporte un fichier .xlsx précédemment exporté.'),
       importing?CE('div',null,CE('p',{style:{fontSize:12,color:'#4a5568',marginBottom:6}},importMsg||'Import en cours…'),CE('div',{className:'progress-bar'},CE('div',{className:'progress-fill',style:{width:importProgress+'%'}})),CE('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginTop:6}},CE('p',{style:{fontSize:11,color:'#718096'}},importProgress+'%'),CE('button',{className:'btn btn-danger btn-sm',onClick:()=>cancelRef.current=true},'⛔ Annuler'))):CE('label',{style:{display:'inline-block',cursor:'pointer'}},CE('span',{className:'btn btn-warn'},'📂 Choisir un fichier XLSX'),CE('input',{type:'file',accept:'.xlsx',style:{display:'none'},onChange:handleImportXLSX}))
     ),
-    CE(FadeItem,{delay:.4},CE('div',{className:'admin-section'},
+    CE('div',{className:'admin-section'},
       CE('h3',null,'🗑️ Réinitialiser la base de données'),
       CE('p',{style:{fontSize:12,color:'#4a5568',marginBottom:12}},'Vide uniquement le cache local. Le Google Sheet reste intact.'),
       resetStep>0&&CE('div',{className:'confirm-box'},CE('p',null,resetStep===1?'Êtes-vous sûr ? Cette action vide le cache local.':'Dernière confirmation — cliquez pour confirmer.')),
@@ -2211,7 +2178,8 @@ function VuePowerBI({entries, conseillers: conseillersList}){
 
   // ── Sous-composants ────────────────────────────────────────
   function KpiPBI({label,value,sub,color,icon,delay=0}){
-    return CE(FadeItem,{delay:delay},CE('div',{style:{background:'#fff',borderRadius:6,padding:'14px',borderLeft:`4px solid ${color}`,boxShadow:'0 1px 6px rgba(0,0,0,.08)'}},
+    return CE(FadeItem,{delay},CE('div',{style:{background:'#fff',borderRadius:6,padding:'14px',borderLeft:`4px solid ${color}`,boxShadow:'0 1px 6px rgba(0,0,0,.08)'}},
+
       CE('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}},
         CE('div',null,
           CE('div',{style:{fontSize:10,color:'#6b7280',fontWeight:700,textTransform:'uppercase',letterSpacing:'.06em',marginBottom:5}},label),
@@ -2220,7 +2188,7 @@ function VuePowerBI({entries, conseillers: conseillersList}){
         ),
         CE('div',{style:{width:38,height:38,borderRadius:8,background:color+'18',display:'flex',alignItems:'center',justifyContent:'center',fontSize:20}},icon)
       )
-    );
+    ));
   }
 
   function ChipPBI({label,active,color,onClick}){
@@ -2232,8 +2200,8 @@ function VuePowerBI({entries, conseillers: conseillersList}){
     }},label);
   }
 
-  function CardPBI({title,children,style={},delay=0}){
-    return CE(FadeItem,{delay:delay},CE('div',{style:{background:'#fff',borderRadius:6,padding:14,boxShadow:'0 1px 6px rgba(0,0,0,.08)',...style}},
+  function CardPBI({title,children,style={}}){
+    return CE('div',{style:{background:'#fff',borderRadius:6,padding:14,boxShadow:'0 1px 6px rgba(0,0,0,.08)',...style}},
       CE('div',{style:{fontSize:10,fontWeight:700,color:'#374151',textTransform:'uppercase',letterSpacing:'.06em',marginBottom:12,paddingBottom:8,borderBottom:'1px solid #f3f4f6'}},title),
       children
     );
@@ -2336,7 +2304,7 @@ function VuePowerBI({entries, conseillers: conseillersList}){
           CE(KpiPBI,{label:'Présence',value:tPres+'%',sub:'Sur réalisés',color:'#d97706',icon:'📊',delay:0.24})
         ),
 
-        CE(CardPBI,{title:'Ateliers par mois',style:{marginBottom:12},delay:0.3},
+        CE(CardPBI,{title:'Ateliers par mois',style:{marginBottom:12}},
           CE(PBIChart,{height:180,option:{backgroundColor:'transparent',
             grid:{top:8,right:4,bottom:36,left:0,containLabel:true},
             tooltip:{trigger:'axis',axisPointer:{type:'line'},...ecTT},
@@ -2351,7 +2319,7 @@ function VuePowerBI({entries, conseillers: conseillersList}){
         ),
 
         CE('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:12}},
-          CE(CardPBI,{title:'Statuts',style:{},delay:0.38},
+          CE(CardPBI,{title:'Statuts',style:{}},
             CE(PBIChart,{height:150,option:{backgroundColor:'transparent',
               tooltip:{trigger:'item',axisPointer:{type:'none'},...ecTT},
               series:[{type:'pie',radius:['42%','65%'],center:['50%','50%'],
@@ -2367,7 +2335,7 @@ function VuePowerBI({entries, conseillers: conseillersList}){
               ))
             )
           ),
-          CE(CardPBI,{title:'Présents / mois',style:{},delay:0.38},
+          CE(CardPBI,{title:'Présents / mois',style:{}},
             CE(PBIChart,{height:150,option:{backgroundColor:'transparent',
               grid:{top:8,right:4,bottom:22,left:0,containLabel:true},
               tooltip:{trigger:'axis',axisPointer:{type:'line'},...ecTT},
@@ -2378,7 +2346,7 @@ function VuePowerBI({entries, conseillers: conseillersList}){
                 areaStyle:{color:mkGradPBI('rgba(34,197,94,0.35)','rgba(34,197,94,0.02)')}}]}}))
         ),
 
-        pTheme.length>0&&CE(CardPBI,{title:'Top thématiques',style:{marginBottom:12},delay:0.46},
+        pTheme.length>0&&CE(CardPBI,{title:'Top thématiques',style:{marginBottom:12}},
           CE(PBIChart,{height:Math.max(180,pTheme.length*24),option:{backgroundColor:'transparent',
             grid:{top:8,right:50,bottom:8,left:8,containLabel:true},
             tooltip:{trigger:'axis',axisPointer:{type:'line'},...ecTT},
@@ -2390,7 +2358,7 @@ function VuePowerBI({entries, conseillers: conseillersList}){
             }]}})
         ),
 
-        pOri.length>0&&CE(CardPBI,{title:'Organismes orienteurs',delay:0.54},
+        pOri.length>0&&CE(CardPBI,{title:'Organismes orienteurs'},
           CE(PBIChart,{height:160,option:{backgroundColor:'transparent',
             grid:{top:8,right:4,bottom:48,left:0,containLabel:true},
             tooltip:{trigger:'axis',axisPointer:{type:'line'},...ecTT},
@@ -2404,13 +2372,13 @@ function VuePowerBI({entries, conseillers: conseillersList}){
       // PAGE CONSEILLERS
       page==='conseillers'&&CE(React.Fragment,null,
         CE('div',{style:{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:10,marginBottom:12}},
-          CONS.map((c,ci)=>{
+          CONS.map(c=>{
             const r=fd.filter(d=>d.conseiller===c);
             const rl=r.filter(d=>d.statut==='Réalisé').length;
             const pct=r.length?Math.round(rl/r.length*100):0;
             const pre=r.reduce((s,d)=>s+(parseInt(d.presents)||0),0);
             const ann=r.filter(d=>d.statut==='Annulé').length;
-            return CE(FadeItem,{key:c,delay:ci*0.08},CE('div',{style:{background:'#fff',borderRadius:6,padding:12,boxShadow:'0 1px 6px rgba(0,0,0,.08)',borderTop:`3px solid ${cColor(c)}`}},
+            return CE('div',{key:c,style:{background:'#fff',borderRadius:6,padding:12,boxShadow:'0 1px 6px rgba(0,0,0,.08)',borderTop:`3px solid ${cColor(c)}`}},
               CE('div',{style:{fontSize:11,fontWeight:700,color:cColor(c),marginBottom:8,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}},c),
               CE('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6,marginBottom:8}},
                 CE('div',null,CE('div',{style:{fontSize:20,fontWeight:800,color:'#111827'}},r.length),CE('div',{style:{fontSize:9,color:'#6b7280'}},'Ateliers')),
@@ -2425,7 +2393,7 @@ function VuePowerBI({entries, conseillers: conseillersList}){
           })
         ),
 
-        CE(CardPBI,{title:'Réalisés par conseiller·ère — par mois',style:{marginBottom:12},delay:0.36},
+        CE(CardPBI,{title:'Réalisés par conseiller·ère — par mois',style:{marginBottom:12}},
           CE(PBIChart,{height:200,option:{backgroundColor:'transparent',
             grid:{top:8,right:4,bottom:44,left:0,containLabel:true},
             tooltip:{trigger:'axis',axisPointer:{type:'line'},...ecTT},
@@ -2434,7 +2402,7 @@ function VuePowerBI({entries, conseillers: conseillersList}){
             yAxis:{splitLine:{lineStyle:{color:'#2d3250',type:'dashed'}},axisLabel:{color:'#9ca3af',fontSize:9},axisLine:{show:false},axisTick:{show:false}},
             series:CONS.map((c,ci)=>({name:c.split(' ')[0],type:'bar',stackId:'a',barMaxWidth:30,data:pConsMois.map(d=>d[c]||0),itemStyle:{color:cColor(c),..._bar3D,borderRadius:ci===CONS.length-1?[3,3,0,0]:[0,0,0,0]}}))}}),
 
-        CE(CardPBI,{title:'Tableau récapitulatif',delay:0.46},
+        CE(CardPBI,{title:'Tableau récapitulatif'},
           CE('div',{style:{overflowX:'auto'}},
             CE('table',{style:{width:'100%',borderCollapse:'collapse',fontSize:11}},
               CE('thead',null,CE('tr',{style:{background:'#f9fafb'}},
@@ -2471,7 +2439,7 @@ function VuePowerBI({entries, conseillers: conseillersList}){
 
       // PAGE TERRITOIRE
       page==='territoire'&&CE(React.Fragment,null,
-        pComm.length>0&&CE(CardPBI,{title:'Présents par commune',style:{marginBottom:12},delay:0},
+        pComm.length>0&&CE(CardPBI,{title:'Présents par commune',style:{marginBottom:12}},
           CE(PBIChart,{height:220,option:{backgroundColor:'transparent',
             grid:{top:8,right:50,bottom:8,left:8,containLabel:true},
             tooltip:{trigger:'axis',axisPointer:{type:'line'},...ecTT},
@@ -2483,7 +2451,7 @@ function VuePowerBI({entries, conseillers: conseillersList}){
             }]}})
         ),
 
-        pComm.length>0&&CE(CardPBI,{title:'Ateliers par commune',style:{marginBottom:12},delay:0.12},
+        pComm.length>0&&CE(CardPBI,{title:'Ateliers par commune',style:{marginBottom:12}},
           CE(PBIChart,{height:180,option:{backgroundColor:'transparent',
             grid:{top:8,right:4,bottom:48,left:0,containLabel:true},
             tooltip:{trigger:'axis',axisPointer:{type:'line'},...ecTT},
@@ -2494,7 +2462,7 @@ function VuePowerBI({entries, conseillers: conseillersList}){
               label:{show:true,position:'top',color:'#9ca3af',fontSize:8}}]}})        
         ),
 
-        CE(CardPBI,{title:'Détail communes',delay:0.24},
+        CE(CardPBI,{title:'Détail communes'},
           CE(TableCommunes,{fd})
         )
       ),
