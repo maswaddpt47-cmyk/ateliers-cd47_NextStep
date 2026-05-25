@@ -303,9 +303,7 @@ const CE = React.createElement;
 function FadeItem({children,delay=0}){
   const[v,setV]=React.useState(false);
   React.useEffect(()=>{const t=setTimeout(()=>setV(true),delay*1000+20);return()=>clearTimeout(t);},[]);
-  if(!children)return null;
-  const s=(children.props&&children.props.style)||{};
-  return React.cloneElement(children,{style:{...s,opacity:v?1:0,transition:'opacity .6s ease'}});
+  return CE('div',{style:{display:'contents',opacity:v?1:0,transition:'opacity .6s ease'}},children);
 }
 
 const GS_URL = 'https://script.google.com/macros/s/AKfycbw4u5tP97Drju1PiF16Lxl7KpnTwYMVWl18VwBbfm9AKuDI1F36dkNSvU08kKlifM6zbg/exec';
