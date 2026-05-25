@@ -2015,8 +2015,8 @@ function VueAdmin({entries,onRefresh,addLog,conseillersList,onSaveColors}){
     CE('div',{className:'card'},
       CE('h2',null,'⚙️ Panneau Administrateur'),
       CE('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,marginBottom:8}},
-        CE('div',{className:'kpi'},CE('div',{className:'val'},entries.length),CE('div',{className:'lbl'},'Total ateliers')),
-        CE('div',{className:'kpi'},CE('div',{className:'val'},entries.filter(e=>e.statut==='Réalisé').length),CE('div',{className:'lbl'},'Réalisés'))
+        CE(FadeItem,{delay:0},CE('div',{className:'kpi',style:{borderLeft:'4px solid #1e3a8a',background:'#f0f4ff',textAlign:'left'}},CE('div',{className:'val',style:{color:'#1e3a8a'}},entries.length),CE('div',{className:'lbl'},'Total ateliers'))),
+        CE(FadeItem,{delay:0.1},CE('div',{className:'kpi',style:{borderLeft:'4px solid #16a34a',background:'#f0fdf4',textAlign:'left'}},CE('div',{className:'val',style:{color:'#16a34a'}},entries.filter(e=>e.statut==='Réalisé').length),CE('div',{className:'lbl'},'Réalisés')))
       )
     ),
     // Couleurs conseillers
