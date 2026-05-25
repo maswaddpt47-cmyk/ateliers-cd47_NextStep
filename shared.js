@@ -1341,7 +1341,7 @@ const EC_ANIM={animation:true,animationDuration:800,animationEasing:'cubicOut',a
 function EChart({option,height}){
   const ref=React.useRef(null);
   const inst=React.useRef(null);
-  const prevOpt=React.useRef(null);
+  const optRef=React.useRef(option);
   React.useEffect(()=>{
     if(!ref.current||!window.echarts)return;
     const isNew=!inst.current;
@@ -1351,9 +1351,8 @@ function EChart({option,height}){
       ro.observe(ref.current);
       inst.current._ro=ro;
     }
-    const optStr=JSON.stringify(option);
-    if(prevOpt.current===optStr)return;
-    prevOpt.current=optStr;
+    if(!isNew&&optRef.current===option)return;
+    optRef.current=option;
     const merged={...EC_ANIM,...option};
     if(isNew){requestAnimationFrame(()=>requestAnimationFrame(()=>{if(inst.current)inst.current.setOption(merged,{notMerge:true,lazyUpdate:false});}));}
     else{inst.current.setOption(merged,{notMerge:false,lazyUpdate:false});}
@@ -2235,14 +2234,13 @@ function VuePowerBI({entries, conseillers: conseillersList}){
   // Ombre portée standard pour barres 3D
   const _bar3D={shadowBlur:8,shadowColor:'rgba(0,0,0,0.25)',shadowOffsetY:4};
   function PBIChart({option,height}){
-    const ref=React.useRef(null);const inst=React.useRef(null);const prevOpt=React.useRef(null);
+    const ref=React.useRef(null);const inst=React.useRef(null);const prevOpt=React.useRef(option);
     React.useEffect(()=>{
       if(!ref.current||!window.echarts)return;
       const isNew=!inst.current;
       if(isNew){inst.current=window.echarts.init(ref.current);const ro=new ResizeObserver(()=>{if(inst.current)inst.current.resize();});ro.observe(ref.current);inst.current._ro=ro;}
-      const optStr=JSON.stringify(option);
-      if(prevOpt.current===optStr)return;
-      prevOpt.current=optStr;
+      if(!isNew&&prevOpt.current===option)return;
+      prevOpt.current=option;
       const merged={...EC_ANIM,...option};
       if(isNew){requestAnimationFrame(()=>requestAnimationFrame(()=>{if(inst.current)inst.current.setOption(merged,{notMerge:true,lazyUpdate:false});}));}
       else{inst.current.setOption(merged,{notMerge:false,lazyUpdate:false});}
