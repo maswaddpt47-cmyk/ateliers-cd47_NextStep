@@ -1359,7 +1359,7 @@ function EChart({option,height}){
     const merged={...EC_ANIM,...option};
     if(isNew){requestAnimationFrame(()=>requestAnimationFrame(()=>{if(inst.current)inst.current.setOption(merged,{notMerge:true,lazyUpdate:false});}));}
     else{inst.current.setOption(merged,{notMerge:false,lazyUpdate:false});}
-  });
+  },[prefillData]);
   React.useEffect(()=>{return()=>{if(inst.current){if(inst.current._ro)inst.current._ro.disconnect();inst.current.dispose();inst.current=null;}};},[]); 
   return CE('div',{ref,style:{width:'100%',height:height||200}});
 }
@@ -2159,7 +2159,7 @@ function VuePowerBI({entries, conseillers: conseillersList}){
       Annulés:r.filter(d=>d.statut==='Annulé').length,
       Présents:r.reduce((s,d)=>s+(parseInt(d.presents)||0),0)
     };
-  });
+  },[active]);
 
   // Statuts donut
   const pStat=STATUTS_PBI.map(s=>({name:s,value:fd.filter(d=>d.statut===s).length,color:S_COL_PBI[s]})).filter(d=>d.value>0);
