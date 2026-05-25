@@ -1333,6 +1333,7 @@ function barH(n,base){return Math.max(base,base+(Math.max(0,n-6)*8));}
 function EChart({option,height}){
   const ref=React.useRef(null);
   const inst=React.useRef(null);
+  const prevOpt=React.useRef(null);
   React.useEffect(()=>{
     if(!ref.current||!window.echarts)return;
     if(!inst.current){
@@ -1341,6 +1342,9 @@ function EChart({option,height}){
       ro.observe(ref.current);
       inst.current._ro=ro;
     }
+    const optStr=JSON.stringify(option);
+    if(prevOpt.current===optStr)return;
+    prevOpt.current=optStr;
     inst.current.setOption(option,{notMerge:true});
   });
   React.useEffect(()=>{return()=>{if(inst.current){if(inst.current._ro)inst.current._ro.disconnect();inst.current.dispose();inst.current=null;}};},[]); 
