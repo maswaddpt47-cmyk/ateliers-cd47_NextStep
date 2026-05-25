@@ -136,7 +136,82 @@ tr:hover td{background:#f7fafc}
 .bingo-list-date{color:#718096;font-size:12px;min-width:80px}
 .bingo-list-theme{flex:1;color:#1a202c;font-weight:500}
 .bingo-list-badge{padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600}
-@media print{nav{display:none!important}.main{padding:0!important}.btn{display:none!important}.filters{display:none!important}.side-panel{display:none!important}}
+@media print{
+  /* ── Reset page ── */
+  *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
+  @page{margin:12mm 10mm;size:A4 portrait}
+  body{background:#fff!important;font-size:11px!important}
+
+  /* ── Éléments cachés ── */
+  nav,
+  .topbar-sync-info,
+  .btn:not(.btn-print-keep),
+  .btn-print,
+  .chip-bar,
+  .filters,
+  .filter-bar,
+  .side-panel,
+  .side-panel-overlay,
+  .conseiller-picker,
+  .offline-badge,
+  .period-selector,
+  [class*="period"],
+  .kpi-row .chip,
+  input[type="text"],
+  input[type="search"],
+  select,
+  .view-anim>div:not(:first-child)
+  {display:none!important}
+
+  /* ── Layout ── */
+  .main{padding:0!important;margin:0!important}
+  .card{box-shadow:none!important;border:1px solid #e2e8f0!important;break-inside:avoid;margin-bottom:8px!important;padding:10px!important}
+  
+  /* ── KPI tuiles ── */
+  .kpi-grid{grid-template-columns:repeat(4,1fr)!important;gap:6px!important}
+  .kpi{padding:8px 10px!important;font-size:10px!important}
+  .kpi .val{font-size:20px!important}
+  .kpi-row{flex-wrap:nowrap!important;gap:4px!important}
+  .kpi-mini{padding:6px 8px!important}
+  .kpi-mini .v{font-size:16px!important}
+
+  /* ── Graphiques ECharts ── */
+  canvas{max-width:100%!important}
+
+  /* ── Historique ── */
+  .atelier-card{box-shadow:none!important;border:1px solid #e2e8f0!important;margin-bottom:4px!important;break-inside:avoid}
+  .atelier-card-arrow{display:none!important}
+
+  /* ── Calendrier ── */
+  .cal-grid{break-inside:avoid}
+  .cal-cell{border:1px solid #e2e8f0!important}
+
+  /* ── Agenda ── */
+  table{break-inside:avoid}
+  thead{display:table-header-group}
+
+  /* ── Roadmap / Gantt ── */
+  .gantt-bar{-webkit-print-color-adjust:exact!important}
+
+  /* ── Bingo ── */
+  .bingo-grid{grid-template-columns:repeat(4,1fr)!important;gap:6px!important}
+  .bingo-card{padding:8px!important;break-inside:avoid}
+  .bingo-circle{width:44px!important;height:44px!important;font-size:16px!important}
+
+  /* ── Admin ── */
+  .admin-section{border:1px solid #fca5a5!important;break-inside:avoid;page-break-inside:avoid}
+
+  /* ── En-tête d'impression ── */
+  body::before{
+    content:'Ateliers Inclusion Numérique — Lot-et-Garonne — Imprimé le 'attr(data-print-date);
+    display:block;font-size:10px;color:#9ca3af;text-align:right;
+    margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid #e2e8f0
+  }
+
+  /* ── Sauts de page ── */
+  .card.page-break{page-break-before:always}
+  h1,h2,h3{page-break-after:avoid}
+}
 .btn-print{background:#f8fafc;color:#4a5568;border:1.5px solid #e2e8f0}.btn-print:hover{background:#e2e8f0}
 .badge-retard{background:#fecaca;color:#991b1b;border:1px solid #f87171;animation:blink-retard 1.4s ease-in-out infinite}
 .atelier-card{background:#fff;border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,.08);margin-bottom:10px;display:flex;overflow:hidden;transition:box-shadow .2s;cursor:pointer}
@@ -298,6 +373,15 @@ tr:hover td{background:#f7fafc}
 })();
 
 // ── Globals ────────────────────────────────────────────────
+
+// ── Impression : injecter la date courante ─────────────────
+window.addEventListener('beforeprint',()=>{
+  document.body.setAttribute('data-print-date',new Date().toLocaleDateString('fr-FR',{day:'2-digit',month:'long',year:'numeric'}));
+});
+window.addEventListener('afterprint',()=>{
+  document.body.removeAttribute('data-print-date');
+});
+
 if(!window.React||!window.ReactDOM){throw new Error('React/ReactDOM non chargé — vérifiez les CDN dans le HTML');}
 const CE = React.createElement;
 function FadeItem({children,delay=0,style={}}){
