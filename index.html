@@ -8,9 +8,8 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/prop-types/15.8.1/prop-types.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.4.3/echarts.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js" defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.4.3/echarts.min.js" defer></script>
 <script src="shared.js"></script>
 <style>
 /* ── v9.5 : Sidebar pin + Mobile + Transitions + A11y ───────── */
@@ -320,7 +319,6 @@
 <div id="root"></div>
 <script>
 // ════════════════════════════════════════════════════════════
-// ── v10.0 : Override apiFetch — retry automatique GAS ──────
 // Même logique que admin_v10 : timeout adaptatif + 1 retry.
 // ════════════════════════════════════════════════════════════
 (function(){
@@ -534,7 +532,6 @@ function App(){
   }
   function handleEdit(id){setEditingId(id);setPrefillData(null);setView('saisie');}
   function handleSaved(){loadData();setView('historique');}
-  // v10.0 : handleDelete direct — VueHistorique/VueCalendrier gèrent leur propre confirmation
   async function handleDelete(id){
     try{const res=await apiFetch('delete',{_id:id});if(!res.ok)throw new Error(res.error);showToast('✅ Atelier supprimé');loadData();}
     catch(err){showToast('❌ '+err.message,false);}
@@ -735,7 +732,6 @@ function App(){
 
 // ════════════════════════════════════════════════════════════
 // ── VueRoadmap — Timeline & Densité par conseiller ──────────
-// v10.0 — intégration native BDD Google Sheets
 // ════════════════════════════════════════════════════════════
 function VueRoadmap({entries,annee,conseillers}){
   const[filterConseiller,setFilterConseiller]=React.useState('Tous');

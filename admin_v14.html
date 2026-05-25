@@ -8,9 +8,8 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
 <script src="xlsxstyle.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/prop-types/15.8.1/prop-types.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.4.3/echarts.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js" defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.4.3/echarts.min.js" defer></script>
 <script src="shared.js"></script>
 <script>
 // ── Export Calendrier — injecté dans VueAdmin ──────────────────────────────
@@ -528,7 +527,6 @@ nav { display: none !important; }
 <div id="root"></div>
 <script>
 // ════════════════════════════════════════════════════════════
-// ── v10.0 : Override apiFetch — retry automatique sur GAS ──
 // Remplace la version de shared.js (10s, sans retry).
 // Comportement : 1 retry auto après 3s sur timeout, timeout
 // adaptatif mobile/PC, log console discret.
@@ -567,7 +565,6 @@ nav { display: none !important; }
 })();
 
 // ════════════════════════════════════════════════════════════
-// ── v10.0 : Session expirante — 30 min d'inactivité ────────
 // Stocke le timestamp du dernier geste utilisateur.
 // Vérifié à chaque reprise du focus + toutes les minutes.
 // Sur expiration : déconnexion propre + toast informatif.
@@ -587,11 +584,10 @@ function clearSession(){
 }
 
 // ════════════════════════════════════════════════════════════
-// ── v10.0 : AdminLogin avec anti-brute force ───────────────
 // 3 échecs → blocage 5 min, countdown visible, reset auto.
 // ════════════════════════════════════════════════════════════
 function AdminLogin({onLogin,savedName,onResetProfil}){
-  const MAX_FAILS=3, LOCK_MS=5*60*1000; // v10.0 : mémoire React uniquement, pas localStorage
+  const MAX_FAILS=3, LOCK_MS=5*60*1000;
 
   const[pwd,setPwd]=React.useState('');
   const[err,setErr]=React.useState('');
@@ -682,7 +678,6 @@ function AdminLogin({onLogin,savedName,onResetProfil}){
   );
 }
 
-// ── v9.3 : labels des vues ─────────────────────────────────
 var VIEW_META = {
   saisie:     { ico: '✏️',  label: 'Saisie',        group: 'Action' },
   historique: { ico: '📋',  label: 'Historique',     group: 'Consulter' },
@@ -698,7 +693,6 @@ var VIEW_META = {
   logs:       { ico: '📜',  label: 'Logs',           group: 'Config' },
 };
 
-// ── v9.5 : Modal confirmation suppression ─────────────────
 function ConfirmModal({item,onConfirm,onCancel}){
   if(!item)return null;
   React.useEffect(()=>{
@@ -741,14 +735,11 @@ function App(){
     statuts:[...STATUTS_DEFAULT],conseillers:[...CONSEILLERS_DEFAULT],
     publics:[...PUBLICS_DEFAULT],materiels:[...MATERIELS_DEFAULT]
   });
-  const[emails,setEmails]  = React.useState({});  // v9.3
-  const[lastSync,setLastSync]= React.useState(null); // v9.4
-  const[syncing,setSyncing]= React.useState(false);  // v9.5
-  const[logFilter,setLogFilter]= React.useState('all'); // v10.0 : filtre logs
+  const[emails,setEmails]  = React.useState({});
+  const[lastSync,setLastSync]= React.useState(null);
+  const[syncing,setSyncing]= React.useState(false);
+  const[logFilter,setLogFilter]= React.useState('all');
   const[pinned,setPinned]= React.useState(()=>localStorage.getItem('adm_sidebar_pinned')==='1'); // épingle sidebar
-
-  // v9.5 : logs persistants via localStorage
-  // v10.0 : logs avec timestamp ms pour purge +30j, limite 200, auto-purge au démarrage
   const LOGS_PURGE_MS=30*24*60*60*1000;
   const[logs,setLogs]=React.useState(()=>{
     try{
@@ -801,7 +792,7 @@ function App(){
   },[auth]);
 
   async function loadData(attempt=1, silent=false){
-    setSyncing(true); // v9.5
+    setSyncing(true);
     if(!silent) setLoading(true);setError(null);
     try{
       // Timeout adaptatif : court sur PC/fibre, long sur mobile/4G
@@ -820,14 +811,14 @@ function App(){
         addLog('Listes synchronisées','ok');
       }
       if(data.conseiller_colors){applyColors(data.conseiller_colors);}
-      if(data.emails){setEmails(data.emails);addLog('Emails chargés','ok');}  // v9.3
+      if(data.emails){setEmails(data.emails);addLog('Emails chargés','ok');}
       addLog(`${incoming.length} ateliers chargés (${annee})`,'ok');
       setLastSync(new Date());
       setSeenIds(prev=>{if(prev.size===0)return new Set(incoming.map(e=>e._id));const nouvs=incoming.filter(e=>!prev.has(e._id));if(nouvs.length>0)setNewEntries(n=>[...nouvs,...n]);return new Set(incoming.map(e=>e._id));});
-      setLoading(false);setSyncing(false); // v9.5
+      setLoading(false);setSyncing(false);
     }catch(err){
       if(err.message==='timeout'&&attempt<3){addLog(`Tentative ${attempt}/3…`,'info');const isMobile=/Android|iPhone|iPad/i.test(navigator.userAgent);setTimeout(()=>loadData(attempt+1,silent),isMobile?[3000,6000][attempt-1]:2000);}
-      else{setError(attempt>1?'Google Sheets ne répond pas après 3 tentatives.':'Impossible de charger : '+err.message);addLog('Erreur : '+err.message,'err');setLoading(false);setSyncing(false);} // v9.5
+      else{setError(attempt>1?'Google Sheets ne répond pas après 3 tentatives.':'Impossible de charger : '+err.message);addLog('Erreur : '+err.message,'err');setLoading(false);setSyncing(false);}
     }
   }
 
@@ -837,13 +828,10 @@ function App(){
     if(isFirstLoad.current){isFirstLoad.current=false;loadData();}
     else{setSeenIds(new Set());loadData();}
   },[annee]);
-  // v9.4 : sync auto toutes les 5 min
   React.useEffect(()=>{
     const id=setInterval(()=>loadData(1,true),5*60*1000);
     return()=>clearInterval(id);
   },[annee]);
-
-  // v10.0 : handleDelete direct — VueHistorique/VueCalendrier gèrent leur propre confirmation
   async function handleDelete(id){
     try{const res=await apiFetch('delete',{_id:id});if(!res.ok)throw new Error(res.error);showToast('✅ Atelier supprimé');addLog('Suppression '+id,'ok');loadData();}
     catch(err){showToast('❌ '+err.message,false);}
@@ -861,11 +849,9 @@ function App(){
     setLists(newLists);STATUTS=[...newLists.statuts];CONSEILLERS=[...newLists.conseillers];PUBLICS=[...newLists.publics];MATERIELS=[...newLists.materiels];
   }
 
-  function handleSaveEmails(newEmails){  // v9.3
+  function handleSaveEmails(newEmails){
     setEmails(newEmails);
   }
-
-  // v9.5 : compteurs par statut — doit être AVANT les early returns (Rules of Hooks)
   const STATUS_PALETTE={'Planifié':'#9683EC','Réalisé':'#70AD47','Annulé':'#FF5050','Non réalisé':'#FFC000','Reporté':'#ED7D31'};
   const statusCounts=React.useMemo(()=>{
     const c={};
@@ -985,7 +971,6 @@ function App(){
         CE('span',{className:'app-topbar-title'},meta.label),
         meta.group&&CE('span',{className:'app-topbar-sub'},'— '+meta.group),
         CE('div',{className:'app-topbar-right'},
-          // v9.5 : animation sync en arrière-plan
           syncing&&!loading&&CE('span',{className:'topbar-syncing',title:'Synchronisation en cours'},'🔄 Sync'),
           lastSync&&!syncing&&CE('span',{
             className:'topbar-sync-info',
@@ -1024,7 +1009,6 @@ function App(){
             CE('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14,flexWrap:'wrap',gap:8}},
               CE('h2',{style:{margin:0}},'📜 Journal des opérations'),
               CE('div',{style:{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}},
-                // v10.0 : filtres par type
                 CE('div',{style:{display:'flex',gap:4}},
                   ['all','ok','err','info'].map(f=>CE('button',{key:f,
                     onClick:()=>setLogFilter(f),
@@ -1364,7 +1348,6 @@ function VueDashboardTabs({entries, conseillers}){
 
 
 // ════════════════════════════════════════════════════════════
-// ── v10.0 : VueAdmin — Override shared.js ──────────────────
 //   • KPIs enrichis (4 indicateurs + taux + mois)
 //   • Validation pré-import CSV & XLSX (modal aperçu)
 // ════════════════════════════════════════════════════════════
@@ -1420,7 +1403,6 @@ function ImportPreviewModal({preview, onConfirm, onCancel}){
   );
 }
 
-// ── v10.0 : Rapport post-import ───────────────────────────
 function ImportRapportModal({rapport,onClose}){
   if(!rapport) return null;
   const {total,envoyes,batchErrors,anomaliesPre,annule,ts}=rapport;
@@ -1451,7 +1433,6 @@ function ImportRapportModal({rapport,onClose}){
 }
 
 // ════════════════════════════════════════════════════════════
-// ── v10.0 : Composants restaurés depuis v9.5 ───────────────
 // ════════════════════════════════════════════════════════════
 
 function ChangerMotDePasse(){
@@ -1523,7 +1504,6 @@ function VueAdminV10({entries,onRefresh,addLog,conseillersList,onSaveColors,anne
   const cancelRef=React.useRef(false);
   const pendingRowsRef=React.useRef([]);
   const preErrorCountRef=React.useRef(0);
-  // v10.0 : Timeline export (restauré depuis v9.5)
   const MOIS_CAL=['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
   const MOIS_SHORT_CAL=['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
   const[moisDeb,setMoisDeb]=React.useState(()=>parseInt(localStorage.getItem('cal_moisDeb')||'1'));
@@ -1641,7 +1621,6 @@ function VueAdminV10({entries,onRefresh,addLog,conseillersList,onSaveColors,anne
         setImportProgress(Math.round(Math.min(done+(batchErrors.length*BATCH),rows_raw.length)/rows_raw.length*100));
         setImportMsg(`${done}/${rows_raw.length} lignes importées…`);
       }
-      // v10.0 : rapport d'import
       const rapport={total:rows_raw.length,envoyes:done,batchErrors,anomaliesPre:preErrorCountRef.current,annule,ts:new Date().toLocaleString('fr-FR')};
       setImportRapport(rapport);
       const logMsg=`Import : ${done}/${rows_raw.length} envoyés`+(batchErrors.length>0?` · ${batchErrors.length} erreur(s) batch`:'')+(annule?' · annulé':'');
@@ -1794,8 +1773,6 @@ function VueAdminV10({entries,onRefresh,addLog,conseillersList,onSaveColors,anne
           resetStep>0&&CE('button',{className:'btn btn-secondary',onClick:()=>setResetStep(0)},'Annuler')
         )
       ),
-
-      // v10.0 : Export Timeline (restauré depuis v9.5)
       CE('div',{className:'admin-section'},
         CE('h3',null,'📅 Export Timeline Ateliers'),
         CE('p',{style:{fontSize:12,color:'#4a5568',marginBottom:14}},'Génère le planning timeline directement depuis les données chargées. Année et conseillers pris depuis la sidebar.'),
@@ -1820,8 +1797,6 @@ function VueAdminV10({entries,onRefresh,addLog,conseillersList,onSaveColors,anne
           CE('a',{href:lastExport.url,download:lastExport.name,style:{color:'#276749',fontWeight:700,textDecoration:'underline'}},lastExport.name)
         )
       ),
-
-      // v10.0 : Changement mot de passe (restauré depuis v9.5)
       CE(ChangerMotDePasse,null)
     )
   );
@@ -2051,7 +2026,6 @@ window.VueAdmin = VueAdminV10;
 
 
 // ── VueRoadmap — Timeline & Densité par conseiller ──────────
-// v10.0 — intégration native BDD Google Sheets
 // ════════════════════════════════════════════════════════════
 function VueRoadmap({entries,annee,conseillers}){
   const[filterConseiller,setFilterConseiller]=React.useState('Tous');
