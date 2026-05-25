@@ -418,7 +418,7 @@ tr:hover td{background:#f7fafc}
 .sf-btn-secondary:hover{border-color:#94a3b8;color:#1a202c}
 .sf-conseiller-badge{display:inline-flex;align-items:center;gap:8px;padding:6px 14px;border-radius:20px;font-size:12px;font-weight:700;color:#fff;background:var(--ac);margin-bottom:14px}
 /* ── v9.2 : Calendrier ── */
-.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-bottom:3px}
+.cal-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:3px;margin-bottom:3px}
 .cal-header-cell{text-align:center;font-size:11px;font-weight:700;color:#718096;padding:6px 2px;text-transform:uppercase;letter-spacing:.06em;background:#f8fafc;border-radius:4px}
 .cal-cell{min-height:88px;padding:5px;border-radius:6px;border:1px solid #e2e8f0;background:#fff;transition:background .12s;vertical-align:top;overflow:hidden}
 .cal-cell:hover{background:#f8fafc}
@@ -1306,7 +1306,7 @@ function VueCalendrier({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
   const mo=calDate.getMonth();
   const monthStr=`${yr}-${String(mo+1).padStart(2,'0')}`;
   const MOIS_LONG=['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
-  const JOURS_COURT=['Lun','Mar','Mer','Jeu','Ven','Sam','Dim'];
+  const JOURS_COURT=['Lun','Mar','Mer','Jeu','Ven'];
   // CLOTURE_PRESETS — v10.0 : défini globalement dans shared.js
 
   // Entrées du mois filtrées par conseiller
@@ -1327,12 +1327,17 @@ function VueCalendrier({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
 
   // Grille calendrier
   const firstDow=new Date(yr,mo,1).getDay();
-  const firstDowMon=(firstDow+6)%7; // 0=Lun
+  const firstDowMon=(firstDow+6)%7; // 0=Lun … 4=Ven, 5=Sam, 6=Dim
   const daysInMonth=new Date(yr,mo+1,0).getDate();
   const cells=[];
-  for(let i=0;i<firstDowMon;i++)cells.push(null);
-  for(let d=1;d<=daysInMonth;d++)cells.push(d);
-  while(cells.length%7!==0)cells.push(null);
+  // Offset semaine (sam/dim → 0, sinon position lun-ven)
+  const offset5=firstDowMon>=5?0:firstDowMon;
+  for(let i=0;i<offset5;i++)cells.push(null);
+  for(let d=1;d<=daysInMonth;d++){
+    const dow=new Date(yr,mo,d).getDay(); // 0=dim,6=sam
+    if(dow!==0&&dow!==6)cells.push(d);   // jours ouvrés uniquement
+  }
+  while(cells.length%5!==0)cells.push(null);
 
   // Navigation
   function prevMonth(){setCalDate(d=>new Date(d.getFullYear(),d.getMonth()-1,1));setExpandDay(null);}
