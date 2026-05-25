@@ -4,16 +4,6 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Ateliers Inclusion Numérique — Admin v13.0</title>
-<script>
-window.onerror = function(msg, src, line, col, err) {
-  document.body.innerHTML = '<pre style="color:red;padding:20px;font-size:14px;white-space:pre-wrap">'
-    + 'ERREUR: ' + msg + '\n'
-    + 'Fichier: ' + src + '\n'
-    + 'Ligne: ' + line
-    + '</pre>';
-  return false;
-};
-</script>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
@@ -1509,6 +1499,8 @@ function VuePowerBI({entries, conseillers: conseillersList}){
         fd.length+'/'+entries.length+' ateliers affichés · CD47 Inclusion Numérique'
       )
     )
+  )
+  )
   );
 }
 
