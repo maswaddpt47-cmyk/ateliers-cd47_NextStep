@@ -1160,7 +1160,7 @@ function TableCommunes({fd}){
 function VueDashboard({entries}){
   if(!window.echarts)return CE('div',{className:'card'},CE('p',{style:{color:'#718096',textAlign:'center',padding:'40px 0'}},'⚠️ ECharts non chargé.'));
 
-  const[periodeIdx,setPeriodeIdx]=React.useState(1); // défaut : ce mois
+  const[periodeIdx,setPeriodeIdx]=React.useState(0); // défaut : tout
   const[selectedMonths,setSelectedMonths]=React.useState([]); // mois sélectionnés (1-12)
   const MOIS_LABELS=['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
   function toggleMonth(m){ setSelectedMonths(s=>s.includes(m)?s.filter(x=>x!==m):[...s,m]); }
@@ -1420,12 +1420,13 @@ function VuePowerBI({entries, conseillers: conseillersList}){
   const allOris=[...new Set(fd.map(d=>d.orienteur).filter(Boolean))];
   const pOri=allOris.map(o=>({name:o.length>16?o.slice(0,16)+'…':o,count:fd.filter(d=>d.orienteur===o).length})).sort((a,b)=>b.count-a.count).slice(0,8);
 
-  // Conseillers × mois
+  // Conseillers × mois (jusqu'au mois en cours)
+  const _moisCourant=new Date().getMonth()+1;
   const pConsMois=MOIS_PBI.map((l,i)=>{
     const m=i+1,obj={mois:l};
     CONS.forEach(c=>{obj[c]=fd.filter(d=>getMois(d)===m&&d.conseiller===c&&d.statut==='Réalisé').length;});
     return obj;
-  });
+  }).filter((_,i)=>i+1<=_moisCourant);
 
   // Communes top 8
   const allComm=[...new Set(fd.map(d=>d.commune).filter(Boolean))];
