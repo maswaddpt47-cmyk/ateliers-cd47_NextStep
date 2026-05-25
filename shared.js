@@ -290,6 +290,21 @@ tr:hover td{background:#f7fafc}
 .cal-more:hover{color:#1e3a8a;background:#dbeafe}
 .cal-year-sel{padding:4px 8px;border:1.5px solid rgba(255,255,255,.35);border-radius:6px;background:rgba(255,255,255,.12);color:#fff;font-size:12px;font-weight:700;cursor:pointer;outline:none}
 .cal-year-sel option{background:#1e3a8a;color:#fff}
+@keyframes fadeInUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+.kpi{animation:fadeInUp .35s ease both}
+.kpi:nth-child(1){animation-delay:.04s}
+.kpi:nth-child(2){animation-delay:.10s}
+.kpi:nth-child(3){animation-delay:.16s}
+.kpi:nth-child(4){animation-delay:.22s}
+.kpi:nth-child(5){animation-delay:.28s}
+.kpi:nth-child(6){animation-delay:.34s}
+.kpi-mini{animation:fadeInUp .35s ease both}
+.kpi-mini:nth-child(1){animation-delay:.04s}
+.kpi-mini:nth-child(2){animation-delay:.10s}
+.kpi-mini:nth-child(3){animation-delay:.16s}
+.kpi-mini:nth-child(4){animation-delay:.22s}
+.kpi-mini:nth-child(5){animation-delay:.28s}
+.kpi-mini:nth-child(6){animation-delay:.34s}
 `;
   document.head.appendChild(s);
 })();
