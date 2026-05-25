@@ -495,17 +495,6 @@ nav { display: none !important; }
   animation: fadeIn .15s ease;
 }
 @keyframes fadeIn { from{opacity:0} to{opacity:1} }
-@keyframes fadeSlideIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
-@keyframes fadeInUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
-.kpi{animation:fadeInUp .35s ease both}
-.kpi:nth-child(1){animation-delay:.04s}.kpi:nth-child(2){animation-delay:.10s}.kpi:nth-child(3){animation-delay:.16s}.kpi:nth-child(4){animation-delay:.22s}.kpi:nth-child(5){animation-delay:.28s}.kpi:nth-child(6){animation-delay:.34s}
-.kpi-mini{animation:fadeInUp .35s ease both}
-.kpi-mini:nth-child(1){animation-delay:.04s}.kpi-mini:nth-child(2){animation-delay:.10s}.kpi-mini:nth-child(3){animation-delay:.16s}.kpi-mini:nth-child(4){animation-delay:.22s}.kpi-mini:nth-child(5){animation-delay:.28s}.kpi-mini:nth-child(6){animation-delay:.34s}
-.atelier-card{animation:fadeInUp .35s ease both}
-.admin-section{animation:fadeInUp .4s ease both}
-.admin-section:nth-child(1){animation-delay:.04s}.admin-section:nth-child(2){animation-delay:.10s}.admin-section:nth-child(3){animation-delay:.16s}.admin-section:nth-child(4){animation-delay:.22s}.admin-section:nth-child(5){animation-delay:.28s}.admin-section:nth-child(6){animation-delay:.34s}
-
-.view-anim { animation: fadeSlideIn .22s ease both; }
 .confirm-card {
   background: #fff; border-radius: 14px;
   padding: 28px 28px 22px; max-width: 420px; width: 90%;
@@ -1020,7 +1009,7 @@ function App(){
           CE('span',{style:{fontSize:13,fontWeight:600}},'Chargement des données…')
         ),
         error&&CE('div',{className:'error-box'},CE('strong',null,'❌ Impossible de charger'),CE('span',null,error),CE('button',{className:'btn btn-primary',onClick:loadData},'🔄 Réessayer')),
-        !loading&&!error&&CE('div',{key:view,className:'view-anim'},
+        !loading&&!error&&CE('div',null,
           view==='saisie'&&CE(VueSaisie,{entries,onSaved:handleSaved,onNewEntry:e=>{setNewEntries(n=>[e,...n]);setSeenIds(s=>{const ns=new Set(s);ns.add(e._id);return ns;});},lists,editingId,onClearEdit:()=>setEditingId(null),prefillData,onClearPrefill:()=>setPrefillData(null),accentColor:conseillerColor(adminConseiller)}),
           view==='historique'&&CE(VueHistorique,{key:'hist_'+adminConseiller,entries,onEdit:handleEdit,onDelete:handleDelete,onRefresh:loadData,onDuplicate:handleDuplicate,canDelete:true,initConseiller:adminConseiller&&adminConseiller!=='admin'?adminConseiller:null,onResetConseiller:()=>{},onChangeConseiller:(c)=>{const nom=c==='Tous'?'admin':c;localStorage.setItem('adm_conseiller',nom);setAdminConseiller(nom);}}),
           view==='agenda'&&CE(VueAgendaSemaine,{key:'agenda_'+adminConseiller,entries,onEdit:handleEdit,onDelete:handleDelete,onDuplicate:handleDuplicate,canDelete:true,initConseiller:adminConseiller&&adminConseiller!=='admin'?adminConseiller:null,accentColor}),
@@ -1512,6 +1501,15 @@ function ChangerMotDePasse(){
 
 // ── VueAdmin override ──────────────────────────────────────
 function VueAdminV10({entries,onRefresh,addLog,conseillersList,onSaveColors,annee}){
+  const adminRef=React.useRef(null);
+  React.useEffect(()=>{
+    if(!adminRef.current)return;
+    const sections=adminRef.current.querySelectorAll('.admin-section');
+    sections.forEach((el,i)=>{
+      el.style.opacity='0';el.style.transform='translateY(12px)';el.style.transition='opacity .5s ease,transform .5s ease';
+      setTimeout(()=>{el.style.opacity='1';el.style.transform='translateY(0)';},i*100+30);
+    });
+  },[]);
   const[resetStep,setResetStep]=React.useState(0);
   const[visibility,setVisibility]=React.useState(null);
   const[visSaving,setVisSaving]=React.useState(false);
@@ -1700,16 +1698,16 @@ function VueAdminV10({entries,onRefresh,addLog,conseillersList,onSaveColors,anne
   return CE(React.Fragment,null,
     CE(ImportPreviewModal,{preview:importPreview,onCancel:()=>{setImportPreview(null);pendingRowsRef.current=[];},onConfirm:()=>{preErrorCountRef.current=importPreview.errors.length;doUpload(pendingRowsRef.current);}}),
     CE(ImportRapportModal,{rapport:importRapport,onClose:()=>setImportRapport(null)}),
-    CE('div',null,
+    CE('div',{ref:adminRef},
 
       // ── v10.0 : KPIs enrichis ──
       CE('div',{className:'card'},
         CE('h2',{style:{marginBottom:14}},'⚙️ Panneau Administrateur'),
         CE('div',{style:{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(130px,1fr))',gap:12,marginBottom:4}},
-          CE('div',{className:'kpi'},CE('div',{className:'val'},kpis.total),CE('div',{className:'lbl'},'Total ateliers')),
-          CE('div',{className:'kpi'},CE('div',{className:'val',style:{color:'#70AD47'}},kpis.realises),CE('div',{className:'lbl'},'Réalisés')),
-          CE('div',{className:'kpi'},CE('div',{className:'val',style:{color:kpis.taux>=75?'#70AD47':kpis.taux>=50?'#FFC000':'#FF5050'}},kpis.taux+'%'),CE('div',{className:'lbl'},'Taux réalisation')),
-          CE('div',{className:'kpi'},CE('div',{className:'val',style:{color:'#9683EC'}},kpis.ceMois),CE('div',{className:'lbl'},'Ce mois-ci'))
+          CE(FadeItem,{delay:0},CE('div',{className:'kpi',style:{borderLeft:'4px solid #1e3a8a',background:'#f0f4ff',textAlign:'left'}},CE('div',{className:'val',style:{color:'#1e3a8a'}},kpis.total),CE('div',{className:'lbl'},'Total ateliers'))),
+          CE(FadeItem,{delay:0.08},CE('div',{className:'kpi',style:{borderLeft:'4px solid #16a34a',background:'#f0fdf4',textAlign:'left'}},CE('div',{className:'val',style:{color:'#16a34a'}},kpis.realises),CE('div',{className:'lbl'},'Réalisés'))),
+          CE(FadeItem,{delay:0.16},CE('div',{className:'kpi',style:{borderLeft:'4px solid '+(kpis.taux>=75?'#16a34a':kpis.taux>=50?'#d97706':'#dc2626'),background:kpis.taux>=75?'#f0fdf4':kpis.taux>=50?'#fffbeb':'#fff5f5',textAlign:'left'}},CE('div',{className:'val',style:{color:kpis.taux>=75?'#16a34a':kpis.taux>=50?'#d97706':'#dc2626'}},kpis.taux+'%'),CE('div',{className:'lbl'},'Taux réalisation'))),
+          CE(FadeItem,{delay:0.24},CE('div',{className:'kpi',style:{borderLeft:'4px solid #9683EC',background:'#f5f3ff',textAlign:'left'}},CE('div',{className:'val',style:{color:'#9683EC'}},kpis.ceMois),CE('div',{className:'lbl'},'Ce mois-ci')))
         ),
         kpis.topConseiller&&CE('p',{style:{fontSize:11,color:'#9ca3af',marginTop:6,marginBottom:0}},
           '🏆 Top conseiller : '+kpis.topConseiller[0]+' ('+kpis.topConseiller[1]+' atelier'+(kpis.topConseiller[1]>1?'s':'')+')'
@@ -2216,9 +2214,9 @@ function VueRoadmap({entries,annee,conseillers}){
           {label:'Réalisés',value:kpis.realises,color:'#16a34a'},
           {label:'Participants',value:kpis.presents,color:'#d97706'},
           {label:'Taux réalisation',value:kpis.taux+'%',color:kpis.taux>=75?'#16a34a':kpis.taux>=50?'#d97706':'#dc2626'},
-        ].map((k,ki)=>CE('div',{key:k.label,style:{
+        ].map(k=>CE('div',{key:k.label,style:{
           background:'#f8fafc',borderRadius:8,padding:'10px 14px',
-          borderLeft:'3px solid '+k.color,animation:`fadeInUp .35s ease ${ki*0.08}s both`
+          borderLeft:'3px solid '+k.color
         }},
           CE('div',{style:{fontSize:22,fontWeight:800,color:k.color}},k.value),
           CE('div',{style:{fontSize:11,color:'#718096',marginTop:2}},k.label)
@@ -2277,7 +2275,7 @@ function VueRoadmap({entries,annee,conseillers}){
         const items=filtered.filter(e=>e.conseiller===conseiller);
         return CE('div',{key:conseiller,style:{
           display:'flex',background:ci%2===0?'#fff':'#fafbfc',
-          borderBottom:'1px solid #f0f4f8',minHeight:58,animation:`fadeInUp .3s ease ${ci*0.06}s both`
+          borderBottom:'1px solid #f0f4f8',minHeight:58
         }},
           CE('div',{style:{
             width:170,minWidth:170,padding:'10px 16px',
