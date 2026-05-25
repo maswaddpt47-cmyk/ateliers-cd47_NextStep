@@ -319,6 +319,14 @@ tr:hover td{background:#f7fafc}
 if(!window.React||!window.ReactDOM){throw new Error('React/ReactDOM non chargé — vérifiez les CDN dans le HTML');}
 const CE = React.createElement;
 
+// ── FadeItem — animation React state (transition CSS, 100% fiable) ──
+function FadeItem({children,delay=0,style={}}){
+  const[show,setShow]=React.useState(false);
+  React.useEffect(()=>{const t=setTimeout(()=>setShow(true),Math.round(delay*1000)+20);return()=>clearTimeout(t);},[]);
+  return CE('div',{style:{opacity:show?1:0,transform:show?'translateY(0)':'translateY(14px)',transition:'opacity .45s ease,transform .45s ease',...style}},children);
+}
+
+
 const GS_URL = 'https://script.google.com/macros/s/AKfycbw4u5tP97Drju1PiF16Lxl7KpnTwYMVWl18VwBbfm9AKuDI1F36dkNSvU08kKlifM6zbg/exec';
 
 const COMMUNES = [
@@ -1013,11 +1021,11 @@ function VueHistorique({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
   return CE('div',null,
     // KPIs
     CE('div',{className:'kpi-row'},
-      CE('div',{className:'kpi-mini',style:{animation:'fadeInUp .5s ease 0s both'}},CE('div',{className:'v',style:{color:'#1e3a8a'}},kpi.total),CE('div',{className:'l'},'Total')),
-      CE('div',{className:'kpi-mini',style:{animation:'fadeInUp .5s ease .08s both'}},CE('div',{className:'v',style:{color:'#166534'}},kpi.realises),CE('div',{className:'l'},'Réalisés'),CE('div',{className:'p',style:{color:'#166534'}},kpi.total?Math.round(kpi.realises/kpi.total*100)+'%':'-')),
-      CE('div',{className:'kpi-mini',style:{animation:'fadeInUp .5s ease .16s both'}},CE('div',{className:'v',style:{color:'#991b1b'}},kpi.annules),CE('div',{className:'l'},'Annulés'),CE('div',{className:'p',style:{color:'#991b1b'}},kpi.total?Math.round(kpi.annules/kpi.total*100)+'%':'-')),
-      CE('div',{className:'kpi-mini',style:{animation:'fadeInUp .5s ease .24s both'}},CE('div',{className:'v',style:{color:'#2563eb'}},kpi.inscrits),CE('div',{className:'l'},'Inscrits')),
-      CE('div',{className:'kpi-mini',style:{animation:'fadeInUp .5s ease .32s both'}},CE('div',{className:'v',style:{color:'#d97706'}},kpi.presents),CE('div',{className:'l'},'Présents'),CE('div',{className:'p',style:{color:'#d97706'}},kpi.tx+'%'))
+      CE(FadeItem,{delay:0.0},CE('div',{className:'kpi-mini'},CE('div',{className:'v',style:{color:'#1e3a8a'}},kpi.total),CE('div',{className:'l'},'Total')),
+      CE(FadeItem,{delay:0.08},CE('div',{className:'kpi-mini'},CE('div',{className:'v',style:{color:'#166534'}},kpi.realises),CE('div',{className:'l'},'Réalisés'),CE('div',{className:'p',style:{color:'#166534'}},kpi.total?Math.round(kpi.realises/kpi.total*100)+'%':'-')),
+      CE(FadeItem,{delay:0.16},CE('div',{className:'kpi-mini'},CE('div',{className:'v',style:{color:'#991b1b'}},kpi.annules),CE('div',{className:'l'},'Annulés'),CE('div',{className:'p',style:{color:'#991b1b'}},kpi.total?Math.round(kpi.annules/kpi.total*100)+'%':'-')),
+      CE(FadeItem,{delay:0.24},CE('div',{className:'kpi-mini'},CE('div',{className:'v',style:{color:'#2563eb'}},kpi.inscrits),CE('div',{className:'l'},'Inscrits')),
+      CE(FadeItem,{delay:0.32},CE('div',{className:'kpi-mini'},CE('div',{className:'v',style:{color:'#d97706'}},kpi.presents),CE('div',{className:'l'},'Présents'),CE('div',{className:'p',style:{color:'#d97706'}},kpi.tx+'%'))
     ),
     // Alerte retards
     nRetard>0&&CE('div',{style:{background:'#fffbeb',border:'1px solid #fcd34d',borderRadius:10,padding:'10px 14px',marginBottom:10,display:'flex',gap:10,alignItems:'center'}},
@@ -1066,7 +1074,7 @@ function VueHistorique({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
     // Liste des ateliers
     CE('div',null,filtered.map((e,ei)=>{
       const d=fmtCardDate(e.date);const retard=isRetard(e);const cColor=conseillerColor(e.conseiller);
-      return CE('div',{key:e._id,className:'atelier-card',style:{background:retard?'#fffbeb':hexToRgba(cColor,0.04),borderLeft:'none',animation:`fadeInUp .35s ease ${Math.min(ei*0.04,0.4)}s both`},onClick:()=>openPanel(e)},
+      return CE(FadeItem,{key:e._id,delay:Math.min(ei*0.04,0.4)},CE('div',{className:'atelier-card',style:{background:retard?'#fffbeb':hexToRgba(cColor,0.04),borderLeft:'none'},onClick:()=>openPanel(e)},
         CE('div',{className:'atelier-card-border',style:{background:cColor}}),
         CE('div',{className:'atelier-card-date',style:{background:hexToRgba(cColor,0.08),borderRight:`1px solid ${hexToRgba(cColor,0.2)}`}},
           CE('div',{className:'atelier-card-day'},d.day),CE('div',{className:'atelier-card-month'},d.month),
@@ -1079,8 +1087,9 @@ function VueHistorique({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
           CE('div',{className:'atelier-card-sub'},e.commune,' — ',e.lieu,(e.inscrits||e.presents)?CE('span',null,' · ',e.presents||0,'/',e.inscrits||0,' présents'):null)
         ),
         CE('div',{className:'atelier-card-arrow'},'›')
-      );
+      ));
     })),
+
     // Side panel overlay
     panel&&CE('div',{className:'side-panel-overlay',onClick:closePanel}),
     CE('div',{className:'side-panel'+(panel?' open':'')},
@@ -1256,7 +1265,7 @@ function VueCalendrier({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
       // Cellules
       CE('div',{className:'cal-grid'},
         cells.map((day,idx)=>{
-          if(day===null)return CE('div',{key:'e'+idx,className:'cal-cell cal-cell-empty',style:{animation:`fadeInUp .3s ease ${Math.min(idx*0.015,0.4)}s both`}});
+          if(day===null)return CE(FadeItem,{key:'e'+idx,delay:Math.min(idx*0.015,0.4),style:{height:'100%'}},CE('div',{className:'cal-cell cal-cell-empty'}));
           const ds=`${yr}-${String(mo+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
           const isToday=ds===todayStr;
           const dayAteliers=dayMap[day]||[];
@@ -1264,7 +1273,8 @@ function VueCalendrier({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
           const hidden=dayAteliers.length-MAX_VISIBLE;
           const expanded=expandDay===day;
           const visible=expanded?dayAteliers:dayAteliers.slice(0,MAX_VISIBLE);
-          return CE('div',{key:day,className:'cal-cell'+(isToday?' cal-today':''),style:{animation:`fadeInUp .3s ease ${Math.min(idx*0.015,0.4)}s both`}},
+          return CE(FadeItem,{key:day,delay:Math.min(idx*0.015,0.4),style:{height:'100%'}},CE('div',{className:'cal-cell'+(isToday?' cal-today':'')},
+          
             CE('div',{className:'cal-day-num'},
               isToday?CE('span',{className:'cal-today-num'},day):day
             ),
@@ -1560,8 +1570,10 @@ function lighten(hex){try{const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.sli
 
 // ── KPI Card avec tendance ─────────────────────────────────
 function KpiCard({val,lbl,sub,trend,color,icon,bgColor,delay=0}){
+  const[show,setShow]=React.useState(false);
+  React.useEffect(()=>{const t=setTimeout(()=>setShow(true),Math.round(delay*1000)+20);return()=>clearTimeout(t);},[]);
   const up=trend>0,down=trend<0;
-  return CE('div',{className:'kpi',style:{background:bgColor||'#fff',borderLeft:'4px solid '+(color||'#1e3a8a'),textAlign:'left',padding:'14px 16px',position:'relative',overflow:'hidden',animation:`fadeInUp .5s ease ${delay}s both`}},
+  return CE('div',{className:'kpi',style:{background:bgColor||'#fff',borderLeft:'4px solid '+(color||'#1e3a8a'),textAlign:'left',padding:'14px 16px',position:'relative',overflow:'hidden',opacity:show?1:0,transform:show?'translateY(0)':'translateY(14px)',transition:'opacity .45s ease,transform .45s ease'}},
     CE('div',{style:{position:'absolute',right:10,top:8,fontSize:28,opacity:.08}},icon),
     CE('div',{style:{display:'flex',alignItems:'flex-start',justifyContent:'space-between'}},
       CE('div',null,
@@ -1865,8 +1877,8 @@ function VueCarte({entries,active}){
     });
   },[active]);
   return CE('div',null,
-    CE('div',{style:{display:'flex',justifyContent:'flex-end',marginBottom:8,animation:'fadeInUp .35s ease 0s both'}},CE('button',{className:'btn btn-print btn-sm',onClick:()=>window.print()},'🖨️ Imprimer')),
-    CE('div',{className:'card',style:{animation:'fadeInUp .4s ease .08s both'}},
+    CE(FadeItem,{delay:0},CE('div',{style:{display:'flex',justifyContent:'flex-end',marginBottom:8}},CE('button',{className:'btn btn-print btn-sm',onClick:()=>window.print()},'🖨️ Imprimer'))),
+    CE(FadeItem,{delay:0.08},CE('div',{className:'card'},
       CE('h2',null,'🗺️ Carte des communes'),
       CE('div',{style:{display:'flex',gap:16,marginBottom:10,flexWrap:'wrap',fontSize:12,color:'#4a5568'}},
         CE('span',null,CE('span',{style:{display:'inline-block',width:12,height:12,borderRadius:'50%',background:'#22c55e',marginRight:5,verticalAlign:'middle'}}),'≥ 70% réalisés'),
@@ -1902,7 +1914,7 @@ function VueBingo({entries}){
       ),
       CE('button',{className:'btn btn-print btn-sm',onClick:()=>window.print()},'🖨️ Imprimer')
     ),
-    CE('div',{className:'bingo-grid'},communes.map((c,ci)=>{const col=getCircleColor(c.pct);return CE('div',{key:c.nom,className:'bingo-card'+(selected===c.nom?' selected':''),onClick:()=>setSelected(selected===c.nom?null:c.nom),style:{animation:`fadeInUp .35s ease ${ci*0.04}s both`}},CE('div',{className:'bingo-circle',style:{background:col.bg,borderColor:col.stroke,color:col.text}},c.total),CE('div',{className:'bingo-nom'},c.nom),CE('div',{className:'bingo-pct'},c.pct+'% réalisés'));})),
+    CE('div',{className:'bingo-grid'},communes.map((c,ci)=>{const col=getCircleColor(c.pct);return CE(FadeItem,{key:c.nom,delay:ci*0.04},CE('div',{className:'bingo-card'+(selected===c.nom?' selected':''),onClick:()=>setSelected(selected===c.nom?null:c.nom)},CE('div',{className:'bingo-circle'},style:{background:col.bg,borderColor:col.stroke,color:col.text}},c.total),CE('div',{className:'bingo-nom'},c.nom),CE('div',{className:'bingo-pct'},c.pct+'% réalisés'))));})),
     sel&&CE('div',{className:'card'},
       CE('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}},
         CE('h2',{style:{borderBottom:'none',marginBottom:0,paddingBottom:0}},CE('span',{style:{color:'#1e3a8a'}},'📍 '+sel.nom),CE('span',{style:{fontSize:13,fontWeight:400,color:'#718096',marginLeft:8}},'— '+sel.total+' atelier(s)')),
@@ -2030,7 +2042,7 @@ function VueAdmin({entries,onRefresh,addLog,conseillersList,onSaveColors}){
       )
     ),
     // Couleurs conseillers
-    CE('div',{className:'admin-section',style:{animation:'fadeInUp .5s ease 0s both'}},
+    CE(FadeItem,{delay:0},CE('div',{className:'admin-section'},
       CE('h3',null,'🎨 Couleurs des conseillers'),
       CE('p',{style:{fontSize:12,color:'#4a5568',marginBottom:16}},'Personnalisez la couleur de chaque conseiller numérique. S\'applique au bandeau, au formulaire et aux cartes.'),
       CE('div',{style:{display:'flex',flexDirection:'column',gap:10}},
@@ -2066,7 +2078,7 @@ function VueAdmin({entries,onRefresh,addLog,conseillersList,onSaveColors}){
       ),
       CE('button',{className:'btn btn-primary',style:{marginTop:16},onClick:handleSaveColors,disabled:colorSaving},colorSaving?'…':'💾 Sauvegarder les couleurs')
     ),
-    visibility&&CE('div',{className:'admin-section',style:{animation:'fadeInUp .5s ease .1s both'}},
+    visibility&&CE(FadeItem,{delay:.1},CE('div',{className:'admin-section'},
       CE('h3',null,'👁️ Visibilité — Frontend conseillers'),
       CE('p',{style:{fontSize:12,color:'#4a5568',marginBottom:12}},'Choisissez les onglets visibles dans l\'interface conseiller.'),
       VIS_ITEMS.map(item=>CE('div',{key:item.key,className:'toggle-row'},
@@ -2075,17 +2087,17 @@ function VueAdmin({entries,onRefresh,addLog,conseillersList,onSaveColors}){
       )),
       CE('button',{className:'btn btn-primary',style:{marginTop:16},onClick:handleSaveVisibility,disabled:visSaving},visSaving?'…':'💾 Enregistrer la visibilité')
     ),
-    CE('div',{className:'admin-section',style:{animation:'fadeInUp .5s ease .2s both'}},
+    CE(FadeItem,{delay:.2},CE('div',{className:'admin-section'},
       CE('h3',null,'📥 Import CSV'),
       CE('p',{style:{fontSize:12,color:'#4a5568',marginBottom:12}},'Importe un fichier CSV compatible. Les entrées existantes sont fusionnées.'),
       importing?CE('div',null,CE('p',{style:{fontSize:12,color:'#4a5568',marginBottom:6}},importMsg),CE('div',{className:'progress-bar'},CE('div',{className:'progress-fill',style:{width:importProgress+'%'}})),CE('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginTop:6}},CE('p',{style:{fontSize:11,color:'#718096'}},importProgress+'%'),CE('button',{className:'btn btn-danger btn-sm',onClick:()=>cancelRef.current=true},'⛔ Annuler'))):CE('label',{style:{display:'inline-block',cursor:'pointer'}},CE('span',{className:'btn btn-primary'},'📂 Choisir un fichier CSV'),CE('input',{type:'file',accept:'.csv',style:{display:'none'},onChange:handleImportCSV}))
     ),
-    CE('div',{className:'admin-section',style:{animation:'fadeInUp .5s ease .3s both'}},
+    CE(FadeItem,{delay:.3},CE('div',{className:'admin-section'},
       CE('h3',null,'📊 Import XLSX'),
       CE('p',{style:{fontSize:12,color:'#4a5568',marginBottom:12}},'Réimporte un fichier .xlsx précédemment exporté.'),
       importing?CE('div',null,CE('p',{style:{fontSize:12,color:'#4a5568',marginBottom:6}},importMsg||'Import en cours…'),CE('div',{className:'progress-bar'},CE('div',{className:'progress-fill',style:{width:importProgress+'%'}})),CE('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginTop:6}},CE('p',{style:{fontSize:11,color:'#718096'}},importProgress+'%'),CE('button',{className:'btn btn-danger btn-sm',onClick:()=>cancelRef.current=true},'⛔ Annuler'))):CE('label',{style:{display:'inline-block',cursor:'pointer'}},CE('span',{className:'btn btn-warn'},'📂 Choisir un fichier XLSX'),CE('input',{type:'file',accept:'.xlsx',style:{display:'none'},onChange:handleImportXLSX}))
     ),
-    CE('div',{className:'admin-section',style:{animation:'fadeInUp .5s ease .4s both'}},
+    CE(FadeItem,{delay:.4},CE('div',{className:'admin-section'},
       CE('h3',null,'🗑️ Réinitialiser la base de données'),
       CE('p',{style:{fontSize:12,color:'#4a5568',marginBottom:12}},'Vide uniquement le cache local. Le Google Sheet reste intact.'),
       resetStep>0&&CE('div',{className:'confirm-box'},CE('p',null,resetStep===1?'Êtes-vous sûr ? Cette action vide le cache local.':'Dernière confirmation — cliquez pour confirmer.')),
@@ -2199,7 +2211,7 @@ function VuePowerBI({entries, conseillers: conseillersList}){
 
   // ── Sous-composants ────────────────────────────────────────
   function KpiPBI({label,value,sub,color,icon,delay=0}){
-    return CE('div',{style:{background:'#fff',borderRadius:6,padding:'14px',borderLeft:`4px solid ${color}`,boxShadow:'0 1px 6px rgba(0,0,0,.08)',animation:`fadeInUp .35s ease ${delay}s both`}},
+    return CE(FadeItem,{delay:delay},CE('div',{style:{background:'#fff',borderRadius:6,padding:'14px',borderLeft:`4px solid ${color}`,boxShadow:'0 1px 6px rgba(0,0,0,.08)'}},
       CE('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}},
         CE('div',null,
           CE('div',{style:{fontSize:10,color:'#6b7280',fontWeight:700,textTransform:'uppercase',letterSpacing:'.06em',marginBottom:5}},label),
@@ -2221,7 +2233,7 @@ function VuePowerBI({entries, conseillers: conseillersList}){
   }
 
   function CardPBI({title,children,style={},delay=0}){
-    return CE('div',{style:{background:'#fff',borderRadius:6,padding:14,boxShadow:'0 1px 6px rgba(0,0,0,.08)',...style,animation:`fadeInUp .4s ease ${delay}s both`}},
+    return CE(FadeItem,{delay:delay},CE('div',{style:{background:'#fff',borderRadius:6,padding:14,boxShadow:'0 1px 6px rgba(0,0,0,.08)',...style}},
       CE('div',{style:{fontSize:10,fontWeight:700,color:'#374151',textTransform:'uppercase',letterSpacing:'.06em',marginBottom:12,paddingBottom:8,borderBottom:'1px solid #f3f4f6'}},title),
       children
     );
@@ -2398,7 +2410,7 @@ function VuePowerBI({entries, conseillers: conseillersList}){
             const pct=r.length?Math.round(rl/r.length*100):0;
             const pre=r.reduce((s,d)=>s+(parseInt(d.presents)||0),0);
             const ann=r.filter(d=>d.statut==='Annulé').length;
-            return CE('div',{key:c,style:{background:'#fff',borderRadius:6,padding:12,boxShadow:'0 1px 6px rgba(0,0,0,.08)',borderTop:`3px solid ${cColor(c)}`,animation:`fadeInUp .35s ease ${ci*0.08}s both`}},
+            return CE(FadeItem,{key:c,delay:ci*0.08},CE('div',{style:{background:'#fff',borderRadius:6,padding:12,boxShadow:'0 1px 6px rgba(0,0,0,.08)',borderTop:`3px solid ${cColor(c)}`}},
               CE('div',{style:{fontSize:11,fontWeight:700,color:cColor(c),marginBottom:8,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}},c),
               CE('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6,marginBottom:8}},
                 CE('div',null,CE('div',{style:{fontSize:20,fontWeight:800,color:'#111827'}},r.length),CE('div',{style:{fontSize:9,color:'#6b7280'}},'Ateliers')),
