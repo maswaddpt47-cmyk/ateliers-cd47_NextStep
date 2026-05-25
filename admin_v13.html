@@ -939,10 +939,8 @@ function App(){
       // Groupe : Stats
       CE('div',{className:'sidebar-sep'}),
       CE('span',{className:'sidebar-group-label'},'Analyser'),
-      sideBtn('dashboard','🚀','Dashboard'),
-      sideBtn('graphiques','📊','Statistiques'),
+      sideBtn('dashboard','📊','Dashboard'),
       sideBtn('bingo','🎯','Bingo'),
-      sideBtn('powerbi','📈','Power BI'),
 
       // Groupe : Config — Listes ICI (remonté v9.3b)
       CE('div',{className:'sidebar-sep'}),
@@ -1016,12 +1014,11 @@ function App(){
           view==='historique'&&CE(VueHistorique,{key:'hist_'+adminConseiller,entries,onEdit:handleEdit,onDelete:handleDelete,onRefresh:loadData,onDuplicate:handleDuplicate,canDelete:true,initConseiller:adminConseiller&&adminConseiller!=='admin'?adminConseiller:null,onResetConseiller:()=>{},onChangeConseiller:(c)=>{const nom=c==='Tous'?'admin':c;localStorage.setItem('adm_conseiller',nom);setAdminConseiller(nom);}}),
           view==='agenda'&&CE(VueAgendaSemaine,{key:'agenda_'+adminConseiller,entries,onEdit:handleEdit,onDelete:handleDelete,onDuplicate:handleDuplicate,canDelete:true,initConseiller:adminConseiller&&adminConseiller!=='admin'?adminConseiller:null,accentColor}),
           view==='calendrier'&&CE(VueCalendrier,{key:'cal_'+adminConseiller,entries,onEdit:handleEdit,onDelete:handleDelete,onRefresh:loadData,onDuplicate:handleDuplicate,canDelete:true,initConseiller:adminConseiller&&adminConseiller!=='admin'?adminConseiller:null,onResetConseiller:()=>{},onChangeConseiller:(c)=>{const nom=c==='Tous'?'admin':c;localStorage.setItem('adm_conseiller',nom);setAdminConseiller(nom);}}),
-          view==='graphiques'&&CE(VueGraphiques,{entries}),
-          view==='dashboard'&&CE(VueDashboard,{entries}),
+          view==='dashboard'&&CE(VueDashboardTabs,{entries,conseillers:lists.conseillers}),
           view==='carte'&&CE(VueCarte,{entries,active:view==='carte'}),
           view==='roadmap'&&CE(VueRoadmap,{entries,annee,conseillers:lists.conseillers}),
           view==='bingo'&&CE(VueBingo,{entries}),
-          view==='powerbi'&&CE(VuePowerBI,{entries,conseillers:lists.conseillers}),
+
           view==='admin'&&CE(VueAdmin,{entries,onRefresh:loadData,addLog,conseillersList:lists.conseillers,onSaveColors:(c)=>{applyColors(c);},annee}),
           view==='logs'&&CE('div',{className:'card'},
             CE('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14,flexWrap:'wrap',gap:8}},
@@ -1155,6 +1152,35 @@ function TableCommunes({fd}){
         );
       }))
     )
+  );
+}
+
+
+// ── VueDashboardTabs — Dashboard unifié (3 onglets) ──────────
+function VueDashboardTabs({entries, conseillers}){
+  const[tab,setTab]=React.useState('dashboard');
+  const TABS=[
+    {id:'dashboard', ico:'🚀', label:'Dashboard'},
+    {id:'graphiques', ico:'📊', label:'Statistiques'},
+    {id:'powerbi',    ico:'📈', label:'Power BI'},
+  ];
+  return CE('div',null,
+    CE('div',{style:{display:'flex',borderBottom:'2px solid #e5e7eb',marginBottom:16,gap:4}},
+      TABS.map(t=>CE('button',{
+        key:t.id,
+        onClick:()=>setTab(t.id),
+        style:{
+          padding:'8px 18px',border:'none',background:'none',cursor:'pointer',
+          fontSize:13,fontWeight:tab===t.id?700:400,fontFamily:'inherit',
+          color:tab===t.id?'var(--accent,#0ea5e9)':'#6b7280',
+          borderBottom:tab===t.id?'3px solid var(--accent,#0ea5e9)':'3px solid transparent',
+          marginBottom:-2,transition:'all .15s'
+        }
+      }, t.ico+' '+t.label))
+    ),
+    tab==='dashboard'  && CE(VueDashboard,{entries}),
+    tab==='graphiques' && CE(VueGraphiques,{entries}),
+    tab==='powerbi'    && CE(VuePowerBI,{entries,conseillers})
   );
 }
 
