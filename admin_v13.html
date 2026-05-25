@@ -1488,7 +1488,8 @@ function VuePowerBI({entries, conseillers: conseillersList}){
             yAxis:{splitLine:{lineStyle:{color:'#2d3250',type:'dashed'}},axisLabel:{color:'#9ca3af',fontSize:9},axisLine:{show:false},axisTick:{show:false}},
             series:[{type:'bar',barMaxWidth:22,data:pComm.map(d=>d.ateliers),
               itemStyle:{color:mkGradPBI('#c084fc','#7c3aed'),borderRadius:[3,3,0,0]},
-              label:{show:true,position:'top',color:'#9ca3af',fontSize:8}}]}}),
+              label:{show:true,position:'top',color:'#9ca3af',fontSize:8}}]}})        
+        ),
 
         CE(CardPBI,{title:'Détail communes'},
           CE(TableCommunes,{fd})
@@ -1499,7 +1500,6 @@ function VuePowerBI({entries, conseillers: conseillersList}){
         fd.length+'/'+entries.length+' ateliers affichés · CD47 Inclusion Numérique'
       )
     )
-  )
   )
   );
 }
