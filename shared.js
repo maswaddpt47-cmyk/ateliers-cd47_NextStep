@@ -1330,13 +1330,15 @@ function trunc(s,n){return s&&s.length>n?s.slice(0,n-1)+'…':s;}
 function barH(n,base){return Math.max(base,base+(Math.max(0,n-6)*8));}
 
 // ── Base wrapper ECharts ────────────────────────────────────
+const EC_ANIM={animation:true,animationDuration:700,animationEasing:'cubicOut',animationDurationUpdate:500,animationEasingUpdate:'cubicInOut'};
 function EChart({option,height}){
   const ref=React.useRef(null);
   const inst=React.useRef(null);
   const prevOpt=React.useRef(null);
   React.useEffect(()=>{
     if(!ref.current||!window.echarts)return;
-    if(!inst.current){
+    const isNew=!inst.current;
+    if(isNew){
       inst.current=window.echarts.init(ref.current);
       const ro=new ResizeObserver(()=>{if(inst.current)inst.current.resize();});
       ro.observe(ref.current);
@@ -1345,7 +1347,7 @@ function EChart({option,height}){
     const optStr=JSON.stringify(option);
     if(prevOpt.current===optStr)return;
     prevOpt.current=optStr;
-    inst.current.setOption(option,{notMerge:true});
+    inst.current.setOption({...EC_ANIM,...option},{notMerge:isNew,lazyUpdate:false});
   });
   React.useEffect(()=>{return()=>{if(inst.current){if(inst.current._ro)inst.current._ro.disconnect();inst.current.dispose();inst.current=null;}};},[]); 
   return CE('div',{ref,style:{width:'100%',height:height||200}});
