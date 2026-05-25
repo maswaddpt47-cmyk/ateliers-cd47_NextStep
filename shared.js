@@ -1013,11 +1013,11 @@ function VueHistorique({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
   return CE('div',null,
     // KPIs
     CE('div',{className:'kpi-row'},
-      CE('div',{className:'kpi-mini'},CE('div',{className:'v',style:{color:'#1e3a8a'}},kpi.total),CE('div',{className:'l'},'Total')),
-      CE('div',{className:'kpi-mini'},CE('div',{className:'v',style:{color:'#166534'}},kpi.realises),CE('div',{className:'l'},'Réalisés'),CE('div',{className:'p',style:{color:'#166534'}},kpi.total?Math.round(kpi.realises/kpi.total*100)+'%':'-')),
-      CE('div',{className:'kpi-mini'},CE('div',{className:'v',style:{color:'#991b1b'}},kpi.annules),CE('div',{className:'l'},'Annulés'),CE('div',{className:'p',style:{color:'#991b1b'}},kpi.total?Math.round(kpi.annules/kpi.total*100)+'%':'-')),
-      CE('div',{className:'kpi-mini'},CE('div',{className:'v',style:{color:'#2563eb'}},kpi.inscrits),CE('div',{className:'l'},'Inscrits')),
-      CE('div',{className:'kpi-mini'},CE('div',{className:'v',style:{color:'#d97706'}},kpi.presents),CE('div',{className:'l'},'Présents'),CE('div',{className:'p',style:{color:'#d97706'}},kpi.tx+'%'))
+      CE('div',{className:'kpi-mini',style:{animation:'fadeInUp .5s ease 0s both'}},CE('div',{className:'v',style:{color:'#1e3a8a'}},kpi.total),CE('div',{className:'l'},'Total')),
+      CE('div',{className:'kpi-mini',style:{animation:'fadeInUp .5s ease .08s both'}},CE('div',{className:'v',style:{color:'#166534'}},kpi.realises),CE('div',{className:'l'},'Réalisés'),CE('div',{className:'p',style:{color:'#166534'}},kpi.total?Math.round(kpi.realises/kpi.total*100)+'%':'-')),
+      CE('div',{className:'kpi-mini',style:{animation:'fadeInUp .5s ease .16s both'}},CE('div',{className:'v',style:{color:'#991b1b'}},kpi.annules),CE('div',{className:'l'},'Annulés'),CE('div',{className:'p',style:{color:'#991b1b'}},kpi.total?Math.round(kpi.annules/kpi.total*100)+'%':'-')),
+      CE('div',{className:'kpi-mini',style:{animation:'fadeInUp .5s ease .24s both'}},CE('div',{className:'v',style:{color:'#2563eb'}},kpi.inscrits),CE('div',{className:'l'},'Inscrits')),
+      CE('div',{className:'kpi-mini',style:{animation:'fadeInUp .5s ease .32s both'}},CE('div',{className:'v',style:{color:'#d97706'}},kpi.presents),CE('div',{className:'l'},'Présents'),CE('div',{className:'p',style:{color:'#d97706'}},kpi.tx+'%'))
     ),
     // Alerte retards
     nRetard>0&&CE('div',{style:{background:'#fffbeb',border:'1px solid #fcd34d',borderRadius:10,padding:'10px 14px',marginBottom:10,display:'flex',gap:10,alignItems:'center'}},
@@ -1559,9 +1559,9 @@ function lighten(hex){try{const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.sli
 
 
 // ── KPI Card avec tendance ─────────────────────────────────
-function KpiCard({val,lbl,sub,trend,color,icon,bgColor}){
+function KpiCard({val,lbl,sub,trend,color,icon,bgColor,delay=0}){
   const up=trend>0,down=trend<0;
-  return CE('div',{className:'kpi',style:{background:bgColor||'#fff',borderLeft:'4px solid '+(color||'#1e3a8a'),textAlign:'left',padding:'14px 16px',position:'relative',overflow:'hidden'}},
+  return CE('div',{className:'kpi',style:{background:bgColor||'#fff',borderLeft:'4px solid '+(color||'#1e3a8a'),textAlign:'left',padding:'14px 16px',position:'relative',overflow:'hidden',animation:`fadeInUp .5s ease ${delay}s both`}},
     CE('div',{style:{position:'absolute',right:10,top:8,fontSize:28,opacity:.08}},icon),
     CE('div',{style:{display:'flex',alignItems:'flex-start',justifyContent:'space-between'}},
       CE('div',null,
@@ -1681,10 +1681,10 @@ function VueDashboard({entries}){
 
     // ── KPIs ──
     CE('div',{style:{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))',gap:12,marginBottom:16}},
-      CE(KpiCard,{val:realises.length,lbl:'Ateliers réalisés',icon:'✅',color:'#16a34a',bgColor:'#f0fdf4',trend:mkTrend(realises.length,prevR.length)}),
-      CE(KpiCard,{val:planifies.length,lbl:'Planifiés à venir',icon:'📅',color:'#2563eb',bgColor:'#eff6ff'}),
-      CE(KpiCard,{val:presents,lbl:'Participants présents',icon:'👥',color:'#7c3aed',bgColor:'#faf5ff',trend:mkTrend(presents,prevPresents)}),
-      CE(KpiCard,{val:inscrits,lbl:'Inscrits total',icon:'📝',color:'#0891b2',bgColor:'#ecfeff'}),
+      CE(KpiCard,{val:realises.length,lbl:'Ateliers réalisés',icon:'✅',color:'#16a34a',bgColor:'#f0fdf4',trend:mkTrend(realises.length,prevR.length),delay:0}),
+      CE(KpiCard,{val:planifies.length,lbl:'Planifiés à venir',icon:'📅',color:'#2563eb',bgColor:'#eff6ff',delay:0.08}),
+      CE(KpiCard,{val:presents,lbl:'Participants présents',icon:'👥',color:'#7c3aed',bgColor:'#faf5ff',trend:mkTrend(presents,prevPresents),delay:0.16}),
+      CE(KpiCard,{val:inscrits,lbl:'Inscrits total',icon:'📝',color:'#0891b2',bgColor:'#ecfeff',delay:0.24}),
       CE(KpiCard,{val:txPresence+'%',lbl:'Taux de présence',icon:'🎯',
         color:txPresence>=70?'#16a34a':txPresence>=50?'#d97706':'#dc2626',
         bgColor:txPresence>=70?'#f0fdf4':txPresence>=50?'#fffbeb':'#fef2f2'}),
@@ -2030,7 +2030,7 @@ function VueAdmin({entries,onRefresh,addLog,conseillersList,onSaveColors}){
       )
     ),
     // Couleurs conseillers
-    CE('div',{className:'admin-section'},
+    CE('div',{className:'admin-section',style:{animation:'fadeInUp .5s ease 0s both'}},
       CE('h3',null,'🎨 Couleurs des conseillers'),
       CE('p',{style:{fontSize:12,color:'#4a5568',marginBottom:16}},'Personnalisez la couleur de chaque conseiller numérique. S\'applique au bandeau, au formulaire et aux cartes.'),
       CE('div',{style:{display:'flex',flexDirection:'column',gap:10}},
@@ -2066,7 +2066,7 @@ function VueAdmin({entries,onRefresh,addLog,conseillersList,onSaveColors}){
       ),
       CE('button',{className:'btn btn-primary',style:{marginTop:16},onClick:handleSaveColors,disabled:colorSaving},colorSaving?'…':'💾 Sauvegarder les couleurs')
     ),
-    visibility&&CE('div',{className:'admin-section'},
+    visibility&&CE('div',{className:'admin-section',style:{animation:'fadeInUp .5s ease .1s both'}},
       CE('h3',null,'👁️ Visibilité — Frontend conseillers'),
       CE('p',{style:{fontSize:12,color:'#4a5568',marginBottom:12}},'Choisissez les onglets visibles dans l\'interface conseiller.'),
       VIS_ITEMS.map(item=>CE('div',{key:item.key,className:'toggle-row'},
@@ -2075,17 +2075,17 @@ function VueAdmin({entries,onRefresh,addLog,conseillersList,onSaveColors}){
       )),
       CE('button',{className:'btn btn-primary',style:{marginTop:16},onClick:handleSaveVisibility,disabled:visSaving},visSaving?'…':'💾 Enregistrer la visibilité')
     ),
-    CE('div',{className:'admin-section'},
+    CE('div',{className:'admin-section',style:{animation:'fadeInUp .5s ease .2s both'}},
       CE('h3',null,'📥 Import CSV'),
       CE('p',{style:{fontSize:12,color:'#4a5568',marginBottom:12}},'Importe un fichier CSV compatible. Les entrées existantes sont fusionnées.'),
       importing?CE('div',null,CE('p',{style:{fontSize:12,color:'#4a5568',marginBottom:6}},importMsg),CE('div',{className:'progress-bar'},CE('div',{className:'progress-fill',style:{width:importProgress+'%'}})),CE('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginTop:6}},CE('p',{style:{fontSize:11,color:'#718096'}},importProgress+'%'),CE('button',{className:'btn btn-danger btn-sm',onClick:()=>cancelRef.current=true},'⛔ Annuler'))):CE('label',{style:{display:'inline-block',cursor:'pointer'}},CE('span',{className:'btn btn-primary'},'📂 Choisir un fichier CSV'),CE('input',{type:'file',accept:'.csv',style:{display:'none'},onChange:handleImportCSV}))
     ),
-    CE('div',{className:'admin-section'},
+    CE('div',{className:'admin-section',style:{animation:'fadeInUp .5s ease .3s both'}},
       CE('h3',null,'📊 Import XLSX'),
       CE('p',{style:{fontSize:12,color:'#4a5568',marginBottom:12}},'Réimporte un fichier .xlsx précédemment exporté.'),
       importing?CE('div',null,CE('p',{style:{fontSize:12,color:'#4a5568',marginBottom:6}},importMsg||'Import en cours…'),CE('div',{className:'progress-bar'},CE('div',{className:'progress-fill',style:{width:importProgress+'%'}})),CE('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginTop:6}},CE('p',{style:{fontSize:11,color:'#718096'}},importProgress+'%'),CE('button',{className:'btn btn-danger btn-sm',onClick:()=>cancelRef.current=true},'⛔ Annuler'))):CE('label',{style:{display:'inline-block',cursor:'pointer'}},CE('span',{className:'btn btn-warn'},'📂 Choisir un fichier XLSX'),CE('input',{type:'file',accept:'.xlsx',style:{display:'none'},onChange:handleImportXLSX}))
     ),
-    CE('div',{className:'admin-section'},
+    CE('div',{className:'admin-section',style:{animation:'fadeInUp .5s ease .4s both'}},
       CE('h3',null,'🗑️ Réinitialiser la base de données'),
       CE('p',{style:{fontSize:12,color:'#4a5568',marginBottom:12}},'Vide uniquement le cache local. Le Google Sheet reste intact.'),
       resetStep>0&&CE('div',{className:'confirm-box'},CE('p',null,resetStep===1?'Êtes-vous sûr ? Cette action vide le cache local.':'Dernière confirmation — cliquez pour confirmer.')),
