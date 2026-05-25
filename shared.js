@@ -2223,8 +2223,18 @@ function VuePowerBI({entries, conseillers: conseillersList}){
   // Ombre portée standard pour barres 3D
   const _bar3D={shadowBlur:8,shadowColor:'rgba(0,0,0,0.25)',shadowOffsetY:4};
   function PBIChart({option,height}){
-    const ref=React.useRef(null);const inst=React.useRef(null);
-    React.useEffect(()=>{if(!ref.current||!window.echarts)return;if(!inst.current){inst.current=window.echarts.init(ref.current);const ro=new ResizeObserver(()=>{if(inst.current)inst.current.resize();});ro.observe(ref.current);inst.current._ro=ro;}inst.current.setOption(option,{notMerge:true});});
+    const ref=React.useRef(null);const inst=React.useRef(null);const prevOpt=React.useRef(null);
+    React.useEffect(()=>{
+      if(!ref.current||!window.echarts)return;
+      const isNew=!inst.current;
+      if(isNew){inst.current=window.echarts.init(ref.current);const ro=new ResizeObserver(()=>{if(inst.current)inst.current.resize();});ro.observe(ref.current);inst.current._ro=ro;}
+      const optStr=JSON.stringify(option);
+      if(prevOpt.current===optStr)return;
+      prevOpt.current=optStr;
+      const merged={...EC_ANIM,...option};
+      if(isNew){requestAnimationFrame(()=>requestAnimationFrame(()=>{if(inst.current)inst.current.setOption(merged,{notMerge:true,lazyUpdate:false});}));}
+      else{inst.current.setOption(merged,{notMerge:false,lazyUpdate:false});}
+    });
     React.useEffect(()=>{return()=>{if(inst.current){if(inst.current._ro)inst.current._ro.disconnect();inst.current.dispose();inst.current=null;}};},[]);
     return CE('div',{ref,style:{width:'100%',height:height||180}});
   }
