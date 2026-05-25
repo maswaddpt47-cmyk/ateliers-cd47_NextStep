@@ -1323,151 +1323,205 @@ function VueCalendrier({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
 }
 
 // ═══════════════════════════════════════════════════════════
-// Recharts — variables déclarées globalement, assignées via IIFE
-// pour être accessibles par BarChart/LineChart/RadialChart ET VueGraphiques
-let RBarChart,Bar,XAxis,YAxis,CartesianGrid,RTooltip,RLineChart,Line,PieChart,Pie,Cell,Legend,ResponsiveContainer,LabelList;
-(function initRecharts(){
-  if(!window.Recharts){console.warn('shared.js : Recharts non disponible');return;}
-  ({BarChart:RBarChart,Bar,XAxis,YAxis,CartesianGrid,Tooltip:RTooltip,LineChart:RLineChart,Line,PieChart,Pie,Cell,Legend,ResponsiveContainer,LabelList}=window.Recharts);
-})();
-
+// ECharts — composants graphiques (migration depuis Recharts)
+// ═══════════════════════════════════════════════════════════
 function NoData(){return CE('p',{style:{color:'#718096',fontSize:12,textAlign:'center',paddingTop:20}},'Aucune donnée');}
 function trunc(s,n){return s&&s.length>n?s.slice(0,n-1)+'…':s;}
 function barH(n,base){return Math.max(base,base+(Math.max(0,n-6)*8));}
-function labelMarginBottom(data){const max=data.reduce((m,d)=>Math.max(m,(d.label||'').length),0);if(max<=6)return 30;if(max<=12)return 55;return 75;}
 
+// ── Base wrapper ECharts ────────────────────────────────────
+function EChart({option,height}){
+  const ref=React.useRef(null);
+  const inst=React.useRef(null);
+  React.useEffect(()=>{
+    if(!ref.current||!window.echarts)return;
+    if(!inst.current){
+      inst.current=window.echarts.init(ref.current);
+      const ro=new ResizeObserver(()=>{if(inst.current)inst.current.resize();});
+      ro.observe(ref.current);
+      inst.current._ro=ro;
+    }
+    inst.current.setOption(option,{notMerge:true});
+  });
+  React.useEffect(()=>{return()=>{if(inst.current){if(inst.current._ro)inst.current._ro.disconnect();inst.current.dispose();inst.current=null;}};},[]); 
+  return CE('div',{ref,style:{width:'100%',height:height||200}});
+}
+
+function mkGrad(c1,c2,dir='v'){
+  if(!window.echarts)return c1;
+  const[x1,y1,x2,y2]=dir==='v'?[0,0,0,1]:[0,0,1,0];
+  return new window.echarts.graphic.LinearGradient(x1,y1,x2,y2,[{offset:0,color:c1},{offset:1,color:c2}]);
+}
+const EC_TT={backgroundColor:'#fff',borderColor:'#e2e8f0',textStyle:{color:'#1a202c',fontSize:12},extraCssText:'border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.12);padding:10px 14px'};
+const EC_GRID={top:24,right:8,bottom:48,left:28,containLabel:true};
+const EC_AXIS_LABEL={color:'#718096',fontSize:10};
+
+// ── BarChart vertical ───────────────────────────────────────
 function BarChart({data,colors,height}){
   if(!data||data.length===0)return CE(NoData,null);
   const colArr=Array.isArray(colors)?colors:[colors||'#1e3a8a'];
-  const mb=labelMarginBottom(data);const h=height||barH(data.length,200);
-  const maxLbl=data.length>8?7:data.length>5?10:14;
-  const chartData=data.map(d=>({...d,name:trunc(d.label,maxLbl)}));
-  return CE(ResponsiveContainer,{width:'100%',height:h},
-    CE(RBarChart,{data:chartData,margin:{top:20,right:6,left:0,bottom:mb}},
-      CE(CartesianGrid,{strokeDasharray:'3 3',stroke:'#e2e8f0',vertical:false}),
-      CE(XAxis,{dataKey:'name',tick:{fontSize:10,fill:'#4a5568'},angle:-40,textAnchor:'end',interval:0}),
-      CE(YAxis,{tick:{fontSize:10,fill:'#718096'},allowDecimals:false,width:28}),
-      CE(RTooltip,{cursor:false,content:(props)=>{
-        if(!props.active||!props.payload||!props.payload.length)return null;
-        const p=props.payload[0].payload;const tip=p.tip||null;const label=p.label||props.label||'';const val=p.value;
-        const CS={background:'#edf2f7',border:'1px solid #a0aec0',borderRadius:7,padding:'8px 12px',fontSize:12,boxShadow:'0 3px 10px rgba(0,0,0,.15)',maxWidth:260,lineHeight:1.6};
-        if(tip){const parts=tip.split(' — ');return CE('div',{style:CS},CE('div',{style:{fontWeight:700,color:'#1e3a8a',marginBottom:parts[1]?4:0}},parts[0]),parts[1]&&CE('div',{style:{color:'#4a5568'}},parts[1]));}
-        return CE('div',{style:CS},CE('div',{style:{fontWeight:700,color:'#1e3a8a'}},label),CE('div',{style:{color:'#4a5568'}},`${val} atelier(s)`));
-      }}),
-      CE(Bar,{dataKey:'value',radius:[3,3,0,0],maxBarSize:44},
-        chartData.map((d,i)=>CE(Cell,{key:i,fill:colArr[i%colArr.length]})),
-        CE(LabelList,{dataKey:'value',position:'top',style:{fontSize:11,fontWeight:700,fill:'#1a202c'}})
-      )
-    )
-  );
+  const h=height||barH(data.length,200);
+  const maxLbl=data.length>8?9:data.length>5?12:16;
+  const labels=data.map(d=>trunc(d.label,maxLbl));
+  const option={
+    backgroundColor:'transparent',grid:{...EC_GRID,bottom:data.length>6?68:48},
+    tooltip:{trigger:'axis',axisPointer:{type:'line'},...EC_TT,
+      formatter:params=>{const i=params[0];const d=data[i.dataIndex];return`<b style="color:#1e3a8a">${d.label}</b><br/>${i.value} atelier(s)`+(d.tip?'<br/><span style="color:#718096;font-size:11px">'+d.tip+'</span>':'');}},
+    xAxis:{data:labels,axisLine:{show:false},axisTick:{show:false},axisLabel:{...EC_AXIS_LABEL,rotate:data.length>5?-35:0,interval:0}},
+    yAxis:{splitLine:{lineStyle:{color:'#e2e8f0',type:'dashed'}},axisLabel:EC_AXIS_LABEL,axisLine:{show:false},axisTick:{show:false}},
+    series:[{type:'bar',barMaxWidth:44,
+      data:data.map((d,i)=>({value:d.value,itemStyle:{color:mkGrad(lighten(colArr[i%colArr.length]),colArr[i%colArr.length]),borderRadius:[4,4,0,0],shadowColor:colArr[i%colArr.length]+'44',shadowBlur:4,shadowOffsetY:-2}})),
+      label:{show:true,position:'top',color:'#1a202c',fontSize:10,fontWeight:'bold'}
+    }]
+  };
+  return CE(EChart,{option,height:h});
 }
 
+// ── LineChart simple ─────────────────────────────────────────
 function LineChart({data}){
   if(!data||data.length===0)return CE(NoData,null);
-  return CE(ResponsiveContainer,{width:'100%',height:200},
-    CE(RLineChart,{data,margin:{top:20,right:6,left:0,bottom:labelMarginBottom(data)}},
-      CE(CartesianGrid,{strokeDasharray:'3 3',stroke:'#e2e8f0',vertical:false}),
-      CE(XAxis,{dataKey:'label',tick:{fontSize:10,fill:'#4a5568'},angle:-40,textAnchor:'end',interval:0}),
-      CE(YAxis,{tick:{fontSize:10,fill:'#718096'},allowDecimals:false,width:28}),
-      CE(RTooltip,{cursor:false,content:(props)=>{
-        if(!props.active||!props.payload||!props.payload.length)return null;
-        const p=props.payload[0].payload;const tip=p.tip||null;const label=p.label||props.label||'';const val=p.value;
-        const CS={background:'#edf2f7',border:'1px solid #a0aec0',borderRadius:7,padding:'8px 12px',fontSize:12,boxShadow:'0 3px 10px rgba(0,0,0,.15)',maxWidth:260,lineHeight:1.6};
-        if(tip)return CE('div',{style:CS},CE('div',{style:{fontWeight:700,color:'#1e3a8a'}},tip));
-        return CE('div',{style:CS},CE('div',{style:{fontWeight:700,color:'#1e3a8a'}},label),CE('div',{style:{color:'#4a5568'}},val));
-      }}),
-      CE(Line,{type:'monotone',dataKey:'value',stroke:'#059669',strokeWidth:2,dot:{r:3,fill:'#059669'},activeDot:{r:5}},
-        CE(LabelList,{dataKey:'value',position:'top',style:{fontSize:9,fill:'#059669'}}))
-    )
-  );
+  const option={
+    backgroundColor:'transparent',grid:{...EC_GRID},
+    tooltip:{trigger:'axis',axisPointer:{type:'line'},...EC_TT,
+      formatter:params=>{const i=params[0];const d=data[i.dataIndex];return d.tip||`<b style="color:#1e3a8a">${d.label}</b><br/>${i.value}`;}},
+    xAxis:{data:data.map(d=>d.label),axisLine:{show:false},axisTick:{show:false},axisLabel:{...EC_AXIS_LABEL,rotate:data.length>8?-35:0,interval:0}},
+    yAxis:{splitLine:{lineStyle:{color:'#e2e8f0',type:'dashed'}},axisLabel:EC_AXIS_LABEL,axisLine:{show:false},axisTick:{show:false}},
+    series:[{type:'line',data:data.map(d=>d.value),smooth:true,symbol:'circle',symbolSize:5,
+      lineStyle:{width:2,color:'#059669'},
+      itemStyle:{color:'#059669'},
+      areaStyle:{color:mkGrad('rgba(5,150,105,0.18)','rgba(5,150,105,0.01)')},
+      label:{show:true,position:'top',color:'#059669',fontSize:9,fontWeight:'bold'}
+    }]
+  };
+  return CE(EChart,{option,height:200});
 }
 
-// v10.0 : Inscrits vs Présents — deux courbes sur le même graphique
+// ── DualLineChart inscrits/présents ──────────────────────────
 function DualLineChart({data}){
   if(!data||data.length===0)return CE(NoData,null);
-  const mb=labelMarginBottom(data);
-  const CS={background:'#edf2f7',border:'1px solid #a0aec0',borderRadius:7,padding:'8px 12px',fontSize:12,boxShadow:'0 3px 10px rgba(0,0,0,.15)',lineHeight:1.6};
-  return CE(ResponsiveContainer,{width:'100%',height:220},
-    CE(RLineChart,{data,margin:{top:20,right:6,left:0,bottom:mb}},
-      CE(CartesianGrid,{strokeDasharray:'3 3',stroke:'#e2e8f0',vertical:false}),
-      CE(XAxis,{dataKey:'label',tick:{fontSize:10,fill:'#4a5568'},angle:-40,textAnchor:'end',interval:0}),
-      CE(YAxis,{tick:{fontSize:10,fill:'#718096'},allowDecimals:false,width:28}),
-      CE(Legend,{wrapperStyle:{fontSize:11,paddingTop:4}}),
-      CE(RTooltip,{cursor:false,content:(props)=>{
-        if(!props.active||!props.payload||!props.payload.length)return null;
-        const label=props.label||'';
-        return CE('div',{style:CS},
-          CE('div',{style:{fontWeight:700,color:'#1e3a8a',marginBottom:4}},label),
-          props.payload.map((p,i)=>CE('div',{key:i,style:{color:p.color,fontWeight:600}},p.name+' : '+p.value))
-        );
-      }}),
-      CE(Line,{type:'monotone',dataKey:'inscrits',name:'Inscrits',stroke:'#2563eb',strokeWidth:2,dot:{r:3,fill:'#2563eb'},activeDot:{r:5}}),
-      CE(Line,{type:'monotone',dataKey:'presents',name:'Présents',stroke:'#16a34a',strokeWidth:2,dot:{r:3,fill:'#16a34a'},activeDot:{r:5}})
-    )
-  );
+  const option={
+    backgroundColor:'transparent',grid:{...EC_GRID,bottom:50},
+    tooltip:{trigger:'axis',axisPointer:{type:'line'},...EC_TT},
+    legend:{data:['Inscrits','Présents'],textStyle:{color:'#718096',fontSize:11},bottom:0,icon:'circle',itemWidth:8,itemHeight:8},
+    xAxis:{data:data.map(d=>d.label),axisLine:{show:false},axisTick:{show:false},axisLabel:{...EC_AXIS_LABEL,rotate:data.length>8?-35:0,interval:0}},
+    yAxis:{splitLine:{lineStyle:{color:'#e2e8f0',type:'dashed'}},axisLabel:EC_AXIS_LABEL,axisLine:{show:false},axisTick:{show:false}},
+    series:[
+      {name:'Inscrits',type:'line',data:data.map(d=>d.inscrits),smooth:true,symbol:'circle',symbolSize:4,lineStyle:{width:2,color:'#2563eb'},itemStyle:{color:'#2563eb'}},
+      {name:'Présents',type:'line',data:data.map(d=>d.presents),smooth:true,symbol:'circle',symbolSize:4,lineStyle:{width:2,color:'#16a34a'},itemStyle:{color:'#16a34a'},areaStyle:{color:mkGrad('rgba(22,163,74,0.15)','rgba(22,163,74,0.01)')}}
+    ]
+  };
+  return CE(EChart,{option,height:220});
 }
 
+// ── RadialChart barres horizontales ──────────────────────────
 function RadialChart({data,colors,height=220}){
   if(!data||data.length===0)return CE(NoData,null);
   const colArr=Array.isArray(colors)?colors:['#1e3a8a'];
   const total=data.reduce((s,d)=>s+d.value,0);
-  const chartData=data.map((d,i)=>({...d,name:d.label,fill:colArr[i%colArr.length]}));
-  return CE(ResponsiveContainer,{width:'100%',height:height},
-    CE(RBarChart,{data:chartData,layout:'vertical',margin:{top:8,right:40,left:4,bottom:8}},
-      CE(CartesianGrid,{strokeDasharray:'3 3',stroke:'#e2e8f0',horizontal:false}),
-      CE(XAxis,{type:'number',tick:{fontSize:10,fill:'#718096'},allowDecimals:false}),
-      CE(YAxis,{type:'category',dataKey:'name',tick:{fontSize:11,fill:'#4a5568'},width:80}),
-      CE(RTooltip,{cursor:false,content:(props)=>{
-        if(!props.active||!props.payload||!props.payload.length)return null;
-        const p=props.payload[0].payload;
-        const pct=Math.round(p.value/total*100);
-        return CE('div',{style:{background:'#edf2f7',border:'1px solid #a0aec0',borderRadius:7,padding:'8px 12px',fontSize:12,boxShadow:'0 3px 10px rgba(0,0,0,.15)',lineHeight:1.6}},
-          CE('div',{style:{fontWeight:700,color:'#1e3a8a',marginBottom:2}},p.name),
-          CE('div',{style:{color:'#4a5568'}},p.value+' — '+pct+'%')
-        );
-      }}),
-      CE(Bar,{dataKey:'value',radius:[0,4,4,0],maxBarSize:32},
-        chartData.map((d,i)=>CE(Cell,{key:i,fill:d.fill})),
-        CE(LabelList,{dataKey:'value',position:'right',style:{fontSize:11,fontWeight:700,fill:'#1a202c'}})
-      )
-    )
-  );
+  const option={
+    backgroundColor:'transparent',grid:{top:8,right:50,bottom:8,left:8,containLabel:true},
+    tooltip:{trigger:'axis',axisPointer:{type:'line'},...EC_TT,
+      formatter:params=>{const i=params[0];const d=data[i.dataIndex];const pct=Math.round(d.value/total*100);return`<b style="color:#1e3a8a">${d.label}</b><br/>${d.value} — ${pct}%`;}},
+    xAxis:{splitLine:{lineStyle:{color:'#e2e8f0',type:'dashed'}},axisLabel:EC_AXIS_LABEL,axisLine:{show:false},axisTick:{show:false}},
+    yAxis:{type:'category',data:data.map(d=>d.label),axisLabel:{...EC_AXIS_LABEL,fontSize:11},axisLine:{show:false},axisTick:{show:false}},
+    series:[{type:'bar',barMaxWidth:32,
+      data:data.map((d,i)=>({value:d.value,itemStyle:{color:mkGrad(colArr[i%colArr.length],colArr[i%colArr.length]+'bb','h'),borderRadius:[0,4,4,0]}})),
+      label:{show:true,position:'right',color:'#1a202c',fontSize:10,fontWeight:'bold'}
+    }]
+  };
+  return CE(EChart,{option,height});
 }
+
+// ── DonutChart ───────────────────────────────────────────────
+function DonutChart({data,colors,height=220}){
+  if(!data||data.length===0)return CE(NoData,null);
+  const colArr=Array.isArray(colors)?colors:['#1e3a8a'];
+  const total=data.reduce((s,d)=>s+d.value,0);
+  const option={
+    backgroundColor:'transparent',
+    tooltip:{trigger:'item',axisPointer:{type:'none'},...EC_TT,formatter:params=>`<b style="color:${params.color}">${params.name}</b><br/>${params.value} (${Math.round(params.value/total*100)}%)`},
+    legend:{orient:'horizontal',bottom:0,textStyle:{color:'#718096',fontSize:11},icon:'circle',itemWidth:8,itemHeight:8},
+    series:[{type:'pie',radius:['38%','65%'],center:['50%','46%'],
+      itemStyle:{borderRadius:5,borderColor:'#fff',borderWidth:2},
+      label:{show:true,position:'inside',color:'#fff',fontSize:10,fontWeight:'bold',formatter:p=>p.percent>6?Math.round(p.percent)+'%':''},
+      data:data.map((d,i)=>({name:d.label,value:d.value,
+        itemStyle:{color:colArr[i%colArr.length],shadowColor:colArr[i%colArr.length]+'44',shadowBlur:8}})),
+      emphasis:{itemStyle:{shadowBlur:14,shadowOffsetX:0,shadowColor:'rgba(0,0,0,0.25)'},scaleSize:6}
+    }]
+  };
+  return CE(EChart,{option,height});
+}
+
+// ── StackedActivityChart barres empilées ─────────────────────
+function StackedActivityChart({data}){
+  if(!data||Object.keys(data).length===0)return CE(NoData,null);
+  const todayYM=new Date().toISOString().slice(0,7);
+  const fmtML=ym=>`${ym.slice(5,7)}/${ym.slice(2,4)}`;
+  const keys=Object.keys(data).sort();
+  const labels=keys.map(k=>fmtML(k));
+  const option={
+    backgroundColor:'transparent',grid:{top:28,right:8,bottom:48,left:28,containLabel:true},
+    tooltip:{trigger:'axis',axisPointer:{type:'line'},...EC_TT,
+      formatter:params=>{const k=keys[params[0].dataIndex];const d=data[k];const futur=k>=todayYM?' (à venir)':'';return`<b style="color:#1e3a8a">${fmtML(k)}${futur}</b><br/><span style="color:#16a34a">✅ ${d.realises} réalisés</span><br/><span style="color:#2563eb">📅 ${d.planifies} planifiés</span><br/><span style="color:#dc2626">❌ ${d.annules} annulés</span>`;}},
+    legend:{data:['Réalisés','Annulés','Planifiés'],textStyle:{color:'#718096',fontSize:10},bottom:0,icon:'roundRect',itemWidth:10,itemHeight:8},
+    xAxis:{data:labels,axisLine:{show:false},axisTick:{show:false},axisLabel:{...EC_AXIS_LABEL,rotate:-35,interval:0}},
+    yAxis:{splitLine:{lineStyle:{color:'#e2e8f0',type:'dashed'}},axisLabel:EC_AXIS_LABEL,axisLine:{show:false},axisTick:{show:false}},
+    series:[
+      {name:'Réalisés',type:'bar',stackId:'a',barMaxWidth:30,data:keys.map(k=>data[k].realises),
+        itemStyle:{color:mkGrad('#34d399','#059669')}},
+      {name:'Annulés',type:'bar',stackId:'a',barMaxWidth:30,data:keys.map(k=>data[k].annules),
+        itemStyle:{color:mkGrad('#f87171','#dc2626')}},
+      {name:'Planifiés',type:'bar',barMaxWidth:30,data:keys.map(k=>data[k].planifies),
+        itemStyle:{color:mkGrad('#93c5fd','#3b82f6'),borderRadius:[4,4,0,0]}}
+    ]
+  };
+  return CE(EChart,{option,height:220});
+}
+
+// ── ConseillerBarChart groupé horizontal ─────────────────────
+function ConseillerBarChart({entries}){
+  if(!entries||entries.length===0)return CE(NoData,null);
+  const cons={};
+  entries.forEach(e=>{
+    const c=e.conseiller||'?';
+    if(!cons[c])cons[c]={realises:0,planifies:0,annules:0,inscrits:0,presents:0};
+    if(e.statut==='Réalisé'){cons[c].realises++;cons[c].inscrits+=(parseInt(e.inscrits)||0);cons[c].presents+=(parseInt(e.presents)||0);}
+    else if(e.statut==='Planifié')cons[c].planifies++;
+    else if(e.statut==='Annulé')cons[c].annules++;
+  });
+  const data=Object.entries(cons).sort((a,b)=>b[1].realises-a[1].realises)
+    .map(([name,d])=>({name:trunc(name,14),...d,tx:d.inscrits>0?Math.round(d.presents/d.inscrits*100):0}));
+  if(!data.length)return CE(NoData,null);
+  const h=Math.max(180,100+data.length*34);
+  const option={
+    backgroundColor:'transparent',grid:{top:8,right:60,bottom:30,left:8,containLabel:true},
+    tooltip:{trigger:'axis',axisPointer:{type:'line'},...EC_TT,
+      formatter:params=>{const d=data[params[0].dataIndex];return`<b style="color:#1e3a8a">${d.name}</b><br/><span style="color:#16a34a">✅ Réalisés : ${d.realises}</span><br/><span style="color:#2563eb">📅 Planifiés : ${d.planifies}</span><br/><span style="color:#dc2626">❌ Annulés : ${d.annules}</span><br/><span style="color:#7c3aed;font-weight:700">👥 Présents : ${d.presents}/${d.inscrits} — ${d.tx}%</span>`;}},
+    legend:{data:['Réalisés','Planifiés','Annulés'],textStyle:{color:'#718096',fontSize:10},bottom:0,icon:'roundRect',itemWidth:10,itemHeight:8},
+    xAxis:{splitLine:{lineStyle:{color:'#e2e8f0',type:'dashed'}},axisLabel:EC_AXIS_LABEL,axisLine:{show:false},axisTick:{show:false}},
+    yAxis:{type:'category',data:data.map(d=>d.name),axisLabel:{...EC_AXIS_LABEL,fontSize:11},axisLine:{show:false},axisTick:{show:false}},
+    series:[
+      {name:'Réalisés',type:'bar',barMaxWidth:14,data:data.map(d=>d.realises),
+        itemStyle:{color:mkGrad('#34d399','#16a34a','h'),borderRadius:[0,4,4,0]},
+        label:{show:true,position:'right',color:'#1a202c',fontSize:9,fontWeight:'bold'}},
+      {name:'Planifiés',type:'bar',barMaxWidth:14,data:data.map(d=>d.planifies),
+        itemStyle:{color:mkGrad('#93c5fd','#3b82f6','h'),borderRadius:[0,4,4,0]}},
+      {name:'Annulés',type:'bar',barMaxWidth:14,data:data.map(d=>d.annules),
+        itemStyle:{color:mkGrad('#fca5a5','#ef4444','h'),borderRadius:[0,4,4,0]}}
+    ]
+  };
+  return CE(EChart,{option,height:h});
+}
+
+// ── Utilitaire couleur éclaircissement ──────────────────────
+function lighten(hex){try{const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);const f=n=>Math.min(255,Math.round(n+(255-n)*.35)).toString(16).padStart(2,'0');return'#'+f(r)+f(g)+f(b);}catch{return hex;}}
 
 // ═══════════════════════════════════════════════════════════
 // VUE DASHBOARD — v11.0 Tableau de bord de pilotage
 // ═══════════════════════════════════════════════════════════
 
-// ── Donut Chart (vrai PieChart Recharts) ───────────────────
-function DonutChart({data,colors,height=220}){
-  if(!data||data.length===0)return CE(NoData,null);
-  const RADIAN=Math.PI/180;
-  const renderLabel=({cx,cy,midAngle,innerRadius,outerRadius,percent})=>{
-    if(percent<0.05)return null;
-    const r=innerRadius+(outerRadius-innerRadius)*0.5;
-    const x=cx+r*Math.cos(-midAngle*RADIAN);
-    const y=cy+r*Math.sin(-midAngle*RADIAN);
-    return CE('text',{x,y,fill:'#fff',textAnchor:'middle',dominantBaseline:'central',fontSize:10,fontWeight:700},Math.round(percent*100)+'%');
-  };
-  const colArr=Array.isArray(colors)?colors:['#1e3a8a'];
-  const total=data.reduce((s,d)=>s+d.value,0);
-  return CE(ResponsiveContainer,{width:'100%',height},
-    CE(PieChart,null,
-      CE(Pie,{data:data.map((d,i)=>({name:d.label,value:d.value,fill:colArr[i%colArr.length]})),cx:'50%',cy:'45%',innerRadius:'32%',outerRadius:'62%',dataKey:'value',labelLine:false,label:renderLabel},
-        data.map((d,i)=>CE(Cell,{key:i,fill:colArr[i%colArr.length]}))
-      ),
-      CE(Legend,{wrapperStyle:{fontSize:11,marginTop:4}}),
-      CE(RTooltip,{cursor:false,content:(props)=>{
-        if(!props.active||!props.payload?.length)return null;
-        const p=props.payload[0];const pct=Math.round(p.value/total*100);
-        return CE('div',{style:{background:'#edf2f7',border:'1px solid #a0aec0',borderRadius:7,padding:'8px 12px',fontSize:12,boxShadow:'0 3px 10px rgba(0,0,0,.15)'}},
-          CE('div',{style:{fontWeight:700,color:p.payload.fill}},p.name),
-          CE('div',{style:{color:'#4a5568'}},p.value+' ('+pct+'%)')
-        );
-      }})
-    )
-  );
-}
+// DonutChart → remplacé par version ECharts ci-dessus
+
 
 // ── KPI Card avec tendance ─────────────────────────────────
 function KpiCard({val,lbl,sub,trend,color,icon,bgColor}){
@@ -1490,81 +1544,13 @@ function KpiCard({val,lbl,sub,trend,color,icon,bgColor}){
   );
 }
 
-// ── Stacked Bar activité mensuelle ─────────────────────────
-function StackedActivityChart({data}){
-  if(!data||data.length===0)return CE(NoData,null);
-  const todayYM=new Date().toISOString().slice(0,7);
-  const fmtML=ym=>`${ym.slice(5,7)}/${ym.slice(2,4)}`;
-  const chartData=Object.keys(data).sort().map(k=>({
-    label:fmtML(k),...data[k],isFutur:k>=todayYM
-  }));
-  return CE(ResponsiveContainer,{width:'100%',height:220},
-    CE(RBarChart,{data:chartData,margin:{top:16,right:6,left:0,bottom:34}},
-      CE(CartesianGrid,{strokeDasharray:'3 3',stroke:'#e2e8f0',vertical:false}),
-      CE(XAxis,{dataKey:'label',tick:{fontSize:10,fill:'#4a5568'},angle:-35,textAnchor:'end',interval:0}),
-      CE(YAxis,{tick:{fontSize:10,fill:'#718096'},allowDecimals:false,width:24}),
-      CE(Legend,{wrapperStyle:{fontSize:10}}),
-      CE(RTooltip,{cursor:false,content:(props)=>{
-        if(!props.active||!props.payload?.length)return null;
-        const d=props.payload[0]?.payload;
-        return CE('div',{style:{background:'#edf2f7',border:'1px solid #a0aec0',borderRadius:7,padding:'8px 12px',fontSize:12,lineHeight:1.8}},
-          CE('div',{style:{fontWeight:700,color:'#1e3a8a',marginBottom:2}},d.label+(d.isFutur?' (à venir)':'')),
-          CE('div',{style:{color:'#16a34a'}},'✅ '+d.realises+' réalisés'),
-          CE('div',{style:{color:'#2563eb'}},'📅 '+d.planifies+' planifiés'),
-          CE('div',{style:{color:'#dc2626'}},'❌ '+d.annules+' annulés')
-        );
-      }}),
-      CE(Bar,{dataKey:'realises',name:'Réalisés',stackId:'a',fill:'#16a34a',maxBarSize:30}),
-      CE(Bar,{dataKey:'annules',name:'Annulés',stackId:'a',fill:'#dc2626',maxBarSize:30}),
-      CE(Bar,{dataKey:'planifies',name:'Planifiés',fill:'#93c5fd',radius:[3,3,0,0],maxBarSize:30,opacity:.9})
-    )
-  );
-}
+// StackedActivityChart → remplacé par version ECharts ci-dessus
 
-// ── Grouped Bar par conseiller ─────────────────────────────
-function ConseillerBarChart({entries}){
-  if(!entries||entries.length===0)return CE(NoData,null);
-  const cons={};
-  entries.forEach(e=>{
-    const c=e.conseiller||'?';
-    if(!cons[c])cons[c]={realises:0,planifies:0,annules:0,inscrits:0,presents:0};
-    if(e.statut==='Réalisé'){cons[c].realises++;cons[c].inscrits+=(parseInt(e.inscrits)||0);cons[c].presents+=(parseInt(e.presents)||0);}
-    else if(e.statut==='Planifié')cons[c].planifies++;
-    else if(e.statut==='Annulé')cons[c].annules++;
-  });
-  const data=Object.entries(cons).sort((a,b)=>b[1].realises-a[1].realises)
-    .map(([name,d])=>({name:trunc(name,12),...d,tx:d.inscrits>0?Math.round(d.presents/d.inscrits*100):0}));
-  if(!data.length)return CE(NoData,null);
-  const h=Math.max(180,120+data.length*28);
-  return CE(ResponsiveContainer,{width:'100%',height:h},
-    CE(RBarChart,{data,layout:'vertical',margin:{top:8,right:50,left:4,bottom:8}},
-      CE(CartesianGrid,{strokeDasharray:'3 3',stroke:'#e2e8f0',horizontal:false}),
-      CE(XAxis,{type:'number',tick:{fontSize:10,fill:'#718096'},allowDecimals:false}),
-      CE(YAxis,{type:'category',dataKey:'name',tick:{fontSize:11,fill:'#4a5568'},width:90}),
-      CE(Legend,{wrapperStyle:{fontSize:10}}),
-      CE(RTooltip,{cursor:false,content:(props)=>{
-        if(!props.active||!props.payload?.length)return null;
-        const d=props.payload[0]?.payload;
-        return CE('div',{style:{background:'#edf2f7',border:'1px solid #a0aec0',borderRadius:7,padding:'8px 12px',fontSize:12,lineHeight:1.8}},
-          CE('div',{style:{fontWeight:700,color:'#1e3a8a',marginBottom:2}},d.name),
-          CE('div',{style:{color:'#16a34a'}},'✅ Réalisés : '+d.realises),
-          CE('div',{style:{color:'#2563eb'}},'📅 Planifiés : '+d.planifies),
-          CE('div',{style:{color:'#dc2626'}},'❌ Annulés : '+d.annules),
-          CE('div',{style:{color:'#7c3aed',fontWeight:700}},'👥 Présents : '+d.presents+' / '+d.inscrits+' — Tx : '+d.tx+'%')
-        );
-      }}),
-      CE(Bar,{dataKey:'realises',name:'Réalisés',fill:'#16a34a',radius:[0,4,4,0],maxBarSize:14},
-        CE(LabelList,{dataKey:'realises',position:'right',style:{fontSize:10,fontWeight:700,fill:'#1a202c'}})
-      ),
-      CE(Bar,{dataKey:'planifies',name:'Planifiés',fill:'#2563eb',radius:[0,4,4,0],maxBarSize:14}),
-      CE(Bar,{dataKey:'annules',name:'Annulés',fill:'#dc2626',radius:[0,4,4,0],maxBarSize:14})
-    )
-  );
-}
+// ConseillerBarChart → remplacé par version ECharts ci-dessus
 
 // ── MAIN : VueDashboard ────────────────────────────────────
 function VueDashboard({entries}){
-  if(!ResponsiveContainer)return CE('div',{className:'card'},CE('p',{style:{color:'#718096',textAlign:'center',padding:'40px 0'}},'⚠️ Recharts non chargé.'));
+  if(!window.echarts)return CE('div',{className:'card'},CE('p',{style:{color:'#718096',textAlign:'center',padding:'40px 0'}},'⚠️ ECharts non chargé.'));
 
   const[periodeIdx,setPeriodeIdx]=React.useState(1); // défaut : ce mois
   const now=new Date();
@@ -1726,7 +1712,7 @@ function VueDashboard({entries}){
 // VUE GRAPHIQUES (stats détaillées — inchangé)
 // ═══════════════════════════════════════════════════════════
 function VueGraphiques({entries}){
-  if(!ResponsiveContainer)return CE('div',{className:'card'},CE('p',{style:{color:'#718096',textAlign:'center',padding:'40px 0'}},'⚠️ Recharts non chargé — vérifiez la connexion internet.'));
+  if(!window.echarts)return CE('div',{className:'card'},CE('p',{style:{color:'#718096',textAlign:'center',padding:'40px 0'}},'⚠️ ECharts non chargé — vérifiez la connexion internet.'));
 
   const[dateFrom,setDateFrom]=React.useState('');
   const[dateTo,setDateTo]=React.useState('');
@@ -2094,112 +2080,6 @@ function VueAccueil({conseillers,onChoix,loading}){
       CE('button',{className:'accueil-btn',disabled:!choix||loading,onClick:()=>onChoix(choix)},
         loading?CE('span',null,CE('span',{className:'spinner'}),'Chargement…'):'📋 Accéder à mes ateliers'),
       CE('button',{className:'accueil-skip',disabled:loading,onClick:()=>onChoix(null),style:{opacity:loading?.4:1}},'Voir tous les ateliers')
-    )
-  );
-}
-
-// ════════════════════════════════════════════════════════════
-// VUE ROADMAP — Timeline & Densité par conseiller
-// v10.0 — intégration native BDD Google Sheets
-// ════════════════════════════════════════════════════════════
-function VueRoadmap({entries,annee,conseillers}){
-  const[filterConseiller,setFilterConseiller]=React.useState('Tous');
-  const[filterStatut,setFilterStatut]=React.useState('Tous');
-  const[hoveredItem,setHoveredItem]=React.useState(null);
-  const[tooltipPos,setTooltipPos]=React.useState({x:0,y:0});
-  const[viewMode,setViewMode]=React.useState('gantt');
-  const[dateFrom,setDateFrom]=React.useState(annee+'-01-01');
-  const[dateTo,setDateTo]=React.useState(annee+'-12-31');
-  React.useEffect(()=>{setDateFrom(annee+'-01-01');setDateTo(annee+'-12-31');},[annee]);
-  const MOIS_FR=['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
-  const STATUT_STYLE={'Réalisé':{bg:'#16a34a',border:'#15803d',label:'✓'},'Planifié':{bg:'#2563eb',border:'#1d4ed8',label:'◷'},'Annulé':{bg:'#dc2626',border:'#b91c1c',label:'✕'},'Non réalisé':{bg:'#d97706',border:'#b45309',label:'!'},'Reporté':{bg:'#9333ea',border:'#7e22ce',label:'↺'}};
-  const PRESETS=[{label:'Année',from:annee+'-01-01',to:annee+'-12-31'},{label:'T1',from:annee+'-01-01',to:annee+'-03-31'},{label:'T2',from:annee+'-04-01',to:annee+'-06-30'},{label:'T3',from:annee+'-07-01',to:annee+'-09-30'},{label:'T4',from:annee+'-10-01',to:annee+'-12-31'},{label:'S1',from:annee+'-01-01',to:annee+'-06-30'},{label:'S2',from:annee+'-07-01',to:annee+'-12-31'}];
-  const activePreset=PRESETS.find(p=>p.from===dateFrom&&p.to===dateTo)||null;
-  const dateError=dateFrom&&dateTo&&dateFrom>dateTo;
-  const rangeEntries=React.useMemo(()=>entries.filter(e=>{if(!e.date)return false;const d=String(e.date).slice(0,10);return d>=dateFrom&&d<=dateTo;}),[entries,dateFrom,dateTo]);
-  const filtered=React.useMemo(()=>rangeEntries.filter(e=>{if(filterConseiller!=='Tous'&&e.conseiller!==filterConseiller)return false;if(filterStatut!=='Tous'&&e.statut!==filterStatut)return false;return true;}),[rangeEntries,filterConseiller,filterStatut]);
-  const kpis=React.useMemo(()=>{const total=filtered.length;const realises=filtered.filter(e=>e.statut==='Réalisé').length;const presents=filtered.reduce((s,e)=>s+(parseInt(e.presents)||0),0);const taux=total>0?Math.round(realises/total*100):0;return{total,realises,presents,taux};},[filtered]);
-  function posPercent(dateStr){try{const d=new Date(String(dateStr).slice(0,10)+'T00:00:00');const start=new Date(dateFrom+'T00:00:00');const end=new Date(dateTo+'T00:00:00');const span=end-start||1;return Math.max(0,Math.min(100,((d-start)/span)*100));}catch{return 0;}}
-  const monthMarkers=React.useMemo(()=>{const markers=[];const start=new Date(dateFrom+'T00:00:00');const end=new Date(dateTo+'T00:00:00');const cur=new Date(Date.UTC(start.getFullYear(),start.getMonth(),1));while(cur<=end){const label=MOIS_FR[cur.getMonth()]+(cur.getFullYear()!==parseInt(annee)?' '+String(cur.getFullYear()).slice(2):'');const ds=cur.getFullYear()+'-'+String(cur.getMonth()+1).padStart(2,'0')+'-01';markers.push({label,pos:posPercent(ds)});cur.setMonth(cur.getMonth()+1);}return markers;},[dateFrom,dateTo,annee]);
-  const todayStr=new Date().toISOString().slice(0,10);
-  const todayInRange=todayStr>=dateFrom&&todayStr<=dateTo;
-  const todayPos=todayInRange?posPercent(todayStr):null;
-  const displayedConseillers=filterConseiller==='Tous'?(conseillers&&conseillers.length>0?conseillers:[...new Set(rangeEntries.map(e=>e.conseiller).filter(Boolean))]):[filterConseiller];
-  function handleMouseMove(e){setTooltipPos({x:e.clientX,y:e.clientY});}
-  return CE('div',{onMouseMove:handleMouseMove},
-    CE('div',{className:'card',style:{marginBottom:12}},
-      CE('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:10,marginBottom:14}},
-        CE('h2',{style:{margin:0}},'🛣️ Roadmap '+annee),
-        CE('div',{style:{display:'flex',background:'#f1f5f9',borderRadius:8,padding:3,gap:2}},
-          [['gantt','📊 Timeline'],['densite','🔥 Densité']].map(([v,l])=>CE('button',{key:v,onClick:()=>setViewMode(v),style:{padding:'5px 14px',borderRadius:6,border:'none',cursor:'pointer',fontSize:12,fontWeight:600,background:viewMode===v?'#1e3a8a':'transparent',color:viewMode===v?'#fff':'#718096',transition:'all .2s'}},l))
-        )
-      ),
-      CE('div',{style:{display:'flex',gap:10,alignItems:'center',flexWrap:'wrap',background:'#f8fafc',borderRadius:8,padding:'10px 14px',border:'1px solid '+(dateError?'#fca5a5':'#e2e8f0'),marginBottom:14}},
-        CE('span',{style:{fontSize:11,fontWeight:700,color:'#4a5568',whiteSpace:'nowrap'}},'📅 Période'),
-        CE('div',{style:{display:'flex',gap:4,flexWrap:'wrap'}},PRESETS.map(p=>CE('button',{key:p.label,onClick:()=>{setDateFrom(p.from);setDateTo(p.to);},style:{padding:'3px 9px',borderRadius:6,cursor:'pointer',fontSize:11,fontWeight:600,border:'1.5px solid '+(activePreset&&activePreset.label===p.label?'#1e3a8a':'#e2e8f0'),background:activePreset&&activePreset.label===p.label?'#1e3a8a':'#fff',color:activePreset&&activePreset.label===p.label?'#fff':'#4a5568',transition:'all .15s'}},p.label))),
-        CE('div',{style:{width:1,height:24,background:'#e2e8f0',flexShrink:0}}),
-        CE('div',{style:{display:'flex',gap:6,alignItems:'center',flexWrap:'wrap'}},
-          CE('input',{type:'date',value:dateFrom,onChange:e=>{setDateFrom(e.target.value);},style:{padding:'4px 8px',border:'1.5px solid '+(dateError?'#fca5a5':'#e2e8f0'),borderRadius:6,fontSize:12,color:'#1a202c',background:'#fff',cursor:'pointer',outline:'none'}}),
-          CE('span',{style:{fontSize:12,color:'#9ca3af',fontWeight:600}},'→'),
-          CE('input',{type:'date',value:dateTo,onChange:e=>{setDateTo(e.target.value);},style:{padding:'4px 8px',border:'1.5px solid '+(dateError?'#fca5a5':'#e2e8f0'),borderRadius:6,fontSize:12,color:'#1a202c',background:'#fff',cursor:'pointer',outline:'none'}}),
-          dateError&&CE('span',{style:{fontSize:11,color:'#dc2626',fontWeight:600}},'⚠ Date début > fin')
-        )
-      ),
-      CE('div',{style:{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:10,marginBottom:14}},[{label:'Ateliers',value:kpis.total,color:'#1e3a8a'},{label:'Réalisés',value:kpis.realises,color:'#16a34a'},{label:'Participants',value:kpis.presents,color:'#d97706'},{label:'Taux réalisation',value:kpis.taux+'%',color:kpis.taux>=75?'#16a34a':kpis.taux>=50?'#d97706':'#dc2626'}].map(k=>CE('div',{key:k.label,style:{background:'#f8fafc',borderRadius:8,padding:'10px 14px',borderLeft:'3px solid '+k.color}},CE('div',{style:{fontSize:22,fontWeight:800,color:k.color}},k.value),CE('div',{style:{fontSize:11,color:'#718096',marginTop:2}},k.label)))),
-      CE('div',{style:{display:'flex',gap:12,flexWrap:'wrap',alignItems:'center'}},
-        CE('div',{style:{display:'flex',gap:5,alignItems:'center',flexWrap:'wrap'}},CE('span',{style:{fontSize:11,color:'#9ca3af',fontWeight:600}},'Conseiller :'),['Tous',...(conseillers||[])].map(c=>CE('button',{key:c,onClick:()=>setFilterConseiller(c),style:{padding:'3px 10px',borderRadius:20,cursor:'pointer',fontSize:11,fontWeight:filterConseiller===c?700:400,border:'1.5px solid '+(filterConseiller===c?conseillerColor(c)||'#1e3a8a':'#e2e8f0'),background:filterConseiller===c?(conseillerColor(c)||'#1e3a8a')+'18':'transparent',color:filterConseiller===c?conseillerColor(c)||'#1e3a8a':'#4a5568',transition:'all .15s'}},c==='Tous'?'Tous':c.split(' ')[0]))),
-        CE('div',{style:{display:'flex',gap:5,alignItems:'center',flexWrap:'wrap'}},CE('span',{style:{fontSize:11,color:'#9ca3af',fontWeight:600}},'Statut :'),['Tous',...Object.keys(STATUT_STYLE)].map(s=>CE('button',{key:s,onClick:()=>setFilterStatut(s),style:{padding:'3px 10px',borderRadius:20,cursor:'pointer',fontSize:11,fontWeight:filterStatut===s?700:400,border:'1.5px solid '+(filterStatut===s?(STATUT_STYLE[s]?.bg||'#1e3a8a'):'#e2e8f0'),background:filterStatut===s?(STATUT_STYLE[s]?.bg||'#1e3a8a')+'18':'transparent',color:filterStatut===s?(STATUT_STYLE[s]?.bg||'#1e3a8a'):'#4a5568',transition:'all .15s'}},s)))
-      )
-    ),
-    viewMode==='gantt'&&CE('div',{className:'card',style:{padding:0,overflow:'hidden'}},
-      CE('div',{style:{display:'flex',borderBottom:'1px solid #e2e8f0',background:'#f8fafc'}},
-        CE('div',{style:{width:170,minWidth:170,padding:'8px 16px',fontSize:10,fontWeight:700,color:'#9ca3af',textTransform:'uppercase',letterSpacing:'.08em',borderRight:'1px solid #e2e8f0'}},'Conseiller'),
-        CE('div',{style:{flex:1,position:'relative',height:32}},
-          monthMarkers.map((m,i)=>CE('div',{key:i,style:{position:'absolute',left:m.pos+'%',top:0,height:'100%',borderLeft:'1px dashed #e2e8f0',display:'flex',alignItems:'center',paddingLeft:5}},CE('span',{style:{fontSize:10,fontWeight:700,color:'#9ca3af',whiteSpace:'nowrap'}},m.label))),
-          todayPos!==null&&CE('div',{style:{position:'absolute',left:todayPos+'%',top:0,height:'100%',borderLeft:'2px solid #dc2626',pointerEvents:'none'}},CE('span',{style:{position:'absolute',top:6,left:4,fontSize:9,color:'#dc2626',fontWeight:700,whiteSpace:'nowrap',background:'#fff',padding:'0 2px',borderRadius:2}},'Auj.'))
-        )
-      ),
-      displayedConseillers.map((conseiller,ci)=>{
-        const col=conseillerColor(conseiller)||'#1e3a8a';
-        const items=filtered.filter(e=>e.conseiller===conseiller);
-        return CE('div',{key:conseiller,style:{display:'flex',background:ci%2===0?'#fff':'#fafbfc',borderBottom:'1px solid #f0f4f8',minHeight:58}},
-          CE('div',{style:{width:170,minWidth:170,padding:'10px 16px',borderRight:'1px solid #e2e8f0',display:'flex',alignItems:'center',gap:8}},
-            CE('div',{style:{width:8,height:8,borderRadius:'50%',background:col,flexShrink:0,boxShadow:'0 0 4px '+col+'88'}}),
-            CE('div',null,CE('div',{style:{fontSize:12,fontWeight:700,color:'#1a202c',lineHeight:1.2}},conseiller.split(' ')[0]),CE('div',{style:{fontSize:10,color:'#9ca3af'}},conseiller.split(' ').slice(1).join(' '))),
-            CE('span',{style:{marginLeft:'auto',fontSize:10,fontWeight:700,background:col+'18',color:col,padding:'2px 7px',borderRadius:20,border:'1px solid '+col+'30'}},items.length)
-          ),
-          CE('div',{style:{flex:1,position:'relative',minHeight:58}},
-            monthMarkers.map((m,i)=>CE('div',{key:i,style:{position:'absolute',left:m.pos+'%',top:0,height:'100%',borderLeft:'1px dashed #f0f4f8',pointerEvents:'none'}})),
-            todayPos!==null&&CE('div',{style:{position:'absolute',left:todayPos+'%',top:0,height:'100%',borderLeft:'1px solid #dc262633',pointerEvents:'none'}}),
-            items.map(item=>{const pos=posPercent(item.date);const st=STATUT_STYLE[item.statut]||{bg:'#9ca3af',border:'#6b7280',label:'?'};const isH=hoveredItem&&hoveredItem._id===item._id;return CE('div',{key:item._id||item.date+item.conseiller+Math.random(),onMouseEnter:()=>setHoveredItem(item),onMouseLeave:()=>setHoveredItem(null),style:{position:'absolute',left:'calc('+pos+'% - 9px)',top:'50%',transform:'translateY(-50%) scale('+(isH?1.35:1)+')',width:18,height:18,borderRadius:5,background:st.bg,border:'2px solid '+st.border,cursor:'pointer',zIndex:isH?20:1,boxShadow:isH?'0 0 10px '+st.bg+'88':'none',transition:'transform .12s,box-shadow .12s',display:'flex',alignItems:'center',justifyContent:'center',fontSize:8,color:'#fff',fontWeight:700,userSelect:'none'}},st.label);})
-          )
-        );
-      }),
-      CE('div',{style:{display:'flex',gap:14,padding:'10px 16px',background:'#f8fafc',borderTop:'1px solid #e2e8f0',flexWrap:'wrap'}},
-        Object.entries(STATUT_STYLE).map(([s,st])=>CE('div',{key:s,style:{display:'flex',alignItems:'center',gap:5,fontSize:11,color:'#4a5568'}},CE('div',{style:{width:14,height:14,borderRadius:3,background:st.bg,display:'flex',alignItems:'center',justifyContent:'center',fontSize:7,color:'#fff',fontWeight:700}},st.label),s)),
-        filtered.length===0&&CE('span',{style:{fontSize:12,color:'#9ca3af',marginLeft:'auto'}},'Aucun atelier pour cette période')
-      )
-    ),
-    viewMode==='densite'&&(()=>{
-      const visibleMonths=[];const cur=new Date(dateFrom+'T00:00:00');const endD=new Date(dateTo+'T00:00:00');cur.setDate(1);
-      while(cur<=endD){visibleMonths.push({year:cur.getFullYear(),month:cur.getMonth()+1,label:MOIS_FR[cur.getMonth()]+(cur.getFullYear()!==parseInt(annee)?' '+String(cur.getFullYear()).slice(2):'')});cur.setMonth(cur.getMonth()+1);}
-      const allCounts=displayedConseillers.flatMap(conseiller=>{const items=filtered.filter(e=>e.conseiller===conseiller);return visibleMonths.map(({year,month})=>items.filter(e=>{const d=String(e.date||'');return parseInt(d.slice(0,4))===year&&parseInt(d.slice(5,7))===month;}).length);});
-      const globalMax=Math.max(...allCounts,1);
-      return CE('div',{className:'card'},
-        CE('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:16,flexWrap:'wrap',gap:8}},CE('h3',{style:{margin:0,fontSize:14,color:'#1a202c'}},'Ateliers par mois & conseiller'),CE('div',{style:{display:'flex',gap:12,fontSize:11,color:'#9ca3af'}},CE('span',null,'▪ Clair = planifiés/autres'),CE('span',null,'▪ Plein = réalisés'))),
-        visibleMonths.length===0?CE('p',{style:{color:'#9ca3af',fontSize:13}},'Aucune période sélectionnée.'):CE('div',{style:{overflowX:'auto'}},
-          CE('table',{style:{width:'100%',borderCollapse:'collapse',minWidth:Math.max(400,visibleMonths.length*52+140)}},
-            CE('thead',null,CE('tr',null,CE('th',{style:{width:140,minWidth:140,textAlign:'left',padding:'6px 10px',fontSize:11,fontWeight:700,color:'#9ca3af',borderBottom:'2px solid #e2e8f0'}},'Conseiller'),visibleMonths.map(({label},i)=>CE('th',{key:i,style:{textAlign:'center',padding:'6px 8px',fontSize:11,fontWeight:700,color:'#9ca3af',borderBottom:'2px solid #e2e8f0',whiteSpace:'nowrap'}},label)))),
-            CE('tbody',null,displayedConseillers.map(conseiller=>{const col=conseillerColor(conseiller)||'#1e3a8a';const items=filtered.filter(e=>e.conseiller===conseiller);const byMonth=visibleMonths.map(({year,month})=>{const inMonth=items.filter(e=>{const d=String(e.date||'');return parseInt(d.slice(0,4))===year&&parseInt(d.slice(5,7))===month;});return{count:inMonth.length,realises:inMonth.filter(e=>e.statut==='Réalisé').length};});return CE('tr',{key:conseiller},CE('td',{style:{padding:'8px 10px',borderBottom:'1px solid #f0f4f8',whiteSpace:'nowrap'}},CE('div',{style:{display:'flex',alignItems:'center',gap:6}},CE('div',{style:{width:8,height:8,borderRadius:'50%',background:col,flexShrink:0}}),CE('span',{style:{fontSize:12,fontWeight:700,color:'#1a202c'}},conseiller.split(' ')[0]))),byMonth.map((m,i)=>CE('td',{key:i,style:{padding:'8px 4px',borderBottom:'1px solid #f0f4f8',verticalAlign:'bottom',textAlign:'center'}},CE('div',{style:{display:'flex',flexDirection:'column',alignItems:'center',gap:2}},CE('div',{style:{width:26,background:col+'28',borderRadius:'4px 4px 0 0',height:Math.max(4,Math.round(m.count/globalMax*52))+'px',position:'relative',overflow:'hidden'}},CE('div',{style:{position:'absolute',bottom:0,left:0,right:0,height:(m.count>0?Math.round(m.realises/m.count*100):0)+'%',background:col,borderRadius:'4px 4px 0 0'}})),m.count>0&&CE('span',{style:{fontSize:10,fontWeight:700,color:col}},m.count)))));})
-            )
-          )
-        )
-      );
-    })(),
-    hoveredItem&&CE('div',{style:{position:'fixed',left:Math.min(tooltipPos.x+16,window.innerWidth-255)+'px',top:(tooltipPos.y+18)+'px',background:'#1a202c',border:'1px solid #2d3748',borderRadius:10,padding:'12px 16px',boxShadow:'0 8px 24px rgba(0,0,0,.6)',zIndex:9999,minWidth:230,pointerEvents:'none',color:'#e2e8f0'}},
-      CE('div',{style:{fontWeight:700,fontSize:13,color:'#fff',marginBottom:8,paddingBottom:8,borderBottom:'1px solid #2d3748'}},hoveredItem.thematique||'—'),
-      CE('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'4px 10px',marginBottom:10}},[['📅',String(hoveredItem.date||'—').slice(0,10)],['📍',hoveredItem.commune||'—'],['🏢',hoveredItem.lieu||'—'],['👤',(hoveredItem.conseiller||'—').split(' ')[0]],['📋',(hoveredItem.inscrits||'—')+' inscrits'],['✅',(hoveredItem.presents||'—')+' présents']].map(([ico,val])=>CE('div',{key:ico,style:{fontSize:11,display:'flex',gap:4,alignItems:'center'}},CE('span',null,ico),CE('span',{style:{color:'#cbd5e1',fontWeight:600}},String(val))))),
-      CE('div',{style:{display:'inline-block',padding:'3px 10px',borderRadius:20,background:(STATUT_STYLE[hoveredItem.statut]||{bg:'#6b7280'}).bg,color:'#fff',fontSize:11,fontWeight:700}},(STATUT_STYLE[hoveredItem.statut]||{label:'?'}).label+' '+(hoveredItem.statut||'—'))
     )
   );
 }
