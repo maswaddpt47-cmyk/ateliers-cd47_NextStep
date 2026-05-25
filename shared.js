@@ -212,6 +212,76 @@ tr:hover td{background:#f7fafc}
   .card.page-break{page-break-before:always}
   h1,h2,h3{page-break-after:avoid}
 }
+/* ══════════════════════════════════════════════════════════
+   DESKTOP — breakpoints ≥ 768px et ≥ 1024px
+   ══════════════════════════════════════════════════════════ */
+@media(min-width:768px){
+  /* Layout principal plus large */
+  .main{padding:28px 32px;max-width:1400px}
+
+  /* KPI : 4 colonnes bien espacées */
+  .kpi-grid{grid-template-columns:repeat(4,1fr);gap:18px}
+  .kpi{padding:18px 20px}
+  .kpi .val{font-size:32px}
+
+  /* kpi-row historique : toutes les tuiles sur une ligne */
+  .kpi-row{flex-wrap:nowrap;gap:12px}
+  .kpi-mini{padding:12px 14px}
+  .kpi-mini .v{font-size:24px}
+
+  /* Cards : ombres plus profondes sur grand écran */
+  .card{box-shadow:0 2px 12px rgba(0,0,0,.08)}
+
+  /* Historique : panel latéral plus large */
+  .side-panel{width:420px}
+
+  /* Atelier-cards : layout 2 colonnes sur tablette */
+  .atelier-list{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .atelier-card{margin-bottom:0}
+
+  /* Bingo : plus de colonnes */
+  .bingo-grid{grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:16px}
+  .bingo-card{padding:20px 16px}
+  .bingo-circle{width:72px;height:72px;font-size:26px}
+
+  /* Calendrier : cellules plus grandes */
+  .cal-cell{min-height:90px}
+
+  /* Formulaire saisie : 2 colonnes */
+  .sf-grid2{grid-template-columns:1fr 1fr;gap:16px}
+  .sf-grid3{grid-template-columns:1fr 1fr 1fr;gap:16px}
+  .sf-grid-date{grid-template-columns:1fr 1fr 100px;gap:16px}
+
+  /* Nav : plus d'espace entre les éléments */
+  nav{padding:0 32px;height:56px}
+  nav .nav-title{font-size:17px}
+}
+
+@media(min-width:1024px){
+  .main{padding:32px 40px;max-width:1600px}
+
+  /* Historique : 3 colonnes */
+  .atelier-list{grid-template-columns:1fr 1fr 1fr}
+
+  /* Dashboard : graphiques côte à côte en 2×2 */
+  .dashboard-charts{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+
+  /* Bingo : 5 colonnes min */
+  .bingo-grid{grid-template-columns:repeat(auto-fill,minmax(180px,1fr))}
+
+  /* Roadmap : gantt plus lisible */
+  .gantt-table{font-size:13px}
+
+  /* Admin sections en 2 colonnes */
+  .admin-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+  .admin-section{margin-bottom:0}
+}
+
+@media(min-width:1400px){
+  .main{max-width:1800px}
+  .kpi-grid{grid-template-columns:repeat(6,1fr)}
+  .bingo-grid{grid-template-columns:repeat(auto-fill,minmax(160px,1fr))}
+}
 .btn-print{background:#f8fafc;color:#4a5568;border:1.5px solid #e2e8f0}.btn-print:hover{background:#e2e8f0}
 .badge-retard{background:#fecaca;color:#991b1b;border:1px solid #f87171;animation:blink-retard 1.4s ease-in-out infinite}
 .atelier-card{background:#fff;border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,.08);margin-bottom:10px;display:flex;overflow:hidden;transition:box-shadow .2s;cursor:pointer}
@@ -1135,7 +1205,7 @@ function VueHistorique({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
       CE('div',{style:{fontSize:11,color:'#718096',marginTop:8}},`${filtered.length} atelier(s) affiché(s) sur ${entries.length}`)
     ),
     // Liste des ateliers
-    CE('div',null,filtered.map((e,ei)=>{
+    CE('div',{className:'atelier-list'},filtered.map((e,ei)=>{
       const d=fmtCardDate(e.date);const retard=isRetard(e);const cColor=conseillerColor(e.conseiller);
       return CE(FadeItem,{key:e._id,delay:Math.min(ei*0.05,0.5)},CE('div',{className:'atelier-card',style:{background:retard?'#fffbeb':hexToRgba(cColor,0.04),borderLeft:'none'},onClick:()=>openPanel(e)},
         CE('div',{className:'atelier-card-border',style:{background:cColor}}),
@@ -1895,7 +1965,7 @@ function VueGraphiques({entries}){
             CE(FadeItem,{delay:0.16,style:{display:'contents'}},CE('div',{className:'kpi',style:{borderLeft:'4px solid #7c3aed',background:'#faf5ff',textAlign:'left'}},CE('div',{className:'val',style:{color:'#7c3aed'}},totalPresents),CE('div',{className:'lbl'},'Participants présents'))),
             CE(FadeItem,{delay:0.24,style:{display:'contents'}},CE('div',{className:'kpi',style:{borderLeft:'4px solid #0891b2',background:'#ecfeff',textAlign:'left'}},CE('div',{className:'val',style:{color:'#0891b2'}},txPresence+'%'),CE('div',{className:'lbl'},'Taux de présence')))
           ),
-          CE('div',{style:{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:16}},
+          CE('div',{className:'dashboard-charts',style:{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:16}},
             CE('div',{className:'card'},CE('h2',null,'Ateliers par mois (révolus)'),CE(LineChart,{data:dataMois})),
             CE('div',{className:'card'},CE('h2',null,'Présents par mois (révolus)'),CE(LineChart,{data:dataMoisPresents})),
             CE('div',{className:'card'},CE('h2',null,'Par commune'),CE(BarChart,{data:dataCommune,colors:['#1e3a8a','#3b82f6','#60a5fa','#93c5fd','#1e40af','#2563eb','#1d4ed8','#1e3a8a']})),
