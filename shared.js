@@ -123,12 +123,12 @@ tr:hover td{background:#f7fafc}
 .combo-empty{padding:10px 12px;color:#718096;font-size:12px;font-style:italic}
 .combo-loading{padding:10px 12px;color:#1e3a8a;font-size:12px;display:flex;align-items:center;gap:8px}
 .bingo-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:14px;margin-bottom:20px}
-.bingo-card{background:#fff;border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,.08);padding:16px 12px;text-align:center;cursor:pointer;transition:all .2s;border:2px solid transparent}
-.bingo-card:hover{box-shadow:0 4px 16px rgba(0,0,0,.14);transform:translateY(-2px)}
+.bingo-card{background:#fff;border-radius:14px;box-shadow:0 3px 12px rgba(0,0,0,.1);padding:16px 12px;text-align:center;cursor:pointer;transition:all .25s;border:2px solid transparent}
+.bingo-card:hover{box-shadow:0 8px 24px rgba(0,0,0,.16);transform:translateY(-3px)}
 .bingo-card.selected{border-color:#1e3a8a}
-.bingo-circle{width:60px;height:60px;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 8px;font-size:22px;font-weight:800;border:3px solid}
+.bingo-circle{width:64px;height:64px;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 10px;font-size:24px;font-weight:800;border:3px solid}
 .bingo-nom{font-size:11px;font-weight:700;color:#1a202c;margin-bottom:4px;line-height:1.2}
-.bingo-pct{font-size:11px;color:#718096}
+.bingo-pct{font-size:12px;font-weight:700}
 .bingo-list{margin-top:16px}
 .bingo-list-item{display:flex;align-items:center;gap:10px;padding:8px 12px;border-bottom:1px solid #f0f4f8;font-size:13px}
 .bingo-list-item:last-child{border-bottom:none}
@@ -1883,7 +1883,7 @@ function VueBingo({entries}){
       ),
       CE('button',{className:'btn btn-print btn-sm',onClick:()=>window.print()},'🖨️ Imprimer')
     ),
-    CE('div',{className:'bingo-grid'},communes.map((c,ci)=>{const col=getCircleColor(c.pct);return CE(FadeItem,{key:c.nom,delay:ci*0.04},CE('div',{className:'bingo-card'+(selected===c.nom?' selected':''),onClick:()=>setSelected(selected===c.nom?null:c.nom)},CE('div',{className:'bingo-circle',style:{background:col.bg,borderColor:col.stroke,color:col.text}},c.total),CE('div',{className:'bingo-nom'},c.nom),CE('div',{className:'bingo-pct'},c.pct+'% réalisés')));})),
+    CE('div',{className:'bingo-grid'},communes.map((c,ci)=>{const col=getCircleColor(c.pct);return CE(FadeItem,{key:c.nom,delay:ci*0.04},CE('div',{className:'bingo-card'+(selected===c.nom?' selected':''),style:{background:col.bg+'44',borderColor:col.stroke+'66'},onClick:()=>setSelected(selected===c.nom?null:c.nom)},CE('div',{className:'bingo-circle',style:{background:col.bg,borderColor:col.stroke,color:col.text,boxShadow:'0 0 0 4px '+col.stroke+'22'}},c.total),CE('div',{className:'bingo-nom'},c.nom),CE('div',{className:'bingo-pct',style:{color:col.text}},c.pct+'% réalisés')));})),
     sel&&CE('div',{className:'card'},
       CE('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}},
         CE('h2',{style:{borderBottom:'none',marginBottom:0,paddingBottom:0}},CE('span',{style:{color:'#1e3a8a'}},'📍 '+sel.nom),CE('span',{style:{fontSize:13,fontWeight:400,color:'#718096',marginLeft:8}},'— '+sel.total+' atelier(s)')),
