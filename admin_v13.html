@@ -2059,6 +2059,7 @@ function VueRoadmap({entries,annee,conseillers}){
   const[hoveredItem,setHoveredItem]=React.useState(null);
   const[tooltipPos,setTooltipPos]=React.useState({x:0,y:0});
   const[viewMode,setViewMode]=React.useState('gantt');
+  const[tooltip,setTooltip]=React.useState(null);
   const[dateFrom,setDateFrom]=React.useState(annee+'-01-01');
   const[dateTo,setDateTo]=React.useState(annee+'-12-31');
 
@@ -2399,30 +2400,53 @@ function VueRoadmap({entries,annee,conseillers}){
                         CE('span',{style:{fontSize:12,fontWeight:700,color:'#1a202c'}},conseiller.split(' ')[0])
                       )
                     ),
-                    byMonth.map((m,i)=>CE('td',{key:i,style:{
-                      padding:'8px 4px',borderBottom:'1px solid #f0f4f8',
-                      verticalAlign:'bottom',textAlign:'center'
-                    }},
-                      CE('div',{style:{display:'flex',flexDirection:'column',alignItems:'center',gap:2}},
-                        CE('div',{style:{
-                          width:26,background:col+'28',borderRadius:'4px 4px 0 0',
-                          height:Math.max(4,Math.round(m.count/globalMax*52))+'px',
-                          position:'relative',overflow:'hidden'
-                        }},
+                    byMonth.map((m,mi)=>{
+                      const mLabel=visibleMonths[mi].label;
+                      const planifies=m.count-m.realises;
+                      return CE('td',{key:mi,style:{
+                        padding:'8px 4px',borderBottom:'1px solid #f0f4f8',
+                        verticalAlign:'bottom',textAlign:'center',position:'relative',cursor:m.count>0?'pointer':'default'
+                      },
+                      onMouseEnter:m.count>0?e=>{const r=e.currentTarget.getBoundingClientRect();setTooltip({conseiller,mois:mLabel,total:m.count,realises:m.realises,planifies,col,x:r.left+r.width/2,y:r.top});}:null,
+                      onMouseLeave:()=>setTooltip(null)
+                      },
+                        CE('div',{style:{display:'flex',flexDirection:'column',alignItems:'center',gap:2}},
                           CE('div',{style:{
-                            position:'absolute',bottom:0,left:0,right:0,
-                            height:(m.count>0?Math.round(m.realises/m.count*100):0)+'%',
-                            background:col,borderRadius:'4px 4px 0 0'
-                          }})
-                        ),
-                        m.count>0&&CE('span',{style:{fontSize:10,fontWeight:700,color:col}},m.count)
-                      )
-                    ))
+                            width:26,background:col+'28',borderRadius:'4px 4px 0 0',
+                            height:Math.max(4,Math.round(m.count/globalMax*52))+'px',
+                            position:'relative',overflow:'hidden'
+                          }},
+                            CE('div',{style:{
+                              position:'absolute',bottom:0,left:0,right:0,
+                              height:(m.count>0?Math.round(m.realises/m.count*100):0)+'%',
+                              background:col,borderRadius:'4px 4px 0 0'
+                            }})
+                          ),
+                          m.count>0&&CE('span',{style:{fontSize:10,fontWeight:700,color:col}},m.count)
+                        )
+                      );
+                    })
                   );
                 })
               )
             )
-          )
+          ),
+        tooltip&&CE('div',{style:{
+          position:'fixed',zIndex:9999,
+          left:Math.min(tooltip.x,window.innerWidth-160)+'px',
+          top:(tooltip.y-88)+'px',
+          transform:'translateX(-50%)',
+          background:'#1a202c',color:'#fff',
+          borderRadius:10,padding:'10px 14px',
+          fontSize:12,pointerEvents:'none',
+          boxShadow:'0 4px 20px rgba(0,0,0,.3)',
+          minWidth:140,lineHeight:1.7
+        }},
+          CE('div',{style:{fontWeight:700,color:tooltip.col,marginBottom:4}},tooltip.conseiller.split(' ')[0]+' — '+tooltip.mois),
+          CE('div',null,React.createElement(React.Fragment,null,'📦 Total : ',CE('strong',null,tooltip.total))),
+          CE('div',null,React.createElement(React.Fragment,null,'✅ Réalisés : ',CE('strong',{style:{color:'#4ade80'}},tooltip.realises))),
+          CE('div',null,React.createElement(React.Fragment,null,'📅 Planifiés : ',CE('strong',{style:{color:'#93c5fd'}},tooltip.planifies)))
+        )
       );
     })(),
 
