@@ -300,7 +300,7 @@ const CE = React.createElement;
 function FadeItem({children,delay=0}){
   const[v,setV]=React.useState(false);
   React.useEffect(()=>{const t=setTimeout(()=>setV(true),delay*1000+20);return()=>clearTimeout(t);},[]);
-  return CE('div',{style:{opacity:v?1:0,transform:v?'none':'translateY(14px)',transition:'opacity .45s ease,transform .45s ease'}},children);
+  return CE('div',{style:{opacity:v?1:0,transform:v?'translateY(0)':'translateY(14px)',transition:'opacity .45s ease,transform .45s ease'}},children);
 }
 
 const GS_URL = 'https://script.google.com/macros/s/AKfycbw4u5tP97Drju1PiF16Lxl7KpnTwYMVWl18VwBbfm9AKuDI1F36dkNSvU08kKlifM6zbg/exec';
@@ -997,11 +997,11 @@ function VueHistorique({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
   return CE('div',null,
     // KPIs
     CE('div',{className:'kpi-row'},
-      CE('div',{className:'kpi-mini'},CE('div',{className:'v',style:{color:'#1e3a8a'}},kpi.total),CE('div',{className:'l'},'Total')),
-      CE('div',{className:'kpi-mini'},CE('div',{className:'v',style:{color:'#166534'}},kpi.realises),CE('div',{className:'l'},'Réalisés'),CE('div',{className:'p',style:{color:'#166534'}},kpi.total?Math.round(kpi.realises/kpi.total*100)+'%':'-')),
-      CE('div',{className:'kpi-mini'},CE('div',{className:'v',style:{color:'#991b1b'}},kpi.annules),CE('div',{className:'l'},'Annulés'),CE('div',{className:'p',style:{color:'#991b1b'}},kpi.total?Math.round(kpi.annules/kpi.total*100)+'%':'-')),
-      CE('div',{className:'kpi-mini'},CE('div',{className:'v',style:{color:'#2563eb'}},kpi.inscrits),CE('div',{className:'l'},'Inscrits')),
-      CE('div',{className:'kpi-mini'},CE('div',{className:'v',style:{color:'#d97706'}},kpi.presents),CE('div',{className:'l'},'Présents'),CE('div',{className:'p',style:{color:'#d97706'}},kpi.tx+'%'))
+      CE(FadeItem,{delay:0},CE('div',{className:'kpi-mini'},CE('div',{className:'v',style:{color:'#1e3a8a'}},kpi.total),CE('div',{className:'l'},'Total'))),
+      CE(FadeItem,{delay:0.08},CE('div',{className:'kpi-mini'},CE('div',{className:'v',style:{color:'#166534'}},kpi.realises),CE('div',{className:'l'},'Réalisés'),CE('div',{className:'p',style:{color:'#166534'}},kpi.total?Math.round(kpi.realises/kpi.total*100)+'%':'-'))),
+      CE(FadeItem,{delay:0.16},CE('div',{className:'kpi-mini'},CE('div',{className:'v',style:{color:'#991b1b'}},kpi.annules),CE('div',{className:'l'},'Annulés'),CE('div',{className:'p',style:{color:'#991b1b'}},kpi.total?Math.round(kpi.annules/kpi.total*100)+'%':'-'))),
+      CE(FadeItem,{delay:0.24},CE('div',{className:'kpi-mini'},CE('div',{className:'v',style:{color:'#2563eb'}},kpi.inscrits),CE('div',{className:'l'},'Inscrits'))),
+      CE(FadeItem,{delay:0.32},CE('div',{className:'kpi-mini'},CE('div',{className:'v',style:{color:'#d97706'}},kpi.presents),CE('div',{className:'l'},'Présents'),CE('div',{className:'p',style:{color:'#d97706'}},kpi.tx+'%')))
     ),
     // Alerte retards
     nRetard>0&&CE('div',{style:{background:'#fffbeb',border:'1px solid #fcd34d',borderRadius:10,padding:'10px 14px',marginBottom:10,display:'flex',gap:10,alignItems:'center'}},
@@ -1048,9 +1048,9 @@ function VueHistorique({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
       CE('div',{style:{fontSize:11,color:'#718096',marginTop:8}},`${filtered.length} atelier(s) affiché(s) sur ${entries.length}`)
     ),
     // Liste des ateliers
-    CE('div',null,filtered.map(e=>{
+    CE('div',null,filtered.map((e,ei)=>{
       const d=fmtCardDate(e.date);const retard=isRetard(e);const cColor=conseillerColor(e.conseiller);
-      return CE('div',{key:e._id,className:'atelier-card',style:{background:retard?'#fffbeb':hexToRgba(cColor,0.04),borderLeft:'none'},onClick:()=>openPanel(e)},
+      return CE(FadeItem,{key:e._id,delay:Math.min(ei*0.05,0.5)},CE('div',{className:'atelier-card',style:{background:retard?'#fffbeb':hexToRgba(cColor,0.04),borderLeft:'none'},onClick:()=>openPanel(e)},
         CE('div',{className:'atelier-card-border',style:{background:cColor}}),
         CE('div',{className:'atelier-card-date',style:{background:hexToRgba(cColor,0.08),borderRight:`1px solid ${hexToRgba(cColor,0.2)}`}},
           CE('div',{className:'atelier-card-day'},d.day),CE('div',{className:'atelier-card-month'},d.month),
@@ -1063,7 +1063,7 @@ function VueHistorique({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
           CE('div',{className:'atelier-card-sub'},e.commune,' — ',e.lieu,(e.inscrits||e.presents)?CE('span',null,' · ',e.presents||0,'/',e.inscrits||0,' présents'):null)
         ),
         CE('div',{className:'atelier-card-arrow'},'›')
-      );
+      ));
     })),
     // Side panel overlay
     panel&&CE('div',{className:'side-panel-overlay',onClick:closePanel}),
@@ -1896,6 +1896,15 @@ function VueBingo({entries}){
 // VUE ADMIN
 // ═══════════════════════════════════════════════════════════
 function VueAdmin({entries,onRefresh,addLog,conseillersList,onSaveColors}){
+  const adminRef=React.useRef(null);
+  React.useEffect(()=>{
+    if(!adminRef.current)return;
+    const sections=adminRef.current.querySelectorAll('.admin-section');
+    sections.forEach((el,i)=>{
+      el.style.opacity='0';el.style.transform='translateY(14px)';el.style.transition='opacity .45s ease,transform .45s ease';
+      setTimeout(()=>{el.style.opacity='1';el.style.transform='translateY(0)';},i*100+20);
+    });
+  },[]);
   const[resetStep,setResetStep]=React.useState(0);
   const[visibility,setVisibility]=React.useState(null);
   const[visSaving,setVisSaving]=React.useState(false);
@@ -2000,7 +2009,7 @@ function VueAdmin({entries,onRefresh,addLog,conseillersList,onSaveColors}){
 
   const resetLabels=['🗑️ Réinitialiser la BDD locale','⚠️ Confirmer (1/2)','🚨 Confirmer définitivement (2/2)'];
 
-  return CE('div',null,
+  return CE('div',{ref:adminRef},
     CE('div',{className:'card'},
       CE('h2',null,'⚙️ Panneau Administrateur'),
       CE('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,marginBottom:8}},
