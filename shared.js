@@ -71,8 +71,14 @@ tr:hover td{background:#f7fafc}
 .pagination button:disabled{opacity:.4;cursor:default}
 .pagination span{font-size:12px;color:#718096}
 .error-box{background:#fff5f5;border:1.5px solid #fc8181;border-radius:8px;padding:16px;color:#9b2c2c;display:flex;flex-direction:column;gap:10px;align-items:flex-start}
-.admin-section{border:2px solid #fca5a5;border-radius:10px;padding:20px;margin-bottom:16px;background:#fff}
+.admin-section{border:2px solid #fca5a5;border-radius:10px;padding:20px;margin-bottom:16px;background:#fff;animation:fadeInUp .4s ease both}
 .admin-section h3{font-size:15px;font-weight:700;color:#dc2626;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.admin-section:nth-child(1){animation-delay:.04s}
+.admin-section:nth-child(2){animation-delay:.10s}
+.admin-section:nth-child(3){animation-delay:.16s}
+.admin-section:nth-child(4){animation-delay:.22s}
+.admin-section:nth-child(5){animation-delay:.28s}
+.admin-section:nth-child(6){animation-delay:.34s}
 .confirm-box{background:#fff5f5;border:1.5px solid #fc8181;border-radius:8px;padding:14px;margin-top:12px}
 .confirm-box p{font-size:13px;color:#9b2c2c;margin-bottom:10px}
 .login-wrap{display:flex;align-items:center;justify-content:center;min-height:calc(100vh - 52px)}
@@ -139,7 +145,7 @@ tr:hover td{background:#f7fafc}
 @media print{nav{display:none!important}.main{padding:0!important}.btn{display:none!important}.filters{display:none!important}.side-panel{display:none!important}}
 .btn-print{background:#f8fafc;color:#4a5568;border:1.5px solid #e2e8f0}.btn-print:hover{background:#e2e8f0}
 .badge-retard{background:#fecaca;color:#991b1b;border:1px solid #f87171;animation:blink-retard 1.4s ease-in-out infinite}
-.atelier-card{background:#fff;border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,.08);margin-bottom:10px;display:flex;overflow:hidden;transition:box-shadow .2s;cursor:pointer}
+.atelier-card{background:#fff;border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,.08);margin-bottom:10px;display:flex;overflow:hidden;transition:box-shadow .2s;cursor:pointer;animation:fadeInUp .35s ease both}
 .atelier-card:hover{box-shadow:0 4px 16px rgba(0,0,0,.12)}
 .atelier-card-border{width:5px;flex-shrink:0}
 .atelier-card-date{width:64px;flex-shrink:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:14px 8px;background:#f8fafc;border-right:1px solid #e2e8f0}
@@ -1058,9 +1064,9 @@ function VueHistorique({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
       CE('div',{style:{fontSize:11,color:'#718096',marginTop:8}},`${filtered.length} atelier(s) affiché(s) sur ${entries.length}`)
     ),
     // Liste des ateliers
-    CE('div',null,filtered.map(e=>{
+    CE('div',null,filtered.map((e,ei)=>{
       const d=fmtCardDate(e.date);const retard=isRetard(e);const cColor=conseillerColor(e.conseiller);
-      return CE('div',{key:e._id,className:'atelier-card',style:{background:retard?'#fffbeb':hexToRgba(cColor,0.04),borderLeft:'none'},onClick:()=>openPanel(e)},
+      return CE('div',{key:e._id,className:'atelier-card',style:{background:retard?'#fffbeb':hexToRgba(cColor,0.04),borderLeft:'none',animationDelay:Math.min(ei*0.04,0.4)+'s'},onClick:()=>openPanel(e)},
         CE('div',{className:'atelier-card-border',style:{background:cColor}}),
         CE('div',{className:'atelier-card-date',style:{background:hexToRgba(cColor,0.08),borderRight:`1px solid ${hexToRgba(cColor,0.2)}`}},
           CE('div',{className:'atelier-card-day'},d.day),CE('div',{className:'atelier-card-month'},d.month),
@@ -1250,7 +1256,7 @@ function VueCalendrier({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
       // Cellules
       CE('div',{className:'cal-grid'},
         cells.map((day,idx)=>{
-          if(day===null)return CE('div',{key:'e'+idx,className:'cal-cell cal-cell-empty'});
+          if(day===null)return CE('div',{key:'e'+idx,className:'cal-cell cal-cell-empty',style:{animation:'fadeInUp .3s ease both',animationDelay:Math.min(idx*0.015,0.4)+'s'}});
           const ds=`${yr}-${String(mo+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
           const isToday=ds===todayStr;
           const dayAteliers=dayMap[day]||[];
@@ -1258,7 +1264,7 @@ function VueCalendrier({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
           const hidden=dayAteliers.length-MAX_VISIBLE;
           const expanded=expandDay===day;
           const visible=expanded?dayAteliers:dayAteliers.slice(0,MAX_VISIBLE);
-          return CE('div',{key:day,className:'cal-cell'+(isToday?' cal-today':'')},
+          return CE('div',{key:day,className:'cal-cell'+(isToday?' cal-today':''),style:{animation:'fadeInUp .3s ease both',animationDelay:Math.min(idx*0.015,0.4)+'s'}},
             CE('div',{className:'cal-day-num'},
               isToday?CE('span',{className:'cal-today-num'},day):day
             ),
