@@ -1806,10 +1806,10 @@ function VueGraphiques({entries}){
       ?CE('div',{className:'card'},CE('p',{style:{color:'#718096',textAlign:'center',padding:'40px 0'}},hasFilter?'Aucun atelier réalisé sur cette période.':'Aucun atelier réalisé.'))
       :CE('div',null,
           CE('div',{className:'kpi-grid'},
-            CE('div',{className:'kpi'},CE('div',{className:'val'},total),CE('div',{className:'lbl'},'Ateliers réalisés')),
-            CE('div',{className:'kpi'},CE('div',{className:'val'},annules),CE('div',{className:'lbl'},'Annulés')),
-            CE('div',{className:'kpi'},CE('div',{className:'val'},totalPresents),CE('div',{className:'lbl'},'Participants présents')),
-            CE('div',{className:'kpi'},CE('div',{className:'val'},txPresence+'%'),CE('div',{className:'lbl'},'Taux de présence'))
+            CE(FadeItem,{delay:0},CE('div',{className:'kpi',style:{borderLeft:'4px solid #16a34a',background:'#f0fdf4',textAlign:'left'}},CE('div',{className:'val',style:{color:'#16a34a'}},total),CE('div',{className:'lbl'},'Ateliers réalisés'))),
+            CE(FadeItem,{delay:0.08},CE('div',{className:'kpi',style:{borderLeft:'4px solid #dc2626',background:'#fff5f5',textAlign:'left'}},CE('div',{className:'val',style:{color:'#dc2626'}},annules),CE('div',{className:'lbl'},'Annulés'))),
+            CE(FadeItem,{delay:0.16},CE('div',{className:'kpi',style:{borderLeft:'4px solid #7c3aed',background:'#faf5ff',textAlign:'left'}},CE('div',{className:'val',style:{color:'#7c3aed'}},totalPresents),CE('div',{className:'lbl'},'Participants présents'))),
+            CE(FadeItem,{delay:0.24},CE('div',{className:'kpi',style:{borderLeft:'4px solid #0891b2',background:'#ecfeff',textAlign:'left'}},CE('div',{className:'val',style:{color:'#0891b2'}},txPresence+'%'),CE('div',{className:'lbl'},'Taux de présence')))
           ),
           CE('div',{style:{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:16}},
             CE('div',{className:'card'},CE('h2',null,'Ateliers par mois (révolus)'),CE(LineChart,{data:dataMois})),
