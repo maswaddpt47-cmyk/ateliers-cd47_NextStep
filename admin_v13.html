@@ -1422,6 +1422,7 @@ function VuePowerBI({entries, conseillers: conseillersList}){
 
   // Conseillers × mois (jusqu'au mois en cours)
   const _moisCourant=new Date().getMonth()+1;
+  const pMoisFilt=pMois.filter((_,i)=>i+1<=_moisCourant);
   const pConsMois=MOIS_PBI.map((l,i)=>{
     const m=i+1,obj={mois:l};
     CONS.forEach(c=>{obj[c]=fd.filter(d=>getMois(d)===m&&d.conseiller===c&&d.statut==='Réalisé').length;});
@@ -1588,9 +1589,9 @@ function VuePowerBI({entries, conseillers: conseillersList}){
             CE(PBIChart,{height:150,option:{backgroundColor:'transparent',
               grid:{top:8,right:4,bottom:22,left:0,containLabel:true},
               tooltip:{trigger:'axis',axisPointer:{type:'line'},...ecTT},
-              xAxis:{data:pMois.map(d=>d.mois),axisLine:{show:false},axisTick:{show:false},axisLabel:{color:'#9ca3af',fontSize:9}},
+              xAxis:{data:pMoisFilt.map(d=>d.mois),axisLine:{show:false},axisTick:{show:false},axisLabel:{color:'#9ca3af',fontSize:9}},
               yAxis:{splitLine:{lineStyle:{color:'#2d3250',type:'dashed'}},axisLabel:{color:'#9ca3af',fontSize:9},axisLine:{show:false},axisTick:{show:false}},
-              series:[{type:'line',data:pMois.map(d=>d['Présents']),smooth:true,symbol:'none',
+              series:[{type:'line',data:pMoisFilt.map(d=>d['Présents']),smooth:true,symbol:'none',
                 lineStyle:{width:2,color:'#22c55e'},
                 areaStyle:{color:mkGradPBI('rgba(34,197,94,0.35)','rgba(34,197,94,0.02)')}}]}}))
         ),
