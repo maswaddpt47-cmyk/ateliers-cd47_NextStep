@@ -200,6 +200,7 @@ function App(){
   const[newEntries,setNewEntries]= React.useState([]);
   const[seenIds,setSeenIds]= React.useState(new Set());
   const[showListes,setShowListes]= React.useState(false);
+  const[showImport,setShowImport]= React.useState(false);
   const[editingId,setEditingId]  = React.useState(null);
   const[prefillData,setPrefillData]= React.useState(null);
   const[annee,setAnnee]    = React.useState(String(new Date().getFullYear()));
@@ -411,6 +412,14 @@ function App(){
         CE('span',{className:'sidebar-btn-ico'},'📋'),
         CE('span',{className:'sidebar-btn-lbl'},'Listes')
       ),
+      CE('button',{
+        className:'sidebar-btn',
+        title:'Importer depuis Google Sheet externe',
+        onClick:()=>setShowImport(true)
+      },
+        CE('span',{className:'sidebar-btn-ico'},'📥'),
+        CE('span',{className:'sidebar-btn-lbl'},'Import')
+      ),
       sideBtn('admin','⚙️','Admin'),
       sideBtn('logs','📜','Logs'),
 
@@ -531,6 +540,27 @@ function App(){
       onClose:()=>setShowListes(false),
       emails,
       onSaveEmails:handleSaveEmails
+    }),
+
+    showImport&&CE(PanelImportSheet,{
+      onClose:()=>setShowImport(false),
+      onImported:async(entries)=>{
+        try{
+          const res=await apiFetch('saveMany',{entries:JSON.stringify(entries)});
+          if(res.ok){
+            showToast('✅ '+res.saved+' atelier(s) importé(s)');
+            addLog('Import Sheet : '+res.saved+' entrées importées','ok');
+            setShowImport(false);
+            loadData();
+          }else{
+            showToast('❌ '+(res.error||'Erreur inconnue'),false);
+            addLog('Import Sheet erreur : '+(res.error||'?'),'err');
+          }
+        }catch(e){
+          showToast('❌ '+e.message,false);
+          addLog('Import Sheet exception : '+e.message,'err');
+        }
+      }
     }),
 
     CE('div',{id:'toast',className:'toast',style:{opacity:0}})
