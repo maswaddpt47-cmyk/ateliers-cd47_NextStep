@@ -8,7 +8,7 @@
   *{box-sizing:border-box;margin:0;padding:0}
   body{font-family:'Segoe UI',sans-serif;background:#0d1117;color:#e2e8f0;padding:16px}
   h1{font-size:14px;font-weight:800;color:#f2c811;letter-spacing:.12em;text-transform:uppercase;margin-bottom:4px}
-  .sub{font-size:11px;color:#4a5568;margin-bottom:20px}
+  .sub{font-size:11px;color:#4a5568;margin-bottom:20px;display:flex;align-items:center;gap:8px}
   .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
   .grid-full{grid-column:1 / -1}
   .card{background:#161b27;border-radius:10px;padding:14px;border:1px solid #1e2a3a}
@@ -20,12 +20,16 @@
   .legend{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;justify-content:center}
   .legend-item{display:flex;align-items:center;gap:4px;font-size:10px;color:#6b7fa0}
   .legend-dot{width:8px;height:8px;border-radius:2px;flex-shrink:0}
+  .reload-btn{background:#1e3a8a;color:#93c5fd;border:1px solid #3b82f6;border-radius:12px;padding:3px 10px;font-size:11px;cursor:pointer}
 </style>
 </head>
 <body>
 
 <h1>📊 Démo Charts — Nouveau Style</h1>
-<p class="sub">CD47 Inclusion Numérique · <button onclick="buildAll()" style="background:#1e3a8a;color:#93c5fd;border:1px solid #3b82f6;border-radius:12px;padding:3px 10px;font-size:11px;cursor:pointer">↺ Recharger</button></p>
+<div class="sub">
+  CD47 Inclusion Numérique
+  <button class="reload-btn" onclick="buildAll()">↺ Recharger</button>
+</div>
 
 <div class="grid">
   <div class="card grid-full">
@@ -51,69 +55,66 @@
   <div class="card"><div class="card-title">Par type de public</div><div id="ch-public" style="width:100%;height:200px"></div></div>
 </div>
 
-<!-- ECharts chargé EN DERNIER, juste avant le script d'init -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.4.3/echarts.min.js"></script>
 <script>
-const BG='#161b27',GC='#1e2a3a',LB='#6b7fa0';
-const MOIS=['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
-const CC=['#7C3AED','#2563EB','#059669','#DB2777'];
+var BG='#161b27',GC='#1e2a3a',LB='#6b7fa0';
+var MOIS=['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
+var CC=['#7C3AED','#2563EB','#059669','#DB2777'];
 
 function lighten(hex,amt){
-  try{const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);
-  return'#'+[r,g,b].map(v=>Math.min(255,v+amt).toString(16).padStart(2,'0')).join('');}catch{return hex;}
+  try{
+    var r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);
+    return'#'+[r,g,b].map(function(v){return Math.min(255,v+amt).toString(16).padStart(2,'0');}).join('');
+  }catch(e){return hex;}
 }
 function grad(c1,c2,h){
-  const[x1,y1,x2,y2]=h?[0,0,1,0]:[0,0,0,1];
-  return new echarts.graphic.LinearGradient(x1,y1,x2,y2,[{offset:0,color:c1},{offset:1,color:c2}]);
+  var coords=h?[0,0,1,0]:[0,0,0,1];
+  return new echarts.graphic.LinearGradient(coords[0],coords[1],coords[2],coords[3],[{offset:0,color:c1},{offset:1,color:c2}]);
 }
 function gBar(c){return{color:grad(lighten(c,45),c),borderRadius:[3,3,0,0]};}
 function gBarH(c){return{color:grad(lighten(c,35),c,true),borderRadius:[0,3,3,0]};}
 
-// Tooltip sans ombre aucune
-const TT={
-  backgroundColor:'#0d1117',
-  borderColor:'#1e2a3a',
-  textStyle:{color:'#e2e8f0',fontSize:12},
-  extraCssText:'border-radius:8px;padding:10px 14px;box-shadow:none;outline:none'
-};
-const APL={axisPointer:{type:'none'}};
-const APS={axisPointer:{type:'none'}};
+var TT={backgroundColor:'#0d1117',borderColor:'#1e2a3a',textStyle:{color:'#e2e8f0',fontSize:12},extraCssText:'border-radius:8px;padding:10px 14px;box-shadow:none'};
+var APN={axisPointer:{type:'none'}};
+var AX={axisLine:{show:false},axisTick:{show:false},axisLabel:{color:LB,fontSize:10},splitLine:{lineStyle:{color:GC,type:'dashed'}}};
+var AN={animation:true,animationDuration:900,animationEasing:'cubicOut'};
 
-const AX={axisLine:{show:false},axisTick:{show:false},axisLabel:{color:LB,fontSize:10},splitLine:{lineStyle:{color:GC,type:'dashed'}}};
-const AN={animation:true,animationDuration:900,animationEasing:'cubicOut'};
+var R=[12,18,22,15,20,8,5,10,25,30,18,14];
+var P=[4,3,5,6,4,2,3,4,5,3,6,8];
+var A=[2,1,3,2,1,1,0,2,3,2,1,2];
+var INS=[96,140,176,120,160,64,40,80,200,240,144,112];
+var PRE=[78,115,150,95,130,50,30,65,170,200,118,90];
 
-const R=[12,18,22,15,20,8,5,10,25,30,18,14];
-const P=[4,3,5,6,4,2,3,4,5,3,6,8];
-const A=[2,1,3,2,1,1,0,2,3,2,1,2];
-const INS=[96,140,176,120,160,64,40,80,200,240,144,112];
-const PRE=[78,115,150,95,130,50,30,65,170,200,118,90];
+var EC={};
+function mk(id){
+  if(EC[id]){EC[id].dispose();}
+  EC[id]=echarts.init(document.getElementById(id));
+  return EC[id];
+}
+window.addEventListener('resize',function(){Object.values(EC).forEach(function(c){if(c)c.resize();});});
 
-const EC={};
-function mk(id){if(EC[id])EC[id].dispose();EC[id]=echarts.init(document.getElementById(id));return EC[id];}
-window.addEventListener('resize',()=>Object.values(EC).forEach(c=>cwindow.addEventListener('resize',()=>Object.values(EC).forEach(c=>c&&c.resize()));window.addEventListener('resize',()=>Object.values(EC).forEach(c=>c&&c.resize()));c.resize()));
-function refreshAll(){Object.values(EC).forEach(c=>cwindow.addEventListener('resize',()=>Object.values(EC).forEach(c=>c&&c.resize()));window.addEventListener('resize',()=>Object.values(EC).forEach(c=>c&&c.resize()));c.resize());}
+var _em='stacked';
 
-let _em='stacked';
 function buildEvol(mode){
   _em=mode;
-  const c=mk('ch-evol'),s=mode==='stacked';
-  c.setOption({...AN,backgroundColor:'transparent',
+  var c=mk('ch-evol'),s=mode==='stacked';
+  c.setOption(Object.assign({},AN,{backgroundColor:'transparent',
     grid:{top:8,right:8,bottom:8,left:0,containLabel:true},
-    tooltip:{trigger:'axis',...TT,...APS},
-    xAxis:{data:MOIS,...AX,splitLine:{show:false}},
-    yAxis:{...AX},
+    tooltip:Object.assign({trigger:'axis'},TT,APN),
+    xAxis:Object.assign({data:MOIS},AX,{splitLine:{show:false}}),
+    yAxis:Object.assign({},AX),
     series:[
-      {name:'Réalisés',type:'bar',stack:s?'a':null,barMaxWidth:28,data:R,itemStyle:{...gBar('#22c55e')}},
+      {name:'Réalisés',type:'bar',stack:s?'a':null,barMaxWidth:28,data:R,itemStyle:gBar('#22c55e')},
       {name:'Annulés',type:'bar',stack:s?'a':null,barMaxWidth:28,data:A,
        itemStyle:{color:grad(lighten('#ef4444',30),'#dc2626'),borderRadius:s?[0,0,0,0]:[3,3,0,0]}},
       {name:'Planifiés',type:'bar',stack:s?'a':null,barMaxWidth:28,data:P,
        itemStyle:{color:grad(lighten('#3b82f6',30),'#2563eb'),borderRadius:[3,3,0,0]}}
     ]
-  },{notMerge:true});
+  }),{notMerge:true});
 }
 
 function setEvolMode(mode,btn){
-  document.querySelectorAll('.toggle-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.toggle-btn').forEach(function(b){b.classList.remove('active');});
   btn.classList.add('active');
   buildEvol(mode);
 }
@@ -121,12 +122,12 @@ function setEvolMode(mode,btn){
 function buildAll(){
   buildEvol(_em);
 
-  mk('ch-dual').setOption({...AN,backgroundColor:'transparent',
+  mk('ch-dual').setOption(Object.assign({},AN,{backgroundColor:'transparent',
     grid:{top:16,right:8,bottom:28,left:0,containLabel:true},
-    tooltip:{trigger:'axis',...TT,...APL},
+    tooltip:Object.assign({trigger:'axis'},TT,APN),
     legend:{data:['Inscrits','Présents'],bottom:0,textStyle:{color:LB,fontSize:10},icon:'circle',itemWidth:8,itemHeight:8},
-    xAxis:{data:MOIS,...AX,splitLine:{show:false}},
-    yAxis:{...AX},
+    xAxis:Object.assign({data:MOIS},AX,{splitLine:{show:false}}),
+    yAxis:Object.assign({},AX),
     series:[
       {name:'Inscrits',type:'line',data:INS,smooth:true,symbol:'circle',symbolSize:5,
        lineStyle:{width:2,color:'#3b82f6'},itemStyle:{color:'#3b82f6',borderColor:BG,borderWidth:2},
@@ -135,14 +136,14 @@ function buildAll(){
        lineStyle:{width:2,color:'#22c55e'},itemStyle:{color:'#22c55e',borderColor:BG,borderWidth:2},
        areaStyle:{color:grad('rgba(34,197,94,0.2)','rgba(34,197,94,0.02)')}}
     ]
-  });
+  }));
 
-  mk('ch-donut').setOption({...AN,backgroundColor:'transparent',
-    tooltip:{trigger:'item',...TT,formatter:p=>`<b style="color:${p.color}">${p.name}</b><br/>${p.value} (${p.percent}%)`},
+  mk('ch-donut').setOption(Object.assign({},AN,{backgroundColor:'transparent',
+    tooltip:Object.assign({trigger:'item',formatter:function(p){return '<b style="color:'+p.color+'">'+p.name+'</b><br/>'+p.value+' ('+p.percent+'%)';}},TT),
     legend:{orient:'horizontal',bottom:0,textStyle:{color:LB,fontSize:9},icon:'circle',itemWidth:7,itemHeight:7},
     series:[{type:'pie',radius:['38%','62%'],center:['50%','44%'],
       itemStyle:{borderRadius:5,borderColor:BG,borderWidth:3},
-      label:{show:true,position:'inside',color:'#fff',fontSize:9,fontWeight:700,formatter:p=>p.percent>8?Math.round(p.percent)+'%':''},
+      label:{show:true,position:'inside',color:'#fff',fontSize:9,fontWeight:700,formatter:function(p){return p.percent>8?Math.round(p.percent)+'%':'';}},
       data:[
         {name:'Réalisé',value:157,itemStyle:{color:'#22c55e'}},
         {name:'Planifié',value:43,itemStyle:{color:'#3b82f6'}},
@@ -152,87 +153,86 @@ function buildAll(){
       ],
       emphasis:{scale:true,scaleSize:5}
     }]
-  });
+  }));
 
-  const comm=['Casseneuil','Lavardac','Marmande','Nérac','Fumel','Tonneins','Villeneuve/L','Agen'];
-  mk('ch-communes').setOption({...AN,backgroundColor:'transparent',
+  var comm=['Casseneuil','Lavardac','Marmande','Nérac','Fumel','Tonneins','Villeneuve/L','Agen'];
+  mk('ch-communes').setOption(Object.assign({},AN,{backgroundColor:'transparent',
     grid:{top:8,right:48,bottom:8,left:8,containLabel:true},
-    tooltip:{trigger:'axis',...TT,...APL},
-    xAxis:{...AX,splitLine:{lineStyle:{color:GC,type:'dashed'}}},
+    tooltip:Object.assign({trigger:'axis'},TT,APN),
+    xAxis:Object.assign({},AX,{splitLine:{lineStyle:{color:GC,type:'dashed'}}}),
     yAxis:{type:'category',data:comm,axisLabel:{color:LB,fontSize:10},axisLine:{show:false},axisTick:{show:false},splitLine:{show:false}},
     series:[{type:'bar',barMaxWidth:16,
-      data:[9,12,15,18,22,28,32,45].map((v,i)=>({value:v,itemStyle:{...gBarH(`hsl(${210+i*10},70%,55%)`)}})),
+      data:[9,12,15,18,22,28,32,45].map(function(v,i){return{value:v,itemStyle:gBarH('hsl('+(210+i*10)+',70%,55%)')};},this),
       label:{show:true,position:'right',color:LB,fontSize:10,fontWeight:'bold',distance:6}
     }]
-  });
+  }));
 
-  mk('ch-line').setOption({...AN,backgroundColor:'transparent',
+  mk('ch-line').setOption(Object.assign({},AN,{backgroundColor:'transparent',
     grid:{top:8,right:8,bottom:8,left:0,containLabel:true},
-    tooltip:{trigger:'axis',...TT,...APL},
-    xAxis:{data:MOIS,...AX,splitLine:{show:false}},
-    yAxis:{...AX},
+    tooltip:Object.assign({trigger:'axis'},TT,APN),
+    xAxis:Object.assign({data:MOIS},AX,{splitLine:{show:false}}),
+    yAxis:Object.assign({},AX),
     series:[{type:'line',data:PRE,smooth:true,symbol:'circle',symbolSize:4,
       lineStyle:{width:2.5,color:'#a78bfa'},
       itemStyle:{color:'#a78bfa',borderColor:BG,borderWidth:2},
       areaStyle:{color:grad('rgba(167,139,250,0.3)','rgba(167,139,250,0.02)')}
     }]
-  });
+  }));
 
-  const th=['Smartphone','Internet','Admin en ligne','Messagerie','Réseaux soc.','Arnaques','Photo/Vidéo','Démarches'];
-  mk('ch-theme').setOption({...AN,backgroundColor:'transparent',
+  var th=['Smartphone','Internet','Admin en ligne','Messagerie','Réseaux soc.','Arnaques','Photo/Vidéo','Démarches'];
+  mk('ch-theme').setOption(Object.assign({},AN,{backgroundColor:'transparent',
     grid:{top:8,right:8,bottom:44,left:0,containLabel:true},
-    tooltip:{trigger:'axis',...TT,...APS},
-    xAxis:{data:th,...AX,splitLine:{show:false},axisLabel:{color:LB,fontSize:8,rotate:-30,interval:0}},
-    yAxis:{...AX},
+    tooltip:Object.assign({trigger:'axis'},TT,APN),
+    xAxis:Object.assign({data:th},AX,{splitLine:{show:false},axisLabel:{color:LB,fontSize:8,rotate:-30,interval:0}}),
+    yAxis:Object.assign({},AX),
     series:[{type:'bar',barMaxWidth:22,
-      data:[42,38,31,27,22,18,14,11].map((v,i)=>({value:v,itemStyle:{...gBar(`hsl(${270+i*9},65%,60%)`)}})),
+      data:[42,38,31,27,22,18,14,11].map(function(v,i){return{value:v,itemStyle:gBar('hsl('+(270+i*9)+',65%,60%)')};},this),
       label:{show:true,position:'top',color:LB,fontSize:9,fontWeight:'bold'}
     }]
-  });
+  }));
 
-  mk('ch-cons').setOption({...AN,backgroundColor:'transparent',
+  mk('ch-cons').setOption(Object.assign({},AN,{backgroundColor:'transparent',
     grid:{top:8,right:8,bottom:28,left:8,containLabel:true},
-    tooltip:{trigger:'axis',...TT,...APS},
+    tooltip:Object.assign({trigger:'axis'},TT,APN),
     legend:{data:['Réalisés','Planifiés','Annulés'],bottom:0,textStyle:{color:LB,fontSize:10},icon:'roundRect',itemWidth:10,itemHeight:8},
-    xAxis:{data:['Cynthia','Corentin','Michel','Eva'],...AX,splitLine:{show:false}},
-    yAxis:{...AX},
+    xAxis:Object.assign({data:['Cynthia','Corentin','Michel','Eva']},AX,{splitLine:{show:false}}),
+    yAxis:Object.assign({},AX),
     series:[
       {name:'Réalisés',type:'bar',barMaxWidth:18,data:[45,38,52,30],
-       itemStyle:{color:p=>grad(lighten(CC[p.dataIndex],50),CC[p.dataIndex]),borderRadius:[3,3,0,0]}},
+       itemStyle:{color:function(p){return grad(lighten(CC[p.dataIndex],50),CC[p.dataIndex]);},borderRadius:[3,3,0,0]}},
       {name:'Planifiés',type:'bar',barMaxWidth:18,data:[8,6,10,5],itemStyle:{color:'#3b82f666',borderRadius:[3,3,0,0]}},
       {name:'Annulés',type:'bar',barMaxWidth:18,data:[3,2,5,2],itemStyle:{color:'#ef444466',borderRadius:[3,3,0,0]}}
     ]
-  });
+  }));
 
-  mk('ch-ampm').setOption({...AN,backgroundColor:'transparent',
-    tooltip:{trigger:'item',...TT},
+  mk('ch-ampm').setOption(Object.assign({},AN,{backgroundColor:'transparent',
+    tooltip:Object.assign({trigger:'item'},TT),
     legend:{orient:'horizontal',bottom:0,textStyle:{color:LB,fontSize:10},icon:'circle',itemWidth:8,itemHeight:8},
     series:[{type:'pie',radius:['38%','62%'],center:['50%','44%'],
       itemStyle:{borderRadius:5,borderColor:BG,borderWidth:3},
-      label:{show:true,position:'inside',color:'#fff',fontSize:10,fontWeight:700,formatter:p=>Math.round(p.percent)+'%'},
+      label:{show:true,position:'inside',color:'#fff',fontSize:10,fontWeight:700,formatter:function(p){return Math.round(p.percent)+'%';}},
       data:[
         {name:'Matin (AM)',value:98,itemStyle:{color:'#f97316'}},
         {name:'Après-midi (PM)',value:135,itemStyle:{color:'#0891b2'}}
       ],
       emphasis:{scale:true,scaleSize:5}
     }]
-  });
+  }));
 
-  const pu=['Parents','Jeunes','Handicap','Seniors','Dem. emploi','BRSA','Tous publics'];
-  mk('ch-public').setOption({...AN,backgroundColor:'transparent',
+  var pu=['Parents','Jeunes','Handicap','Seniors','Dem. emploi','BRSA','Tous publics'];
+  mk('ch-public').setOption(Object.assign({},AN,{backgroundColor:'transparent',
     grid:{top:8,right:48,bottom:8,left:8,containLabel:true},
-    tooltip:{trigger:'axis',...TT,...APL},
-    xAxis:{...AX,splitLine:{lineStyle:{color:GC,type:'dashed'}}},
+    tooltip:Object.assign({trigger:'axis'},TT,APN),
+    xAxis:Object.assign({},AX,{splitLine:{lineStyle:{color:GC,type:'dashed'}}}),
     yAxis:{type:'category',data:pu,axisLabel:{color:LB,fontSize:9},axisLine:{show:false},axisTick:{show:false},splitLine:{show:false}},
     series:[{type:'bar',barMaxWidth:14,
-      data:[10,14,18,25,30,38,55].map((v,i)=>({value:v,itemStyle:{...gBarH(`hsl(${320+i*10},60%,55%)`)}})),
+      data:[10,14,18,25,30,38,55].map(function(v,i){return{value:v,itemStyle:gBarH('hsl('+(320+i*10)+',60%,55%)')};},this),
       label:{show:true,position:'right',color:LB,fontSize:9,fontWeight:'bold',distance:6}
     }]
-  });
+  }));
 }
 
-// Lancer après que tout soit chargé et rendu
-setTimeout(buildAll, 800);
+setTimeout(buildAll, 600);
 </script>
 </body>
 </html>
