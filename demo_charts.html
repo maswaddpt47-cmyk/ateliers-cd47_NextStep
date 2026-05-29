@@ -25,7 +25,7 @@
 <body>
 
 <h1>📊 Démo Charts — Nouveau Style</h1>
-<p class="sub">CD47 Inclusion Numérique</p>
+<p class="sub">CD47 Inclusion Numérique · <button onclick="buildAll()" style="background:#1e3a8a;color:#93c5fd;border:1px solid #3b82f6;border-radius:12px;padding:3px 10px;font-size:11px;cursor:pointer">↺ Recharger</button></p>
 
 <div class="grid">
   <div class="card grid-full">
@@ -90,7 +90,8 @@ const PRE=[78,115,150,95,130,50,30,65,170,200,118,90];
 
 const EC={};
 function mk(id){if(EC[id])EC[id].dispose();EC[id]=echarts.init(document.getElementById(id));return EC[id];}
-window.addEventListener('resize',()=>Object.values(EC).forEach(c=>c&&c.resize()));
+window.addEventListener('resize',()=>Object.values(EC).forEach(c=>cwindow.addEventListener('resize',()=>Object.values(EC).forEach(c=>c&&c.resize()));window.addEventListener('resize',()=>Object.values(EC).forEach(c=>c&&c.resize()));c.resize()));
+function refreshAll(){Object.values(EC).forEach(c=>cwindow.addEventListener('resize',()=>Object.values(EC).forEach(c=>c&&c.resize()));window.addEventListener('resize',()=>Object.values(EC).forEach(c=>c&&c.resize()));c.resize());}
 
 let _em='stacked';
 function buildEvol(mode){
@@ -231,7 +232,7 @@ function buildAll(){
 }
 
 // Lancer après que tout soit chargé et rendu
-requestAnimationFrame(()=>requestAnimationFrame(()=>buildAll()));
+setTimeout(buildAll, 800);
 </script>
 </body>
 </html>
