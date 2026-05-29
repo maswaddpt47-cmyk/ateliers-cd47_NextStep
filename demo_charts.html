@@ -232,7 +232,7 @@ function buildAll(){
   }));
 }
 
-setTimeout(buildAll, 600);
+function tryBuild(){if(typeof echarts==="undefined"){setTimeout(tryBuild,200);}else{buildAll();}}tryBuild();
 </script>
 </body>
 </html>
