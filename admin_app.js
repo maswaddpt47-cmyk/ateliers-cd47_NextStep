@@ -212,6 +212,11 @@ function App(){
   const[syncing,setSyncing]= React.useState(false);
   const[logFilter,setLogFilter]= React.useState('all');
   const[pinned,setPinned]= React.useState(()=>localStorage.getItem('adm_sidebar_pinned')==='1'); // épingle sidebar
+  const[darkMode,setDarkMode]=React.useState(()=>localStorage.getItem('adm_dark')==='1');
+  React.useEffect(()=>{
+    document.documentElement.setAttribute('data-theme',darkMode?'dark':'light');
+    localStorage.setItem('adm_dark',darkMode?'1':'0');
+  },[darkMode]);
   const LOGS_PURGE_MS=30*24*60*60*1000;
   const[logs,setLogs]=React.useState(()=>{
     try{
@@ -424,6 +429,15 @@ function App(){
         },
           [String(new Date().getFullYear()-1),String(new Date().getFullYear()),String(new Date().getFullYear()+1)]
             .map(y=>CE('option',{key:y,value:y},y))
+        ),
+        CE('button',{
+          className:'sidebar-btn',
+          title:darkMode?'Mode clair':'Mode sombre',
+          onClick:()=>setDarkMode(d=>!d),
+          style:{width:52,height:44,flexShrink:0}
+        },
+          CE('span',{className:'sidebar-btn-ico'},darkMode?'☀️':'🌙'),
+          CE('span',{className:'sidebar-btn-lbl'},darkMode?'Mode clair':'Mode sombre')
         ),
         newEntries.length>0&&CE('button',{
           className:'sidebar-notif-btn',
