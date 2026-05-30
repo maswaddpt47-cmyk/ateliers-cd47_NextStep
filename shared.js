@@ -481,10 +481,16 @@ const COMMUNES_GPS = {
 };
 const CONSEILLERS_DEFAULT = ['Cynthia Pineau','Corentin Tual','Michel Aswad','Eva Capelle'];
 const STATUTS_DEFAULT = ['Planifié','Réalisé','Annulé','Non réalisé','Reporté'];
-const PUBLICS_DEFAULT = ['Tous publics','Personnes en situation de handicap','Jeunes','ATTEE',
-  'Classe - 6A','Classe - 6B','Classe - 6C','Classe - 6D','Elèves de 5è du collège',
-  'Parents isolés','Professionnels des bibliothèques','Adhérents','BRSA',
-  "Demandeur d'emploi",'Parents allophone','Collègiens','Autres'];
+const PUBLICS_DEFAULT = [
+  'Tous publics',
+  'Besoin particulier',
+  'Collèges',
+  'Jeunes',
+  'Séniors',
+  'Insertion Pro',
+  'Interne',
+  'Autres'
+];
 const MATERIELS_DEFAULT = ['Videoprojecteur','Ecran','Classe mobile','Boitier 4G','Tablette','Scanner','Multiprise','Ordinateur'];
 
 let STATUTS     = [...STATUTS_DEFAULT];
