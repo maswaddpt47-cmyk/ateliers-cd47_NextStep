@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════
-// shared.js — Ateliers CD47 v10.0
+// shared.js — Ateliers CD47 v15.0
 // Code commun frontend + admin
 // ═══════════════════════════════════════════════════════════
 
@@ -1526,26 +1526,30 @@ function mkGrad(c1,c2,dir='v'){
   const[x1,y1,x2,y2]=dir==='v'?[0,0,0,1]:[0,0,1,0];
   return new window.echarts.graphic.LinearGradient(x1,y1,x2,y2,[{offset:0,color:c1},{offset:1,color:c2}]);
 }
-const EC_TT={backgroundColor:'#fff',borderColor:'#e2e8f0',textStyle:{color:'#1a202c',fontSize:12},extraCssText:'border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.12);padding:10px 14px'};
+// ── v15.0 : Style graphiques GDIN ────────────────────────────
+const EC_TT={backgroundColor:'#111827',borderColor:'#374151',textStyle:{color:'#f1f5f9',fontSize:12},extraCssText:'border-radius:8px;padding:10px 14px;box-shadow:none'};
 const EC_GRID={top:24,right:8,bottom:48,left:28,containLabel:true};
-const EC_AXIS_LABEL={color:'#718096',fontSize:10};
+const EC_AXIS_LABEL={color:'#94a3b8',fontSize:10};
+const EC_SPLIT={lineStyle:{color:'rgba(255,255,255,0.06)',type:'dashed'}};
+const EC_AXIS_BASE={axisLine:{show:false},axisTick:{show:false},axisLabel:EC_AXIS_LABEL,splitLine:EC_SPLIT};
+const EC_APN={axisPointer:{type:'none'}};
 
 // ── BarChart vertical ───────────────────────────────────────
 function BarChart({data,colors,height}){
   if(!data||data.length===0)return CE(NoData,null);
-  const colArr=Array.isArray(colors)?colors:[colors||'#1e3a8a'];
+  const colArr=Array.isArray(colors)?colors:[colors||'#3b82f6'];
   const h=height||barH(data.length,200);
   const maxLbl=data.length>8?9:data.length>5?12:16;
   const labels=data.map(d=>trunc(d.label,maxLbl));
   const option={
     backgroundColor:'transparent',grid:{...EC_GRID,bottom:data.length>6?68:48},
-    tooltip:{trigger:'axis',axisPointer:{type:'line'},...EC_TT,
-      formatter:params=>{const i=params[0];const d=data[i.dataIndex];return`<b style="color:#1e3a8a">${d.label}</b><br/>${i.value} atelier(s)`+(d.tip?'<br/><span style="color:#718096;font-size:11px">'+d.tip+'</span>':'');}},
-    xAxis:{data:labels,axisLine:{show:false},axisTick:{show:false},axisLabel:{...EC_AXIS_LABEL,rotate:data.length>5?-35:0,interval:0}},
-    yAxis:{splitLine:{lineStyle:{color:'#e2e8f0',type:'dashed'}},axisLabel:EC_AXIS_LABEL,axisLine:{show:false},axisTick:{show:false}},
+    tooltip:{trigger:'axis',...EC_TT,...EC_APN,
+      formatter:params=>{const i=params[0];const d=data[i.dataIndex];return`<b style="color:#60a5fa">${d.label}</b><br/>${i.value} atelier(s)`+(d.tip?'<br/><span style="color:#94a3b8;font-size:11px">'+d.tip+'</span>':'');}},
+    xAxis:{data:labels,...EC_AXIS_BASE,splitLine:{show:false},axisLabel:{...EC_AXIS_LABEL,rotate:data.length>5?-35:0,interval:0}},
+    yAxis:{...EC_AXIS_BASE},
     series:[{type:'bar',barMaxWidth:44,
-      data:data.map((d,i)=>({value:d.value,itemStyle:{color:mkGrad(lighten(colArr[i%colArr.length]),colArr[i%colArr.length]),borderRadius:[4,4,0,0],shadowColor:colArr[i%colArr.length]+'44',shadowBlur:4,shadowOffsetY:-2}})),
-      label:{show:true,position:'top',color:'#1a202c',fontSize:10,fontWeight:'bold'}
+      data:data.map((d,i)=>({value:d.value,itemStyle:{color:colArr[i%colArr.length],borderRadius:[4,4,0,0]}})),
+      label:{show:true,position:'top',color:'#94a3b8',fontSize:10,fontWeight:'bold'}
     }]
   };
   return CE(EChart,{option,height:h});
@@ -1556,15 +1560,15 @@ function LineChart({data}){
   if(!data||data.length===0)return CE(NoData,null);
   const option={
     backgroundColor:'transparent',grid:{...EC_GRID},
-    tooltip:{trigger:'axis',axisPointer:{type:'line'},...EC_TT,
-      formatter:params=>{const i=params[0];const d=data[i.dataIndex];return d.tip||`<b style="color:#1e3a8a">${d.label}</b><br/>${i.value}`;}},
-    xAxis:{data:data.map(d=>d.label),axisLine:{show:false},axisTick:{show:false},axisLabel:{...EC_AXIS_LABEL,rotate:data.length>8?-35:0,interval:0}},
-    yAxis:{splitLine:{lineStyle:{color:'#e2e8f0',type:'dashed'}},axisLabel:EC_AXIS_LABEL,axisLine:{show:false},axisTick:{show:false}},
+    tooltip:{trigger:'axis',...EC_TT,...EC_APN,
+      formatter:params=>{const i=params[0];const d=data[i.dataIndex];return d.tip||`<b style="color:#a78bfa">${d.label}</b><br/>${i.value}`;}},
+    xAxis:{data:data.map(d=>d.label),...EC_AXIS_BASE,splitLine:{show:false},axisLabel:{...EC_AXIS_LABEL,rotate:data.length>8?-35:0,interval:0}},
+    yAxis:{...EC_AXIS_BASE},
     series:[{type:'line',data:data.map(d=>d.value),smooth:true,symbol:'circle',symbolSize:5,
-      lineStyle:{width:2,color:'#059669'},
-      itemStyle:{color:'#059669'},
-      areaStyle:{color:mkGrad('rgba(5,150,105,0.18)','rgba(5,150,105,0.01)')},
-      label:{show:true,position:'top',color:'#059669',fontSize:9,fontWeight:'bold'}
+      lineStyle:{width:2.5,color:'#a78bfa'},
+      itemStyle:{color:'#a78bfa'},
+      areaStyle:{color:mkGrad('rgba(167,139,250,0.25)','rgba(167,139,250,0.02)')},
+      label:{show:true,position:'top',color:'#94a3b8',fontSize:9,fontWeight:'bold'}
     }]
   };
   return CE(EChart,{option,height:200});
@@ -1575,13 +1579,17 @@ function DualLineChart({data}){
   if(!data||data.length===0)return CE(NoData,null);
   const option={
     backgroundColor:'transparent',grid:{...EC_GRID,bottom:50},
-    tooltip:{trigger:'axis',axisPointer:{type:'line'},...EC_TT},
-    legend:{data:['Inscrits','Présents'],textStyle:{color:'#718096',fontSize:11},bottom:0,icon:'circle',itemWidth:8,itemHeight:8},
-    xAxis:{data:data.map(d=>d.label),axisLine:{show:false},axisTick:{show:false},axisLabel:{...EC_AXIS_LABEL,rotate:data.length>8?-35:0,interval:0}},
-    yAxis:{splitLine:{lineStyle:{color:'#e2e8f0',type:'dashed'}},axisLabel:EC_AXIS_LABEL,axisLine:{show:false},axisTick:{show:false}},
+    tooltip:{trigger:'axis',...EC_TT,...EC_APN},
+    legend:{data:['Inscrits','Présents'],textStyle:{color:'#94a3b8',fontSize:11},bottom:0,icon:'circle',itemWidth:8,itemHeight:8},
+    xAxis:{data:data.map(d=>d.label),...EC_AXIS_BASE,splitLine:{show:false},axisLabel:{...EC_AXIS_LABEL,rotate:data.length>8?-35:0,interval:0}},
+    yAxis:{...EC_AXIS_BASE},
     series:[
-      {name:'Inscrits',type:'line',data:data.map(d=>d.inscrits),smooth:true,symbol:'circle',symbolSize:4,lineStyle:{width:2,color:'#2563eb'},itemStyle:{color:'#2563eb'}},
-      {name:'Présents',type:'line',data:data.map(d=>d.presents),smooth:true,symbol:'circle',symbolSize:4,lineStyle:{width:2,color:'#16a34a'},itemStyle:{color:'#16a34a'},areaStyle:{color:mkGrad('rgba(22,163,74,0.15)','rgba(22,163,74,0.01)')}}
+      {name:'Inscrits',type:'line',data:data.map(d=>d.inscrits),smooth:true,symbol:'circle',symbolSize:4,
+       lineStyle:{width:2,color:'#3b82f6'},itemStyle:{color:'#3b82f6'},
+       areaStyle:{color:mkGrad('rgba(59,130,246,0.2)','rgba(59,130,246,0.02)')}},
+      {name:'Présents',type:'line',data:data.map(d=>d.presents),smooth:true,symbol:'circle',symbolSize:4,
+       lineStyle:{width:2,color:'#22c55e'},itemStyle:{color:'#22c55e'},
+       areaStyle:{color:mkGrad('rgba(34,197,94,0.2)','rgba(34,197,94,0.02)')}}
     ]
   };
   return CE(EChart,{option,height:220});
@@ -1590,17 +1598,17 @@ function DualLineChart({data}){
 // ── RadialChart barres horizontales ──────────────────────────
 function RadialChart({data,colors,height=220}){
   if(!data||data.length===0)return CE(NoData,null);
-  const colArr=Array.isArray(colors)?colors:['#1e3a8a'];
+  const colArr=Array.isArray(colors)?colors:['#3b82f6'];
   const total=data.reduce((s,d)=>s+d.value,0);
   const option={
     backgroundColor:'transparent',grid:{top:8,right:50,bottom:8,left:8,containLabel:true},
-    tooltip:{trigger:'axis',axisPointer:{type:'line'},...EC_TT,
-      formatter:params=>{const i=params[0];const d=data[i.dataIndex];const pct=Math.round(d.value/total*100);return`<b style="color:#1e3a8a">${d.label}</b><br/>${d.value} — ${pct}%`;}},
-    xAxis:{splitLine:{lineStyle:{color:'#e2e8f0',type:'dashed'}},axisLabel:EC_AXIS_LABEL,axisLine:{show:false},axisTick:{show:false}},
-    yAxis:{type:'category',data:data.map(d=>d.label),axisLabel:{...EC_AXIS_LABEL,fontSize:11},axisLine:{show:false},axisTick:{show:false}},
+    tooltip:{trigger:'axis',...EC_TT,...EC_APN,
+      formatter:params=>{const i=params[0];const d=data[i.dataIndex];const pct=Math.round(d.value/total*100);return`<b style="color:#60a5fa">${d.label}</b><br/>${d.value} — ${pct}%`;}},
+    xAxis:{...EC_AXIS_BASE},
+    yAxis:{type:'category',data:data.map(d=>d.label),axisLabel:{...EC_AXIS_LABEL,fontSize:11},axisLine:{show:false},axisTick:{show:false},splitLine:{show:false}},
     series:[{type:'bar',barMaxWidth:32,
-      data:data.map((d,i)=>({value:d.value,itemStyle:{color:mkGrad(colArr[i%colArr.length],colArr[i%colArr.length]+'bb','h'),borderRadius:[0,4,4,0]}})),
-      label:{show:true,position:'right',color:'#1a202c',fontSize:10,fontWeight:'bold'}
+      data:data.map((d,i)=>({value:d.value,itemStyle:{color:colArr[i%colArr.length],borderRadius:[0,4,4,0]}})),
+      label:{show:true,position:'right',color:'#94a3b8',fontSize:10,fontWeight:'bold'}
     }]
   };
   return CE(EChart,{option,height});
@@ -1609,18 +1617,17 @@ function RadialChart({data,colors,height=220}){
 // ── DonutChart ───────────────────────────────────────────────
 function DonutChart({data,colors,height=220}){
   if(!data||data.length===0)return CE(NoData,null);
-  const colArr=Array.isArray(colors)?colors:['#1e3a8a'];
+  const colArr=Array.isArray(colors)?colors:['#3b82f6'];
   const total=data.reduce((s,d)=>s+d.value,0);
   const option={
     backgroundColor:'transparent',
-    tooltip:{trigger:'item',axisPointer:{type:'none'},...EC_TT,formatter:params=>`<b style="color:${params.color}">${params.name}</b><br/>${params.value} (${Math.round(params.value/total*100)}%)`},
-    legend:{orient:'horizontal',bottom:0,textStyle:{color:'#718096',fontSize:11},icon:'circle',itemWidth:8,itemHeight:8},
+    tooltip:{trigger:'item',...EC_TT,formatter:params=>`<b style="color:${params.color}">${params.name}</b><br/>${params.value} (${Math.round(params.value/total*100)}%)`},
+    legend:{orient:'horizontal',bottom:0,textStyle:{color:'#94a3b8',fontSize:11},icon:'circle',itemWidth:8,itemHeight:8},
     series:[{type:'pie',radius:['38%','65%'],center:['50%','46%'],
-      itemStyle:{borderRadius:5,borderColor:'#fff',borderWidth:2},
+      itemStyle:{borderRadius:5,borderColor:'#1a1d27',borderWidth:3},
       label:{show:true,position:'inside',color:'#fff',fontSize:10,fontWeight:'bold',formatter:p=>p.percent>6?Math.round(p.percent)+'%':''},
-      data:data.map((d,i)=>({name:d.label,value:d.value,
-        itemStyle:{color:colArr[i%colArr.length],shadowColor:colArr[i%colArr.length]+'44',shadowBlur:8}})),
-      emphasis:{itemStyle:{shadowBlur:14,shadowOffsetX:0,shadowColor:'rgba(0,0,0,0.25)'},scaleSize:6}
+      data:data.map((d,i)=>({name:d.label,value:d.value,itemStyle:{color:colArr[i%colArr.length]}})),
+      emphasis:{scale:true,scaleSize:5}
     }]
   };
   return CE(EChart,{option,height});
@@ -1635,18 +1642,18 @@ function StackedActivityChart({data}){
   const labels=keys.map(k=>fmtML(k));
   const option={
     backgroundColor:'transparent',grid:{top:28,right:8,bottom:48,left:28,containLabel:true},
-    tooltip:{trigger:'axis',axisPointer:{type:'line'},...EC_TT,
-      formatter:params=>{const k=keys[params[0].dataIndex];const d=data[k];const futur=k>=todayYM?' (à venir)':'';return`<b style="color:#1e3a8a">${fmtML(k)}${futur}</b><br/><span style="color:#16a34a">✅ ${d.realises} réalisés</span><br/><span style="color:#2563eb">📅 ${d.planifies} planifiés</span><br/><span style="color:#dc2626">❌ ${d.annules} annulés</span>`;}},
-    legend:{data:['Réalisés','Annulés','Planifiés'],textStyle:{color:'#718096',fontSize:10},bottom:0,icon:'roundRect',itemWidth:10,itemHeight:8},
-    xAxis:{data:labels,axisLine:{show:false},axisTick:{show:false},axisLabel:{...EC_AXIS_LABEL,rotate:-35,interval:0}},
-    yAxis:{splitLine:{lineStyle:{color:'#e2e8f0',type:'dashed'}},axisLabel:EC_AXIS_LABEL,axisLine:{show:false},axisTick:{show:false}},
+    tooltip:{trigger:'axis',...EC_TT,...EC_APN,
+      formatter:params=>{const k=keys[params[0].dataIndex];const d=data[k];const futur=k>=todayYM?' (à venir)':'';return`<b style="color:#60a5fa">${fmtML(k)}${futur}</b><br/><span style="color:#22c55e">✅ ${d.realises} réalisés</span><br/><span style="color:#3b82f6">📅 ${d.planifies} planifiés</span><br/><span style="color:#ef4444">❌ ${d.annules} annulés</span>`;}},
+    legend:{data:['Réalisés','Annulés','Planifiés'],textStyle:{color:'#94a3b8',fontSize:10},bottom:0,icon:'roundRect',itemWidth:10,itemHeight:8},
+    xAxis:{data:labels,...EC_AXIS_BASE,splitLine:{show:false},axisLabel:{...EC_AXIS_LABEL,rotate:-35,interval:0}},
+    yAxis:{...EC_AXIS_BASE},
     series:[
       {name:'Réalisés',type:'bar',stackId:'a',barMaxWidth:30,data:keys.map(k=>data[k].realises),
-        itemStyle:{color:mkGrad('#34d399','#059669')}},
+        itemStyle:{color:'#22c55e'}},
       {name:'Annulés',type:'bar',stackId:'a',barMaxWidth:30,data:keys.map(k=>data[k].annules),
-        itemStyle:{color:mkGrad('#f87171','#dc2626')}},
+        itemStyle:{color:'#ef4444'}},
       {name:'Planifiés',type:'bar',barMaxWidth:30,data:keys.map(k=>data[k].planifies),
-        itemStyle:{color:mkGrad('#93c5fd','#3b82f6'),borderRadius:[4,4,0,0]}}
+        itemStyle:{color:'#3b82f6',borderRadius:[4,4,0,0]}}
     ]
   };
   return CE(EChart,{option,height:220});
@@ -1669,19 +1676,19 @@ function ConseillerBarChart({entries}){
   const h=Math.max(180,100+data.length*34);
   const option={
     backgroundColor:'transparent',grid:{top:8,right:60,bottom:30,left:8,containLabel:true},
-    tooltip:{trigger:'axis',axisPointer:{type:'line'},...EC_TT,
-      formatter:params=>{const d=data[params[0].dataIndex];return`<b style="color:#1e3a8a">${d.name}</b><br/><span style="color:#16a34a">✅ Réalisés : ${d.realises}</span><br/><span style="color:#2563eb">📅 Planifiés : ${d.planifies}</span><br/><span style="color:#dc2626">❌ Annulés : ${d.annules}</span><br/><span style="color:#7c3aed;font-weight:700">👥 Présents : ${d.presents}/${d.inscrits} — ${d.tx}%</span>`;}},
-    legend:{data:['Réalisés','Planifiés','Annulés'],textStyle:{color:'#718096',fontSize:10},bottom:0,icon:'roundRect',itemWidth:10,itemHeight:8},
-    xAxis:{splitLine:{lineStyle:{color:'#e2e8f0',type:'dashed'}},axisLabel:EC_AXIS_LABEL,axisLine:{show:false},axisTick:{show:false}},
-    yAxis:{type:'category',data:data.map(d=>d.name),axisLabel:{...EC_AXIS_LABEL,fontSize:11},axisLine:{show:false},axisTick:{show:false}},
+    tooltip:{trigger:'axis',...EC_TT,...EC_APN,
+      formatter:params=>{const d=data[params[0].dataIndex];return`<b style="color:#60a5fa">${d.name}</b><br/><span style="color:#22c55e">✅ Réalisés : ${d.realises}</span><br/><span style="color:#3b82f6">📅 Planifiés : ${d.planifies}</span><br/><span style="color:#ef4444">❌ Annulés : ${d.annules}</span><br/><span style="color:#a78bfa;font-weight:700">👥 Présents : ${d.presents}/${d.inscrits} — ${d.tx}%</span>`;}},
+    legend:{data:['Réalisés','Planifiés','Annulés'],textStyle:{color:'#94a3b8',fontSize:10},bottom:0,icon:'roundRect',itemWidth:10,itemHeight:8},
+    xAxis:{...EC_AXIS_BASE},
+    yAxis:{type:'category',data:data.map(d=>d.name),axisLabel:{...EC_AXIS_LABEL,fontSize:11},axisLine:{show:false},axisTick:{show:false},splitLine:{show:false}},
     series:[
       {name:'Réalisés',type:'bar',barMaxWidth:14,data:data.map(d=>d.realises),
-        itemStyle:{color:mkGrad('#34d399','#16a34a','h'),borderRadius:[0,4,4,0]},
-        label:{show:true,position:'right',color:'#1a202c',fontSize:9,fontWeight:'bold'}},
+        itemStyle:{color:p=>conseillerColor(data[p.dataIndex].name),borderRadius:[0,4,4,0]},
+        label:{show:true,position:'right',color:'#94a3b8',fontSize:9,fontWeight:'bold'}},
       {name:'Planifiés',type:'bar',barMaxWidth:14,data:data.map(d=>d.planifies),
-        itemStyle:{color:mkGrad('#93c5fd','#3b82f6','h'),borderRadius:[0,4,4,0]}},
+        itemStyle:{color:'rgba(59,130,246,0.5)',borderRadius:[0,4,4,0]}},
       {name:'Annulés',type:'bar',barMaxWidth:14,data:data.map(d=>d.annules),
-        itemStyle:{color:mkGrad('#fca5a5','#ef4444','h'),borderRadius:[0,4,4,0]}}
+        itemStyle:{color:'rgba(239,68,68,0.5)',borderRadius:[0,4,4,0]}}
     ]
   };
   return CE(EChart,{option,height:h});
@@ -1705,9 +1712,9 @@ function KpiCard({val,lbl,sub,trend,color,icon,bgColor,delay=0}){
     CE('div',{style:{position:'absolute',right:10,top:8,fontSize:28,opacity:.08}},icon),
     CE('div',{style:{display:'flex',alignItems:'flex-start',justifyContent:'space-between'}},
       CE('div',null,
-        CE('div',{style:{fontSize:11,color:'#9ca3af',fontWeight:600,marginBottom:4,display:'flex',alignItems:'center',gap:4}},icon,' ',lbl),
+        CE('div',{style:{fontSize:11,color:'#94a3b8',fontWeight:600,marginBottom:4,display:'flex',alignItems:'center',gap:4}},icon,' ',lbl),
         CE('div',{className:'val',style:{color:color||'#1e3a8a',fontSize:26,lineHeight:1.1}},val),
-        sub&&CE('div',{style:{fontSize:11,color:'#9ca3af',marginTop:3}},sub)
+        sub&&CE('div',{style:{fontSize:11,color:'#94a3b8',marginTop:3}},sub)
       ),
       trend!==undefined&&CE('div',{style:{
         fontSize:11,fontWeight:700,
@@ -1815,7 +1822,7 @@ function VueDashboard({entries}){
           background:periodeIdx===i?accent:'#fff',
           color:periodeIdx===i?'#fff':'#718096',transition:'all .15s'
         }},p.l)),
-        CE('span',{style:{marginLeft:'auto',fontSize:11,color:'#9ca3af'}},filtered.length+' ateliers · '+now.toLocaleDateString('fr-FR'))
+        CE('span',{style:{marginLeft:'auto',fontSize:11,color:'#94a3b8'}},filtered.length+' ateliers · '+now.toLocaleDateString('fr-FR'))
       )
     ),
 
@@ -2354,7 +2361,7 @@ function VuePowerBI({entries, conseillers: conseillersList}){
         CE('div',null,
           CE('div',{style:{fontSize:10,color:'#6b7280',fontWeight:700,textTransform:'uppercase',letterSpacing:'.06em',marginBottom:5}},label),
           CE('div',{style:{fontSize:28,fontWeight:800,color:'#111827',lineHeight:1}},value),
-          sub&&CE('div',{style:{fontSize:11,color:'#9ca3af',marginTop:4}},sub)
+          sub&&CE('div',{style:{fontSize:11,color:'#94a3b8',marginTop:4}},sub)
         ),
         CE('div',{style:{width:38,height:38,borderRadius:8,background:color+'18',display:'flex',alignItems:'center',justifyContent:'center',fontSize:20}},icon)
       )
@@ -2377,22 +2384,13 @@ function VuePowerBI({entries, conseillers: conseillersList}){
     );
   }
 
-  // ECharts tooltip style (PBI dark)
-  const ecTT={backgroundColor:'#1e2132',borderColor:'#374151',textStyle:{color:'#e5e7eb',fontSize:11},extraCssText:'border-radius:6px;box-shadow:0 4px 16px rgba(0,0,0,.4);padding:10px 14px'};
-  // Dégradé 3 stops : highlight → couleur → ombre (effet 3D)
-  function lighten(hex,amt){try{const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);return'#'+[r,g,b].map(v=>Math.min(255,v+amt).toString(16).padStart(2,'0')).join('');}catch{return hex;}}
-  function mkGradPBI(c1,c2,dir='v'){
-    if(!window.echarts)return c1;
-    const[x1,y1,x2,y2]=dir==='v'?[0,0,0,1]:[0,0,1,0];
-    const highlight=c1.startsWith('#')&&c1.length===7?lighten(c1,40):c1;
-    return new window.echarts.graphic.LinearGradient(x1,y1,x2,y2,[
-      {offset:0,color:highlight},
-      {offset:0.35,color:c1},
-      {offset:1,color:c2}
-    ]);
-  }
-  // Ombre portée standard pour barres 3D
-  const _bar3D={shadowBlur:8,shadowColor:'rgba(0,0,0,0.25)',shadowOffsetY:4};
+  // ── v15.0 : Style PBI aligné sur GDIN ────────────────────
+  const ecTT={backgroundColor:'#111827',borderColor:'#374151',textStyle:{color:'#f1f5f9',fontSize:11},extraCssText:'border-radius:8px;padding:10px 14px;box-shadow:none'};
+  const _ecAPN={axisPointer:{type:'none'}};
+  // Pas de dégradé — couleurs solides pour fiabilité mobile
+  function mkGradPBI(c1,c2,dir='v'){return c1;}
+  // Plus d'ombre 3D
+  const _bar3D={borderRadius:[3,3,0,0]};
   function PBIChart({option,height}){
     const ref=React.useRef(null);const inst=React.useRef(null);const prevOpt=React.useRef(option);
     React.useEffect(()=>{
@@ -2421,7 +2419,7 @@ function VuePowerBI({entries, conseillers: conseillersList}){
       ),
       CE('div',{style:{flex:1,minWidth:0}},
         CE('span',{style:{fontSize:12,fontWeight:700,color:'#f2c811'}},'Power BI '),
-        CE('span',{style:{fontSize:11,color:'#9ca3af'}}),'· Ateliers Inclusion Numérique'
+        CE('span',{style:{fontSize:11,color:'#94a3b8'}}),'· Ateliers Inclusion Numérique'
       ),
       hasF&&CE('button',{
         onClick:()=>{setFCons([]);setFStat([]);setFMois([]);},
@@ -2476,10 +2474,10 @@ function VuePowerBI({entries, conseillers: conseillersList}){
         CE(CardPBI,{title:'Ateliers par mois',style:{marginBottom:12}},
           CE(PBIChart,{height:180,option:{backgroundColor:'transparent',
             grid:{top:8,right:4,bottom:36,left:0,containLabel:true},
-            tooltip:{trigger:'axis',axisPointer:{type:'line'},...ecTT},
-            legend:{data:['Réalisés','Planifiés','Annulés'],textStyle:{color:'#9ca3af',fontSize:9},bottom:0,icon:'roundRect',itemWidth:8,itemHeight:6},
-            xAxis:{data:pMois.map(d=>d.mois),axisLine:{show:false},axisTick:{show:false},axisLabel:{color:'#9ca3af',fontSize:9}},
-            yAxis:{splitLine:{lineStyle:{color:'#2d3250',type:'dashed'}},axisLabel:{color:'#9ca3af',fontSize:9},axisLine:{show:false},axisTick:{show:false}},
+            tooltip:{trigger:'axis',..._ecAPN,...ecTT},
+            legend:{data:['Réalisés','Planifiés','Annulés'],textStyle:{color:'#94a3b8',fontSize:9},bottom:0,icon:'roundRect',itemWidth:8,itemHeight:6},
+            xAxis:{data:pMois.map(d=>d.mois),axisLine:{show:false},axisTick:{show:false},axisLabel:{color:'#94a3b8',fontSize:9}},
+            yAxis:{splitLine:{lineStyle:{color:'#2d3250',type:'dashed'}},axisLabel:{color:'#94a3b8',fontSize:9},axisLine:{show:false},axisTick:{show:false}},
             series:[
               {name:'Réalisés',type:'bar',barMaxWidth:16,data:pMois.map(d=>d['Réalisés']),itemStyle:{color:mkGradPBI('#34d399','#16a34a'),..._bar3D,borderRadius:[3,3,0,0]}},
               {name:'Planifiés',type:'bar',barMaxWidth:16,data:pMois.map(d=>d['Planifiés']),itemStyle:{color:mkGradPBI('#60a5fa','#2563eb'),..._bar3D,borderRadius:[3,3,0,0]}},
@@ -2490,7 +2488,7 @@ function VuePowerBI({entries, conseillers: conseillersList}){
         CE('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:12}},
           CE(CardPBI,{title:'Statuts',style:{}},
             CE(PBIChart,{height:150,option:{backgroundColor:'transparent',
-              tooltip:{trigger:'item',axisPointer:{type:'none'},...ecTT},
+              tooltip:{trigger:'item',..._ecAPN,...ecTT},
               series:[{type:'pie',radius:['42%','65%'],center:['50%','50%'],
                 itemStyle:{borderRadius:4,borderColor:'#1e2132',borderWidth:2},
                 label:{show:false},
@@ -2507,9 +2505,9 @@ function VuePowerBI({entries, conseillers: conseillersList}){
           CE(CardPBI,{title:'Présents / mois',style:{}},
             CE(PBIChart,{height:150,option:{backgroundColor:'transparent',
               grid:{top:8,right:4,bottom:22,left:0,containLabel:true},
-              tooltip:{trigger:'axis',axisPointer:{type:'line'},...ecTT},
-              xAxis:{data:pMoisFilt.map(d=>d.mois),axisLine:{show:false},axisTick:{show:false},axisLabel:{color:'#9ca3af',fontSize:9}},
-              yAxis:{splitLine:{lineStyle:{color:'#2d3250',type:'dashed'}},axisLabel:{color:'#9ca3af',fontSize:9},axisLine:{show:false},axisTick:{show:false}},
+              tooltip:{trigger:'axis',..._ecAPN,...ecTT},
+              xAxis:{data:pMoisFilt.map(d=>d.mois),axisLine:{show:false},axisTick:{show:false},axisLabel:{color:'#94a3b8',fontSize:9}},
+              yAxis:{splitLine:{lineStyle:{color:'#2d3250',type:'dashed'}},axisLabel:{color:'#94a3b8',fontSize:9},axisLine:{show:false},axisTick:{show:false}},
               series:[{type:'line',data:pMoisFilt.map(d=>d['Présents']),smooth:true,symbol:'none',
                 lineStyle:{width:2,color:'#22c55e'},
                 areaStyle:{color:mkGradPBI('rgba(34,197,94,0.35)','rgba(34,197,94,0.02)')}}]}}))
@@ -2518,24 +2516,24 @@ function VuePowerBI({entries, conseillers: conseillersList}){
         pTheme.length>0&&CE(CardPBI,{title:'Top thématiques',style:{marginBottom:12}},
           CE(PBIChart,{height:Math.max(180,pTheme.length*24),option:{backgroundColor:'transparent',
             grid:{top:8,right:50,bottom:8,left:8,containLabel:true},
-            tooltip:{trigger:'axis',axisPointer:{type:'line'},...ecTT},
-            xAxis:{splitLine:{lineStyle:{color:'#2d3250',type:'dashed'}},axisLabel:{color:'#9ca3af',fontSize:9},axisLine:{show:false},axisTick:{show:false}},
-            yAxis:{type:'category',data:pTheme.map(d=>d.name),axisLabel:{color:'#9ca3af',fontSize:9},axisLine:{show:false},axisTick:{show:false}},
+            tooltip:{trigger:'axis',..._ecAPN,...ecTT},
+            xAxis:{splitLine:{lineStyle:{color:'#2d3250',type:'dashed'}},axisLabel:{color:'#94a3b8',fontSize:9},axisLine:{show:false},axisTick:{show:false}},
+            yAxis:{type:'category',data:pTheme.map(d=>d.name),axisLabel:{color:'#94a3b8',fontSize:9},axisLine:{show:false},axisTick:{show:false}},
             series:[{type:'bar',barMaxWidth:14,
               data:pTheme.map((d,i)=>({value:d.count,itemStyle:{color:mkGradPBI(`hsl(${230+i*10},70%,65%)`,`hsl(${230+i*10},70%,45%)`,'h'),borderRadius:[0,4,4,0]}})),
-              label:{show:true,position:'right',color:'#9ca3af',fontSize:9,fontWeight:'bold'}
+              label:{show:true,position:'right',color:'#94a3b8',fontSize:9,fontWeight:'bold'}
             }]}})
         ),
 
         pOri.length>0&&CE(CardPBI,{title:'Organismes orienteurs'},
           CE(PBIChart,{height:160,option:{backgroundColor:'transparent',
             grid:{top:8,right:4,bottom:48,left:0,containLabel:true},
-            tooltip:{trigger:'axis',axisPointer:{type:'line'},...ecTT},
-            xAxis:{data:pOri.map(d=>d.name),axisLine:{show:false},axisTick:{show:false},axisLabel:{color:'#9ca3af',fontSize:8,rotate:-20,interval:0}},
-            yAxis:{splitLine:{lineStyle:{color:'#2d3250',type:'dashed'}},axisLabel:{color:'#9ca3af',fontSize:9},axisLine:{show:false},axisTick:{show:false}},
+            tooltip:{trigger:'axis',..._ecAPN,...ecTT},
+            xAxis:{data:pOri.map(d=>d.name),axisLine:{show:false},axisTick:{show:false},axisLabel:{color:'#94a3b8',fontSize:8,rotate:-20,interval:0}},
+            yAxis:{splitLine:{lineStyle:{color:'#2d3250',type:'dashed'}},axisLabel:{color:'#94a3b8',fontSize:9},axisLine:{show:false},axisTick:{show:false}},
             series:[{type:'bar',barMaxWidth:20,data:pOri.map(d=>d.count),
               itemStyle:{color:mkGradPBI('#fdba74','#f97316'),..._bar3D,borderRadius:[3,3,0,0]},
-              label:{show:true,position:'top',color:'#9ca3af',fontSize:8}}]}}))
+              label:{show:true,position:'top',color:'#94a3b8',fontSize:8}}]}}))
       ),
 
       // PAGE CONSEILLERS
@@ -2565,10 +2563,10 @@ function VuePowerBI({entries, conseillers: conseillersList}){
         CE(CardPBI,{title:'Réalisés par conseiller·ère — par mois',style:{marginBottom:12}},
           CE(PBIChart,{height:200,option:{backgroundColor:'transparent',
             grid:{top:8,right:4,bottom:44,left:0,containLabel:true},
-            tooltip:{trigger:'axis',axisPointer:{type:'line'},...ecTT},
-            legend:{data:CONS.map(c=>c.split(' ')[0]),textStyle:{color:'#9ca3af',fontSize:9},bottom:0,icon:'roundRect',itemWidth:8,itemHeight:6},
-            xAxis:{data:pConsMois.map(d=>d.mois),axisLine:{show:false},axisTick:{show:false},axisLabel:{color:'#9ca3af',fontSize:9}},
-            yAxis:{splitLine:{lineStyle:{color:'#2d3250',type:'dashed'}},axisLabel:{color:'#9ca3af',fontSize:9},axisLine:{show:false},axisTick:{show:false}},
+            tooltip:{trigger:'axis',..._ecAPN,...ecTT},
+            legend:{data:CONS.map(c=>c.split(' ')[0]),textStyle:{color:'#94a3b8',fontSize:9},bottom:0,icon:'roundRect',itemWidth:8,itemHeight:6},
+            xAxis:{data:pConsMois.map(d=>d.mois),axisLine:{show:false},axisTick:{show:false},axisLabel:{color:'#94a3b8',fontSize:9}},
+            yAxis:{splitLine:{lineStyle:{color:'#2d3250',type:'dashed'}},axisLabel:{color:'#94a3b8',fontSize:9},axisLine:{show:false},axisTick:{show:false}},
             series:CONS.map((c,ci)=>({name:c.split(' ')[0],type:'bar',stackId:'a',barMaxWidth:30,data:pConsMois.map(d=>d[c]||0),itemStyle:{color:cColor(c),..._bar3D,borderRadius:ci===CONS.length-1?[3,3,0,0]:[0,0,0,0]}}))}}),
 
         CE(CardPBI,{title:'Tableau récapitulatif'},
@@ -2611,24 +2609,24 @@ function VuePowerBI({entries, conseillers: conseillersList}){
         pComm.length>0&&CE(CardPBI,{title:'Présents par commune',style:{marginBottom:12}},
           CE(PBIChart,{height:220,option:{backgroundColor:'transparent',
             grid:{top:8,right:50,bottom:8,left:8,containLabel:true},
-            tooltip:{trigger:'axis',axisPointer:{type:'line'},...ecTT},
-            xAxis:{splitLine:{lineStyle:{color:'#2d3250',type:'dashed'}},axisLabel:{color:'#9ca3af',fontSize:9},axisLine:{show:false},axisTick:{show:false}},
-            yAxis:{type:'category',data:pComm.map(d=>d.name),axisLabel:{color:'#9ca3af',fontSize:9},axisLine:{show:false},axisTick:{show:false}},
+            tooltip:{trigger:'axis',..._ecAPN,...ecTT},
+            xAxis:{splitLine:{lineStyle:{color:'#2d3250',type:'dashed'}},axisLabel:{color:'#94a3b8',fontSize:9},axisLine:{show:false},axisTick:{show:false}},
+            yAxis:{type:'category',data:pComm.map(d=>d.name),axisLabel:{color:'#94a3b8',fontSize:9},axisLine:{show:false},axisTick:{show:false}},
             series:[{type:'bar',barMaxWidth:18,
               data:pComm.map((d,i)=>({value:d.presents,itemStyle:{color:mkGradPBI(`hsl(${210+i*12},70%,60%)`,`hsl(${210+i*12},70%,40%)`,'h'),borderRadius:[0,4,4,0]}})),
-              label:{show:true,position:'right',color:'#9ca3af',fontSize:9,fontWeight:'bold'}
+              label:{show:true,position:'right',color:'#94a3b8',fontSize:9,fontWeight:'bold'}
             }]}})
         ),
 
         pComm.length>0&&CE(CardPBI,{title:'Ateliers par commune',style:{marginBottom:12}},
           CE(PBIChart,{height:180,option:{backgroundColor:'transparent',
             grid:{top:8,right:4,bottom:48,left:0,containLabel:true},
-            tooltip:{trigger:'axis',axisPointer:{type:'line'},...ecTT},
-            xAxis:{data:pComm.map(d=>d.name),axisLine:{show:false},axisTick:{show:false},axisLabel:{color:'#9ca3af',fontSize:8,rotate:-20,interval:0}},
-            yAxis:{splitLine:{lineStyle:{color:'#2d3250',type:'dashed'}},axisLabel:{color:'#9ca3af',fontSize:9},axisLine:{show:false},axisTick:{show:false}},
+            tooltip:{trigger:'axis',..._ecAPN,...ecTT},
+            xAxis:{data:pComm.map(d=>d.name),axisLine:{show:false},axisTick:{show:false},axisLabel:{color:'#94a3b8',fontSize:8,rotate:-20,interval:0}},
+            yAxis:{splitLine:{lineStyle:{color:'#2d3250',type:'dashed'}},axisLabel:{color:'#94a3b8',fontSize:9},axisLine:{show:false},axisTick:{show:false}},
             series:[{type:'bar',barMaxWidth:22,data:pComm.map(d=>d.ateliers),
               itemStyle:{color:mkGradPBI('#c084fc','#7c3aed'),..._bar3D,borderRadius:[3,3,0,0]},
-              label:{show:true,position:'top',color:'#9ca3af',fontSize:8}}]}})        
+              label:{show:true,position:'top',color:'#94a3b8',fontSize:8}}]}})        
         ),
 
         CE(CardPBI,{title:'Détail communes'},
@@ -2636,7 +2634,7 @@ function VuePowerBI({entries, conseillers: conseillersList}){
         )
       ),
 
-      CE('div',{style:{textAlign:'right',fontSize:10,color:'#9ca3af',marginTop:8}},
+      CE('div',{style:{textAlign:'right',fontSize:10,color:'#94a3b8',marginTop:8}},
         fd.length+'/'+entries.length+' ateliers affichés · CD47 Inclusion Numérique'
       )
     )
