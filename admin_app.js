@@ -1,42 +1,4 @@
 // ════════════════════════════════════════════════════════════
-// Remplace la version de shared.js (10s, sans retry).
-// Comportement : 1 retry auto après 3s sur timeout, timeout
-// adaptatif mobile/PC, log console discret.
-// ════════════════════════════════════════════════════════════
-(function(){
-  const MAX_RETRY    = 1;
-  const RETRY_DELAY  = 3000;   // ms avant le retry
-  const isMobile     = /Android|iPhone|iPad/i.test(navigator.userAgent);
-  const TIMEOUT_MS   = isMobile ? 20000 : 12000;
-
-  window.apiFetch = async function apiFetch(action, body={}, _attempt=1){
-    const params = new URLSearchParams({action});
-    if(body && Object.keys(body).length){
-      Object.entries(body).forEach(([k,v])=>{
-        params.set(k, typeof v==='object' ? JSON.stringify(v) : v);
-      });
-    }
-    try{
-      const res = await Promise.race([
-        fetch(`${GS_URL}?${params.toString()}`),
-        new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')), TIMEOUT_MS))
-      ]);
-      return res.json();
-    }catch(err){
-      if(err.message==='timeout' && _attempt <= MAX_RETRY){
-        console.warn(`[apiFetch v10] Timeout "${action}" — retry ${_attempt}/${MAX_RETRY} dans ${RETRY_DELAY/1000}s`);
-        await new Promise(r=>setTimeout(r, RETRY_DELAY));
-        return window.apiFetch(action, body, _attempt + 1);
-      }
-      // Si toujours en timeout après retry, message clair
-      if(err.message==='timeout')
-        throw new Error('Le serveur ne répond pas (GAS cold start ?) — réessaie dans quelques secondes.');
-      throw err;
-    }
-  };
-})();
-
-// ════════════════════════════════════════════════════════════
 // Stocke le timestamp du dernier geste utilisateur.
 // Vérifié à chaque reprise du focus + toutes les minutes.
 // Sur expiration : déconnexion propre + toast informatif.

@@ -533,23 +533,38 @@ function showToast(msg,ok=true){
   clearTimeout(_toastTimer);_toastTimer=setTimeout(()=>{t.style.opacity='0';},3500);
 }
 
-// ── API v10.0 — retry automatique sur cold start GAS ──────
-// Overridé dans admin.html et index.html pour timeout adaptatif mobile.
-// Cette version sert de fallback si l'override n'est pas chargé.
-async function apiFetch(action,body={},_attempt=1){
-  const params=new URLSearchParams({action});
-  if(body&&Object.keys(body).length){Object.entries(body).forEach(([k,v])=>{params.set(k,typeof v==='object'?JSON.stringify(v):v);});}
-  try{
-    const res=await Promise.race([fetch(`${GS_URL}?${params.toString()}`),new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')),12000))]);
-    return res.json();
-  }catch(err){
-    if(err.message==='timeout'&&_attempt===1){
-      await new Promise(r=>setTimeout(r,3000));
-      return apiFetch(action,body,2);
+// ── API v15.0 — timeout adaptatif mobile/PC + 1 retry auto ──
+(function(){
+  const MAX_RETRY   = 1;
+  const RETRY_DELAY = 3000;
+  const isMobile    = /Android|iPhone|iPad/i.test(navigator.userAgent);
+  const TIMEOUT_MS  = isMobile ? 20000 : 12000;
+
+  window.apiFetch = async function apiFetch(action, body={}, _attempt=1){
+    const params = new URLSearchParams({action});
+    if(body && Object.keys(body).length){
+      Object.entries(body).forEach(([k,v])=>{
+        params.set(k, typeof v==='object' ? JSON.stringify(v) : v);
+      });
     }
-    throw err;
-  }
-}
+    try{
+      const res = await Promise.race([
+        fetch(`${GS_URL}?${params.toString()}`),
+        new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')), TIMEOUT_MS))
+      ]);
+      return res.json();
+    }catch(err){
+      if(err.message==='timeout' && _attempt <= MAX_RETRY){
+        console.warn(`[apiFetch] Timeout "${action}" — retry ${_attempt}/${MAX_RETRY} dans ${RETRY_DELAY/1000}s`);
+        await new Promise(r=>setTimeout(r, RETRY_DELAY));
+        return window.apiFetch(action, body, _attempt + 1);
+      }
+      if(err.message==='timeout')
+        throw new Error('Le serveur ne répond pas (GAS cold start ?) — réessaie dans quelques secondes.');
+      throw err;
+    }
+  };
+})()
 async function loadCommunes47(){
   if(COMMUNES_47_CACHE)return COMMUNES_47_CACHE;
   try{
