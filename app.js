@@ -108,10 +108,10 @@ function App(){
       if(data.lists){
         const l=data.lists;
         const nl={
-          statuts:Array.isArray(l.statuts)?l.statuts:[...STATUTS_DEFAULT],
-          conseillers:Array.isArray(l.conseillers)?l.conseillers:[...CONSEILLERS_DEFAULT],
-          publics:Array.isArray(l.publics)?l.publics:[...PUBLICS_DEFAULT],
-          materiels:Array.isArray(l.materiels)?l.materiels:[...MATERIELS_DEFAULT]
+          statuts:(Array.isArray(l.statuts)&&l.statuts.length)?l.statuts:[...STATUTS_DEFAULT],
+          conseillers:(Array.isArray(l.conseillers)&&l.conseillers.length)?l.conseillers:[...CONSEILLERS_DEFAULT],
+          publics:(Array.isArray(l.publics)&&l.publics.length)?l.publics:[...PUBLICS_DEFAULT],
+          materiels:(Array.isArray(l.materiels)&&l.materiels.length)?l.materiels:[...MATERIELS_DEFAULT]
         };
         setLists(nl);STATUTS=[...nl.statuts];CONSEILLERS=[...nl.conseillers];PUBLICS=[...nl.publics];MATERIELS=[...nl.materiels];
       }

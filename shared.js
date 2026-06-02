@@ -2279,19 +2279,24 @@ function VueAdmin({entries,onRefresh,addLog,conseillersList,onSaveColors}){
 // ═══════════════════════════════════════════════════════════
 function VueAccueil({conseillers,onChoix,loading}){
   const[choix,setChoix]=React.useState('');
+  const hasConseillers=Array.isArray(conseillers)&&conseillers.length>0;
   return CE('div',{className:'accueil-wrap'},
     CE('div',{className:'accueil-card'},
       CE('div',{className:'accueil-logo'},'🖥️'),
       CE('div',{className:'accueil-title'},'Ateliers Inclusion Numérique'),
       CE('div',{className:'accueil-sub'},'Conseil Départemental du Lot-et-Garonne'),
       CE('label',{className:'accueil-label'},'Qui êtes-vous ?'),
-      CE('select',{className:'accueil-select',value:choix,onChange:e=>setChoix(e.target.value)},
-        CE('option',{value:''},'— Sélectionner votre nom —'),
-        conseillers.map(c=>CE('option',{key:c,value:c},c))
-      ),
-      CE('button',{className:'accueil-btn',disabled:!choix||loading,onClick:()=>onChoix(choix)},
-        loading?CE('span',null,CE('span',{className:'spinner'}),'Chargement…'):'📋 Accéder à mes ateliers'),
-      CE('button',{className:'accueil-skip',disabled:loading,onClick:()=>onChoix(null),style:{opacity:loading?.4:1}},'Voir tous les ateliers')
+      loading&&!hasConseillers
+        ? CE('div',{style:{display:'flex',alignItems:'center',gap:8,padding:'10px 14px',background:'#f0f4f8',borderRadius:8,marginBottom:20,fontSize:13,color:'#718096'}},
+            CE('span',{className:'spinner',style:{borderTopColor:'#1e3a8a',borderColor:'#e2e8f0'}}),
+            'Chargement de la liste…')
+        : CE('select',{className:'accueil-select',value:choix,onChange:e=>setChoix(e.target.value)},
+            CE('option',{value:''},'— Sélectionner votre nom —'),
+            conseillers.map(c=>CE('option',{key:c,value:c},c))
+          ),
+      CE('button',{className:'accueil-btn',disabled:!choix||(loading&&!hasConseillers),onClick:()=>onChoix(choix)},
+        (loading&&!hasConseillers)?CE('span',null,CE('span',{className:'spinner'}),'Chargement…'):'📋 Accéder à mes ateliers'),
+      CE('button',{className:'accueil-skip',disabled:false,onClick:()=>onChoix(null)},'Voir tous les ateliers')
     )
   );
 }
