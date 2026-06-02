@@ -1213,7 +1213,7 @@ function VueHistorique({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
         CE('select',{style:{padding:'6px 8px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:12},value:filtConseiller,onChange:e=>{setFiltConseiller(e.target.value);if(onChangeConseiller)onChangeConseiller(e.target.value);}},
           CE('option',{value:'Tous'},'Tous conseillers'),CONSEILLERS.map(c=>CE('option',{key:c,value:c},c))),
         CE('select',{style:{padding:'6px 8px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:12},value:filtPublic,onChange:e=>setFiltPublic(e.target.value)},
-          CE('option',{value:'Tous'},'Tous publics'),PUBLICS.map(p=>CE('option',{key:p,value:p},p)))
+          CE('option',{value:'Tous'},'— Type de public —'),PUBLICS.map(p=>CE('option',{key:p,value:p},p)))
       ),
       CE('div',{style:{display:'flex',gap:8,flexWrap:'wrap',alignItems:'center',marginTop:8}},
         CE('div',{style:{display:'flex',alignItems:'center',gap:4}},
