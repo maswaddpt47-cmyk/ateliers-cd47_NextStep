@@ -37,13 +37,13 @@ var VIEW_META_F = {
 };
 
 function App(){
-  const[view,setView]              = React.useState(()=>localStorage.getItem('f_conseiller')?'historique':'accueil');
+  const[view,setView]              = React.useState('accueil');
   const[entries,setEntries]        = React.useState([]);
   const[loading,setLoading]        = React.useState(true);
   const[error,setError]            = React.useState(null);
   const[newEntries,setNewEntries]   = React.useState([]);
   const[seenIds,setSeenIds]        = React.useState(new Set());
-  const[filtreConseiller,setFiltreConseiller] = React.useState(()=>localStorage.getItem('f_conseiller')||null);
+  const[filtreConseiller,setFiltreConseiller] = React.useState(null);
   const[editingId,setEditingId]    = React.useState(null);
   const[prefillData,setPrefillData] = React.useState(null);
   const[annee,setAnneeState]       = React.useState(()=>localStorage.getItem('f_annee')||String(new Date().getFullYear()));
@@ -62,7 +62,7 @@ function App(){
 
   // ── Helpers ───────────────────────────────────────────────────
   function setAnnee(v){ localStorage.setItem('f_annee',v); setAnneeState(v); }
-  function resetConseiller(){ localStorage.removeItem('f_conseiller'); setFiltreConseiller(null); }
+  function resetConseiller(){ setFiltreConseiller(null); }
   function togglePin(){ setSidebarPinned(p=>{ const n=!p; localStorage.setItem('sidebar_pinned',n?'1':'0'); return n; }); }
 
   // ── Sync couleur depuis les selects internes (shared.js) ──────
@@ -76,7 +76,7 @@ function App(){
       const val = e.target.value;
       if(lists.conseillers.includes(val)){
         // Conseiller sélectionné dans un filtre interne → sync identité
-        localStorage.setItem('f_conseiller', val);
+
         setFiltreConseiller(val);
       } else if(!val || val === '' || val === 'all') {
         // Filtre remis à "Tous" → on efface l'identité courante
@@ -172,7 +172,6 @@ function App(){
 
   // ── Handlers ──────────────────────────────────────────────────
   function handleChoixConseiller(nom){
-    localStorage.setItem('f_conseiller',nom);
     setFiltreConseiller(nom);
     setShowPicker(false);
     setView(visibility.historique?'historique':visibility.calendrier?'calendrier':visibility.saisie?'saisie':'dashboard');
