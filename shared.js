@@ -1094,6 +1094,7 @@ function VueHistorique({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
   const[filtMois,setFiltMois]=React.useState('Tous');
   const[filtCommune,setFiltCommune]=React.useState('Toutes');
   const[filtConseiller,setFiltConseiller]=React.useState(initConseiller||'Tous');
+  const[filtPublic,setFiltPublic]=React.useState('Tous');
   const[sortDir,setSortDir]=React.useState(1);
   const[dateFrom,setDateFrom]=React.useState('');
   const[dateTo,setDateTo]=React.useState('');
@@ -1108,7 +1109,7 @@ function VueHistorique({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
   React.useEffect(()=>{if(initConseiller)setFiltConseiller(initConseiller);},[initConseiller]);
   React.useEffect(()=>{const t=setTimeout(()=>setDSearch(search),300);return()=>clearTimeout(t);},[search]);
   React.useEffect(()=>{
-    window._filterNewEntries=(ids)=>{setFiltStatut('Tous');setFiltMois('Tous');setFiltCommune('Toutes');setFiltConseiller('Tous');setDateFrom('');setDateTo('');setSearch('');setDSearch('');window._newIdsFilter=new Set(ids);};
+    window._filterNewEntries=(ids)=>{setFiltStatut('Tous');setFiltMois('Tous');setFiltCommune('Toutes');setFiltConseiller('Tous');setFiltPublic('Tous');setDateFrom('');setDateTo('');setSearch('');setDSearch('');window._newIdsFilter=new Set(ids);};
     return()=>{window._filterNewEntries=null;};
   },[]);
   // Applique le filtre de mise en évidence après rechargement post-sauvegarde
@@ -1119,7 +1120,7 @@ function VueHistorique({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
     if(!found)return;
     window._pendingHighlight=null;
     setFiltStatut('Tous');setFiltMois('Tous');setFiltCommune('Toutes');
-    setFiltConseiller('Tous');setDateFrom('');setDateTo('');
+    setFiltConseiller('Tous');setFiltPublic('Tous');setDateFrom('');setDateTo('');
     setSearch('');setDSearch('');
     window._newIdsFilter=new Set(ids);
   },[entries]);
@@ -1133,12 +1134,13 @@ function VueHistorique({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
     if(filtMois!=='Tous')r=r.filter(e=>e.date&&e.date.startsWith(filtMois));
     if(filtCommune!=='Toutes')r=r.filter(e=>e.commune===filtCommune);
     if(filtConseiller!=='Tous')r=r.filter(e=>e.conseiller===filtConseiller);
+    if(filtPublic!=='Tous')r=r.filter(e=>(e.public||'Tous publics')===filtPublic);
     if(dateFrom)r=r.filter(e=>e.date>=dateFrom);
     if(dateTo)r=r.filter(e=>e.date<=dateTo);
     if(dSearch){const q=dSearch.toLowerCase();r=r.filter(e=>[e.lieu,e.thematique,e.orienteur,e.commune,e.public].some(v=>String(v||'').toLowerCase().includes(q)));}
     if(window._newIdsFilter&&window._newIdsFilter.size>0)r=r.filter(e=>window._newIdsFilter.has(e._id));
     return[...r].sort((a,b)=>{const va=a.date||'',vb=b.date||'';return va<vb?-sortDir:va>vb?sortDir:0;});
-  },[entries,filtStatut,filtMois,filtCommune,filtConseiller,dSearch,sortDir,dateFrom,dateTo]);
+  },[entries,filtStatut,filtMois,filtCommune,filtConseiller,filtPublic,dSearch,sortDir,dateFrom,dateTo]);
 
   const kpi=React.useMemo(()=>{const realises=filtered.filter(e=>e.statut==='Réalisé');const annules=filtered.filter(e=>e.statut==='Annulé').length;const inscrits=filtered.reduce((s,e)=>s+(parseInt(e.inscrits)||0),0);const presents=filtered.reduce((s,e)=>s+(parseInt(e.presents)||0),0);const tx=inscrits>0?Math.round(presents/inscrits*100):0;return{total:filtered.length,realises:realises.length,annules,inscrits,presents,tx};},[filtered]);
   const nRetard=entries.filter(e=>isRetard(e)&&(filtConseiller==='Tous'||e.conseiller===filtConseiller)).length;
@@ -1157,7 +1159,7 @@ function VueHistorique({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
     finally{setSaving(false);}
   }
 
-  function resetFiltres(){setSearch('');setDSearch('');setFiltStatut('Planifié');setFiltMois('Tous');setFiltCommune('Toutes');setFiltConseiller('Tous');setDateFrom('');setDateTo('');window._newIdsFilter=null;if(onResetConseiller)onResetConseiller();}
+  function resetFiltres(){setSearch('');setDSearch('');setFiltStatut('Planifié');setFiltMois('Tous');setFiltCommune('Toutes');setFiltConseiller('Tous');setFiltPublic('Tous');setDateFrom('');setDateTo('');window._newIdsFilter=null;if(onResetConseiller)onResetConseiller();}
 
   function exportXLSX(){
     const rows=[['N°','Statut','Date','Horaire','Commune','Lieu','Thématique','Inscrits','Présents','Public','Conseiller','Orienteur','Matériel','Résidence','Remarques']];
@@ -1209,7 +1211,9 @@ function VueHistorique({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
         CE('select',{style:{padding:'6px 8px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:12},value:filtCommune,onChange:e=>setFiltCommune(e.target.value)},
           CE('option',{value:'Toutes'},'Toutes communes'),COMMUNES.map(c=>CE('option',{key:c,value:c},c))),
         CE('select',{style:{padding:'6px 8px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:12},value:filtConseiller,onChange:e=>{setFiltConseiller(e.target.value);if(onChangeConseiller)onChangeConseiller(e.target.value);}},
-          CE('option',{value:'Tous'},'Tous conseillers'),CONSEILLERS.map(c=>CE('option',{key:c,value:c},c)))
+          CE('option',{value:'Tous'},'Tous conseillers'),CONSEILLERS.map(c=>CE('option',{key:c,value:c},c))),
+        CE('select',{style:{padding:'6px 8px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:12},value:filtPublic,onChange:e=>setFiltPublic(e.target.value)},
+          CE('option',{value:'Tous'},'Tous publics'),PUBLICS.map(p=>CE('option',{key:p,value:p},p)))
       ),
       CE('div',{style:{display:'flex',gap:8,flexWrap:'wrap',alignItems:'center',marginTop:8}},
         CE('div',{style:{display:'flex',alignItems:'center',gap:4}},
@@ -1312,6 +1316,7 @@ function VueCalendrier({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
   const todayStr=today.toISOString().slice(0,10);
   const[calDate,setCalDate]=React.useState(new Date(today.getFullYear(),today.getMonth(),1));
   const[filtConseiller,setFiltConseiller]=React.useState(initConseiller||'Tous');
+  const[filtPublic,setFiltPublic]=React.useState('Tous');
   const[panel,setPanel]=React.useState(null);
   const[panelStatut,setPanelStatut]=React.useState('');
   const[panelInscrits,setPanelInscrits]=React.useState('');
@@ -1334,6 +1339,7 @@ function VueCalendrier({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
   const monthEntries=React.useMemo(()=>{
     let r=entries.filter(e=>e.date&&e.date.startsWith(monthStr));
     if(filtConseiller!=='Tous')r=r.filter(e=>e.conseiller===filtConseiller);
+    if(filtPublic!=='Tous')r=r.filter(e=>(e.public||'Tous publics')===filtPublic);
     return r;
   },[entries,monthStr,filtConseiller]);
 
