@@ -1144,7 +1144,7 @@ function VueHistorique({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
     if(filtPublic!=='Tous')r=r.filter(e=>(e.public||'Tous publics')===filtPublic);
     if(dateFrom)r=r.filter(e=>e.date>=dateFrom);
     if(dateTo)r=r.filter(e=>e.date<=dateTo);
-    if(dSearch){const q=dSearch.toLowerCase();r=r.filter(e=>[e.lieu,e.thematique,e.orienteur,e.commune,e.public].some(v=>String(v||'').toLowerCase().includes(q)));}
+    if(dSearch){const q=stripAccents(dSearch);r=r.filter(e=>[e.lieu,e.thematique,e.orienteur,e.commune,e.public,e.remarques].some(v=>stripAccents(String(v||'')).includes(q)));}
     if(window._newIdsFilter&&window._newIdsFilter.size>0)r=r.filter(e=>window._newIdsFilter.has(e._id));
     return[...r].sort((a,b)=>{const va=a.date||'',vb=b.date||'';return va<vb?-sortDir:va>vb?sortDir:0;});
   },[entries,filtStatut,filtMois,filtCommune,filtConseiller,filtPublic,dSearch,sortDir,dateFrom,dateTo]);
