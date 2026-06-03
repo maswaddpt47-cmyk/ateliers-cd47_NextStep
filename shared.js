@@ -768,7 +768,7 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
   const conseillers= lists?.conseillers || CONSEILLERS_DEFAULT;
   const publics    = lists?.publics     || PUBLICS_DEFAULT;
   const materiels  = lists?.materiels   || MATERIELS_DEFAULT;
-  const empty={_id:'',_n:'',statut:'',date:'',horaire:'',ampm:'',orienteur:'',commune:'',lieu:'',thematique:'',inscrits:'',presents:'',public:'',conseiller:'',materiel:[],residence:'',remarques:''};
+  const empty={_id:'',_n:'',statut:'',date:'',horaire:'',ampm:'',orienteur:'',commune:'',lieu:'',thematique:'',inscrits:'',presents:'',public:'',conseiller:'',co_animateur:'',materiel:[],residence:'',remarques:''};
 
   // ── états mode unique ──
   const[form,setForm]   = React.useState(empty);
@@ -778,7 +778,7 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
 
   // ── états mode lot ──
   const[modeLot,setModeLot]     = React.useState(false);
-  const[lotForm,setLotForm]     = React.useState({orienteur:'',commune:'',lieu:'',conseiller:'',public:'',materiel:[],residence:'',remarques:''});
+  const[lotForm,setLotForm]     = React.useState({orienteur:'',commune:'',lieu:'',conseiller:'',co_animateur:'',public:'',materiel:[],residence:'',remarques:''});
   const[lotRows,setLotRows]     = React.useState([emptyRow(),emptyRow()]);
   const[lotErrors,setLotErrors] = React.useState({});
   const[lotRowErrors,setLotRowErrors]= React.useState({});
@@ -802,7 +802,7 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
   },[prefillData]);
 
   function reset(){setForm(empty);setEditId(null);setIsDup(false);setErrors({});}
-  function resetLot(){setLotForm({orienteur:'',commune:'',lieu:'',conseiller:'',public:'',materiel:[],residence:'',remarques:''});setLotRows([emptyRow(),emptyRow()]);setLotErrors({});setLotRowErrors({});}
+  function resetLot(){setLotForm({orienteur:'',commune:'',lieu:'',conseiller:'',co_animateur:'',public:'',materiel:[],residence:'',remarques:''});setLotRows([emptyRow(),emptyRow()]);setLotErrors({});setLotRowErrors({});}
 
   function set(k,v){setForm(f=>({...f,[k]:v}));setErrors(er=>({...er,[k]:''}));}
   function toggleMat(m){setForm(f=>({...f,materiel:f.materiel.includes(m)?f.materiel.filter(x=>x!==m):[...f.materiel,m]}));}
@@ -876,7 +876,7 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
     try{
       let ok=0; const createdIds=[];
       for(const row of lotRows){
-        const entry={_id:genId(),_n:'',statut:'Planifié',date:row.date,horaire:row.horaire,ampm:row.ampm,thematique:row.thematique,orienteur:lotForm.orienteur,commune:lotForm.commune,lieu:lotForm.lieu,conseiller:lotForm.conseiller,public:lotForm.public,materiel:lotForm.materiel,residence:lotForm.residence,remarques:lotForm.remarques,inscrits:'',presents:''};
+        const entry={_id:genId(),_n:'',statut:'Planifié',date:row.date,horaire:row.horaire,ampm:row.ampm,thematique:row.thematique,orienteur:lotForm.orienteur,commune:lotForm.commune,lieu:lotForm.lieu,conseiller:lotForm.conseiller,co_animateur:lotForm.co_animateur||'',public:lotForm.public,materiel:lotForm.materiel,residence:lotForm.residence,remarques:lotForm.remarques,inscrits:'',presents:''};
         const res=await apiFetch('save',{entry});
         if(!res.ok)throw new Error(res.error);
         if(onNewEntry)onNewEntry(entry);
@@ -948,6 +948,11 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
           CE('option',{value:'',disabled:true},'— Choisir —'),
           conseillers.map(c=>CE('option',{key:c,value:c},c))),
         errs.conseiller&&CE('span',{style:{color:'#e53e3e',fontSize:11,fontWeight:600}},errs.conseiller)),
+      CE('div',null,
+        LblG({t:'Co-animateur'}),
+        CE('select',{style:sStyle(false),value:frm.co_animateur||'',onChange:e=>setFn('co_animateur',e.target.value)},
+          CE('option',{value:''},'— Aucun —'),
+          conseillers.filter(c=>c!==frm.conseiller).map(c=>CE('option',{key:c,value:c},c)))),
       CE('div',null,
         Lbl({t:'Type de public *',err:!!errs.public}),
         CE('select',{style:sStyle(errs.public),value:frm.public,onChange:e=>setFn('public',e.target.value)},
@@ -1269,7 +1274,7 @@ function VueHistorique({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
           CE('div',{className:'sp-info-row'},CE('span',null,'Lieu'),CE('span',null,panel.lieu)),
           panel.orienteur&&CE('div',{className:'sp-info-row'},CE('span',null,'Orienteur'),CE('span',null,panel.orienteur)),
           CE('div',{className:'sp-info-row'},CE('span',null,'Public'),CE('span',null,panel.public)),
-          CE('div',{className:'sp-info-row'},CE('span',null,'Conseiller'),CE('span',{style:{color:conseillerColor(panel.conseiller),fontWeight:700}},panel.conseiller)),
+          CE('div',{className:'sp-info-row'},CE('span',null,'Conseiller'),CE('span',{style:{color:conseillerColor(panel.conseiller),fontWeight:700}},panel.conseiller)),panel.co_animateur&&CE('div',{className:'sp-info-row'},CE('span',null,'Co-animateur'),CE('span',{style:{color:conseillerColor(panel.co_animateur),fontWeight:700}},panel.co_animateur)),
           panel.materiel&&panel.materiel.length>0&&CE('div',{style:{marginTop:10,marginBottom:4}},
             CE('div',{style:{fontSize:11,fontWeight:700,color:'#718096',marginBottom:4}},'MATÉRIEL'),
             panel.materiel.map(m=>CE('span',{key:m,className:'mat-chip'},m))
@@ -1478,7 +1483,7 @@ function VueCalendrier({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
           CE('div',{className:'sp-info-row'},CE('span',null,'Lieu'),CE('span',null,panel.lieu)),
           panel.orienteur&&CE('div',{className:'sp-info-row'},CE('span',null,'Orienteur'),CE('span',null,panel.orienteur)),
           CE('div',{className:'sp-info-row'},CE('span',null,'Public'),CE('span',null,panel.public)),
-          CE('div',{className:'sp-info-row'},CE('span',null,'Conseiller'),CE('span',{style:{color:conseillerColor(panel.conseiller),fontWeight:700}},panel.conseiller)),
+          CE('div',{className:'sp-info-row'},CE('span',null,'Conseiller'),CE('span',{style:{color:conseillerColor(panel.conseiller),fontWeight:700}},panel.conseiller)),panel.co_animateur&&CE('div',{className:'sp-info-row'},CE('span',null,'Co-animateur'),CE('span',{style:{color:conseillerColor(panel.co_animateur),fontWeight:700}},panel.co_animateur)),
           panel.materiel&&panel.materiel.length>0&&CE('div',{style:{marginTop:10,marginBottom:4}},
             CE('div',{style:{fontSize:11,fontWeight:700,color:'#718096',marginBottom:4}},'MATÉRIEL'),
             panel.materiel.map(m=>CE('span',{key:m,className:'mat-chip'},m))
@@ -1691,11 +1696,14 @@ function ConseillerBarChart({entries}){
   if(!entries||entries.length===0)return CE(NoData,null);
   const cons={};
   entries.forEach(e=>{
-    const c=e.conseiller||'?';
-    if(!cons[c])cons[c]={realises:0,planifies:0,annules:0,inscrits:0,presents:0};
-    if(e.statut==='Réalisé'){cons[c].realises++;cons[c].inscrits+=(parseInt(e.inscrits)||0);cons[c].presents+=(parseInt(e.presents)||0);}
-    else if(e.statut==='Planifié')cons[c].planifies++;
-    else if(e.statut==='Annulé')cons[c].annules++;
+    const cs=[e.conseiller||'?'];
+    if(e.co_animateur)cs.push(e.co_animateur);
+    cs.forEach(c=>{
+      if(!cons[c])cons[c]={realises:0,planifies:0,annules:0,inscrits:0,presents:0};
+      if(e.statut==='Réalisé'){cons[c].realises++;cons[c].inscrits+=(parseInt(e.inscrits)||0);cons[c].presents+=(parseInt(e.presents)||0);}
+      else if(e.statut==='Planifié')cons[c].planifies++;
+      else if(e.statut==='Annulé')cons[c].annules++;
+    });
   });
   const data=Object.entries(cons).sort((a,b)=>b[1].realises-a[1].realises)
     .map(([name,d])=>({name:trunc(name,14),...d,tx:d.inscrits>0?Math.round(d.presents/d.inscrits*100):0}));
@@ -2022,31 +2030,93 @@ function VueGraphiques({entries}){
 // VUE CARTE
 // ═══════════════════════════════════════════════════════════
 function VueCarte({entries,active}){
+  const CE=React.createElement;
   const mapRef=React.useRef(null);
+  const markersRef=React.useRef([]);
+  // Récupère la liste unique des conseillers présents dans les données
+  const conseillers=React.useMemo(()=>{
+    const s=new Set();entries.forEach(e=>{if(e.conseiller)s.add(e.conseiller);if(e.co_animateur)s.add(e.co_animateur);});return['Tous',...Array.from(s).sort()];
+  },[entries]);
+  const[filtreConum,setFiltreConum]=React.useState('Tous');
+  const[modeAffichage,setModeAffichage]=React.useState('realisation'); // 'realisation' | 'conum'
+
+  function buildMarkers(entriesToUse,mode){
+    if(!mapRef.current)return;
+    // Nettoyer les anciens marqueurs
+    markersRef.current.forEach(m=>m.remove());
+    markersRef.current=[];
+    const byC={};
+    entriesToUse.forEach(e=>{
+      if(!byC[e.commune])byC[e.commune]={total:0,realises:0,planifies:0,presents:0,conums:new Set()};
+      byC[e.commune].total++;
+      if(e.conseiller)byC[e.commune].conums.add(e.conseiller);
+      if(e.co_animateur)byC[e.commune].conums.add(e.co_animateur);
+      if(e.statut==='Réalisé'){byC[e.commune].realises++;byC[e.commune].presents+=(parseInt(e.presents)||0);}
+      if(e.statut==='Planifié')byC[e.commune].planifies++;
+    });
+    function markerColor(pct){if(pct>=70)return{fill:'#22c55e',stroke:'#166534'};if(pct>=40)return{fill:'#f97316',stroke:'#9a3412'};return{fill:'#3b82f6',stroke:'#1d4ed8'};}
+    Object.entries(byC).forEach(([commune,s])=>{
+      const g=COMMUNES_GPS[commune];if(!g)return;
+      const pct=s.total>0?Math.round(s.realises/s.total*100):0;
+      let fillColor,strokeColor;
+      if(mode==='conum'&&filtreConum!=='Tous'){
+        fillColor=conseillerColor(filtreConum);strokeColor='#1e3a8a';
+      } else {
+        const mc=markerColor(pct);fillColor=mc.fill;strokeColor=mc.stroke;
+      }
+      const conumsList=Array.from(s.conums).join(', ')||'—';
+      const popup=`<div style="min-width:175px;font-family:'Segoe UI',sans-serif;font-size:13px"><strong style="font-size:14px;color:#1e3a8a">${commune}</strong><div style="margin:6px 0 2px;color:#4a5568">Total : ${s.total}</div><div style="color:#276749;font-weight:600">Réalisés : ${s.realises}</div><div style="color:#2a69ac;font-weight:600">Planifiés : ${s.planifies}</div><div style="color:#4a5568">Présents : ${s.presents}</div><div style="margin-top:6px;padding-top:6px;border-top:1px solid #e2e8f0;font-size:11px;color:#6b7280">Conseiller(s) :<br><strong style="color:#1e3a8a">${conumsList}</strong></div><div style="background:#e2e8f0;border-radius:4px;height:6px;margin-top:8px;overflow:hidden"><div style="background:#059669;width:${Math.max(2,pct)}%;height:100%;border-radius:4px"></div></div><div style="font-size:11px;color:#718096;margin-top:3px">${pct}% réalisé</div></div>`;
+      const m=L.circleMarker([g.lat,g.lng],{radius:Math.min(8+s.total*0.8,26),fillColor,color:strokeColor,weight:2,opacity:1,fillOpacity:.82}).addTo(mapRef.current).bindPopup(popup,{maxWidth:230});
+      markersRef.current.push(m);
+    });
+  }
+
+  // Init carte
   React.useEffect(()=>{
     if(!active||mapRef.current)return;
     mapRef.current=L.map('map-container').setView([44.35,0.52],9);
     L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',{attribution:'© OpenStreetMap contributors © CARTO',maxZoom:18}).addTo(mapRef.current);
-    const byC={};
-    entries.forEach(e=>{if(!byC[e.commune])byC[e.commune]={total:0,realises:0,planifies:0,presents:0};byC[e.commune].total++;if(e.statut==='Réalisé'){byC[e.commune].realises++;byC[e.commune].presents+=(parseInt(e.presents)||0);}if(e.statut==='Planifié')byC[e.commune].planifies++;});
-    function markerColor(pct){if(pct>=70)return{fill:'#22c55e',stroke:'#166534'};if(pct>=40)return{fill:'#f97316',stroke:'#9a3412'};return{fill:'#3b82f6',stroke:'#1d4ed8'};}
-    Object.entries(byC).forEach(([c,s])=>{
-      const g=COMMUNES_GPS[c];if(!g)return;
-      const pct=s.total>0?Math.round(s.realises/s.total*100):0;
-      const mc=markerColor(pct);
-      const popup=`<div style="min-width:165px;font-family:'Segoe UI',sans-serif;font-size:13px"><strong style="font-size:14px;color:#1e3a8a">${c}</strong><div style="margin:6px 0 4px;color:#4a5568">Total : ${s.total}</div><div style="color:#276749;font-weight:600">Réalisés : ${s.realises}</div><div style="color:#2a69ac;font-weight:600">Planifiés : ${s.planifies}</div><div style="color:#4a5568">Présents : ${s.presents}</div><div style="background:#e2e8f0;border-radius:4px;height:6px;margin-top:8px;overflow:hidden"><div style="background:#059669;width:${Math.max(2,pct)}%;height:100%;border-radius:4px"></div></div><div style="font-size:11px;color:#718096;margin-top:3px">${pct}% réalisé</div></div>`;
-      L.circleMarker([g.lat,g.lng],{radius:Math.min(8+s.total*0.8,26),fillColor:mc.fill,color:mc.stroke,weight:2,opacity:1,fillOpacity:.82}).addTo(mapRef.current).bindPopup(popup,{maxWidth:220});
-    });
+    buildMarkers(entries,modeAffichage);
   },[active]);
+
+  // Redessiner quand filtre ou mode change
+  React.useEffect(()=>{
+    if(!mapRef.current)return;
+    const filtered=filtreConum==='Tous'?entries:entries.filter(e=>e.conseiller===filtreConum||e.co_animateur===filtreConum);
+    buildMarkers(filtered,modeAffichage);
+  },[filtreConum,modeAffichage,entries]);
+
+  // Légende selon le mode
+  const legende=modeAffichage==='realisation'
+    ? CE('div',{style:{display:'flex',gap:16,flexWrap:'wrap',fontSize:12,color:'#4a5568'}},
+        CE('span',null,CE('span',{style:{display:'inline-block',width:12,height:12,borderRadius:'50%',background:'#22c55e',marginRight:5,verticalAlign:'middle'}}),'≥ 70% réalisés'),
+        CE('span',null,CE('span',{style:{display:'inline-block',width:12,height:12,borderRadius:'50%',background:'#f97316',marginRight:5,verticalAlign:'middle'}}),'40 – 70%'),
+        CE('span',null,CE('span',{style:{display:'inline-block',width:12,height:12,borderRadius:'50%',background:'#3b82f6',marginRight:5,verticalAlign:'middle'}}),'< 40%')
+      )
+    : CE('div',{style:{display:'flex',gap:8,flexWrap:'wrap',fontSize:12}},
+        conseillers.filter(c=>c!=='Tous').map(c=>CE('span',{key:c,style:{display:'inline-flex',alignItems:'center',gap:4,background:'#f1f5f9',borderRadius:12,padding:'2px 8px'}},
+          CE('span',{style:{display:'inline-block',width:10,height:10,borderRadius:'50%',background:conseillerColor(c),flexShrink:0}}),c.split(' ')[0]
+        ))
+      );
+
   return CE('div',null,
     CE('div',{style:{display:'flex',justifyContent:'flex-end',marginBottom:8}},CE('button',{className:'btn btn-print btn-sm',onClick:()=>window.print()},'🖨️ Imprimer')),
     CE('div',{className:'card'},
       CE('h2',null,'🗺️ Carte des communes'),
-      CE('div',{style:{display:'flex',gap:16,marginBottom:10,flexWrap:'wrap',fontSize:12,color:'#4a5568'}},
-        CE('span',null,CE('span',{style:{display:'inline-block',width:12,height:12,borderRadius:'50%',background:'#22c55e',marginRight:5,verticalAlign:'middle'}}),'≥ 70% réalisés'),
-        CE('span',null,CE('span',{style:{display:'inline-block',width:12,height:12,borderRadius:'50%',background:'#f97316',marginRight:5,verticalAlign:'middle'}}),'40 – 70%'),
-        CE('span',null,CE('span',{style:{display:'inline-block',width:12,height:12,borderRadius:'50%',background:'#3b82f6',marginRight:5,verticalAlign:'middle'}}),'< 40%')
+      // Barre de filtres
+      CE('div',{style:{display:'flex',gap:10,marginBottom:12,flexWrap:'wrap',alignItems:'center'}},
+        // Mode
+        CE('div',{style:{display:'flex',gap:4}},
+          CE('button',{onClick:()=>setModeAffichage('realisation'),style:{fontSize:11,padding:'4px 10px',borderRadius:6,border:'none',background:modeAffichage==='realisation'?'#1e3a8a':'#e5e7eb',color:modeAffichage==='realisation'?'#fff':'#374151',cursor:'pointer',fontWeight:modeAffichage==='realisation'?700:400}},'📊 Réalisation'),
+          CE('button',{onClick:()=>setModeAffichage('conum'),style:{fontSize:11,padding:'4px 10px',borderRadius:6,border:'none',background:modeAffichage==='conum'?'#1e3a8a':'#e5e7eb',color:modeAffichage==='conum'?'#fff':'#374151',cursor:'pointer',fontWeight:modeAffichage==='conum'?700:400}},'👤 Par conum')
+        ),
+        // Filtre conum (visible dans les 2 modes)
+        CE('select',{value:filtreConum,onChange:e=>setFiltreConum(e.target.value),style:{fontSize:12,padding:'4px 8px',borderRadius:6,border:'1px solid #d1d5db',background:'#fff',cursor:'pointer'}},
+          conseillers.map(c=>CE('option',{key:c,value:c},c))
+        )
       ),
+      // Légende
+      CE('div',{style:{marginBottom:10}},legende),
       CE('div',{id:'map-container'})
     )
   );
@@ -2055,6 +2125,82 @@ function VueCarte({entries,active}){
 // ═══════════════════════════════════════════════════════════
 // VUE BINGO — par commune
 // ═══════════════════════════════════════════════════════════
+
+// ─── VueAnomalies ──────────────────────────────────────────────────────────
+function VueAnomalies({entries,onEdit,communes,apiFetch,showToast,addLog}){
+  const CE=React.createElement;
+  const CHAMPS_OBL=['statut','date','horaire','ampm','commune','lieu','thematique','conseiller','orienteur','public'];
+  const LABELS={statut:'Statut',date:'Date',horaire:'Horaire',ampm:'AM/PM',commune:'Commune',lieu:'Lieu',thematique:'Thématique',conseiller:'Conseiller',orienteur:'Orienteur',public:'Public'};
+  const[filter,setFilter]=React.useState('all');
+  const[saving,setSaving]=React.useState(null);
+  const[corrections,setCorrections]=React.useState({});
+  const[saved,setSaved]=React.useState({});
+  const anomalies=React.useMemo(()=>{
+    const nomsCommunesOff=new Set(communes.map(c=>stripAccents(c.nom.toLowerCase())));
+    return entries.map(e=>{
+      const champsVides=CHAMPS_OBL.filter(k=>!e[k]||!String(e[k]).trim());
+      let communeInvalide=false,communeSugg=null;
+      if(e.commune&&communes.length>0){
+        const q=stripAccents(e.commune.toLowerCase());
+        if(!nomsCommunesOff.has(q)){
+          communeInvalide=true;
+          const matches=communes.filter(c=>stripAccents(c.nom.toLowerCase()).startsWith(q.substring(0,3))||q.startsWith(stripAccents(c.nom.toLowerCase()).substring(0,3)));
+          if(matches.length>0)communeSugg=matches[0].nom;
+          else{const c2=communes.find(c=>stripAccents(c.nom.toLowerCase()).includes(q.substring(0,4))||q.includes(stripAccents(c.nom.toLowerCase()).substring(0,4)));if(c2)communeSugg=c2.nom;}
+        }
+      }
+      if(champsVides.length===0&&!communeInvalide)return null;
+      return{e,champsVides,communeInvalide,communeSugg};
+    }).filter(Boolean);
+  },[entries,communes]);
+  const filtered=filter==='manquants'?anomalies.filter(a=>a.champsVides.length>0):filter==='communes'?anomalies.filter(a=>a.communeInvalide):anomalies;
+  async function handleSaveCommune(entry,valeur){
+    if(!valeur||!valeur.trim())return;
+    setSaving(entry._id);
+    try{
+      const updated={...entry,commune:valeur.trim()};
+      const res=await apiFetch('save',{entry:updated});
+      if(res&&res.ok){setSaved(s=>({...s,[entry._id]:true}));if(showToast)showToast('✅ Commune corrigée');if(addLog)addLog('Commune corrigée : '+entry._id,'ok');}
+      else{if(showToast)showToast('⚠️ Erreur sauvegarde');}
+    }catch(err){if(showToast)showToast('⚠️ Erreur : '+err.message);}
+    setSaving(null);
+  }
+  const nbTotal=anomalies.length,nbManquants=anomalies.filter(a=>a.champsVides.length>0).length,nbCommunes=anomalies.filter(a=>a.communeInvalide).length;
+  return CE('div',{className:'card',style:{maxWidth:900,margin:'0 auto'}},
+    CE('div',{style:{display:'flex',alignItems:'center',gap:12,marginBottom:16}},CE('span',{style:{fontSize:22}},'⚠️'),CE('div',null,CE('h2',{style:{margin:0,fontSize:16,fontWeight:700}},'Anomalies BDD'),CE('p',{style:{margin:0,fontSize:12,color:'#6b7280'}},nbTotal+' entrée(s) avec anomalie(s) sur '+entries.length+' au total'))),
+    CE('div',{style:{display:'flex',gap:10,marginBottom:16,flexWrap:'wrap'}},
+      CE('div',{style:{background:'#fef9c3',borderRadius:8,padding:'8px 14px',flex:'1',minWidth:120,cursor:'pointer',border:filter==='all'?'2px solid #ca8a04':'2px solid transparent'},onClick:()=>setFilter('all')},CE('div',{style:{fontSize:20,fontWeight:700,color:'#92400e'}},nbTotal),CE('div',{style:{fontSize:11,color:'#78350f'}},'Total anomalies')),
+      CE('div',{style:{background:'#fee2e2',borderRadius:8,padding:'8px 14px',flex:'1',minWidth:120,cursor:'pointer',border:filter==='manquants'?'2px solid #dc2626':'2px solid transparent'},onClick:()=>setFilter('manquants')},CE('div',{style:{fontSize:20,fontWeight:700,color:'#b91c1c'}},nbManquants),CE('div',{style:{fontSize:11,color:'#7f1d1d'}},'Champs manquants')),
+      CE('div',{style:{background:'#ede9fe',borderRadius:8,padding:'8px 14px',flex:'1',minWidth:120,cursor:'pointer',border:filter==='communes'?'2px solid #7c3aed':'2px solid transparent'},onClick:()=>setFilter('communes')},CE('div',{style:{fontSize:20,fontWeight:700,color:'#6d28d9'}},nbCommunes),CE('div',{style:{fontSize:11,color:'#4c1d95'}},'Communes invalides'))
+    ),
+    filtered.length===0?CE('div',{style:{textAlign:'center',padding:'40px 0',color:'#16a34a',fontSize:14}},CE('div',{style:{fontSize:32,marginBottom:8}},'✅'),'Aucune anomalie dans cette catégorie'):
+    CE('div',{style:{display:'flex',flexDirection:'column',gap:8}},
+      filtered.map(({e,champsVides,communeInvalide,communeSugg})=>{
+        const corrVal=corrections[e._id]?.commune!==undefined?corrections[e._id].commune:(communeSugg||e.commune||'');
+        const estCorrige=saved[e._id];
+        return CE('div',{key:e._id,style:{background:estCorrige?'#f0fdf4':'#fff',border:'1px solid '+(estCorrige?'#86efac':'#e5e7eb'),borderRadius:8,padding:'10px 14px'}},
+          CE('div',{style:{display:'flex',alignItems:'center',gap:8,marginBottom:6,flexWrap:'wrap'}},
+            CE('span',{style:{fontWeight:700,fontSize:12,color:'#374151',flex:1}},[e.thematique,e.commune,e.date].filter(Boolean).join(' — ')||e._id),
+            estCorrige&&CE('span',{style:{fontSize:11,color:'#16a34a',fontWeight:600}},'✅ Corrigé'),
+            onEdit&&CE('button',{onClick:()=>onEdit(e._id),style:{fontSize:11,padding:'2px 8px',borderRadius:4,border:'1px solid #3b82f6',background:'#eff6ff',color:'#1d4ed8',cursor:'pointer'}},'✏️ Ouvrir')
+          ),
+          champsVides.length>0&&CE('div',{style:{marginBottom:communeInvalide?6:0}},CE('div',{style:{fontSize:11,color:'#9ca3af',marginBottom:4}},'Champs obligatoires vides :'),CE('div',{style:{display:'flex',gap:4,flexWrap:'wrap'}},champsVides.map(k=>CE('span',{key:k,style:{background:'#fee2e2',color:'#b91c1c',fontSize:11,padding:'1px 7px',borderRadius:10,fontWeight:600}},LABELS[k]||k)))),
+          communeInvalide&&!estCorrige&&CE('div',{style:{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap',marginTop:4}},
+            CE('div',{style:{fontSize:11,color:'#9ca3af',whiteSpace:'nowrap'}},'Commune invalide :'),
+            CE('span',{style:{background:'#ede9fe',color:'#6d28d9',fontSize:11,padding:'1px 7px',borderRadius:10,fontWeight:600}},e.commune),
+            apiFetch&&CE(React.Fragment,null,
+              CE('span',{style:{fontSize:11,color:'#9ca3af'}},'→ Corriger :'),
+              CE('input',{type:'text',value:corrVal,list:'communes-datalist-ano',placeholder:'Commune officielle…',style:{fontSize:11,padding:'2px 6px',borderRadius:4,border:'1px solid #d1d5db',width:160},onChange:ev=>setCorrections(s=>({...s,[e._id]:{...(s[e._id]||{}),commune:ev.target.value}}))}),
+              CE('datalist',{id:'communes-datalist-ano'},(communes||[]).slice(0,300).map(c=>CE('option',{key:c.nom,value:c.nom}))),
+              CE('button',{disabled:saving===e._id||!corrVal.trim(),onClick:()=>handleSaveCommune(e,corrVal),style:{fontSize:11,padding:'2px 8px',borderRadius:4,border:'none',background:saving===e._id?'#e5e7eb':'#7c3aed',color:saving===e._id?'#6b7280':'#fff',cursor:saving===e._id?'default':'pointer'}},saving===e._id?'…':'💾 Sauver')
+            )
+          )
+        );
+      })
+    )
+  );
+}
+
 function VueBingo({entries}){
   const[selected,setSelected]=React.useState(null);
   const communes=React.useMemo(()=>{
@@ -2373,7 +2519,7 @@ function VuePowerBI({entries, conseillers: conseillersList}){
   const pMoisFilt=pMois.filter((_,i)=>i+1<=_moisCourant);
   const pConsMois=MOIS_PBI.map((l,i)=>{
     const m=i+1,obj={mois:l};
-    CONS.forEach(c=>{obj[c]=fd.filter(d=>getMois(d)===m&&d.conseiller===c&&d.statut==='Réalisé').length;});
+    CONS.forEach(c=>{obj[c]=fd.filter(d=>getMois(d)===m&&(d.conseiller===c||d.co_animateur===c)&&d.statut==='Réalisé').length;});
     return obj;
   }).filter((_,i)=>i+1<=_moisCourant);
 

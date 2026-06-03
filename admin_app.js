@@ -113,7 +113,7 @@ function AdminLogin({onLogin,savedName,onResetProfil}){
 }
 
 var VIEW_META = {
-  saisie:     { ico: '✏️',  label: 'Saisie',        group: 'Action' },
+  saisie:     { ico: '✏️',  label: 'Nouveau',        group: 'Action' },
   historique: { ico: '📋',  label: 'Historique',     group: 'Consulter' },
   agenda:     { ico: '🗓️', label: 'Agenda',          group: 'Consulter' },
   calendrier: { ico: '📅',  label: 'Calendrier',     group: 'Consulter' },
@@ -122,6 +122,7 @@ var VIEW_META = {
   dashboard:  { ico: '🚀',  label: 'Dashboard',      group: 'Analyser' },
   graphiques: { ico: '📊',  label: 'Statistiques',   group: 'Analyser' },
   bingo:      { ico: '🎯',  label: 'Bingo',          group: 'Analyser' },
+  anomalies:  { ico: '⚠️',  label: 'Anomalies',      group: 'Analyser' },
   powerbi:    { ico: '📈',  label: 'Power BI',       group: 'Analyser' },
   admin:      { ico: '⚙️', label: 'Admin',          group: 'Config' },
   logs:       { ico: '📜',  label: 'Logs',           group: 'Config' },
@@ -366,6 +367,7 @@ function App(){
       CE('span',{className:'sidebar-group-label'},'Analyser'),
       sideBtn('dashboard','📊','Dashboard'),
       sideBtn('bingo','🎯','Bingo'),
+      sideBtn('anomalies','⚠️','Anomalies'),
 
       // Groupe : Config — Listes ICI (remonté v9.3b)
       CE('div',{className:'sidebar-sep'}),
@@ -451,6 +453,7 @@ function App(){
           view==='carte'&&CE(VueCarte,{entries,active:view==='carte'}),
           view==='roadmap'&&CE(VueRoadmap,{entries,annee,conseillers:lists.conseillers}),
           view==='bingo'&&CE(VueBingo,{entries}),
+          view==='anomalies'&&CE(VueAnomalies,{entries,onEdit:(id)=>{setEditingId(id);setPrefillData(null);setView('saisie');},communes:window.COMMUNES_47_CACHE||[],apiFetch,showToast,addLog}),
 
           view==='admin'&&CE(VueAdmin,{entries,onRefresh:loadData,addLog,conseillersList:lists.conseillers,onSaveColors:(c)=>{applyColors(c);},annee}),
           view==='logs'&&CE('div',{className:'card'},
@@ -962,7 +965,7 @@ function VueAdminV10({entries,onRefresh,addLog,conseillersList,onSaveColors,anne
   function addTlLog(msg,type='info'){setTlLogs(l=>[...l,{msg,type,t:new Date().toLocaleTimeString('fr-FR')}]);}
   function changeMoisDeb(v){localStorage.setItem('cal_moisDeb',v);setMoisDeb(v);setLastExport(null);}
   function changeMoisFin(v){localStorage.setItem('cal_moisFin',v);setMoisFin(v);setLastExport(null);}
-  const VIS_ITEMS=[{key:'saisie',label:'✏️ Saisie',sub:'Formulaire de saisie'},{key:'historique',label:'📋 Historique',sub:'Liste des ateliers'},{key:'agenda',label:'🗓️ Agenda',sub:'Planning hebdo AM/PM'},{key:'calendrier',label:'📅 Calendrier',sub:'Vue calendrier mensuelle'},{key:'dashboard',label:'📊 Dashboard',sub:'Synthèse · Graphiques · Territoire'},{key:'carte',label:'🗺️ Carte',sub:'Carte des communes'},{key:'bingo',label:'🎯 Bingo',sub:'Vue par commune'},{key:'roadmap',label:'🛣️ Roadmap',sub:'Timeline & densité'}];
+  const VIS_ITEMS=[{key:'saisie',label:'✏️ Saisie',sub:'Formulaire de saisie'},{key:'historique',label:'📋 Historique',sub:'Liste des ateliers'},{key:'agenda',label:'🗓️ Agenda',sub:'Planning hebdo AM/PM'},{key:'calendrier',label:'📅 Calendrier',sub:'Vue calendrier mensuelle'},{key:'dashboard',label:'📊 Dashboard',sub:'Synthèse · Graphiques · Territoire'},{key:'carte',label:'🗺️ Carte',sub:'Carte des communes'},{key:'bingo',label:'🎯 Bingo',sub:'Vue par commune'},{key:'roadmap',label:'🛣️ Roadmap',sub:'Timeline & densité'},{key:'anomalies',label:'⚠️ Anomalies',sub:'Champs manquants & communes invalides'}];
 
   React.useEffect(()=>{apiFetch('getVisibility').then(res=>{if(res.ok)setVisibility(res.visibility);}).catch(()=>{});},[]);
   React.useEffect(()=>{setColorDraft(d=>{const draft={...CONSEILLER_COLORS,...d};(conseillersList||[]).forEach(c=>{if(!draft[c])draft[c]='#6B7280';});return draft;});},[conseillersList]);
@@ -1348,7 +1351,7 @@ function VueAgendaSemaine({entries,onEdit,onDelete,onDuplicate,canDelete,initCon
             CE('div',{style:{fontWeight:600}},fmtDate(e.date)+(e.horaire?' — '+e.horaire:'')+(e.ampm?' ('+e.ampm+')':''))),
           CE('div',{className:'sp-field'},CE('label',null,'Commune'),CE('div',null,e.commune||'—')),
           CE('div',{className:'sp-field'},CE('label',null,'Thématique'),CE('div',null,e.thematique||'—')),
-          e.orienteur&&CE('div',{className:'sp-field'},CE('label',null,'Orienteur'),CE('div',null,e.orienteur)),
+          e.orienteur&&CE('div',{className:'sp-field'},CE('label',null,'Orienteur'),CE('div',null,e.orienteur)),e.materiels&&CE('div',{className:'sp-field'},CE('label',null,'Matériels'),CE('div',{style:{fontSize:12}},Array.isArray(e.materiels)?e.materiels.join(', '):e.materiels)),
           (e.inscrits||e.presents)&&CE('div',{className:'sp-field'},CE('label',null,'Participants'),
             CE('div',null,(e.presents||'—')+' présents / '+(e.inscrits||'—')+' inscrits')),
           e.public&&CE('div',{className:'sp-field'},CE('label',null,'Public'),CE('div',null,e.public)),
