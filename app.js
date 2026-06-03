@@ -168,7 +168,7 @@ function App(){
   React.useEffect(()=>{
     apiFetch('getConfig').then(res=>{
       if(res.ok&&res.config){
-        const active=res.config['maintenance']==='true';
+        const active=res.config['maintenance']==='true'||res.config['maintenance']===true||res.config['maintenance']==='TRUE';
         const msg=res.config['maintenance_msg']||'';
         setMaintenance(active?{msg}:false);
       } else setMaintenance(false);
