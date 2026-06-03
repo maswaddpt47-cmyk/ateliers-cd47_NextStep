@@ -492,6 +492,8 @@ const PUBLICS_DEFAULT = [
   'Autres'
 ];
 const MATERIELS_DEFAULT = ['Videoprojecteur','Ecran','Classe mobile','Boitier 4G','Tablette','Scanner','Multiprise','Ordinateur'];
+function normalizeMat(s){return String(s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,'').replace(/s$/,'');}
+function matIncludes(arr,m){if(!Array.isArray(arr))return false;const nm=normalizeMat(m);return arr.some(x=>x===m||normalizeMat(x)===nm);}
 
 let STATUTS     = [...STATUTS_DEFAULT];
 let CONSEILLERS = [...CONSEILLERS_DEFAULT];
@@ -805,9 +807,9 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
   function resetLot(){setLotForm({orienteur:'',commune:'',lieu:'',conseiller:'',co_animateur:'',public:'',materiel:[],residence:'',remarques:''});setLotRows([emptyRow(),emptyRow()]);setLotErrors({});setLotRowErrors({});}
 
   function set(k,v){setForm(f=>({...f,[k]:v}));setErrors(er=>({...er,[k]:''}));}
-  function toggleMat(m){setForm(f=>({...f,materiel:f.materiel.includes(m)?f.materiel.filter(x=>x!==m):[...f.materiel,m]}));}
+  function toggleMat(m){setForm(f=>{const already=matIncludes(f.materiel,m);return{...f,materiel:already?f.materiel.filter(x=>normalizeMat(x)!==normalizeMat(m)):[...f.materiel,m]};});}
   function setLot(k,v){setLotForm(f=>({...f,[k]:v}));setLotErrors(er=>({...er,[k]:''}));}
-  function toggleLotMat(m){setLotForm(f=>({...f,materiel:f.materiel.includes(m)?f.materiel.filter(x=>x!==m):[...f.materiel,m]}));}
+  function toggleLotMat(m){setLotForm(f=>{const already=matIncludes(f.materiel,m);return{...f,materiel:already?f.materiel.filter(x=>normalizeMat(x)!==normalizeMat(m)):[...f.materiel,m]};});}
 
   // ── lignes du lot ──
   function addRow(){setLotRows(r=>[...r,emptyRow()]);}
@@ -967,9 +969,9 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
       LblG({t:'Matériel utilisé'}),
       CE('div',{style:{display:'flex',flexWrap:'wrap',gap:8}},
         materiels.map(m=>{
-          const chk=frm.materiel.includes(m);
-          return CE('label',{key:m,style:{display:'flex',alignItems:'center',gap:6,padding:'7px 12px',border:`2px solid ${chk?ac:'#e2e8f0'}`,borderRadius:20,cursor:'pointer',fontSize:12,fontWeight:600,color:chk?ac:'#718096',background:chk?acLight:'#fff',transition:'all .15s',userSelect:'none'}},
-            CE('input',{type:'checkbox',checked:chk,style:{display:'none'},onChange:()=>(modeLot?toggleLotMat:toggleMat)(m)}),m);
+          const chk=matIncludes(frm.materiel,m);
+          return CE('label',{key:m,style:{display:'flex',alignItems:'center',gap:6,padding:'7px 12px',border:`2px solid ${chk?ac:'#e2e8f0'}`,borderRadius:20,cursor:'pointer',fontSize:12,fontWeight:600,color:chk?ac:'#718096',background:chk?acLight:'#fff',transition:'all .15s',userSelect:'none'},onClick:e=>{e.preventDefault();(modeLot?toggleLotMat:toggleMat)(m);}},
+            CE('input',{type:'checkbox',checked:chk,style:{display:'none'},onChange:()=>{}}),m);
         })
       )
     ),
