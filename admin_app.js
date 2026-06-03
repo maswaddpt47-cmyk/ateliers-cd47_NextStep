@@ -351,7 +351,7 @@ function App(){
       // Groupe : Action
       CE('div',{className:'sidebar-sep'}),
       CE('span',{className:'sidebar-group-label'},'Action'),
-      sideBtn('saisie','✏️','Saisie'),
+      sideBtn('saisie','✏️','Nouveau'),
 
       // Groupe : Voir
       CE('div',{className:'sidebar-sep'}),
