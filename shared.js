@@ -2128,13 +2128,6 @@ function VueCarte({entries,active}){
 
 // ─── VueAnomalies ──────────────────────────────────────────────────────────
 function VueAnomalies({entries,onEdit,communes:communesProp,apiFetch,showToast,addLog}){
-  // Charge les communes si le cache n'est pas encore prêt
-  const[communes,setCommunes]=React.useState(communesProp&&communesProp.length>0?communesProp:(COMMUNES_47_CACHE||[]));
-  React.useEffect(()=>{
-    if(!communes||communes.length===0){
-      loadCommunes47().then(d=>setCommunes(d)).catch(()=>{});
-    }
-  },[]);
   const CE=React.createElement;
   const CHAMPS_OBL=['statut','date','horaire','ampm','commune','lieu','thematique','conseiller','orienteur','public'];
   const LABELS={statut:'Statut',date:'Date',horaire:'Horaire',ampm:'AM/PM',commune:'Commune',lieu:'Lieu',thematique:'Thématique',conseiller:'Conseiller',orienteur:'Orienteur',public:'Public'};
@@ -2142,8 +2135,14 @@ function VueAnomalies({entries,onEdit,communes:communesProp,apiFetch,showToast,a
   const[saving,setSaving]=React.useState(null);
   const[corrections,setCorrections]=React.useState({});
   const[saved,setSaved]=React.useState({});
+  const[communes,setCommunes]=React.useState(COMMUNES_47_CACHE||(communesProp&&communesProp.length>0?communesProp:[]));
+  const[loadingCommunes,setLoadingCommunes]=React.useState(!COMMUNES_47_CACHE||COMMUNES_47_CACHE.length===0);
+  React.useEffect(()=>{
+    if(communes&&communes.length>0){setLoadingCommunes(false);return;}
+    loadCommunes47().then(d=>{setCommunes(d);setLoadingCommunes(false);}).catch(()=>setLoadingCommunes(false));
+  },[]);
   const anomalies=React.useMemo(()=>{
-    if(!entries||!entries.length) return [];
+    if(!entries||!Array.isArray(entries))return[];
     const nomsCommunesOff=new Set(communes.map(c=>stripAccents(c.nom.toLowerCase())));
     return entries.map(e=>{
       const champsVides=CHAMPS_OBL.filter(k=>!e[k]||!String(e[k]).trim());
@@ -2174,13 +2173,12 @@ function VueAnomalies({entries,onEdit,communes:communesProp,apiFetch,showToast,a
     setSaving(null);
   }
   const nbTotal=anomalies.length,nbManquants=anomalies.filter(a=>a.champsVides.length>0).length,nbCommunes=anomalies.filter(a=>a.communeInvalide).length;
-  if(!entries) return CE('div',{className:'card',style:{padding:32,textAlign:'center',color:'#6b7280'}},'Chargement…');
   return CE('div',{className:'card',style:{maxWidth:900,margin:'0 auto'}},
     CE('div',{style:{display:'flex',alignItems:'center',gap:12,marginBottom:16}},CE('span',{style:{fontSize:22}},'⚠️'),CE('div',null,CE('h2',{style:{margin:0,fontSize:16,fontWeight:700}},'Anomalies BDD'),CE('p',{style:{margin:0,fontSize:12,color:'#6b7280'}},nbTotal+' entrée(s) avec anomalie(s) sur '+entries.length+' au total'))),
     CE('div',{style:{display:'flex',gap:10,marginBottom:16,flexWrap:'wrap'}},
       CE('div',{style:{background:'#fef9c3',borderRadius:8,padding:'8px 14px',flex:'1',minWidth:120,cursor:'pointer',border:filter==='all'?'2px solid #ca8a04':'2px solid transparent'},onClick:()=>setFilter('all')},CE('div',{style:{fontSize:20,fontWeight:700,color:'#92400e'}},nbTotal),CE('div',{style:{fontSize:11,color:'#78350f'}},'Total anomalies')),
       CE('div',{style:{background:'#fee2e2',borderRadius:8,padding:'8px 14px',flex:'1',minWidth:120,cursor:'pointer',border:filter==='manquants'?'2px solid #dc2626':'2px solid transparent'},onClick:()=>setFilter('manquants')},CE('div',{style:{fontSize:20,fontWeight:700,color:'#b91c1c'}},nbManquants),CE('div',{style:{fontSize:11,color:'#7f1d1d'}},'Champs manquants')),
-      CE('div',{style:{background:'#ede9fe',borderRadius:8,padding:'8px 14px',flex:'1',minWidth:120,cursor:'pointer',border:filter==='communes'?'2px solid #7c3aed':'2px solid transparent'},onClick:()=>setFilter('communes')},CE('div',{style:{fontSize:20,fontWeight:700,color:'#6d28d9'}},nbCommunes),CE('div',{style:{fontSize:11,color:'#4c1d95'}},'Communes invalides'))
+      CE('div',{style:{background:'#ede9fe',borderRadius:8,padding:'8px 14px',flex:'1',minWidth:120,cursor:'pointer',border:filter==='communes'?'2px solid #7c3aed':'2px solid transparent'},onClick:()=>setFilter('communes')},CE('div',{style:{fontSize:20,fontWeight:700,color:'#6d28d9'}},nbCommunes),CE('div',{style:{fontSize:11,color:'#4c1d95'}},loadingCommunes?'⏳ Chargement…':'Communes invalides'))
     ),
     filtered.length===0?CE('div',{style:{textAlign:'center',padding:'40px 0',color:'#16a34a',fontSize:14}},CE('div',{style:{fontSize:32,marginBottom:8}},'✅'),'Aucune anomalie dans cette catégorie'):
     CE('div',{style:{display:'flex',flexDirection:'column',gap:8}},

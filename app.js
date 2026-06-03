@@ -285,7 +285,7 @@ function App(){
 
       CE('div',{className:'sidebar-sep'}),
       CE('span',{className:'sidebar-group-label'},'Action'),
-      sideBtn('saisie','✏️','Nouveau',visibility.saisie),
+      sideBtn('saisie','✏️','Saisie',visibility.saisie),
 
       CE('div',{className:'sidebar-sep'}),
       CE('span',{className:'sidebar-group-label'},'Voir'),
