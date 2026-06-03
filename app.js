@@ -36,11 +36,24 @@ var VIEW_META_F = {
   bingo:      {ico:'🎯',  label:'Bingo',        group:'Stats'},
 };
 
+function MaintenanceScreen({msg}){
+  return CE('div',{style:{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',minHeight:'100vh',background:'#f0f4f8',fontFamily:"'Segoe UI',sans-serif",textAlign:'center',gap:12}},
+    CE('div',{style:{background:'#fff',borderRadius:14,padding:'40px 48px',boxShadow:'0 4px 24px rgba(30,58,138,.10)',maxWidth:420,width:'90%'}},
+      CE('div',{style:{fontSize:52,marginBottom:12}},'🔧'),
+      CE('div',{style:{fontSize:22,fontWeight:800,color:'#1e3a8a',marginBottom:8}},'Maintenance en cours'),
+      CE('div',{style:{fontSize:13,color:'#718096',lineHeight:1.6,marginBottom:20}},msg||"L'application est temporairement indisponible. Merci de votre patience."),
+      CE('div',{style:{display:'inline-block',background:'#fef9c3',color:'#92400e',fontSize:12,fontWeight:700,padding:'4px 14px',borderRadius:20,border:'1px solid #fcd34d'}},'⏳ Mise à jour en cours'),
+      CE('div',{style:{fontSize:12,color:'#a0aec0',marginTop:16}},'Contactez l\'administrateur pour plus d\'infos.')
+    )
+  );
+}
+
 function App(){
   const[view,setView]              = React.useState('accueil');
   const[entries,setEntries]        = React.useState([]);
   const[loading,setLoading]        = React.useState(true);
   const[error,setError]            = React.useState(null);
+  const[maintenance,setMaintenance]= React.useState(null); // null=checking, false=off, {msg}=on
   const[newEntries,setNewEntries]   = React.useState([]);
   const[seenIds,setSeenIds]        = React.useState(new Set());
   const[filtreConseiller,setFiltreConseiller] = React.useState(null);
@@ -151,6 +164,17 @@ function App(){
 
   React.useEffect(()=>{loadCommunes47().catch(()=>{});},[]);
 
+  // Check maintenance
+  React.useEffect(()=>{
+    apiFetch('getConfig').then(res=>{
+      if(res.ok&&res.config){
+        const active=res.config['maintenance']==='true';
+        const msg=res.config['maintenance_msg']||'';
+        setMaintenance(active?{msg}:false);
+      } else setMaintenance(false);
+    }).catch(()=>setMaintenance(false));
+  },[]);
+
   React.useEffect(()=>{
     if(isFirstLoad.current){isFirstLoad.current=false;loadData();}
     else{setSeenIds(new Set());loadData();}
@@ -184,6 +208,9 @@ function App(){
   }
 
   // ── Vue Accueil ───────────────────────────────────────────────
+  if(maintenance===null) return CE('div',{style:{display:'flex',alignItems:'center',justifyContent:'center',minHeight:'100vh',background:'#f0f4f8'}},CE('div',{style:{fontSize:13,color:'#718096'}},'Chargement…'));
+  if(maintenance!==false) return CE(MaintenanceScreen,{msg:maintenance.msg});
+
   if(view==='accueil'){
     const now=new Date();
     const moisKey=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;

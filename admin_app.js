@@ -1122,6 +1122,27 @@ function VueAdminV10({entries,onRefresh,addLog,conseillersList,onSaveColors,anne
     }catch(err){showToast('❌ '+err.message,false);addLog('Erreur lecture XLSX : '+err.message,'err');}
   }
 
+  const[maintenanceOn,setMaintenanceOn]=React.useState(false);
+  const[maintenanceMsg,setMaintenanceMsg]=React.useState('');
+  const[maintenanceSaving,setMaintenanceSaving]=React.useState(false);
+  const[maintenanceLoaded,setMaintenanceLoaded]=React.useState(false);
+  React.useEffect(()=>{
+    apiFetch('getConfig').then(res=>{
+      if(res.ok&&res.config){setMaintenanceOn(res.config['maintenance']==='true');setMaintenanceMsg(res.config['maintenance_msg']||'');}
+      setMaintenanceLoaded(true);
+    }).catch(()=>setMaintenanceLoaded(true));
+  },[]);
+  async function handleSaveMaintenance(newState){
+    setMaintenanceSaving(true);
+    try{
+      await apiFetch('setConfig',{key:'maintenance',value:String(newState)});
+      await apiFetch('setConfig',{key:'maintenance_msg',value:maintenanceMsg});
+      setMaintenanceOn(newState);
+      showToast(newState?'🔧 Maintenance activée':'✅ Application remise en ligne');
+      addLog('Maintenance '+(newState?'activée':'désactivée'),'ok');
+    }catch(err){showToast('❌ '+err.message,false);}
+    finally{setMaintenanceSaving(false);}
+  }
   const resetLabels=['🗑️ Réinitialiser la BDD locale','⚠️ Confirmer (1/2)','🚨 Confirmer définitivement (2/2)'];
   const STATUT_COLOR={'Planifié':'#9683EC','Réalisé':'#70AD47','Annulé':'#FF5050','Non réalisé':'#FFC000','Reporté':'#ED7D31'};
 
@@ -1215,7 +1236,28 @@ function VueAdminV10({entries,onRefresh,addLog,conseillersList,onSaveColors,anne
         }},'🔍 Analyser ('+entries.length+' ateliers)')
       ),
 
-      CE('div',{className:'admin-section'},
+      CE('div',{className:'admin-section',style:{border:'2px solid '+(maintenanceOn?'#dc2626':'#e2e8f0'),background:maintenanceOn?'#fff5f5':'#fff'}},
+        CE('h3',null,'🔧 Mode Maintenance'),
+        CE('p',{style:{fontSize:12,color:'#4a5568',marginBottom:16}},"Activez pour bloquer l'accès à l'interface conseiller."),
+        maintenanceLoaded&&CE('div',null,
+          CE('div',{style:{display:'flex',alignItems:'center',gap:16,marginBottom:14,padding:'12px 16px',background:maintenanceOn?'#fef2f2':'#f0fdf4',borderRadius:10,border:'1px solid '+(maintenanceOn?'#fca5a5':'#86efac')}},
+            CE('div',{style:{flex:1}},
+              CE('div',{style:{fontWeight:700,fontSize:14,color:maintenanceOn?'#dc2626':'#16a34a'}},maintenanceOn?'🔴 Maintenance ACTIVE':'🟢 Application en ligne'),
+              CE('div',{style:{fontSize:12,color:'#718096',marginTop:2}},maintenanceOn?'Les conseillers voient l\'écran de maintenance.':'Les conseillers ont accès normalement.')
+            ),
+            CE('label',{className:'tgl',style:{flexShrink:0}},
+              CE('input',{type:'checkbox',checked:maintenanceOn,disabled:maintenanceSaving,onChange:e=>handleSaveMaintenance(e.target.checked)}),
+              CE('span',{className:'tgl-track'})
+            )
+          ),
+          CE('div',null,
+            CE('label',{style:{fontSize:12,fontWeight:600,color:'#4a5568',display:'block',marginBottom:6}},'Message (optionnel)'),
+            CE('input',{type:'text',value:maintenanceMsg,onChange:e=>setMaintenanceMsg(e.target.value),placeholder:'Ex: Retour dans 10 minutes.',style:{width:'100%',padding:'8px 12px',border:'1.5px solid #e2e8f0',borderRadius:8,fontSize:13,boxSizing:'border-box'}}),
+            CE('button',{onClick:()=>handleSaveMaintenance(maintenanceOn),disabled:maintenanceSaving,style:{marginTop:8,padding:'6px 16px',background:'#1e3a8a',color:'#fff',border:'none',borderRadius:6,fontSize:12,fontWeight:600,cursor:'pointer'}},maintenanceSaving?'…':'💾 Sauver le message')
+          )
+        )
+      ),
+            CE('div',{className:'admin-section'},
         CE('h3',null,'🗑️ Réinitialiser la base de données'),
         CE('p',{style:{fontSize:12,color:'#4a5568',marginBottom:12}},'Vide uniquement le cache local. Le Google Sheet reste intact.'),
         resetStep>0&&CE('div',{className:'confirm-box'},CE('p',null,resetStep===1?'Êtes-vous sûr ? Cette action vide le cache local.':'Dernière confirmation — cliquez pour confirmer.')),
