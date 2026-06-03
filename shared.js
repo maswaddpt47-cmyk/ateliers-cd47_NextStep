@@ -2152,9 +2152,10 @@ function VueAnomalies({entries,onEdit,communes:communesProp,apiFetch,showToast,a
         const q=stripAccents(e.commune.toLowerCase());
         if(!nomsCommunesOff.has(q)){
           communeInvalide=true;
-          const matches=communes.filter(c=>stripAccents(c.nom.toLowerCase()).startsWith(q.substring(0,3))||q.startsWith(stripAccents(c.nom.toLowerCase()).substring(0,3)));
-          if(matches.length>0)communeSugg=matches[0].nom;
-          else{const c2=communes.find(c=>stripAccents(c.nom.toLowerCase()).includes(q.substring(0,4))||q.includes(stripAccents(c.nom.toLowerCase()).substring(0,4)));if(c2)communeSugg=c2.nom;}
+          // Levenshtein distance pour trouver la commune la plus proche
+          function lev(a,b){const m=a.length,n=b.length;const dp=Array.from({length:m+1},(_,i)=>Array.from({length:n+1},(_,j)=>i===0?j:j===0?i:0));for(let i=1;i<=m;i++)for(let j=1;j<=n;j++)dp[i][j]=a[i-1]===b[j-1]?dp[i-1][j-1]:1+Math.min(dp[i-1][j],dp[i][j-1],dp[i-1][j-1]);return dp[m][n];}
+          const scored=communes.map(c=>({nom:c.nom,d:lev(q,stripAccents(c.nom.toLowerCase()))})).sort((a,b)=>a.d-b.d);
+          if(scored.length>0&&scored[0].d<=3)communeSugg=scored[0].nom;
         }
       }
       if(champsVides.length===0&&!communeInvalide)return null;
