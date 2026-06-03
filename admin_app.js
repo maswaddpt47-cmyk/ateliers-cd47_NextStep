@@ -1393,7 +1393,7 @@ function VueAgendaSemaine({entries,onEdit,onDelete,onDuplicate,canDelete,initCon
             CE('div',{style:{fontWeight:600}},fmtDate(e.date)+(e.horaire?' — '+e.horaire:'')+(e.ampm?' ('+e.ampm+')':''))),
           CE('div',{className:'sp-field'},CE('label',null,'Commune'),CE('div',null,e.commune||'—')),
           CE('div',{className:'sp-field'},CE('label',null,'Thématique'),CE('div',null,e.thematique||'—')),
-          e.orienteur&&CE('div',{className:'sp-field'},CE('label',null,'Orienteur'),CE('div',null,e.orienteur)),e.materiels&&CE('div',{className:'sp-field'},CE('label',null,'Matériels'),CE('div',{style:{fontSize:12}},Array.isArray(e.materiels)?e.materiels.join(', '):e.materiels)),
+          e.orienteur&&CE('div',{className:'sp-field'},CE('label',null,'Orienteur'),CE('div',null,e.orienteur)),CE('div',{className:'sp-field'},CE('label',null,'Matériels'),CE('div',{style:{fontSize:12,color:(e.materiel&&e.materiel.length>0)?'inherit':'#a0aec0'}},(e.materiel&&e.materiel.length>0)?e.materiel.join(', '):'—')),
           (e.inscrits||e.presents)&&CE('div',{className:'sp-field'},CE('label',null,'Participants'),
             CE('div',null,(e.presents||'—')+' présents / '+(e.inscrits||'—')+' inscrits')),
           e.public&&CE('div',{className:'sp-field'},CE('label',null,'Public'),CE('div',null,e.public)),
