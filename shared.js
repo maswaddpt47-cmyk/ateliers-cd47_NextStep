@@ -2127,7 +2127,14 @@ function VueCarte({entries,active}){
 // ═══════════════════════════════════════════════════════════
 
 // ─── VueAnomalies ──────────────────────────────────────────────────────────
-function VueAnomalies({entries,onEdit,communes,apiFetch,showToast,addLog}){
+function VueAnomalies({entries,onEdit,communes:communesProp,apiFetch,showToast,addLog}){
+  // Charge les communes si le cache n'est pas encore prêt
+  const[communes,setCommunes]=React.useState(communesProp&&communesProp.length>0?communesProp:(COMMUNES_47_CACHE||[]));
+  React.useEffect(()=>{
+    if(!communes||communes.length===0){
+      loadCommunes47().then(d=>setCommunes(d)).catch(()=>{});
+    }
+  },[]);
   const CE=React.createElement;
   const CHAMPS_OBL=['statut','date','horaire','ampm','commune','lieu','thematique','conseiller','orienteur','public'];
   const LABELS={statut:'Statut',date:'Date',horaire:'Horaire',ampm:'AM/PM',commune:'Commune',lieu:'Lieu',thematique:'Thématique',conseiller:'Conseiller',orienteur:'Orienteur',public:'Public'};
@@ -2136,6 +2143,7 @@ function VueAnomalies({entries,onEdit,communes,apiFetch,showToast,addLog}){
   const[corrections,setCorrections]=React.useState({});
   const[saved,setSaved]=React.useState({});
   const anomalies=React.useMemo(()=>{
+    if(!entries||!entries.length) return [];
     const nomsCommunesOff=new Set(communes.map(c=>stripAccents(c.nom.toLowerCase())));
     return entries.map(e=>{
       const champsVides=CHAMPS_OBL.filter(k=>!e[k]||!String(e[k]).trim());
@@ -2166,6 +2174,7 @@ function VueAnomalies({entries,onEdit,communes,apiFetch,showToast,addLog}){
     setSaving(null);
   }
   const nbTotal=anomalies.length,nbManquants=anomalies.filter(a=>a.champsVides.length>0).length,nbCommunes=anomalies.filter(a=>a.communeInvalide).length;
+  if(!entries) return CE('div',{className:'card',style:{padding:32,textAlign:'center',color:'#6b7280'}},'Chargement…');
   return CE('div',{className:'card',style:{maxWidth:900,margin:'0 auto'}},
     CE('div',{style:{display:'flex',alignItems:'center',gap:12,marginBottom:16}},CE('span',{style:{fontSize:22}},'⚠️'),CE('div',null,CE('h2',{style:{margin:0,fontSize:16,fontWeight:700}},'Anomalies BDD'),CE('p',{style:{margin:0,fontSize:12,color:'#6b7280'}},nbTotal+' entrée(s) avec anomalie(s) sur '+entries.length+' au total'))),
     CE('div',{style:{display:'flex',gap:10,marginBottom:16,flexWrap:'wrap'}},
