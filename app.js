@@ -34,7 +34,6 @@ var VIEW_META_F = {
   roadmap:    {ico:'🛣️', label:'Roadmap',      group:'Voir'},
   graphiques: {ico:'📊',  label:'Statistiques', group:'Stats'},
   bingo:      {ico:'🎯',  label:'Bingo',        group:'Stats'},
-  anomalies:  {ico:'⚠️',  label:'Anomalies',    group:'Stats'},
 };
 
 function App(){
@@ -299,7 +298,6 @@ function App(){
       CE('span',{className:'sidebar-group-label'},'Stats'),
       sideBtn('dashboard','📊','Dashboard',visibility.dashboard),
       sideBtn('bingo','🎯','Bingo',visibility.bingo),
-      sideBtn('anomalies','⚠️','Anomalies',visibility.anomalies),
 
       CE('div',{className:'sidebar-bottom'},
         CE('select',{className:'sidebar-year',value:annee,onChange:e=>setAnnee(e.target.value),title:'Année chargée'},
@@ -369,8 +367,7 @@ function App(){
           view==='dashboard'&&visibility.dashboard&&CE(VueDashboardTabs,{entries,conseillers:lists.conseillers}),
           view==='carte'&&visibility.carte&&CE(VueCarte,{entries,active:view==='carte'}),
           view==='roadmap'&&visibility.roadmap&&CE(VueRoadmap,{entries,annee,conseillers:lists.conseillers}),
-          view==='bingo'&&visibility.bingo&&CE(VueBingo,{entries}),
-          view==='anomalies'&&visibility.anomalies&&CE(VueAnomalies,{entries,onEdit:(id)=>{setEditingId(id);setPrefillData(null);setView('saisie');}})
+          view==='bingo'&&visibility.bingo&&CE(VueBingo,{entries})
         )
       )
     ),
