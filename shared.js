@@ -638,6 +638,20 @@ function ComboOrienteur({value,onChange,entries,hasError}){
   );
 }
 
+function ComboThematique({value,onChange,entries,hasError}){
+  const[inputVal,setInputVal]=React.useState(value||'');
+  const[open,setOpen]=React.useState(false);
+  const[activeIdx,setActiveIdx]=React.useState(0);
+  const wrapRef=React.useRef(null);
+  React.useEffect(()=>{setInputVal(value||'');},[value]);
+  React.useEffect(()=>{function h(e){if(wrapRef.current&&!wrapRef.current.contains(e.target))setOpen(false);}document.addEventListener('mousedown',h);return()=>document.removeEventListener('mousedown',h);},[]);
+  const thematiques=React.useMemo(()=>{const s=new Set();(entries||[]).forEach(e=>{if(e.thematique&&e.thematique.trim())s.add(e.thematique.trim());});return[...s].sort((a,b)=>a.localeCompare(b));},[entries]);
+  const suggestions=React.useMemo(()=>{const q=inputVal.trim();if(!q||q.length<2)return[];const qs=stripAccents(q);return thematiques.filter(t=>stripAccents(t).includes(qs)).slice(0,20);},[inputVal,thematiques]);
+  function selectItem(name){setInputVal(name);onChange(name);setOpen(false);setActiveIdx(0);}
+  function handleKeyDown(e){if(!open||suggestions.length===0)return;if(e.key==='ArrowDown'){e.preventDefault();setActiveIdx(i=>Math.min(i+1,suggestions.length-1));}else if(e.key==='ArrowUp'){e.preventDefault();setActiveIdx(i=>Math.max(i-1,0));}else if(e.key==='Enter'){e.preventDefault();if(suggestions[activeIdx])selectItem(suggestions[activeIdx]);}else if(e.key==='Escape')setOpen(false);}
+  return CE('div',{className:'combo-wrap',ref:wrapRef},CE('input',{type:'text',value:inputVal,placeholder:"Thème abordé lors de l'atelier…",className:hasError?'err':'',autoComplete:'off',onChange:e=>{setInputVal(e.target.value);onChange(e.target.value);setOpen(true);setActiveIdx(0);},onFocus:()=>{if(inputVal.trim().length>=2)setOpen(true);},onBlur:()=>setTimeout(()=>setOpen(false),150),onKeyDown:handleKeyDown}),open&&suggestions.length>0&&CE('div',{className:'combo-dropdown'},suggestions.map((name,i)=>CE('div',{key:name,className:'combo-item'+(i===activeIdx?' active':''),onMouseDown:e=>{e.preventDefault();selectItem(name);},onMouseEnter:()=>setActiveIdx(i)},CE('span',{className:'combo-nom'},name)))));
+}
+
 // ═══════════════════════════════════════════════════════════
 // VUE LISTES
 // ═══════════════════════════════════════════════════════════
@@ -1023,7 +1037,7 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
       // Thématique
       CE('div',{style:secStyle},
         Lbl({t:'Thématique *',err:!!errors.thematique}),
-        CE('textarea',{style:taStyle(errors.thematique),value:form.thematique,placeholder:"Thème abordé lors de l'atelier…",onChange:e=>set('thematique',e.target.value)}),
+        CE(ComboThematique,{value:form.thematique,onChange:v=>set('thematique',v),entries:entries,hasError:!!errors.thematique}),
         errors.thematique&&CE('span',{style:{color:'#e53e3e',fontSize:11,fontWeight:600}},errors.thematique)
       ),
       // Inscrits / Présents
