@@ -2135,9 +2135,9 @@ function VueAnomalies({entries,onEdit,communes:communesProp,apiFetch,showToast,a
   const[saving,setSaving]=React.useState(null);
   const[corrections,setCorrections]=React.useState({});
   const[saved,setSaved]=React.useState({});
+  const[filtreConum,setFiltreConum]=React.useState('Tous');
   const[communes,setCommunes]=React.useState(COMMUNES_47_CACHE||(communesProp&&communesProp.length>0?communesProp:[]));
   const[loadingCommunes,setLoadingCommunes]=React.useState(!COMMUNES_47_CACHE||COMMUNES_47_CACHE.length===0);
-  const[filtreConum,setFiltreConum]=React.useState('Tous');
   React.useEffect(()=>{
     if(communes&&communes.length>0){setLoadingCommunes(false);return;}
     loadCommunes47().then(d=>{setCommunes(d);setLoadingCommunes(false);}).catch(()=>setLoadingCommunes(false));
@@ -2169,46 +2169,47 @@ function VueAnomalies({entries,onEdit,communes:communesProp,apiFetch,showToast,a
     try{
       const updated={...entry,commune:valeur.trim()};
       const res=await apiFetch('save',{entry:updated});
-      if(res&&res.ok){setSaved(s=>({...s,[entry._id]:true}));if(showToast)showToast('✅ Commune corrigée');if(addLog)addLog('Commune corrigée : '+entry._id,'ok');}
-      else{if(showToast)showToast('⚠️ Erreur sauvegarde');}
-    }catch(err){if(showToast)showToast('⚠️ Erreur : '+err.message);}
+      if(res&&res.ok){setSaved(s=>({...s,[entry._id]:true}));if(showToast)showToast('\u2705 Commune corrig\u00e9e');if(addLog)addLog('Commune corrig\u00e9e : '+entry._id,'ok');}
+      else{if(showToast)showToast('\u26a0\ufe0f Erreur sauvegarde');}
+    }catch(err){if(showToast)showToast('\u26a0\ufe0f Erreur : '+err.message);}
     setSaving(null);
   }
   const nbTotal=anomaliesFiltrees.length,nbManquants=anomaliesFiltrees.filter(a=>a.champsVides.length>0).length,nbCommunes=anomaliesFiltrees.filter(a=>a.communeInvalide).length;
+  const conumsList=['Tous',...Array.from(new Set(anomalies.map(a=>a.e.conseiller).filter(Boolean))).sort()];
   return CE('div',{className:'card',style:{maxWidth:900,margin:'0 auto'}},
-    CE('div',{style:{display:'flex',alignItems:'center',gap:12,marginBottom:16}},CE('span',{style:{fontSize:22}},'⚠️'),CE('div',null,CE('h2',{style:{margin:0,fontSize:16,fontWeight:700}},'Anomalies BDD'),CE('p',{style:{margin:0,fontSize:12,color:'#6b7280'}},nbTotal+' entrée(s) avec anomalie(s) sur '+entries.length+' au total'))),
-    CE('div',{style:{display:'flex',gap:10,marginBottom:16,flexWrap:'wrap'}},
+    CE('div',{style:{display:'flex',alignItems:'center',gap:12,marginBottom:16}},CE('span',{style:{fontSize:22}},'\u26a0\ufe0f'),CE('div',null,CE('h2',{style:{margin:0,fontSize:16,fontWeight:700}},'Anomalies BDD'),CE('p',{style:{margin:0,fontSize:12,color:'#6b7280'}},nbTotal+' entr\u00e9e(s) avec anomalie(s) sur '+entries.length+' au total'))),
+    CE('div',{style:{display:'flex',gap:10,marginBottom:12,flexWrap:'wrap'}},
       CE('div',{style:{background:'#fef9c3',borderRadius:8,padding:'8px 14px',flex:'1',minWidth:120,cursor:'pointer',border:filter==='all'?'2px solid #ca8a04':'2px solid transparent'},onClick:()=>setFilter('all')},CE('div',{style:{fontSize:20,fontWeight:700,color:'#92400e'}},nbTotal),CE('div',{style:{fontSize:11,color:'#78350f'}},'Total anomalies')),
       CE('div',{style:{background:'#fee2e2',borderRadius:8,padding:'8px 14px',flex:'1',minWidth:120,cursor:'pointer',border:filter==='manquants'?'2px solid #dc2626':'2px solid transparent'},onClick:()=>setFilter('manquants')},CE('div',{style:{fontSize:20,fontWeight:700,color:'#b91c1c'}},nbManquants),CE('div',{style:{fontSize:11,color:'#7f1d1d'}},'Champs manquants')),
-      CE('div',{style:{background:'#ede9fe',borderRadius:8,padding:'8px 14px',flex:'1',minWidth:120,cursor:'pointer',border:filter==='communes'?'2px solid #7c3aed':'2px solid transparent'},onClick:()=>setFilter('communes')},CE('div',{style:{fontSize:20,fontWeight:700,color:'#6d28d9'}},nbCommunes),CE('div',{style:{fontSize:11,color:'#4c1d95'}},loadingCommunes?'⏳ Chargement…':'Communes invalides'))
+      CE('div',{style:{background:'#ede9fe',borderRadius:8,padding:'8px 14px',flex:'1',minWidth:120,cursor:'pointer',border:filter==='communes'?'2px solid #7c3aed':'2px solid transparent'},onClick:()=>setFilter('communes')},CE('div',{style:{fontSize:20,fontWeight:700,color:'#6d28d9'}},nbCommunes),CE('div',{style:{fontSize:11,color:'#4c1d95'}},loadingCommunes?'\u23f3 Chargement\u2026':'Communes invalides'))
     ),
-    CE('div',{style:{display:'flex',alignItems:'center',gap:8,marginBottom:12,flexWrap:'wrap'}},
-      CE('label',{style:{fontSize:12,color:'#6b7280',fontWeight:600}},'👤 Conseiller :'),
+    CE('div',{style:{display:'flex',alignItems:'center',gap:8,marginBottom:12}},
+      CE('label',{style:{fontSize:12,color:'#6b7280',fontWeight:600}},'\ud83d\udc64 Conseiller :'),
       CE('select',{value:filtreConum,onChange:ev=>setFiltreConum(ev.target.value),style:{fontSize:12,padding:'4px 10px',borderRadius:6,border:'1px solid #d1d5db',background:'#fff',cursor:'pointer'}},
-        ['Tous',...Array.from(new Set(anomalies.map(a=>a.e.conseiller).filter(Boolean))).sort()].map(c=>CE('option',{key:c,value:c},c))
+        conumsList.map(c=>CE('option',{key:c,value:c},c))
       ),
-      filtreConum!=='Tous'&&CE('button',{onClick:()=>setFiltreConum('Tous'),style:{fontSize:11,padding:'2px 8px',borderRadius:10,border:'none',background:'#e5e7eb',color:'#374151',cursor:'pointer'}},'✕ Tous')
+      filtreConum!=='Tous'&&CE('button',{onClick:()=>setFiltreConum('Tous'),style:{fontSize:11,padding:'2px 8px',borderRadius:10,border:'none',background:'#e5e7eb',color:'#374151',cursor:'pointer'}},'\u2715 Tous')
     ),
-    filtered.length===0?CE('div',{style:{textAlign:'center',padding:'40px 0',color:'#16a34a',fontSize:14}},CE('div',{style:{fontSize:32,marginBottom:8}},'✅'),'Aucune anomalie dans cette catégorie'):
+    filtered.length===0?CE('div',{style:{textAlign:'center',padding:'40px 0',color:'#16a34a',fontSize:14}},CE('div',{style:{fontSize:32,marginBottom:8}},'\u2705'),'Aucune anomalie dans cette cat\u00e9gorie'):
     CE('div',{style:{display:'flex',flexDirection:'column',gap:8}},
       filtered.map(({e,champsVides,communeInvalide,communeSugg})=>{
         const corrVal=corrections[e._id]?.commune!==undefined?corrections[e._id].commune:(communeSugg||e.commune||'');
         const estCorrige=saved[e._id];
         return CE('div',{key:e._id,style:{background:estCorrige?'#f0fdf4':'#fff',border:'1px solid '+(estCorrige?'#86efac':'#e5e7eb'),borderRadius:8,padding:'10px 14px'}},
           CE('div',{style:{display:'flex',alignItems:'center',gap:8,marginBottom:6,flexWrap:'wrap'}},
-            CE('span',{style:{fontWeight:700,fontSize:12,color:'#374151',flex:1}},[e.thematique,e.commune,e.date].filter(Boolean).join(' — ')||e._id),
-            estCorrige&&CE('span',{style:{fontSize:11,color:'#16a34a',fontWeight:600}},'✅ Corrigé'),
-            onEdit&&CE('button',{onClick:()=>onEdit(e._id),style:{fontSize:11,padding:'2px 8px',borderRadius:4,border:'1px solid #3b82f6',background:'#eff6ff',color:'#1d4ed8',cursor:'pointer'}},'✏️ Ouvrir')
+            CE('span',{style:{fontWeight:700,fontSize:12,color:'#374151',flex:1}},[e.thematique,e.commune,e.date].filter(Boolean).join(' \u2014 ')||e._id),
+            estCorrige&&CE('span',{style:{fontSize:11,color:'#16a34a',fontWeight:600}},'\u2705 Corrig\u00e9'),
+            onEdit&&CE('button',{onClick:()=>onEdit(e._id),style:{fontSize:11,padding:'2px 8px',borderRadius:4,border:'1px solid #3b82f6',background:'#eff6ff',color:'#1d4ed8',cursor:'pointer'}},'\u270f\ufe0f Ouvrir')
           ),
           champsVides.length>0&&CE('div',{style:{marginBottom:communeInvalide?6:0}},CE('div',{style:{fontSize:11,color:'#9ca3af',marginBottom:4}},'Champs obligatoires vides :'),CE('div',{style:{display:'flex',gap:4,flexWrap:'wrap'}},champsVides.map(k=>CE('span',{key:k,style:{background:'#fee2e2',color:'#b91c1c',fontSize:11,padding:'1px 7px',borderRadius:10,fontWeight:600}},LABELS[k]||k)))),
           communeInvalide&&!estCorrige&&CE('div',{style:{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap',marginTop:4}},
             CE('div',{style:{fontSize:11,color:'#9ca3af',whiteSpace:'nowrap'}},'Commune invalide :'),
             CE('span',{style:{background:'#ede9fe',color:'#6d28d9',fontSize:11,padding:'1px 7px',borderRadius:10,fontWeight:600}},e.commune),
             apiFetch&&CE(React.Fragment,null,
-              CE('span',{style:{fontSize:11,color:'#9ca3af'}},'→ Corriger :'),
-              CE('input',{type:'text',value:corrVal,list:'communes-datalist-ano',placeholder:'Commune officielle…',style:{fontSize:11,padding:'2px 6px',borderRadius:4,border:'1px solid #d1d5db',width:160},onChange:ev=>setCorrections(s=>({...s,[e._id]:{...(s[e._id]||{}),commune:ev.target.value}}))}),
+              CE('span',{style:{fontSize:11,color:'#9ca3af'}},'\u2192 Corriger :'),
+              CE('input',{type:'text',value:corrVal,list:'communes-datalist-ano',placeholder:'Commune officielle\u2026',style:{fontSize:11,padding:'2px 6px',borderRadius:4,border:'1px solid #d1d5db',width:160},onChange:ev=>setCorrections(s=>({...s,[e._id]:{...(s[e._id]||{}),commune:ev.target.value}}))}),
               CE('datalist',{id:'communes-datalist-ano'},(communes||[]).slice(0,300).map(c=>CE('option',{key:c.nom,value:c.nom}))),
-              CE('button',{disabled:saving===e._id||!corrVal.trim(),onClick:()=>handleSaveCommune(e,corrVal),style:{fontSize:11,padding:'2px 8px',borderRadius:4,border:'none',background:saving===e._id?'#e5e7eb':'#7c3aed',color:saving===e._id?'#6b7280':'#fff',cursor:saving===e._id?'default':'pointer'}},saving===e._id?'…':'💾 Sauver')
+              CE('button',{disabled:saving===e._id||!corrVal.trim(),onClick:()=>handleSaveCommune(e,corrVal),style:{fontSize:11,padding:'2px 8px',borderRadius:4,border:'none',background:saving===e._id?'#e5e7eb':'#7c3aed',color:saving===e._id?'#6b7280':'#fff',cursor:saving===e._id?'default':'pointer'}},saving===e._id?'\u2026':'\ud83d\udcbe Sauver')
             )
           )
         );
