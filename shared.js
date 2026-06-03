@@ -978,7 +978,7 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
       CE('input',{type:'text',style:iStyle(false),value:frm.remarques,placeholder:'Notes libres',onChange:e=>setFn('remarques',e.target.value)}))
   );
 
-  return CE('div',{style:{padding:'4px 0'}},
+  return CE('div',{'data-saisie':'1',style:{padding:'4px 0'}},
     // Badge conseiller coloré
     accentColor&&CE('div',{style:{display:'inline-flex',alignItems:'center',gap:8,padding:'6px 14px',borderRadius:20,fontSize:12,fontWeight:700,color:'#fff',background:ac,marginBottom:14}},
       editId?'✏️ Modifier':isDup?'📋 Duplication':modeLot?'🔄 Saisie par cycle':'⚡ Saisie One Shot'

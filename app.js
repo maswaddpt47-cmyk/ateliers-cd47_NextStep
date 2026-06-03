@@ -73,15 +73,11 @@ function App(){
     if(!viewRef.current) return;
     const handler = e => {
       if(e.target.tagName !== 'SELECT') return;
+      // Ne pas intercepter les selects du formulaire de saisie
+      if(e.target.closest&&e.target.closest('.sf-wrap, .sf-section, [data-saisie]')) return;
       const val = e.target.value;
       if(lists.conseillers.includes(val)){
-        // Conseiller sélectionné dans un filtre interne → sync identité
-
         setFiltreConseiller(val);
-      } else if(!val || val === '' || val === 'all') {
-        // Filtre remis à "Tous" → on efface l'identité courante
-        // mais uniquement si c'est bien le select du filtre conseiller
-        // (on ne veut pas réinitialiser sur le select mois ou commune)
       }
     };
     const el = viewRef.current;
