@@ -2127,7 +2127,6 @@ function VueCarte({entries,active}){
 // ═══════════════════════════════════════════════════════════
 
 // ─── VueAnomalies ──────────────────────────────────────────────────────────
-// ─── VueAnomalies ──────────────────────────────────────────────────────────
 function VueAnomalies({entries,onEdit,communes:communesProp,apiFetch,showToast,addLog}){
   const CE=React.createElement;
   const CHAMPS_OBL=['statut','date','horaire','ampm','commune','lieu','thematique','conseiller','orienteur','public'];
