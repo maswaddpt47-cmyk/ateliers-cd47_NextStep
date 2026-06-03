@@ -285,7 +285,7 @@ function App(){
 
       CE('div',{className:'sidebar-sep'}),
       CE('span',{className:'sidebar-group-label'},'Action'),
-      sideBtn('saisie','✏️','Saisie',visibility.saisie),
+      sideBtn('saisie','✏️','Nouveau',visibility.saisie),
 
       CE('div',{className:'sidebar-sep'}),
       CE('span',{className:'sidebar-group-label'},'Voir'),
@@ -370,7 +370,7 @@ function App(){
           view==='carte'&&visibility.carte&&CE(VueCarte,{entries,active:view==='carte'}),
           view==='roadmap'&&visibility.roadmap&&CE(VueRoadmap,{entries,annee,conseillers:lists.conseillers}),
           view==='bingo'&&visibility.bingo&&CE(VueBingo,{entries}),
-          view==='anomalies'&&visibility.anomalies&&CE(VueAnomalies,{entries,onEdit:(id)=>{setEditingId(id);setPrefillData(null);setView('saisie');},communes:window.COMMUNES_47_CACHE||[]})
+          view==='anomalies'&&visibility.anomalies&&CE(VueAnomalies,{entries,onEdit:(id)=>{setEditingId(id);setPrefillData(null);setView('saisie');}})
         )
       )
     ),
