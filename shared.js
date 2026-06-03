@@ -2127,7 +2127,7 @@ function VueCarte({entries,active}){
 // ═══════════════════════════════════════════════════════════
 
 // ─── VueAnomalies ──────────────────────────────────────────────────────────
-function VueAnomalies({entries,onEdit,communes:communesProp,apiFetch,showToast,addLog}){
+function VueAnomalies({entries,onEdit,communes,apiFetch,showToast,addLog}){
   const CE=React.createElement;
   const CHAMPS_OBL=['statut','date','horaire','ampm','commune','lieu','thematique','conseiller','orienteur','public'];
   const LABELS={statut:'Statut',date:'Date',horaire:'Horaire',ampm:'AM/PM',commune:'Commune',lieu:'Lieu',thematique:'Thématique',conseiller:'Conseiller',orienteur:'Orienteur',public:'Public'};
@@ -2135,15 +2135,7 @@ function VueAnomalies({entries,onEdit,communes:communesProp,apiFetch,showToast,a
   const[saving,setSaving]=React.useState(null);
   const[corrections,setCorrections]=React.useState({});
   const[saved,setSaved]=React.useState({});
-  const[filtreConum,setFiltreConum]=React.useState('Tous');
-  const[communes,setCommunes]=React.useState(COMMUNES_47_CACHE||(communesProp&&communesProp.length>0?communesProp:[]));
-  const[loadingCommunes,setLoadingCommunes]=React.useState(!COMMUNES_47_CACHE||COMMUNES_47_CACHE.length===0);
-  React.useEffect(()=>{
-    if(communes&&communes.length>0){setLoadingCommunes(false);return;}
-    loadCommunes47().then(d=>{setCommunes(d);setLoadingCommunes(false);}).catch(()=>setLoadingCommunes(false));
-  },[]);
   const anomalies=React.useMemo(()=>{
-    if(!entries||!Array.isArray(entries))return[];
     const nomsCommunesOff=new Set(communes.map(c=>stripAccents(c.nom.toLowerCase())));
     return entries.map(e=>{
       const champsVides=CHAMPS_OBL.filter(k=>!e[k]||!String(e[k]).trim());
@@ -2152,65 +2144,55 @@ function VueAnomalies({entries,onEdit,communes:communesProp,apiFetch,showToast,a
         const q=stripAccents(e.commune.toLowerCase());
         if(!nomsCommunesOff.has(q)){
           communeInvalide=true;
-          // Levenshtein distance pour trouver la commune la plus proche
-          function lev(a,b){const m=a.length,n=b.length;const dp=Array.from({length:m+1},(_,i)=>Array.from({length:n+1},(_,j)=>i===0?j:j===0?i:0));for(let i=1;i<=m;i++)for(let j=1;j<=n;j++)dp[i][j]=a[i-1]===b[j-1]?dp[i-1][j-1]:1+Math.min(dp[i-1][j],dp[i][j-1],dp[i-1][j-1]);return dp[m][n];}
-          const scored=communes.map(c=>({nom:c.nom,d:lev(q,stripAccents(c.nom.toLowerCase()))})).sort((a,b)=>a.d-b.d);
-          if(scored.length>0&&scored[0].d<=3)communeSugg=scored[0].nom;
+          const matches=communes.filter(c=>stripAccents(c.nom.toLowerCase()).startsWith(q.substring(0,3))||q.startsWith(stripAccents(c.nom.toLowerCase()).substring(0,3)));
+          if(matches.length>0)communeSugg=matches[0].nom;
+          else{const c2=communes.find(c=>stripAccents(c.nom.toLowerCase()).includes(q.substring(0,4))||q.includes(stripAccents(c.nom.toLowerCase()).substring(0,4)));if(c2)communeSugg=c2.nom;}
         }
       }
       if(champsVides.length===0&&!communeInvalide)return null;
       return{e,champsVides,communeInvalide,communeSugg};
     }).filter(Boolean);
   },[entries,communes]);
-  const anomaliesFiltrees=filtreConum==='Tous'?anomalies:anomalies.filter(a=>a.e.conseiller===filtreConum||a.e.co_animateur===filtreConum);
-  const filtered=filter==='manquants'?anomaliesFiltrees.filter(a=>a.champsVides.length>0):filter==='communes'?anomaliesFiltrees.filter(a=>a.communeInvalide):anomaliesFiltrees;
+  const filtered=filter==='manquants'?anomalies.filter(a=>a.champsVides.length>0):filter==='communes'?anomalies.filter(a=>a.communeInvalide):anomalies;
   async function handleSaveCommune(entry,valeur){
     if(!valeur||!valeur.trim())return;
     setSaving(entry._id);
     try{
       const updated={...entry,commune:valeur.trim()};
       const res=await apiFetch('save',{entry:updated});
-      if(res&&res.ok){setSaved(s=>({...s,[entry._id]:true}));if(showToast)showToast('\u2705 Commune corrig\u00e9e');if(addLog)addLog('Commune corrig\u00e9e : '+entry._id,'ok');}
-      else{if(showToast)showToast('\u26a0\ufe0f Erreur sauvegarde');}
-    }catch(err){if(showToast)showToast('\u26a0\ufe0f Erreur : '+err.message);}
+      if(res&&res.ok){setSaved(s=>({...s,[entry._id]:true}));if(showToast)showToast('✅ Commune corrigée');if(addLog)addLog('Commune corrigée : '+entry._id,'ok');}
+      else{if(showToast)showToast('⚠️ Erreur sauvegarde');}
+    }catch(err){if(showToast)showToast('⚠️ Erreur : '+err.message);}
     setSaving(null);
   }
-  const nbTotal=anomaliesFiltrees.length,nbManquants=anomaliesFiltrees.filter(a=>a.champsVides.length>0).length,nbCommunes=anomaliesFiltrees.filter(a=>a.communeInvalide).length;
-  const conumsList=['Tous',...Array.from(new Set(anomalies.map(a=>a.e.conseiller).filter(Boolean))).sort()];
+  const nbTotal=anomalies.length,nbManquants=anomalies.filter(a=>a.champsVides.length>0).length,nbCommunes=anomalies.filter(a=>a.communeInvalide).length;
   return CE('div',{className:'card',style:{maxWidth:900,margin:'0 auto'}},
-    CE('div',{style:{display:'flex',alignItems:'center',gap:12,marginBottom:16}},CE('span',{style:{fontSize:22}},'\u26a0\ufe0f'),CE('div',null,CE('h2',{style:{margin:0,fontSize:16,fontWeight:700}},'Anomalies BDD'),CE('p',{style:{margin:0,fontSize:12,color:'#6b7280'}},nbTotal+' entr\u00e9e(s) avec anomalie(s) sur '+entries.length+' au total'))),
-    CE('div',{style:{display:'flex',gap:10,marginBottom:12,flexWrap:'wrap'}},
+    CE('div',{style:{display:'flex',alignItems:'center',gap:12,marginBottom:16}},CE('span',{style:{fontSize:22}},'⚠️'),CE('div',null,CE('h2',{style:{margin:0,fontSize:16,fontWeight:700}},'Anomalies BDD'),CE('p',{style:{margin:0,fontSize:12,color:'#6b7280'}},nbTotal+' entrée(s) avec anomalie(s) sur '+entries.length+' au total'))),
+    CE('div',{style:{display:'flex',gap:10,marginBottom:16,flexWrap:'wrap'}},
       CE('div',{style:{background:'#fef9c3',borderRadius:8,padding:'8px 14px',flex:'1',minWidth:120,cursor:'pointer',border:filter==='all'?'2px solid #ca8a04':'2px solid transparent'},onClick:()=>setFilter('all')},CE('div',{style:{fontSize:20,fontWeight:700,color:'#92400e'}},nbTotal),CE('div',{style:{fontSize:11,color:'#78350f'}},'Total anomalies')),
       CE('div',{style:{background:'#fee2e2',borderRadius:8,padding:'8px 14px',flex:'1',minWidth:120,cursor:'pointer',border:filter==='manquants'?'2px solid #dc2626':'2px solid transparent'},onClick:()=>setFilter('manquants')},CE('div',{style:{fontSize:20,fontWeight:700,color:'#b91c1c'}},nbManquants),CE('div',{style:{fontSize:11,color:'#7f1d1d'}},'Champs manquants')),
-      CE('div',{style:{background:'#ede9fe',borderRadius:8,padding:'8px 14px',flex:'1',minWidth:120,cursor:'pointer',border:filter==='communes'?'2px solid #7c3aed':'2px solid transparent'},onClick:()=>setFilter('communes')},CE('div',{style:{fontSize:20,fontWeight:700,color:'#6d28d9'}},nbCommunes),CE('div',{style:{fontSize:11,color:'#4c1d95'}},loadingCommunes?'\u23f3 Chargement\u2026':'Communes invalides'))
+      CE('div',{style:{background:'#ede9fe',borderRadius:8,padding:'8px 14px',flex:'1',minWidth:120,cursor:'pointer',border:filter==='communes'?'2px solid #7c3aed':'2px solid transparent'},onClick:()=>setFilter('communes')},CE('div',{style:{fontSize:20,fontWeight:700,color:'#6d28d9'}},nbCommunes),CE('div',{style:{fontSize:11,color:'#4c1d95'}},'Communes invalides'))
     ),
-    CE('div',{style:{display:'flex',alignItems:'center',gap:8,marginBottom:12}},
-      CE('label',{style:{fontSize:12,color:'#6b7280',fontWeight:600}},'\ud83d\udc64 Conseiller :'),
-      CE('select',{value:filtreConum,onChange:ev=>setFiltreConum(ev.target.value),style:{fontSize:12,padding:'4px 10px',borderRadius:6,border:'1px solid #d1d5db',background:'#fff',cursor:'pointer'}},
-        conumsList.map(c=>CE('option',{key:c,value:c},c))
-      ),
-      filtreConum!=='Tous'&&CE('button',{onClick:()=>setFiltreConum('Tous'),style:{fontSize:11,padding:'2px 8px',borderRadius:10,border:'none',background:'#e5e7eb',color:'#374151',cursor:'pointer'}},'\u2715 Tous')
-    ),
-    filtered.length===0?CE('div',{style:{textAlign:'center',padding:'40px 0',color:'#16a34a',fontSize:14}},CE('div',{style:{fontSize:32,marginBottom:8}},'\u2705'),'Aucune anomalie dans cette cat\u00e9gorie'):
+    filtered.length===0?CE('div',{style:{textAlign:'center',padding:'40px 0',color:'#16a34a',fontSize:14}},CE('div',{style:{fontSize:32,marginBottom:8}},'✅'),'Aucune anomalie dans cette catégorie'):
     CE('div',{style:{display:'flex',flexDirection:'column',gap:8}},
       filtered.map(({e,champsVides,communeInvalide,communeSugg})=>{
         const corrVal=corrections[e._id]?.commune!==undefined?corrections[e._id].commune:(communeSugg||e.commune||'');
         const estCorrige=saved[e._id];
         return CE('div',{key:e._id,style:{background:estCorrige?'#f0fdf4':'#fff',border:'1px solid '+(estCorrige?'#86efac':'#e5e7eb'),borderRadius:8,padding:'10px 14px'}},
           CE('div',{style:{display:'flex',alignItems:'center',gap:8,marginBottom:6,flexWrap:'wrap'}},
-            CE('span',{style:{fontWeight:700,fontSize:12,color:'#374151',flex:1}},[e.thematique,e.commune,e.date].filter(Boolean).join(' \u2014 ')||e._id),
-            estCorrige&&CE('span',{style:{fontSize:11,color:'#16a34a',fontWeight:600}},'\u2705 Corrig\u00e9'),
-            onEdit&&CE('button',{onClick:()=>onEdit(e._id),style:{fontSize:11,padding:'2px 8px',borderRadius:4,border:'1px solid #3b82f6',background:'#eff6ff',color:'#1d4ed8',cursor:'pointer'}},'\u270f\ufe0f Ouvrir')
+            CE('span',{style:{fontWeight:700,fontSize:12,color:'#374151',flex:1}},[e.thematique,e.commune,e.date].filter(Boolean).join(' — ')||e._id),
+            estCorrige&&CE('span',{style:{fontSize:11,color:'#16a34a',fontWeight:600}},'✅ Corrigé'),
+            onEdit&&CE('button',{onClick:()=>onEdit(e._id),style:{fontSize:11,padding:'2px 8px',borderRadius:4,border:'1px solid #3b82f6',background:'#eff6ff',color:'#1d4ed8',cursor:'pointer'}},'✏️ Ouvrir')
           ),
           champsVides.length>0&&CE('div',{style:{marginBottom:communeInvalide?6:0}},CE('div',{style:{fontSize:11,color:'#9ca3af',marginBottom:4}},'Champs obligatoires vides :'),CE('div',{style:{display:'flex',gap:4,flexWrap:'wrap'}},champsVides.map(k=>CE('span',{key:k,style:{background:'#fee2e2',color:'#b91c1c',fontSize:11,padding:'1px 7px',borderRadius:10,fontWeight:600}},LABELS[k]||k)))),
           communeInvalide&&!estCorrige&&CE('div',{style:{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap',marginTop:4}},
             CE('div',{style:{fontSize:11,color:'#9ca3af',whiteSpace:'nowrap'}},'Commune invalide :'),
             CE('span',{style:{background:'#ede9fe',color:'#6d28d9',fontSize:11,padding:'1px 7px',borderRadius:10,fontWeight:600}},e.commune),
             apiFetch&&CE(React.Fragment,null,
-              CE('span',{style:{fontSize:11,color:'#9ca3af'}},'\u2192 Corriger :'),
-              CE('input',{type:'text',value:corrVal,list:'communes-datalist-ano',placeholder:'Commune officielle\u2026',style:{fontSize:11,padding:'2px 6px',borderRadius:4,border:'1px solid #d1d5db',width:160},onChange:ev=>setCorrections(s=>({...s,[e._id]:{...(s[e._id]||{}),commune:ev.target.value}}))}),
+              CE('span',{style:{fontSize:11,color:'#9ca3af'}},'→ Corriger :'),
+              CE('input',{type:'text',value:corrVal,list:'communes-datalist-ano',placeholder:'Commune officielle…',style:{fontSize:11,padding:'2px 6px',borderRadius:4,border:'1px solid #d1d5db',width:160},onChange:ev=>setCorrections(s=>({...s,[e._id]:{...(s[e._id]||{}),commune:ev.target.value}}))}),
               CE('datalist',{id:'communes-datalist-ano'},(communes||[]).slice(0,300).map(c=>CE('option',{key:c.nom,value:c.nom}))),
-              CE('button',{disabled:saving===e._id||!corrVal.trim(),onClick:()=>handleSaveCommune(e,corrVal),style:{fontSize:11,padding:'2px 8px',borderRadius:4,border:'none',background:saving===e._id?'#e5e7eb':'#7c3aed',color:saving===e._id?'#6b7280':'#fff',cursor:saving===e._id?'default':'pointer'}},saving===e._id?'\u2026':'\ud83d\udcbe Sauver')
+              CE('button',{disabled:saving===e._id||!corrVal.trim(),onClick:()=>handleSaveCommune(e,corrVal),style:{fontSize:11,padding:'2px 8px',borderRadius:4,border:'none',background:saving===e._id?'#e5e7eb':'#7c3aed',color:saving===e._id?'#6b7280':'#fff',cursor:saving===e._id?'default':'pointer'}},saving===e._id?'…':'💾 Sauver')
             )
           )
         );
@@ -2834,7 +2816,26 @@ function VuePowerBI({entries, conseillers: conseillersList}){
         ),
 
         CE(CardPBI,{title:'Détail communes'},
-          CE(TableCommunes,{fd})
+          CE('div',{style:{overflowX:'auto'}},
+            CE('table',{style:{width:'100%',borderCollapse:'collapse',fontSize:11}},
+              CE('thead',null,CE('tr',null,
+                ['Commune','Ateliers','Présents','Inscrits'].map(h=>CE('th',{key:h,style:{padding:'6px 8px',textAlign:'left',fontWeight:700,color:'#6b7280',borderBottom:'2px solid #e5e7eb',fontSize:10}},h))
+              )),
+              CE('tbody',null,
+                [...new Set(fd.map(d=>d.commune).filter(Boolean))].map(comm=>{
+                  const rows=fd.filter(d=>d.commune===comm);
+                  const pre=rows.reduce((s,d)=>s+(parseInt(d.presents)||0),0);
+                  const ins=rows.reduce((s,d)=>s+(parseInt(d.inscrits)||0),0);
+                  return CE('tr',{key:comm,style:{borderBottom:'1px solid #f0f4f8'}},
+                    CE('td',{style:{padding:'6px 8px',fontWeight:600}},comm),
+                    CE('td',{style:{padding:'6px 8px'}},rows.length),
+                    CE('td',{style:{padding:'6px 8px',color:'#16a34a',fontWeight:600}},pre),
+                    CE('td',{style:{padding:'6px 8px',color:'#2563eb'}},ins)
+                  );
+                }).sort((a,b)=>b.props.children[1].props.children-a.props.children[1].props.children)
+              )
+            )
+          )
         )
       ),
 
