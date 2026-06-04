@@ -2190,7 +2190,9 @@ function VueCarte({entries,active}){
     });
     function markerColor(pct){if(pct>=70)return{fill:'#22c55e',stroke:'#166534'};if(pct>=40)return{fill:'#f97316',stroke:'#9a3412'};return{fill:'#3b82f6',stroke:'#1d4ed8'};}
     Object.entries(byC).forEach(([commune,s])=>{
-      const g=COMMUNES_GPS[commune];if(!g)return;
+      const normC=commune.toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/-/g,' ').replace(/\s*\(\d+\)\s*/g,'').trim();
+      const g=COMMUNES_GPS[commune]||COMMUNES_GPS[normC]||Object.entries(COMMUNES_GPS).find(([k])=>k.toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/-/g,' ').trim()===normC)?.[1];
+      if(!g)return;
       const pct=s.total>0?Math.round(s.realises/s.total*100):0;
       let fillColor,strokeColor;
       if(mode==='conum'&&filtreConum!=='Tous'){
