@@ -31,6 +31,7 @@ function AdminLogin({onLogin,savedName,onResetProfil}){
   const[failCount,setFailCount]=React.useState(0);
   const[lockUntil,setLockUntil]=React.useState(0);
   const[countdown,setCountdown]=React.useState(0);
+  const[conseiller,setConseiller]=React.useState(savedName&&savedName!=='admin'?savedName:(CONSEILLERS_DEFAULT[0]||''));
 
   // Tick du countdown
   React.useEffect(()=>{
@@ -56,13 +57,12 @@ function AdminLogin({onLogin,savedName,onResetProfil}){
     const t3=isMobile?setTimeout(()=>setHint('Réseau mobile détecté, patience…'),12000):null;
     try{
       const res=await Promise.race([
-        apiFetch('checkPassword',{pwd}),
+        apiFetch('checkPassword',{conseiller,pwd,userAgent:navigator.userAgent}),
         new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')),isMobile?25000:10000))
       ]);
       if(res.ok){
-        
         setFailCount(0);setLockUntil(0);
-        touchSession();onLogin();
+        touchSession();onLogin(res.role||'user');
       }else{
         const nf=failCount+1;
         setFailCount(nf);
@@ -95,6 +95,12 @@ function AdminLogin({onLogin,savedName,onResetProfil}){
             CE('div',{style:{fontSize:12,color:'#9ca3af',marginTop:4}},'Trop de tentatives incorrectes')
           )
         : CE(React.Fragment,null,
+            CE('div',{style:{marginBottom:10}},
+              CE('label',{style:{fontSize:12,fontWeight:600,color:'#4a5568',display:'block',marginBottom:4}},'Conseiller'),
+              CE('select',{value:conseiller,onChange:e=>setConseiller(e.target.value),style:{width:'100%',padding:'10px 14px',border:'1px solid #e2e8f0',borderRadius:8,fontSize:14,outline:'none',boxSizing:'border-box',background:'#fff'}},
+                CONSEILLERS_DEFAULT.map(c=>CE('option',{key:c,value:c},c))
+              )
+            ),
             CE('div',{style:{position:'relative',marginBottom:10}},
               CE('input',{
                 type:show?'text':'password',placeholder:'Mot de passe',value:pwd,
@@ -275,7 +281,8 @@ function App(){
     return Object.entries(STATUS_PALETTE).filter(([s])=>c[s]>0).map(([s,color])=>({s,v:c[s],color}));
   },[entries]);
 
-  if(!auth)return CE(AdminLogin,{onLogin:()=>setAuth(true),savedName:adminConseiller,onResetProfil:()=>{localStorage.removeItem('adm_conseiller');setAdminConseiller('');}})
+  const[role,setRole]=React.useState('');
+  if(!auth)return CE(AdminLogin,{onLogin:(r)=>{setAuth(true);setRole(r||'user');},savedName:adminConseiller,onResetProfil:()=>{localStorage.removeItem('adm_conseiller');setAdminConseiller('');}})
 
   if(!adminConseiller)return CE('div',{className:'login-wrap'},
     CE('div',{className:'login-card'},
@@ -356,8 +363,9 @@ function App(){
         CE('span',{className:'sidebar-btn-ico'},'📋'),
         CE('span',{className:'sidebar-btn-lbl'},'Listes')
       ),
-      sideBtn('admin','⚙️','Admin'),
       sideBtn('logs','📜','Logs'),
+      role==='admin'&&sideBtn('admin','⚙️','Admin'),
+      role==='admin'&&sideBtn('logs_connexion','🔐','Connexions'),
 
       // Bas : sélecteur année + notifs
       CE('div',{className:'sidebar-bottom'},
@@ -431,7 +439,8 @@ function App(){
           view==='bingo'&&CE(VueBingo,{entries}),
           view==='anomalies'&&CE(VueAnomalies,{entries,onEdit:(id)=>{setEditingId(id);setPrefillData(null);setView('saisie');},communes:window.COMMUNES_47_CACHE||[],apiFetch,showToast,addLog}),
 
-          view==='admin'&&CE(VueAdmin,{entries,onRefresh:loadData,addLog,conseillersList:lists.conseillers,onSaveColors:(c)=>{applyColors(c);},annee}),
+          view==='admin'&&role==='admin'&&CE(VueAdmin,{entries,onRefresh:loadData,addLog,conseillersList:lists.conseillers,onSaveColors:(c)=>{applyColors(c);},annee,adminConseiller}),
+          view==='logs_connexion'&&role==='admin'&&CE(VueLogs,null),
           view==='logs'&&CE('div',{className:'card'},
             CE('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14,flexWrap:'wrap',gap:8}},
               CE('h2',{style:{margin:0}},'📜 Journal des opérations'),
@@ -654,7 +663,8 @@ function ImportRapportModal({rapport,onClose}){
 // ════════════════════════════════════════════════════════════
 // ════════════════════════════════════════════════════════════
 
-function ChangerMotDePasse(){
+function ChangerMotDePasse({adminConseiller}){
+  const[currentPwd,setCurrentPwd]=React.useState('');
   const[pwd,setPwd]=React.useState('');
   const[pwd2,setPwd2]=React.useState('');
   const[show,setShow]=React.useState(false);
@@ -662,12 +672,13 @@ function ChangerMotDePasse(){
   const[msg,setMsg]=React.useState(null);
 
   async function handleSave(){
+    if(!currentPwd){setMsg({ok:false,txt:'Mot de passe actuel requis'});return;}
     if(pwd.length<4){setMsg({ok:false,txt:'4 caractères minimum'});return;}
     if(pwd!==pwd2){setMsg({ok:false,txt:'Les mots de passe ne correspondent pas'});return;}
     setSaving(true);setMsg(null);
     try{
-      const res=await apiFetch('setPassword',{pwd});
-      if(res.ok){setMsg({ok:true,txt:'✅ Mot de passe mis à jour'});setPwd('');setPwd2('');}
+      const res=await apiFetch('setPassword',{conseiller:adminConseiller,currentPwd,pwd});
+      if(res.ok){setMsg({ok:true,txt:'✅ Mot de passe mis à jour'});setCurrentPwd('');setPwd('');setPwd2('');}
       else setMsg({ok:false,txt:res.error||'Erreur'});
     }catch(e){setMsg({ok:false,txt:'Erreur réseau'});}
     finally{setSaving(false);}
@@ -677,8 +688,15 @@ function ChangerMotDePasse(){
   const eyeStyle={position:'absolute',right:8,top:'50%',transform:'translateY(-50%)',background:'none',border:'none',cursor:'pointer',fontSize:14,color:'#718096',padding:0};
 
   return CE('div',{className:'admin-section'},
-    CE('h3',null,'🔑 Changer le mot de passe admin'),
+    CE('h3',null,'🔑 Changer le mot de passe'),
     CE('div',{style:{display:'flex',gap:10,flexWrap:'wrap',alignItems:'flex-end'}},
+      CE('div',null,
+        CE('label',null,'Mot de passe actuel'),
+        CE('div',{style:{position:'relative'}},
+          CE('input',{type:show?'text':'password',value:currentPwd,onChange:e=>setCurrentPwd(e.target.value),placeholder:'Mot de passe actuel',style:inputStyle}),
+          CE('button',{onClick:()=>setShow(s=>!s),style:eyeStyle},show?'🙈':'👁️')
+        )
+      ),
       CE('div',null,
         CE('label',null,'Nouveau mot de passe'),
         CE('div',{style:{position:'relative'}},
@@ -693,14 +711,58 @@ function ChangerMotDePasse(){
           CE('button',{onClick:()=>setShow(s=>!s),style:eyeStyle},show?'🙈':'👁️')
         )
       ),
-      CE('button',{className:'btn btn-primary',disabled:saving||!pwd||!pwd2,onClick:handleSave,style:{alignSelf:'flex-end'}},saving?'Sauvegarde…':'💾 Sauvegarder')
+      CE('button',{className:'btn btn-primary',disabled:saving||!currentPwd||!pwd||!pwd2,onClick:handleSave,style:{alignSelf:'flex-end'}},saving?'Sauvegarde…':'💾 Sauvegarder')
     ),
     msg&&CE('p',{style:{marginTop:8,fontSize:13,color:msg.ok?'#276749':'#c53030'}},msg.txt)
   );
 }
 
+// ── VueLogs : audit des connexions (admin seulement) ─────────
+function VueLogs(){
+  const[logs,setLogs]=React.useState([]);
+  const[loading,setLoading]=React.useState(true);
+  const[err,setErr]=React.useState('');
+  const[filter,setFilter]=React.useState('all');
+  React.useEffect(()=>{
+    apiFetch('getLogs',{n:100})
+      .then(res=>{if(res.ok)setLogs(res.logs||[]);else setErr(res.error||'Erreur');})
+      .catch(e=>setErr('Erreur réseau : '+e.message))
+      .finally(()=>setLoading(false));
+  },[]);
+  const filtered=filter==='all'?logs:filter==='ok'?logs.filter(l=>l.success):logs.filter(l=>!l.success);
+  function formatTs(ts){if(!ts)return'—';try{return new Date(ts).toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});}catch{return ts;}}
+  return CE('div',{className:'card'},
+    CE('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:16,flexWrap:'wrap',gap:8}},
+      CE('h2',{style:{margin:0}},'🔐 Logs de connexion'),
+      CE('div',{style:{display:'flex',gap:6}},
+        ['all','ok','err'].map(f=>CE('button',{key:f,onClick:()=>setFilter(f),style:{fontSize:11,padding:'3px 10px',borderRadius:6,cursor:'pointer',fontWeight:filter===f?700:400,border:filter===f?'1.5px solid #1e3a8a':'1px solid #e2e8f0',background:filter===f?'#eff6ff':'#f8fafc',color:filter===f?'#1e3a8a':f==='ok'?'#16a34a':f==='err'?'#dc2626':'#718096'}},{all:'Tous',ok:'✅ Succès',err:'❌ Échecs'}[f]))
+      )
+    ),
+    loading&&CE('div',{style:{color:'#9ca3af',padding:'20px 0',display:'flex',gap:10,alignItems:'center'}},CE('span',{className:'spinner',style:{width:18,height:18,borderWidth:2}}),'Chargement…'),
+    err&&CE('p',{style:{color:'#dc2626',fontSize:13}},err),
+    !loading&&!err&&CE(React.Fragment,null,
+      CE('p',{style:{fontSize:12,color:'#9ca3af',marginBottom:12}},filtered.length+' entrée'+(filtered.length>1?'s':'')),
+      filtered.length===0
+        ?CE('p',{style:{color:'#718096',fontSize:13}},'Aucune entrée.')
+        :CE('div',{style:{overflowX:'auto'}},
+          CE('table',{style:{width:'100%',borderCollapse:'collapse',fontSize:12}},
+            CE('thead',null,CE('tr',null,['Horodatage','Conseiller','Rôle','Résultat','Tentatives','Appareil'].map(h=>CE('th',{key:h,style:{padding:'8px 10px',textAlign:'left',fontWeight:700,color:'#4a5568',borderBottom:'2px solid #e2e8f0',background:'#f7fafc',whiteSpace:'nowrap'}},h)))),
+            CE('tbody',null,filtered.map((l,i)=>CE('tr',{key:i,style:{background:l.success?(i%2===0?'#f0fdf4':'#fff'):(i%2===0?'#fff5f5':'#fff')}},
+              CE('td',{style:{padding:'6px 10px',borderBottom:'1px solid #f0f0f0',whiteSpace:'nowrap',color:'#4a5568'}},formatTs(l.timestamp)),
+              CE('td',{style:{padding:'6px 10px',borderBottom:'1px solid #f0f0f0',fontWeight:600}},l.conseiller||'—'),
+              CE('td',{style:{padding:'6px 10px',borderBottom:'1px solid #f0f0f0'}},CE('span',{style:{display:'inline-block',padding:'2px 8px',borderRadius:10,fontSize:11,fontWeight:700,background:l.role==='admin'?'#ede9fe':'#dbeafe',color:l.role==='admin'?'#6d28d9':'#1d4ed8'}},l.role||'—')),
+              CE('td',{style:{padding:'6px 10px',borderBottom:'1px solid #f0f0f0'}},CE('span',{style:{display:'inline-block',padding:'2px 8px',borderRadius:10,fontSize:11,fontWeight:700,background:l.success?'#dcfce7':'#fee2e2',color:l.success?'#166534':'#991b1b'}},l.success?'✅ Succès':'❌ Échec')),
+              CE('td',{style:{padding:'6px 10px',borderBottom:'1px solid #f0f0f0',textAlign:'center',color:l.tentatives>0?'#dc2626':'#9ca3af',fontWeight:l.tentatives>0?700:400}},l.tentatives||0),
+              CE('td',{style:{padding:'6px 10px',borderBottom:'1px solid #f0f0f0',fontSize:10,color:'#9ca3af',maxWidth:200,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}},l.user_agent||'—')
+            )))
+          )
+        )
+    )
+  );
+}
+
 // ── VueAdmin override ──────────────────────────────────────
-function VueAdminV10({entries,onRefresh,addLog,conseillersList,onSaveColors,annee}){
+function VueAdminV10({entries,onRefresh,addLog,conseillersList,onSaveColors,annee,adminConseiller}){
   const adminRef=React.useRef(null);
   React.useEffect(()=>{
     if(!adminRef.current)return;
@@ -1058,7 +1120,7 @@ function VueAdminV10({entries,onRefresh,addLog,conseillersList,onSaveColors,anne
           CE('a',{href:lastExport.url,download:lastExport.name,style:{color:'#276749',fontWeight:700,textDecoration:'underline'}},lastExport.name)
         )
       ),
-      CE(ChangerMotDePasse,null)
+      CE(ChangerMotDePasse,{adminConseiller})
     )
   );
 }
