@@ -31,7 +31,9 @@ function AdminLogin({onLogin,savedName,onResetProfil}){
   const[failCount,setFailCount]=React.useState(0);
   const[lockUntil,setLockUntil]=React.useState(0);
   const[countdown,setCountdown]=React.useState(0);
+  const[actifList,setActifList]=React.useState(CONSEILLERS_DEFAULT);
   const[conseiller,setConseiller]=React.useState(savedName&&savedName!=='admin'?savedName:(CONSEILLERS_DEFAULT[0]||''));
+  React.useEffect(()=>{apiFetch('getComptes').then(res=>{if(res.ok&&res.comptes){const list=res.comptes.filter(c=>c.actif!=='NON').map(c=>c.conseiller);if(list.length>0){setActifList(list);if(!list.includes(conseiller))setConseiller(list[0]);}}}).catch(()=>{});},[]);
 
   // Tick du countdown
   React.useEffect(()=>{
@@ -98,7 +100,7 @@ function AdminLogin({onLogin,savedName,onResetProfil}){
             CE('div',{style:{marginBottom:10}},
               CE('label',{style:{fontSize:12,fontWeight:600,color:'#4a5568',display:'block',marginBottom:4}},'Conseiller'),
               CE('select',{value:conseiller,onChange:e=>setConseiller(e.target.value),style:{width:'100%',padding:'10px 14px',border:'1px solid #e2e8f0',borderRadius:8,fontSize:14,outline:'none',boxSizing:'border-box',background:'#fff'}},
-                CONSEILLERS_DEFAULT.map(c=>CE('option',{key:c,value:c},c))
+                actifList.map(c=>CE('option',{key:c,value:c},c))
               )
             ),
             CE('div',{style:{position:'relative',marginBottom:10}},

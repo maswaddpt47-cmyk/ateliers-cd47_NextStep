@@ -700,6 +700,8 @@ function VueListes({lists,onSave,onClose,emails,onSaveEmails}){
   const[emailDraft,setEmailDraft]=React.useState(()=>Object.assign({},emails||{}));
   const[rappelsActif,setRappelsActif]=React.useState({});
   const[rappelsSaving,setRappelsSaving]=React.useState(false);
+  const[comptes,setComptes]=React.useState({});   // { CONSEILLER: {role, actif} }
+  const[comptesSaving,setComptesSaving]=React.useState({});
 
   const items=draft[activeTab];
   function setItems(fn){setDraft(d=>({...d,[activeTab]:fn(d[activeTab])}));setEditIdx(null);}
@@ -726,12 +728,23 @@ function VueListes({lists,onSave,onClose,emails,onSaveEmails}){
   React.useEffect(()=>{function k(e){if(e.key==='Escape')onClose();}document.addEventListener('keydown',k);return()=>document.removeEventListener('keydown',k);},[]);
   React.useEffect(()=>{setNewVal('');setEditIdx(null);},[activeTab]);
   React.useEffect(()=>{apiFetch('getConfig').then(res=>{if(res.ok&&res.config){try{setRappelsActif(JSON.parse(res.config['rappels_actifs']||'{}'));}catch(_){setRappelsActif({});}}}).catch(()=>{});},[]);
+  React.useEffect(()=>{if(activeTab==='conseillers'){apiFetch('getComptes').then(res=>{if(res.ok&&res.comptes){const m={};res.comptes.forEach(c=>{m[c.conseiller]={role:c.role||'user',actif:c.actif};});setComptes(m);}}).catch(()=>{});}},[activeTab]);
 
   async function handleSaveRappels(newObj){
     setRappelsSaving(true);
     try{const res=await apiFetch('setConfig',{key:'rappels_actifs',value:JSON.stringify(newObj)});if(res&&res.ok){setRappelsActif(newObj);}else throw new Error(res.error);}
     catch(err){showToast('❌ '+err.message,false);}
     finally{setRappelsSaving(false);}
+  }
+  async function handleToggleActif(nom,newActif){
+    setComptesSaving(s=>({...s,[nom]:true}));
+    const existing=comptes[nom]||{role:'user'};
+    try{
+      const res=await apiFetch('saveCompte',{conseiller:nom,role:existing.role,actif:newActif?'OUI':'NON'});
+      if(res&&res.ok){setComptes(m=>({...m,[nom]:{...existing,actif:newActif?'OUI':'NON'}}));showToast(newActif?'✅ '+nom+' activé':'🔕 '+nom+' désactivé');}
+      else showToast('❌ Erreur GAS',false);
+    }catch(_){showToast('❌ Hors-ligne',false);}
+    finally{setComptesSaving(s=>({...s,[nom]:false}));}
   }
   return CE('div',{className:'listes-overlay',onClick:e=>{if(e.target.className==='listes-overlay')onClose();}},
     CE('div',{className:'listes-modal'},
@@ -778,6 +791,17 @@ function VueListes({lists,onSave,onClose,emails,onSaveEmails}){
               CE('input',{type:'checkbox',checked:rappelsActif[item]!==false,disabled:rappelsSaving,
                 onChange:e=>{const n={...rappelsActif,[item]:e.target.checked};handleSaveRappels(n);}}),
               CE('span',{className:'tgl-track'})
+            ),
+            CE('label',{
+              title:(comptes[item]?.actif!=='NON'?'Compte actif (visible au login) — cliquer pour désactiver':'Compte inactif (caché au login) — cliquer pour activer'),
+              style:{flexShrink:0,display:'flex',flexDirection:'column',alignItems:'center',fontSize:10,color:comptes[item]?.actif!=='NON'?'#22543d':'#9ca3af',gap:2}
+            },
+              CE('label',{className:'tgl',style:{marginBottom:0}},
+                CE('input',{type:'checkbox',checked:comptes[item]?.actif!=='NON',disabled:!!comptesSaving[item],
+                  onChange:e=>handleToggleActif(item,e.target.checked)}),
+                CE('span',{className:'tgl-track',style:comptes[item]?.actif==='NON'?{background:'#e2e8f0'}:{}})
+              ),
+              CE('span',null,comptes[item]?.actif!=='NON'?'actif':'inactif')
             )
           ),
           CE('div',{className:'listes-actions'},
