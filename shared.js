@@ -328,7 +328,8 @@ tr:hover td{background:#f7fafc}
 .chip-nonrealise.active{background:#f1f5f9;color:#475569}
 .chip-dot{width:7px;height:7px;border-radius:50%;background:currentColor;flex-shrink:0}
 .kpi-row{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}
-.kpi-mini{flex:1;min-width:60px;background:#fff;border-radius:8px;padding:10px 8px;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+@keyframes kpiSlideUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+.kpi-mini{flex:1;min-width:60px;background:#fff;border-radius:8px;padding:10px 8px;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,.08);animation:kpiSlideUp .38s cubic-bezier(.22,.68,0,1.2) both}
 .kpi-mini .v{font-size:22px;font-weight:800;line-height:1}
 .kpi-mini .l{font-size:10px;color:#718096;margin-top:2px}
 .kpi-mini .p{font-size:10px;font-weight:600;margin-top:1px}
@@ -1466,12 +1467,12 @@ function VueCalendrier({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
         conseillersCal.map(c=>CE('span',{key:c,className:'chip'+(filtConseiller===c?' active':''),style:{color:conseillerColor(c)},onClick:()=>{setFiltConseiller(f=>f===c?'Tous':c);if(onChangeConseiller)onChangeConseiller(filtConseiller===c?'Tous':c);}},
           CE('span',{className:'chip-dot',style:{background:conseillerColor(c)}}),c))
       ),
-      CE('div',{style:{display:'flex',gap:8,flexWrap:'wrap'}},
-        CE('div',{className:'kpi-mini',style:{flex:'1 1 70px',borderLeft:'3px solid #1e3a8a',background:'#f0f4ff'}},CE('div',{className:'v',style:{color:'#1e3a8a',fontSize:20}},kpi.total),CE('div',{className:'l'},'Ateliers')),
-        CE('div',{className:'kpi-mini',style:{flex:'1 1 70px',borderLeft:'3px solid #16a34a',background:'#f0fdf4'}},CE('div',{className:'v',style:{color:'#166534',fontSize:20}},kpi.realises),CE('div',{className:'l'},'Réalisés')),
-        CE('div',{className:'kpi-mini',style:{flex:'1 1 70px',borderLeft:'3px solid #2563eb',background:'#eff6ff'}},CE('div',{className:'v',style:{color:'#2563eb',fontSize:20}},kpi.planifies),CE('div',{className:'l'},'Planifiés')),
-        CE('div',{className:'kpi-mini',style:{flex:'1 1 70px',borderLeft:'3px solid #7c3aed',background:'#faf5ff'}},CE('div',{className:'v',style:{color:'#7c3aed',fontSize:20}},kpi.inscrits),CE('div',{className:'l'},'Inscrits')),
-        CE('div',{className:'kpi-mini',style:{flex:'1 1 70px',borderLeft:'3px solid #0891b2',background:'#ecfeff'}},CE('div',{className:'v',style:{color:'#0891b2',fontSize:20}},kpi.presents),CE('div',{className:'l'},'Présents'))
+      CE('div',{key:monthStr,style:{display:'flex',gap:8,flexWrap:'wrap'}},
+        CE('div',{className:'kpi-mini',style:{flex:'1 1 70px',borderLeft:'3px solid #1e3a8a',background:'#f0f4ff',animationDelay:'.00s'}},CE('div',{className:'v',style:{color:'#1e3a8a',fontSize:20}},kpi.total),CE('div',{className:'l'},'Ateliers')),
+        CE('div',{className:'kpi-mini',style:{flex:'1 1 70px',borderLeft:'3px solid #16a34a',background:'#f0fdf4',animationDelay:'.07s'}},CE('div',{className:'v',style:{color:'#166534',fontSize:20}},kpi.realises),CE('div',{className:'l'},'Réalisés')),
+        CE('div',{className:'kpi-mini',style:{flex:'1 1 70px',borderLeft:'3px solid #2563eb',background:'#eff6ff',animationDelay:'.14s'}},CE('div',{className:'v',style:{color:'#2563eb',fontSize:20}},kpi.planifies),CE('div',{className:'l'},'Planifiés')),
+        CE('div',{className:'kpi-mini',style:{flex:'1 1 70px',borderLeft:'3px solid #7c3aed',background:'#faf5ff',animationDelay:'.21s'}},CE('div',{className:'v',style:{color:'#7c3aed',fontSize:20}},kpi.inscrits),CE('div',{className:'l'},'Inscrits')),
+        CE('div',{className:'kpi-mini',style:{flex:'1 1 70px',borderLeft:'3px solid #0891b2',background:'#ecfeff',animationDelay:'.28s'}},CE('div',{className:'v',style:{color:'#0891b2',fontSize:20}},kpi.presents),CE('div',{className:'l'},'Présents'))
       )
     ),
     // ── Grille ──
