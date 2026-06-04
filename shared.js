@@ -2343,7 +2343,7 @@ function VueCarte({entries,active}){
 function VueAnomalies({entries,onEdit,communes:communesProp,apiFetch,showToast,addLog}){
   const CE=React.createElement;
   const CHAMPS_OBL=['statut','date','horaire','ampm','commune','lieu','thematique','conseiller','orienteur','public'];
-  const LABELS={statut:'Statut',date:'Date',horaire:'Horaire',ampm:'AM/PM',commune:'Commune',lieu:'Lieu',thematique:'Thématique',conseiller:'Conseiller',orienteur:'Orienteur',public:'Public'};
+  const LABELS={statut:'Statut',date:'Date',horaire:'Horaire',ampm:'AM/PM',commune:'Commune',lieu:'Lieu',thematique:'Thématique',conseiller:'Conseiller',orienteur:'Orienteur',public:'Public',inscrits:'Inscrits',presents:'Présents'};
   const[filter,setFilter]=React.useState('all');
   const[saving,setSaving]=React.useState(null);
   const[corrections,setCorrections]=React.useState({});
@@ -2359,7 +2359,11 @@ function VueAnomalies({entries,onEdit,communes:communesProp,apiFetch,showToast,a
     if(!entries||!Array.isArray(entries))return[];
     const nomsCommunesOff=new Set(communes.map(c=>stripAccents(c.nom.toLowerCase())));
     return entries.map(e=>{
-      const champsVides=CHAMPS_OBL.filter(k=>!e[k]||!String(e[k]).trim());
+      const champsVides=[
+        ...CHAMPS_OBL.filter(k=>!e[k]||!String(e[k]).trim()),
+        ...(e.inscrits===''||e.inscrits===null||e.inscrits===undefined?['inscrits']:[]),
+        ...(e.statut==='Réalisé'&&(e.presents===''||e.presents===null||e.presents===undefined)?['presents']:[]),
+      ];
       let communeInvalide=false,communeSugg=null;
       if(e.commune&&communes.length>0){
         const q=stripAccents(e.commune.replace(/\s*\(\d+\)\s*/g,'').trim().toLowerCase());
