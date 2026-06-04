@@ -42,6 +42,8 @@ function App(){
   const[lastSync,setLastSync]      = React.useState(null);
   const[online,setOnline]          = React.useState(navigator.onLine);
   const[showPicker,setShowPicker]   = React.useState(false);
+  const[inactifsSet,setInactifsSet] = React.useState(new Set());
+  React.useEffect(()=>{apiFetch('getComptes').then(res=>{if(res.ok&&res.comptes){setInactifsSet(new Set(res.comptes.filter(c=>c.actif==='NON').map(c=>c.conseiller)));}}).catch(()=>{});},[]);
   const[sidebarPinned,setSidebarPinned] = React.useState(()=>localStorage.getItem('sidebar_pinned')==='1');
 
   // Ref pour l'event delegation sur les vues avec filtre conseiller
@@ -235,12 +237,14 @@ function App(){
                   );
                 })
               ),
-              CE(VueAccueil,{conseillers:lists.conseillers,onChoix:handleChoixConseiller,loading})
+              CE(VueAccueil,{conseillers:conseillerActifs,onChoix:handleChoixConseiller,loading})
             )
       ),
       CE('div',{id:'toast',className:'toast',style:{opacity:0}})
     );
   }
+
+  const conseillerActifs = lists.conseillers.filter(c=>!inactifsSet.has(c));
 
   // ── Vue principale avec sidebar ───────────────────────────────
   const accentColor = filtreConseiller ? conseillerColor(filtreConseiller) : NAV_DEFAULT_COLOR;
@@ -336,7 +340,7 @@ function App(){
               CE('span',{style:{fontSize:10,opacity:.75}},' ▾')
             ),
             showPicker&&CE('div',{className:'conseiller-picker'},
-              lists.conseillers.map(c=>CE('div',{
+              conseillerActifs.map(c=>CE('div',{
                 key:c,
                 className:'conseiller-picker-item'+(c===filtreConseiller?' active':''),
                 onClick:()=>handleChoixConseiller(c)
