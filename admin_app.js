@@ -33,7 +33,17 @@ function AdminLogin({onLogin,savedName,onResetProfil}){
   const[countdown,setCountdown]=React.useState(0);
   const[actifList,setActifList]=React.useState(CONSEILLERS_DEFAULT);
   const[conseiller,setConseiller]=React.useState(savedName&&savedName!=='admin'?savedName:(CONSEILLERS_DEFAULT[0]||''));
-  React.useEffect(()=>{apiFetch('getComptes').then(res=>{if(res.ok&&res.comptes){const inactifs=new Set(res.comptes.filter(c=>c.actif==='NON').map(c=>c.conseiller));const list=CONSEILLERS_DEFAULT.filter(c=>!inactifs.has(c));if(list.length>0){setActifList(list);if(!list.includes(conseiller))setConseiller(list[0]);}}}).catch(()=>{});},[]);
+  React.useEffect(()=>{
+    Promise.all([
+      apiFetch('getData').catch(()=>null),
+      apiFetch('getComptes').catch(()=>null)
+    ]).then(([dataRes,comptesRes])=>{
+      const base=(dataRes?.lists?.conseillers?.length?dataRes.lists.conseillers:CONSEILLERS_DEFAULT);
+      const inactifs=new Set(comptesRes?.ok&&comptesRes.comptes?comptesRes.comptes.filter(c=>c.actif==='NON').map(c=>c.conseiller):[]);
+      const list=base.filter(c=>!inactifs.has(c));
+      if(list.length>0){setActifList(list);if(!list.includes(conseiller))setConseiller(list[0]);}
+    });
+  },[]);
 
   // Tick du countdown
   React.useEffect(()=>{
