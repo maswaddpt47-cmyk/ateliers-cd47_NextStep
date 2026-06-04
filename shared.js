@@ -468,6 +468,8 @@ const COMMUNES = [
   'LE TEMPLE SUR LOT','MONCLAR','NERAC','Ste-Bazeille',
   "Saint Pardoux d'Isaac",'TONNEINS',"TOURNONS D'AGENAIS",'VILLENEUVE SUR LOT'
 ];
+// Normalise un nom de commune : retire le code postal, uniformise la casse
+function normCommune(s){if(!s)return'';return s.replace(/\s*\(\d+\)\s*/g,'').trim();}
 const COMMUNES_GPS = {
   // ── Communes du CD47 ──
   'AGEN':{lat:44.2004,lng:0.6213},
@@ -1209,7 +1211,7 @@ function VueHistorique({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
 
   function exportXLSX(){
     const rows=[['N°','Statut','Date','Horaire','Commune','Lieu','Thématique','Inscrits','Présents','Public','Conseiller','Orienteur','Matériel','Résidence','Remarques']];
-    filtered.forEach(e=>rows.push([e._n,e.statut,fmtDate(e.date),e.horaire,e.commune,e.lieu,e.thematique,e.inscrits,e.presents,e.public,e.conseiller,e.orienteur,(e.materiel||[]).join(', '),e.residence,e.remarques]));
+    filtered.forEach(e=>rows.push([e._n,e.statut,fmtDate(e.date),e.horaire,normCommune(e.commune),e.lieu,e.thematique,e.inscrits,e.presents,e.public,e.conseiller,e.orienteur,(e.materiel||[]).join(', '),e.residence,e.remarques]));
     const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(rows),'Ateliers');
     XLSX.writeFile(wb,`ateliers_cd47_${new Date().toISOString().slice(0,10)}.xlsx`);
   }
@@ -2436,7 +2438,7 @@ function VueAnomalies({entries,onEdit,communes:communesProp,apiFetch,showToast,a
                 CE('span',{style:{background:'#ede9fe',color:'#6d28d9',fontSize:11,padding:'1px 7px',borderRadius:10,fontWeight:600}},e.commune),
                 apiFetch&&CE(React.Fragment,null,
                   CE('span',{style:{fontSize:11,color:'#9ca3af'}},'→ Corriger :'),
-                  CE('input',{type:'text',value:corrVal,list:'communes-datalist-ano',placeholder:'Commune officielle…',style:{fontSize:11,padding:'2px 6px',borderRadius:4,border:'1px solid #d1d5db',width:160},onChange:ev=>setCorrections(s=>({...s,[e._id]:{...(s[e._id]||{}),commune:ev.target.value}}))}),
+                  CE('input',{type:'text',value:corrVal||normCommune(e.commune),list:'communes-datalist-ano',placeholder:'Commune officielle…',style:{fontSize:11,padding:'2px 6px',borderRadius:4,border:'1px solid #d1d5db',minWidth:220,flex:1},onChange:ev=>setCorrections(s=>({...s,[e._id]:{...(s[e._id]||{}),commune:ev.target.value}}))}),
                   CE('datalist',{id:'communes-datalist-ano'},(communes||[]).slice(0,300).map(c=>CE('option',{key:c.nom,value:c.nom}))),
                   CE('button',{disabled:saving===e._id||!corrVal.trim(),onClick:()=>handleSaveCommune(e,corrVal),style:{fontSize:11,padding:'2px 8px',borderRadius:4,border:'none',background:saving===e._id?'#e5e7eb':'#7c3aed',color:saving===e._id?'#6b7280':'#fff',cursor:saving===e._id?'default':'pointer'}},saving===e._id?'…':'💾 Sauver')
                 )
@@ -2451,7 +2453,7 @@ function VueBingo({entries}){
   const[selected,setSelected]=React.useState(null);
   const communes=React.useMemo(()=>{
     const byC={};
-    entries.forEach(e=>{const c=e.commune||'Inconnue';if(!byC[c])byC[c]={total:0,realises:0,annules:0,ateliers:[]};byC[c].total++;if(e.statut==='Réalisé')byC[c].realises++;if(e.statut==='Annulé')byC[c].annules++;byC[c].ateliers.push(e);});
+    entries.forEach(e=>{const c=normCommune(e.commune)||'Inconnue';if(!byC[c])byC[c]={total:0,realises:0,annules:0,ateliers:[]};byC[c].total++;if(e.statut==='Réalisé')byC[c].realises++;if(e.statut==='Annulé')byC[c].annules++;byC[c].ateliers.push(e);});
     return Object.entries(byC).sort((a,b)=>b[1].total-a[1].total).map(([nom,d])=>({nom,total:d.total,realises:d.realises,annules:d.annules,pct:d.total>0?Math.round(d.realises/d.total*100):0,ateliers:[...d.ateliers].sort((a,b)=>a.date>b.date?1:-1)}));
   },[entries]);
   function getCircleColor(pct){if(pct>=70)return{stroke:'#22c55e',text:'#166534',bg:'#dcfce7'};if(pct>=40)return{stroke:'#f97316',text:'#9a3412',bg:'#ffedd5'};return{stroke:'#3b82f6',text:'#1d4ed8',bg:'#dbeafe'};}
@@ -2770,11 +2772,11 @@ function VuePowerBI({entries, conseillers: conseillersList}){
   }).filter((_,i)=>i+1<=_moisCourant);
 
   // Communes top 8
-  const allComm=[...new Set(fd.map(d=>d.commune).filter(Boolean))];
+  const allComm=[...new Set(fd.map(d=>normCommune(d.commune)).filter(Boolean))];
   const pComm=allComm.map(c=>({
     name:c.length>14?c.slice(0,14)+'…':c,fullName:c,
-    presents:fd.filter(d=>d.commune===c).reduce((s,d)=>s+(parseInt(d.presents)||0),0),
-    ateliers:fd.filter(d=>d.commune===c).length
+    presents:fd.filter(d=>normCommune(d.commune)===c).reduce((s,d)=>s+(parseInt(d.presents)||0),0),
+    ateliers:fd.filter(d=>normCommune(d.commune)===c).length
   })).sort((a,b)=>b.presents-a.presents).slice(0,8);
 
   // ── Sous-composants ────────────────────────────────────────
@@ -3068,8 +3070,8 @@ function VuePowerBI({entries, conseillers: conseillersList}){
                 ['Commune','Ateliers','Présents','Inscrits'].map(h=>CE('th',{key:h,style:{padding:'6px 8px',textAlign:'left',fontWeight:700,color:'#6b7280',borderBottom:'2px solid #e5e7eb',fontSize:10}},h))
               )),
               CE('tbody',null,
-                [...new Set(fd.map(d=>d.commune).filter(Boolean))].sort().map(comm=>{
-                  const rows=fd.filter(d=>d.commune===comm);
+                [...new Set(fd.map(d=>normCommune(d.commune)).filter(Boolean))].sort().map(comm=>{
+                  const rows=fd.filter(d=>normCommune(d.commune)===comm);
                   const pre=rows.reduce((s,d)=>s+(parseInt(d.presents)||0),0);
                   const ins=rows.reduce((s,d)=>s+(parseInt(d.inscrits)||0),0);
                   return CE('tr',{key:comm,style:{borderBottom:'1px solid #f0f4f8'}},
