@@ -20,7 +20,7 @@ function clearSession(){
 // ════════════════════════════════════════════════════════════
 // 3 échecs → blocage 5 min, countdown visible, reset auto.
 // ════════════════════════════════════════════════════════════
-function AdminLogin({onLogin,savedName,onResetProfil}){
+function AdminLogin({onLogin,savedName,onResetProfil,conseillers:conseillersProp}){
   const MAX_FAILS=3, LOCK_MS=5*60*1000;
 
   const[pwd,setPwd]=React.useState('');
@@ -31,20 +31,13 @@ function AdminLogin({onLogin,savedName,onResetProfil}){
   const[failCount,setFailCount]=React.useState(0);
   const[lockUntil,setLockUntil]=React.useState(0);
   const[countdown,setCountdown]=React.useState(0);
-  const[actifList,setActifList]=React.useState(CONSEILLERS_DEFAULT);
-  const[conseiller,setConseiller]=React.useState(savedName&&savedName!=='admin'?savedName:(CONSEILLERS_DEFAULT[0]||''));
+  const base=conseillersProp&&conseillersProp.length?conseillersProp:CONSEILLERS_DEFAULT;
+  const[conseiller,setConseiller]=React.useState(()=>savedName&&savedName!=='admin'&&base.includes(savedName)?savedName:(base[0]||''));
+  // Resync quand la liste arrive depuis App (fetch async)
   React.useEffect(()=>{
-    const year=new Date().getFullYear();
-    Promise.all([
-      fetch(`${GS_URL}?action=getAll&year=${year}`).then(r=>r.json()).catch(()=>null),
-      apiFetch('getComptes').catch(()=>null)
-    ]).then(([dataRes,comptesRes])=>{
-      const base=(dataRes?.lists?.conseillers?.length?dataRes.lists.conseillers:CONSEILLERS_DEFAULT);
-      const inactifs=new Set(comptesRes?.ok&&comptesRes.comptes?comptesRes.comptes.filter(c=>c.actif==='NON').map(c=>c.conseiller):[]);
-      const list=base.filter(c=>!inactifs.has(c));
-      if(list.length>0){setActifList(list);if(!list.includes(conseiller))setConseiller(list[0]);}
-    });
-  },[]);
+    if(!base.length)return;
+    setConseiller(c=>base.includes(c)?c:base[0]);
+  },[base.join(',')]);
 
   // Tick du countdown
   React.useEffect(()=>{
@@ -111,7 +104,7 @@ function AdminLogin({onLogin,savedName,onResetProfil}){
             CE('div',{style:{marginBottom:10}},
               CE('label',{style:{fontSize:12,fontWeight:600,color:'#4a5568',display:'block',marginBottom:4}},'Conseiller'),
               CE('select',{value:conseiller,onChange:e=>setConseiller(e.target.value),style:{width:'100%',padding:'10px 14px',border:'1px solid #e2e8f0',borderRadius:8,fontSize:14,outline:'none',boxSizing:'border-box',background:'#fff'}},
-                actifList.map(c=>CE('option',{key:c,value:c},c))
+                base.map(c=>CE('option',{key:c,value:c},c))
               )
             ),
             CE('div',{style:{position:'relative',marginBottom:10}},
@@ -165,6 +158,20 @@ function App(){
     statuts:[...STATUTS_DEFAULT],conseillers:[...CONSEILLERS_DEFAULT],
     publics:[...PUBLICS_DEFAULT],materiels:[...MATERIELS_DEFAULT]
   });
+  // Chargé avant l'auth pour alimenter le dropdown de login
+  const[loginConseillers,setLoginConseillers]=React.useState(CONSEILLERS_DEFAULT);
+  React.useEffect(()=>{
+    const year=new Date().getFullYear();
+    Promise.all([
+      fetch(`${GS_URL}?action=getAll&year=${year}`).then(r=>r.json()).catch(()=>null),
+      apiFetch('getComptes').catch(()=>null)
+    ]).then(([dataRes,comptesRes])=>{
+      const base=dataRes?.lists?.conseillers?.length?dataRes.lists.conseillers:null;
+      if(!base)return; // si getAll échoue on garde CONSEILLERS_DEFAULT
+      const inactifs=new Set(comptesRes?.ok&&comptesRes.comptes?comptesRes.comptes.filter(c=>c.actif==='NON').map(c=>c.conseiller):[]);
+      setLoginConseillers(base.filter(c=>!inactifs.has(c)));
+    });
+  },[]);
   const[emails,setEmails]  = React.useState({});
   const[lastSync,setLastSync]= React.useState(null);
   const[syncing,setSyncing]= React.useState(false);
@@ -295,7 +302,7 @@ function App(){
   },[entries]);
 
   const[role,setRole]=React.useState('');
-  if(!auth)return CE(AdminLogin,{onLogin:(r)=>{setAuth(true);setRole(r||'user');},savedName:adminConseiller,onResetProfil:()=>{localStorage.removeItem('adm_conseiller');setAdminConseiller('');}})
+  if(!auth)return CE(AdminLogin,{onLogin:(r)=>{setAuth(true);setRole(r||'user');},savedName:adminConseiller,onResetProfil:()=>{localStorage.removeItem('adm_conseiller');setAdminConseiller('');},conseillers:loginConseillers})
 
   if(!adminConseiller)return CE('div',{className:'login-wrap'},
     CE('div',{className:'login-card'},
