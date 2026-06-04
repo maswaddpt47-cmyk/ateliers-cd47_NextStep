@@ -1693,16 +1693,9 @@ function VueRoadmap({entries,annee,conseillers}){
 
       // Filtres conseiller + statut
       CE('div',{style:{display:'flex',gap:12,flexWrap:'wrap',alignItems:'center'}},
-        CE('div',{style:{display:'flex',gap:5,alignItems:'center',flexWrap:'wrap'}},
-          CE('span',{style:{fontSize:11,color:'#9ca3af',fontWeight:600}},'Conseiller :'),
-          ['Tous',...(conseillers||[])].map(c=>CE('button',{key:c,onClick:()=>setFilterConseiller(c),style:{
-            padding:'3px 10px',borderRadius:20,cursor:'pointer',fontSize:11,
-            fontWeight:filterConseiller===c?700:400,
-            border:'1.5px solid '+(filterConseiller===c?conseillerColor(c)||'#1e3a8a':'#e2e8f0'),
-            background:filterConseiller===c?(conseillerColor(c)||'#1e3a8a')+'18':'transparent',
-            color:filterConseiller===c?conseillerColor(c)||'#1e3a8a':'#4a5568',
-            transition:'all .15s'
-          }},c==='Tous'?'Tous':c.split(' ')[0]))
+        CE('div',{className:'chip-bar',style:{margin:0}},
+          ['Tous',...(conseillers||[])].map(c=>CE('span',{key:c,className:'chip'+(c==='Tous'?' chip-all':'')+(filterConseiller===c?' active':''),style:c!=='Tous'?{color:conseillerColor(c)}:{},onClick:()=>setFilterConseiller(p=>p===c&&c!=='Tous'?'Tous':c)},
+            CE('span',{className:'chip-dot',style:c!=='Tous'?{background:conseillerColor(c)}:{}}),c))
         ),
         CE('div',{style:{display:'flex',gap:5,alignItems:'center',flexWrap:'wrap'}},
           CE('span',{style:{fontSize:11,color:'#9ca3af',fontWeight:600}},'Statut :'),

@@ -2324,8 +2324,9 @@ function VueCarte({entries,active}){
           CE('button',{onClick:()=>setModeAffichage('conum'),style:{fontSize:11,padding:'4px 10px',borderRadius:6,border:'none',background:modeAffichage==='conum'?'#1e3a8a':'#e5e7eb',color:modeAffichage==='conum'?'#fff':'#374151',cursor:'pointer',fontWeight:modeAffichage==='conum'?700:400}},'👤 Par conum')
         ),
         // Filtre conum (visible dans les 2 modes)
-        CE('select',{value:filtreConum,onChange:e=>setFiltreConum(e.target.value),style:{fontSize:12,padding:'4px 8px',borderRadius:6,border:'1px solid #d1d5db',background:'#fff',cursor:'pointer'}},
-          conseillers.map(c=>CE('option',{key:c,value:c},c))
+        CE('div',{className:'chip-bar',style:{margin:0}},
+          conseillers.map(c=>CE('span',{key:c,className:'chip'+(c==='Tous'?' chip-all':'')+(filtreConum===c?' active':''),style:c!=='Tous'?{color:conseillerColor(c)}:{},onClick:()=>setFiltreConum(p=>p===c&&c!=='Tous'?'Tous':c)},
+            CE('span',{className:'chip-dot',style:c!=='Tous'?{background:conseillerColor(c)}:{}}),c))
         )
       ),
       // Légende
@@ -2415,12 +2416,9 @@ function VueAnomalies({entries,onEdit,communes:communesProp,apiFetch,showToast,a
         CE('div',{style:{fontSize:11,color:'#4c1d95'}},loadingCommunes?'⏳ Chargement…':'Communes invalides')
       )
     ),
-    CE('div',{style:{display:'flex',alignItems:'center',gap:8,marginBottom:12}},
-      CE('label',{style:{fontSize:12,color:'#6b7280',fontWeight:600}},'👤 Conseiller :'),
-      CE('select',{value:filtreConum,onChange:ev=>setFiltreConum(ev.target.value),style:{fontSize:12,padding:'4px 10px',borderRadius:6,border:'1px solid #d1d5db',background:'#fff',cursor:'pointer'}},
-        conumsList.map(c=>CE('option',{key:c,value:c},c))
-      ),
-      filtreConum!=='Tous'&&CE('button',{onClick:()=>setFiltreConum('Tous'),style:{fontSize:11,padding:'2px 8px',borderRadius:10,border:'none',background:'#e5e7eb',color:'#374151',cursor:'pointer'}},'✕ Tous')
+    CE('div',{className:'chip-bar',style:{marginBottom:12}},
+      conumsList.map(c=>CE('span',{key:c,className:'chip'+(c==='Tous'?' chip-all':'')+(filtreConum===c?' active':''),style:c!=='Tous'?{color:conseillerColor(c)}:{},onClick:()=>setFiltreConum(p=>p===c&&c!=='Tous'?'Tous':c)},
+        CE('span',{className:'chip-dot',style:c!=='Tous'?{background:conseillerColor(c)}:{}}),c))
     ),
     filtered.length===0
       ?CE('div',{style:{textAlign:'center',padding:'40px 0',color:'#16a34a',fontSize:14}},
