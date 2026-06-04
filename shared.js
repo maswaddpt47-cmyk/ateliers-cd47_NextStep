@@ -1988,12 +1988,14 @@ function VueGraphiques({entries}){
   const byMoisDual={};passes.forEach(e=>{const m=e.date?e.date.slice(0,7):'?';if(m<todayYM){if(!byMoisDual[m])byMoisDual[m]={inscrits:0,presents:0};byMoisDual[m].inscrits+=(parseInt(e.inscrits)||0);byMoisDual[m].presents+=(parseInt(e.presents)||0);}});
   const dataDual=Object.keys(byMoisDual).sort().map(k=>({label:fmtML(k),...byMoisDual[k]}));
 
-  // v10.0 : Répartition AM / PM
-  const amCount=filtered.filter(e=>e.ampm==='AM'||(!e.ampm&&e.horaire&&parseInt(e.horaire)<12)).length;
-  const pmCount=filtered.filter(e=>e.ampm==='PM'||(!e.ampm&&e.horaire&&parseInt(e.horaire)>=12)).length;
+  // v10.0 : Répartition AM / PM (uniquement entrées avec ampm ou horaire renseigné)
+  const withAmPm=filtered.filter(e=>e.ampm==='AM'||e.ampm==='PM'||(e.horaire&&!isNaN(parseInt(e.horaire))));
+  const amCount=withAmPm.filter(e=>e.ampm==='AM'||(!e.ampm&&parseInt(e.horaire)<12)).length;
+  const pmCount=withAmPm.filter(e=>e.ampm==='PM'||(!e.ampm&&parseInt(e.horaire)>=12)).length;
+  const ampmBase=amCount+pmCount||1;
   const dataAmPm=[
-    {label:'Matin (AM)',value:amCount,tip:`Matin : ${amCount} atelier(s) — ${filtered.length>0?Math.round(amCount/filtered.length*100):0}%`},
-    {label:'Après-midi (PM)',value:pmCount,tip:`Après-midi : ${pmCount} atelier(s) — ${filtered.length>0?Math.round(pmCount/filtered.length*100):0}%`},
+    {label:'Matin (AM)',value:amCount,tip:`Matin : ${amCount} atelier(s) — ${Math.round(amCount/ampmBase*100)}%`},
+    {label:'Après-midi (PM)',value:pmCount,tip:`Après-midi : ${pmCount} atelier(s) — ${Math.round(pmCount/ampmBase*100)}%`},
   ];
 
   const byFutur={};filtered.filter(e=>e.statut==='Planifié'&&e.date&&e.date.slice(0,7)>=todayYM).forEach(e=>{const m=e.date.slice(0,7);byFutur[m]=(byFutur[m]||0)+1;});
@@ -2021,10 +2023,10 @@ function VueGraphiques({entries}){
   const topThemes5=[...new Set(passes.map(e=>e.thematique||'Autre'))].map(t=>[t,passes.filter(e=>(e.thematique||'Autre')===t).length]).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([t])=>t);
   const THEME_COLORS=['#6366f1','#8b5cf6','#ec4899','#f97316','#eab308'];
 
-  // 4. Orienteurs par conseiller
-  const byConsOri={};passes.forEach(e=>{const c=e.conseiller||'?';const o=e.orienteur||'Non renseigné';if(!byConsOri[c])byConsOri[c]={};byConsOri[c][o]=(byConsOri[c][o]||0)+1;});
+  // 4. Orienteurs par conseiller (uniquement entrées avec orienteur renseigné)
+  const byConsOri={};passes.forEach(e=>{if(!e.orienteur||!e.orienteur.trim())return;const c=e.conseiller||'?';const o=e.orienteur.trim();if(!byConsOri[c])byConsOri[c]={};byConsOri[c][o]=(byConsOri[c][o]||0)+1;});
   const consListOri=Object.keys(byConsOri).sort();
-  const allOri=[...new Set(passes.map(e=>e.orienteur||'Non renseigné'))].sort();
+  const allOri=[...new Set(passes.filter(e=>e.orienteur&&e.orienteur.trim()).map(e=>e.orienteur.trim()))].map(o=>[o,passes.filter(e=>e.orienteur===o).length]).sort((a,b)=>b[1]-a[1]).map(([o])=>o);
   const ORI_COLORS=['#3b82f6','#22c55e','#f97316','#ec4899','#a78bfa','#14b8a6','#f59e0b','#ef4444','#6366f1','#84cc16'];
 
   // 5. Distribution horaire
