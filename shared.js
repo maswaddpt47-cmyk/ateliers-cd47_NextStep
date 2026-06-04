@@ -1178,7 +1178,7 @@ function VueHistorique({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
     let r=entries;
     if(filtStatut!=='Tous')r=r.filter(e=>e.statut===filtStatut);
     if(filtMois!=='Tous')r=r.filter(e=>e.date&&e.date.startsWith(filtMois));
-    if(filtCommune!=='Toutes')r=r.filter(e=>e.commune===filtCommune);
+    if(filtCommune!=='Toutes'){const normFilt=filtCommune.replace(/\s*\(\d+\)\s*/g,'').trim().toUpperCase();r=r.filter(e=>e.commune===filtCommune||e.commune.replace(/\s*\(\d+\)\s*/g,'').trim().toUpperCase()===normFilt);}
     if(filtConseiller!=='Tous')r=r.filter(e=>e.conseiller===filtConseiller);
     if(filtPublic!=='Tous')r=r.filter(e=>(e.public||'Tous publics')===filtPublic);
     if(dateFrom)r=r.filter(e=>e.date>=dateFrom);
@@ -1255,7 +1255,8 @@ function VueHistorique({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
         CE('select',{style:{padding:'6px 8px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:12},value:filtMois,onChange:e=>setFiltMois(e.target.value)},
           CE('option',{value:'Tous'},'Tous les mois'),moisDispo.map(m=>CE('option',{key:m,value:m},m))),
         CE('select',{style:{padding:'6px 8px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:12},value:filtCommune,onChange:e=>setFiltCommune(e.target.value)},
-          CE('option',{value:'Toutes'},'Toutes communes'),COMMUNES.map(c=>CE('option',{key:c,value:c},c))),
+          CE('option',{value:'Toutes'},'Toutes communes'),
+          [...new Set(entries.map(e=>e.commune).filter(Boolean))].sort((a,b)=>a.localeCompare(b)).map(c=>CE('option',{key:c,value:c},c))),
         CE('select',{style:{padding:'6px 8px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:12},value:filtConseiller,onChange:e=>{setFiltConseiller(e.target.value);if(onChangeConseiller)onChangeConseiller(e.target.value);}},
           CE('option',{value:'Tous'},'Tous conseillers'),CONSEILLERS.map(c=>CE('option',{key:c,value:c},c))),
         CE('select',{style:{padding:'6px 8px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:12},value:filtPublic,onChange:e=>setFiltPublic(e.target.value)},
@@ -2188,10 +2189,31 @@ function VueGraphiques({entries}){
 // ═══════════════════════════════════════════════════════════
 // VUE CARTE
 // ═══════════════════════════════════════════════════════════
+// Cache GPS dynamique pour les communes non présentes dans COMMUNES_GPS
+const GPS_DYN_CACHE={};
+async function fetchGPSCommune(communeRaw){
+  const norm=communeRaw.toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/-/g,' ').replace(/'/g,' ').replace(/\s*\(\d+\)\s*/g,'').replace(/\s+/g,' ').trim();
+  if(GPS_DYN_CACHE[norm])return GPS_DYN_CACHE[norm];
+  // Extrait le code postal si présent ("FUMEL (47500)" → "47500")
+  const cpMatch=communeRaw.match(/\((\d{5})\)/);
+  const url=cpMatch
+    ?`https://geo.api.gouv.fr/communes?codePostal=${cpMatch[1]}&fields=centre&format=json`
+    :`https://geo.api.gouv.fr/communes?nom=${encodeURIComponent(norm)}&codeDepartement=47&fields=centre&format=json`;
+  try{
+    const res=await fetch(url);const data=await res.json();
+    if(data&&data[0]&&data[0].centre){
+      const[lng,lat]=data[0].centre.coordinates;
+      GPS_DYN_CACHE[norm]={lat,lng};return{lat,lng};
+    }
+  }catch(e){}
+  GPS_DYN_CACHE[norm]=null;return null;
+}
+
 function VueCarte({entries,active}){
   const CE=React.createElement;
   const mapRef=React.useRef(null);
   const markersRef=React.useRef([]);
+  const[, forceUpdate]=React.useReducer(x=>x+1,0);
   // Récupère la liste unique des conseillers présents dans les données
   const conseillers=React.useMemo(()=>{
     const s=new Set();entries.forEach(e=>{if(e.conseiller)s.add(e.conseiller);if(e.co_animateur)s.add(e.co_animateur);});return['Tous',...Array.from(s).sort()];
@@ -2215,18 +2237,13 @@ function VueCarte({entries,active}){
     });
     function markerColor(pct){if(pct>=70)return{fill:'#22c55e',stroke:'#166534'};if(pct>=40)return{fill:'#f97316',stroke:'#9a3412'};return{fill:'#3b82f6',stroke:'#1d4ed8'};}
     function normGPS(s){return s.toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/-/g,' ').replace(/'/g,' ').replace(/\s*\(\d+\)\s*/g,'').replace(/\s+/g,' ').trim();}
-    Object.entries(byC).forEach(([commune,s])=>{
-      const normC=normGPS(commune);
-      const g=COMMUNES_GPS[commune]||COMMUNES_GPS[normC]||Object.entries(COMMUNES_GPS).find(([k])=>normGPS(k)===normC)?.[1];
-      if(!g)return;
+    function addMarker(commune,s,g){
       const pct=s.total>0?Math.round(s.realises/s.total*100):0;
       let fillColor,strokeColor;
       if(mode==='conum'){
         if(filtreConum!=='Tous'){
-          // Conseiller sélectionné : sa couleur
           fillColor=conseillerColor(filtreConum);strokeColor='#1e3a8a';
         } else {
-          // Tous : couleur du conseiller dominant dans cette commune
           const domConum=Array.from(s.conums).reduce((best,c)=>{
             const cnt=entriesToUse.filter(e=>e.commune===commune&&(e.conseiller===c||e.co_animateur===c)).length;
             return cnt>(best.cnt||0)?{c,cnt}:best;
@@ -2241,7 +2258,21 @@ function VueCarte({entries,active}){
       const popup=`<div style="min-width:175px;font-family:'Segoe UI',sans-serif;font-size:13px"><strong style="font-size:14px;color:#1e3a8a">${commune}</strong><div style="margin:6px 0 2px;color:#4a5568">Total : ${s.total}</div><div style="color:#276749;font-weight:600">Réalisés : ${s.realises}</div><div style="color:#2a69ac;font-weight:600">Planifiés : ${s.planifies}</div><div style="color:#4a5568">Présents : ${s.presents}</div><div style="margin-top:6px;padding-top:6px;border-top:1px solid #e2e8f0;font-size:11px;color:#6b7280">Conseiller(s) :<br><strong style="color:#1e3a8a">${conumsList}</strong></div><div style="background:#e2e8f0;border-radius:4px;height:6px;margin-top:8px;overflow:hidden"><div style="background:#059669;width:${Math.max(2,pct)}%;height:100%;border-radius:4px"></div></div><div style="font-size:11px;color:#718096;margin-top:3px">${pct}% réalisé</div></div>`;
       const m=L.circleMarker([g.lat,g.lng],{radius:Math.min(8+s.total*0.8,26),fillColor,color:strokeColor,weight:2,opacity:1,fillOpacity:.82}).addTo(mapRef.current).bindPopup(popup,{maxWidth:230});
       markersRef.current.push(m);
+    }
+    const unknowns=[];
+    Object.entries(byC).forEach(([commune,s])=>{
+      const normC=normGPS(commune);
+      const g=COMMUNES_GPS[commune]||COMMUNES_GPS[normC]||Object.entries(COMMUNES_GPS).find(([k])=>normGPS(k)===normC)?.[1];
+      if(!g){
+        if(GPS_DYN_CACHE[normC]===undefined)unknowns.push(commune);
+        else if(GPS_DYN_CACHE[normC])addMarker(commune,s,GPS_DYN_CACHE[normC]);
+        return;
+      }
+      addMarker(commune,s,g);
     });
+    if(unknowns.length){
+      Promise.all(unknowns.map(c=>fetchGPSCommune(c))).then(()=>forceUpdate());
+    }
   }
 
   // Init carte
