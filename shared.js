@@ -1858,6 +1858,11 @@ function VueDashboard({entries}){
   const byPublic={};realises.forEach(e=>{const p=e.public||'Autres';byPublic[p]=(byPublic[p]||0)+1;});
   const dataPublic=Object.entries(byPublic).sort((a,b)=>b[1]-a[1]).map(([label,value])=>({label,value}));
 
+  // Inscrits vs Présents par mois (pour DualLineChart dans Dashboard)
+  const fmtMLd=ym=>`${ym.slice(5,7)}/${ym.slice(2,4)}`;
+  const byMoisDualD={};realises.forEach(e=>{const m=e.date?e.date.slice(0,7):'?';if(m>='2000'&&m<=todayYM){if(!byMoisDualD[m])byMoisDualD[m]={inscrits:0,presents:0};byMoisDualD[m].inscrits+=(parseInt(e.inscrits)||0);byMoisDualD[m].presents+=(parseInt(e.presents)||0);}});
+  const dataDualD=Object.keys(byMoisDualD).sort().map(k=>({label:fmtMLd(k),...byMoisDualD[k]}));
+
   const PERIODES=[{l:'Tout'},{l:'Ce mois'},{l:'3 mois'},{l:'6 mois'},{l:'12 mois'}];
   const accent='#1e3a8a';
 
@@ -1921,11 +1926,11 @@ function VueDashboard({entries}){
       )
     ),
 
-    // ── Ligne 4 : Public + AM/PM ──
-    CE('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}},
+    // ── Ligne 4 : Inscrits/Présents + AM/PM ──
+    CE('div',{style:{display:'grid',gridTemplateColumns:'2fr 1fr',gap:16}},
       CE('div',{className:'card'},
-        CE('h2',null,'🧑‍🤝‍🧑 Par type de public'),
-        CE(BarChart,{data:dataPublic,colors:['#DB2777','#ec4899','#f472b6','#fbcfe8']})
+        CE('h2',null,'📈 Inscrits vs Présents par mois'),
+        CE(DualLineChart,{data:dataDualD})
       ),
       CE('div',{className:'card'},
         CE('h2',null,'🌅 Matin vs Après-midi'),
@@ -1997,6 +2002,35 @@ function VueGraphiques({entries}){
   const byStat={};filtered.forEach(e=>{byStat[e.statut]=(byStat[e.statut]||0)+1;});
   const dataStat=Object.entries(byStat).map(([label,value])=>({label,value}));
 
+  // ── Nouveaux graphiques ──────────────────────────────────────
+
+  // 1. Taux de réalisation mensuel
+  const byMoisTx={};filtered.forEach(e=>{const m=e.date?e.date.slice(0,7):'?';if(m<'2000'||m>=todayYM)return;if(!byMoisTx[m])byMoisTx[m]={realises:0,total:0};if(['Réalisé','Annulé','Non réalisé','Reporté'].includes(e.statut))byMoisTx[m].total++;if(e.statut==='Réalisé')byMoisTx[m].realises++;});
+  const dataTxRealisation=Object.keys(byMoisTx).sort().map(k=>({label:fmtML(k),value:byMoisTx[k].total>0?Math.round(byMoisTx[k].realises/byMoisTx[k].total*100):0}));
+
+  // 2. Comparaison N vs N-1
+  const cmpYear=new Date().getFullYear();const prevCmpYear=cmpYear-1;
+  const byMoisCmp={};entries.forEach(e=>{if(e.statut!=='Réalisé')return;const yr=e.date?parseInt(e.date.slice(0,4)):0;if(yr!==cmpYear&&yr!==prevCmpYear)return;const mo=e.date.slice(5,7);if(!byMoisCmp[mo])byMoisCmp[mo]={curr:0,prev:0};if(yr===cmpYear)byMoisCmp[mo].curr++;else byMoisCmp[mo].prev++;});
+  const CMP_MOIS=['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
+  const dataCmpCurr=Array.from({length:12},(_,i)=>{const m=String(i+1).padStart(2,'0');return byMoisCmp[m]?byMoisCmp[m].curr:0;});
+  const dataCmpPrev=Array.from({length:12},(_,i)=>{const m=String(i+1).padStart(2,'0');return byMoisCmp[m]?byMoisCmp[m].prev:0;});
+
+  // 3. Top thématiques × communes
+  const byCommTheme={};passes.forEach(e=>{const c=e.commune||'?';const t=e.thematique||'Autre';if(!byCommTheme[c])byCommTheme[c]={};byCommTheme[c][t]=(byCommTheme[c][t]||0)+1;});
+  const topComm5=Object.entries(byCommune).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([k])=>k);
+  const topThemes5=[...new Set(passes.map(e=>e.thematique||'Autre'))].map(t=>[t,passes.filter(e=>(e.thematique||'Autre')===t).length]).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([t])=>t);
+  const THEME_COLORS=['#6366f1','#8b5cf6','#ec4899','#f97316','#eab308'];
+
+  // 4. Orienteurs par conseiller
+  const byConsOri={};passes.forEach(e=>{const c=e.conseiller||'?';const o=e.orienteur||'Non renseigné';if(!byConsOri[c])byConsOri[c]={};byConsOri[c][o]=(byConsOri[c][o]||0)+1;});
+  const consListOri=Object.keys(byConsOri).sort();
+  const allOri=[...new Set(passes.map(e=>e.orienteur||'Non renseigné'))].sort();
+  const ORI_COLORS=['#3b82f6','#22c55e','#f97316','#ec4899','#a78bfa','#14b8a6','#f59e0b','#ef4444','#6366f1','#84cc16'];
+
+  // 5. Distribution horaire
+  const byHeure={};filtered.forEach(e=>{if(!e.horaire)return;const h=parseInt(String(e.horaire).replace(/[Hh:].*/,''));if(isNaN(h)||h<6||h>19)return;byHeure[h]=(byHeure[h]||0)+1;});
+  const dataHoraire=Array.from({length:14},(_,i)=>({label:`${i+6}h`,value:byHeure[i+6]||0}));
+
   // Années disponibles
   const annees=[...new Set(entries.map(e=>e.date?e.date.slice(0,4):'').filter(Boolean))].sort();
 
@@ -2036,7 +2070,89 @@ function VueGraphiques({entries}){
             CE('div',{className:'card'},CE('h2',null,'📅 Planifiés — mois à venir'),CE(BarChart,{data:dataFutur,colors:['#7c3aed','#8b5cf6','#a78bfa','#c4b5fd']})),
             CE('div',{className:'card'},CE('h2',null,'Par statut'),CE(RadialChart,{data:dataStat,colors:['#276749','#2a69ac','#9b2c2c','#718096','#744210']})),
             CE('div',{className:'card',style:{gridColumn:'1 / -1'}},CE('h2',null,'📈 Inscrits vs Présents par mois'),CE(DualLineChart,{data:dataDual})),
-            CE('div',{className:'card'},CE('h2',null,'🌅 Répartition Matin / Après-midi'),CE(BarChart,{data:dataAmPm,colors:['#f97316','#0891b2']}))
+            CE('div',{className:'card'},CE('h2',null,'🌅 Répartition Matin / Après-midi'),CE(DonutChart,{data:dataAmPm,colors:['#f97316','#0891b2'],height:200})),
+
+            // ── Taux de réalisation mensuel ──
+            dataTxRealisation.length>1&&CE('div',{className:'card',style:{gridColumn:'1 / -1'}},
+              CE('h2',null,'📉 Taux de réalisation mensuel (%)'),
+              CE(EChart,{height:220,option:{backgroundColor:'transparent',grid:{...EC_GRID},
+                tooltip:{trigger:'axis',...EC_TT,...EC_APN,formatter:p=>`<b style="color:#60a5fa">${p[0].name}</b><br/>Taux : <b>${p[0].value}%</b>`},
+                xAxis:{data:dataTxRealisation.map(d=>d.label),...EC_AXIS_BASE,splitLine:{show:false},axisLabel:{...EC_AXIS_LABEL,rotate:dataTxRealisation.length>8?-35:0,interval:0}},
+                yAxis:{...EC_AXIS_BASE,min:0,max:100,axisLabel:{...EC_AXIS_LABEL,formatter:v=>v+'%'}},
+                series:[
+                  {type:'line',data:dataTxRealisation.map(d=>d.value),smooth:true,symbol:'circle',symbolSize:5,
+                    lineStyle:{width:2.5,color:'#22c55e'},
+                    itemStyle:{color:p=>dataTxRealisation[p.dataIndex].value>=70?'#22c55e':dataTxRealisation[p.dataIndex].value>=40?'#f97316':'#ef4444'},
+                    areaStyle:{color:mkGrad('rgba(34,197,94,0.2)','rgba(34,197,94,0.02)')},
+                    label:{show:true,position:'top',color:'#94a3b8',fontSize:9,fontWeight:'bold',formatter:p=>p.value+'%'}},
+                  {type:'line',data:dataTxRealisation.map(()=>70),silent:true,symbol:'none',
+                    lineStyle:{width:1.5,color:'#f97316',type:'dashed'}}
+                ]
+              }})
+            ),
+
+            // ── Comparaison N vs N-1 ──
+            (dataCmpCurr.some(v=>v>0)||dataCmpPrev.some(v=>v>0))&&CE('div',{className:'card',style:{gridColumn:'1 / -1'}},
+              CE('h2',null,`📊 Comparaison ${cmpYear} vs ${prevCmpYear}`),
+              CE(EChart,{height:240,option:{backgroundColor:'transparent',grid:{...EC_GRID,bottom:55},
+                tooltip:{trigger:'axis',...EC_TT,...EC_APN},
+                legend:{data:[String(cmpYear),String(prevCmpYear)],textStyle:{color:'#94a3b8',fontSize:11},bottom:0,icon:'roundRect',itemWidth:10,itemHeight:8},
+                xAxis:{data:CMP_MOIS,...EC_AXIS_BASE,splitLine:{show:false},axisLabel:{...EC_AXIS_LABEL,interval:0}},
+                yAxis:{...EC_AXIS_BASE},
+                series:[
+                  {name:String(cmpYear),type:'bar',barMaxWidth:20,data:dataCmpCurr,itemStyle:{color:'#3b82f6',borderRadius:[4,4,0,0]},
+                    label:{show:true,position:'top',color:'#94a3b8',fontSize:9,fontWeight:'bold'}},
+                  {name:String(prevCmpYear),type:'bar',barMaxWidth:20,data:dataCmpPrev,itemStyle:{color:'rgba(148,163,184,0.4)',borderRadius:[4,4,0,0]},
+                    label:{show:true,position:'top',color:'#94a3b8',fontSize:9,fontWeight:'bold'}}
+                ]
+              }})
+            ),
+
+            // ── Top thématiques × communes ──
+            topComm5.length>0&&topThemes5.length>0&&CE('div',{className:'card',style:{gridColumn:'1 / -1'}},
+              CE('h2',null,'🗂️ Top thématiques × communes'),
+              CE(EChart,{height:Math.max(200,80+topComm5.length*32),option:{backgroundColor:'transparent',grid:{top:28,right:8,bottom:48,left:8,containLabel:true},
+                tooltip:{trigger:'axis',...EC_TT,...EC_APN},
+                legend:{data:topThemes5,textStyle:{color:'#94a3b8',fontSize:10},bottom:0,icon:'roundRect',itemWidth:10,itemHeight:8,type:'scroll'},
+                xAxis:{...EC_AXIS_BASE},
+                yAxis:{type:'category',data:topComm5.map(c=>trunc(c,18)),axisLabel:{...EC_AXIS_LABEL,fontSize:11},axisLine:{show:false},axisTick:{show:false},splitLine:{show:false}},
+                series:topThemes5.map((t,i)=>({name:t,type:'bar',stack:'total',barMaxWidth:28,
+                  data:topComm5.map(c=>(byCommTheme[c]&&byCommTheme[c][t])||0),
+                  itemStyle:{color:THEME_COLORS[i%THEME_COLORS.length],borderRadius:i===topThemes5.length-1?[0,4,4,0]:[]},
+                  label:{show:true,position:'inside',color:'#fff',fontSize:9,formatter:p=>p.value>0?p.value:''}
+                }))
+              }})
+            ),
+
+            // ── Orienteurs par conseiller ──
+            consListOri.length>0&&allOri.length>1&&CE('div',{className:'card',style:{gridColumn:'1 / -1'}},
+              CE('h2',null,'🔀 Orienteurs par conseiller'),
+              CE(EChart,{height:Math.max(200,80+consListOri.length*34),option:{backgroundColor:'transparent',grid:{top:28,right:8,bottom:55,left:8,containLabel:true},
+                tooltip:{trigger:'axis',...EC_TT,...EC_APN},
+                legend:{data:allOri.slice(0,10),textStyle:{color:'#94a3b8',fontSize:10},bottom:0,icon:'roundRect',itemWidth:10,itemHeight:8,type:'scroll'},
+                xAxis:{...EC_AXIS_BASE},
+                yAxis:{type:'category',data:consListOri.map(c=>trunc(c,14)),axisLabel:{...EC_AXIS_LABEL,fontSize:11},axisLine:{show:false},axisTick:{show:false},splitLine:{show:false}},
+                series:allOri.slice(0,10).map((o,i)=>({name:o,type:'bar',stack:'total',barMaxWidth:28,
+                  data:consListOri.map(c=>(byConsOri[c]&&byConsOri[c][o])||0),
+                  itemStyle:{color:ORI_COLORS[i%ORI_COLORS.length],borderRadius:i===Math.min(allOri.length,10)-1?[0,4,4,0]:[]},
+                  label:{show:true,position:'inside',color:'#fff',fontSize:9,formatter:p=>p.value>0?p.value:''}
+                }))
+              }})
+            ),
+
+            // ── Distribution horaire ──
+            dataHoraire.some(d=>d.value>0)&&CE('div',{className:'card'},
+              CE('h2',null,'🕐 Distribution horaire'),
+              CE(EChart,{height:200,option:{backgroundColor:'transparent',grid:{...EC_GRID},
+                tooltip:{trigger:'axis',...EC_TT,...EC_APN,formatter:p=>`<b style="color:#60a5fa">${p[0].name}</b><br/>${p[0].value} atelier(s)`},
+                xAxis:{data:dataHoraire.map(d=>d.label),...EC_AXIS_BASE,splitLine:{show:false},axisLabel:{...EC_AXIS_LABEL,interval:0}},
+                yAxis:{...EC_AXIS_BASE},
+                series:[{type:'bar',barMaxWidth:36,
+                  data:dataHoraire.map(d=>({value:d.value,itemStyle:{color:parseInt(d.label)<12?'#f97316':'#0891b2',borderRadius:[4,4,0,0]}})),
+                  label:{show:true,position:'top',color:'#94a3b8',fontSize:9,fontWeight:'bold',formatter:p=>p.value||''}
+                }]
+              }})
+            )
           )
         )
   );

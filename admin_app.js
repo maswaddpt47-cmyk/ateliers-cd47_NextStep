@@ -774,7 +774,7 @@ function VueDashboardTabs({entries, conseillers}){
   const[tab,setTab]=React.useState('dashboard');
   const TABS=[
     {id:'dashboard', ico:'🚀', label:'Synthèse'},
-    {id:'graphiques', ico:'📊', label:'Graphiques'},
+    {id:'graphiques', ico:'📊', label:'Analyse'},
     {id:'powerbi',    ico:'🗺️', label:'Territoire'},
   ];
   return CE('div',null,
