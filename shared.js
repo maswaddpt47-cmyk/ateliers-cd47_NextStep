@@ -1174,6 +1174,7 @@ function VueHistorique({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
   },[entries]);
 
   const moisDispo=React.useMemo(()=>{const s=new Set(entries.map(e=>e.date?e.date.slice(0,7):'').filter(Boolean));return[...s].sort();},[entries]);
+  const conseillersHist=React.useMemo(()=>{const s=new Set();entries.forEach(e=>{if(e.conseiller)s.add(e.conseiller);});return[...Array.from(s).sort()];},[entries]);
   const CHIP_STATUTS=[{key:'Tous',label:'Tous',cls:'chip-all'},{key:'Planifié',label:'Planifié',cls:'chip-planifie',dot:'#3b82f6'},{key:'Réalisé',label:'Réalisé',cls:'chip-realise',dot:'#22c55e'},{key:'Annulé',label:'Annulé',cls:'chip-annule',dot:'#ef4444'},{key:'Reporté',label:'Reporté',cls:'chip-reporte',dot:'#f59e0b'},{key:'Non réalisé',label:'Non réalisé',cls:'chip-nonrealise',dot:'#94a3b8'}];
   const counts=React.useMemo(()=>{const c={Tous:entries.length};STATUTS.forEach(s=>{c[s]=entries.filter(e=>e.statut===s).length;});return c;},[entries]);
   const filtered=React.useMemo(()=>{
@@ -1259,8 +1260,11 @@ function VueHistorique({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
         CE('select',{style:{padding:'6px 8px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:12},value:filtCommune,onChange:e=>setFiltCommune(e.target.value)},
           CE('option',{value:'Toutes'},'Toutes communes'),
           [...new Set(entries.map(e=>e.commune).filter(Boolean))].sort((a,b)=>a.localeCompare(b)).map(c=>CE('option',{key:c,value:c},c))),
-        CE('select',{style:{padding:'6px 8px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:12},value:filtConseiller,onChange:e=>{setFiltConseiller(e.target.value);if(onChangeConseiller)onChangeConseiller(e.target.value);}},
-          CE('option',{value:'Tous'},'Tous conseillers'),CONSEILLERS.map(c=>CE('option',{key:c,value:c},c))),
+        CE('div',{className:'chip-bar',style:{marginBottom:0}},
+          CE('span',{className:'chip chip-all'+(filtConseiller==='Tous'?' active':''),onClick:()=>{setFiltConseiller('Tous');if(onChangeConseiller)onChangeConseiller('Tous');}},
+            CE('span',{className:'chip-dot'}),'Tous'),
+          conseillersHist.map(c=>CE('span',{key:c,className:'chip'+(filtConseiller===c?' active':''),style:{color:conseillerColor(c)},onClick:()=>{const nv=filtConseiller===c?'Tous':c;setFiltConseiller(nv);if(onChangeConseiller)onChangeConseiller(nv);}},
+            CE('span',{className:'chip-dot',style:{background:conseillerColor(c)}}),c))),
         CE('select',{style:{padding:'6px 8px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:12},value:filtPublic,onChange:e=>setFiltPublic(e.target.value)},
           CE('option',{value:'Tous'},'— Type de public —'),PUBLICS.map(p=>CE('option',{key:p,value:p},p)))
       ),
@@ -1443,6 +1447,8 @@ function VueCalendrier({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
     return{total:monthEntries.length,realises:r,planifies:p,inscrits:ins,presents:pres};
   },[monthEntries]);
 
+  const conseillersCal=React.useMemo(()=>{const s=new Set();entries.forEach(e=>{if(e.conseiller)s.add(e.conseiller);});return[...Array.from(s).sort()];},[entries]);
+
   return CE('div',null,
     // ── Header ──
     CE('div',{className:'card',style:{marginBottom:12}},
@@ -1452,14 +1458,13 @@ function VueCalendrier({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
           CE('div',{style:{fontSize:18,fontWeight:800,color:'#1e3a8a',minWidth:170,textAlign:'center'}},`${MOIS_LONG[mo]} ${yr}`),
           CE('button',{className:'btn btn-secondary btn-sm',onClick:nextMonth},'›'),
           CE('button',{className:'btn btn-secondary btn-sm',style:{marginLeft:4,fontSize:12},onClick:goToday},'Aujourd\'hui')
-        ),
-        CE('div',{style:{display:'flex',alignItems:'center',gap:8}},
-          CE('label',{style:{fontSize:12,fontWeight:600,color:'#4a5568',margin:0,whiteSpace:'nowrap'}},'Conseiller :'),
-          CE('select',{value:filtConseiller,onChange:e=>{setFiltConseiller(e.target.value);if(onChangeConseiller)onChangeConseiller(e.target.value);},style:{padding:'5px 10px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:13}},
-            CE('option',{value:'Tous'},'Tous'),
-            CONSEILLERS.map(c=>CE('option',{key:c,value:c},c))
-          )
         )
+      ),
+      CE('div',{className:'chip-bar',style:{marginBottom:8}},
+        CE('span',{className:'chip chip-all'+(filtConseiller==='Tous'?' active':''),onClick:()=>{setFiltConseiller('Tous');if(onChangeConseiller)onChangeConseiller('Tous');}},
+          CE('span',{className:'chip-dot'}),'Tous'),
+        conseillersCal.map(c=>CE('span',{key:c,className:'chip'+(filtConseiller===c?' active':''),style:{color:conseillerColor(c)},onClick:()=>{setFiltConseiller(f=>f===c?'Tous':c);if(onChangeConseiller)onChangeConseiller(filtConseiller===c?'Tous':c);}},
+          CE('span',{className:'chip-dot',style:{background:conseillerColor(c)}}),c))
       ),
       CE('div',{style:{display:'flex',gap:8,flexWrap:'wrap'}},
         CE('div',{className:'kpi-mini',style:{flex:'1 1 70px',borderLeft:'3px solid #1e3a8a',background:'#f0f4ff'}},CE('div',{className:'v',style:{color:'#1e3a8a',fontSize:20}},kpi.total),CE('div',{className:'l'},'Ateliers')),
