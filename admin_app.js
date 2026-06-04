@@ -68,7 +68,7 @@ function AdminLogin({onLogin,savedName,onResetProfil,conseillers:conseillersProp
       ]);
       if(res.ok){
         setFailCount(0);setLockUntil(0);
-        touchSession();onLogin(res.role||'user');
+        touchSession();onLogin(res.role||'user',conseiller);
       }else{
         const nf=failCount+1;
         setFailCount(nf);
@@ -302,7 +302,7 @@ function App(){
   },[entries]);
 
   const[role,setRole]=React.useState('');
-  if(!auth)return CE(AdminLogin,{onLogin:(r)=>{setAuth(true);setRole(r||'user');},savedName:adminConseiller,onResetProfil:()=>{localStorage.removeItem('adm_conseiller');setAdminConseiller('');},conseillers:loginConseillers})
+  if(!auth)return CE(AdminLogin,{onLogin:(r,nom)=>{setAuth(true);setRole(r||'user');if(nom){localStorage.setItem('adm_conseiller',nom);setAdminConseiller(nom);}},savedName:adminConseiller,onResetProfil:()=>{localStorage.removeItem('adm_conseiller');setAdminConseiller('');},conseillers:loginConseillers})
 
   if(!adminConseiller)return CE('div',{className:'login-wrap'},
     CE('div',{className:'login-card'},
