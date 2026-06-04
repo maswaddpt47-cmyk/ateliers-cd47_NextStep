@@ -1346,6 +1346,8 @@ function VueAgendaSemaine({entries,onEdit,onDelete,onDuplicate,canDelete,initCon
   const planifies=filtered.filter(e=>e.statut==='Planifié').length;
   const realises=filtered.filter(e=>e.statut==='Réalisé').length;
   const retards=filtered.filter(e=>isRetard(e)).length;
+  const inscritsW=filtered.reduce((s,e)=>s+(parseInt(e.inscrits)||0),0);
+  const presentsW=filtered.reduce((s,e)=>s+(parseInt(e.presents)||0),0);
 
   // ── Card atelier ────────────────────────────────────────────
   function renderCard(e){
@@ -1432,7 +1434,7 @@ function VueAgendaSemaine({entries,onEdit,onDelete,onDuplicate,canDelete,initCon
       ),
 
       // ── Chips conseillers ──────────────────────────────────
-      CE('div',{className:'chip-bar',style:{marginBottom:14}},
+      CE('div',{className:'chip-bar',style:{marginBottom:10}},
         CE('span',{className:'chip chip-all'+(filterConseiller==='Tous'?' active':''),onClick:()=>setFilterConseiller('Tous')},
           CE('span',{className:'chip-dot'}),'Tous'),
         conseillers.map(c=>CE('span',{
@@ -1440,6 +1442,15 @@ function VueAgendaSemaine({entries,onEdit,onDelete,onDuplicate,canDelete,initCon
           style:{color:conseillerColor(c)},
           onClick:()=>setFilterConseiller(f=>f===c?'Tous':c)
         },CE('span',{className:'chip-dot',style:{background:conseillerColor(c)}}),c))
+      ),
+
+      // ── KPIs semaine ──────────────────────────────────────
+      CE('div',{key:firstDay,style:{display:'flex',gap:8,flexWrap:'wrap',marginBottom:14}},
+        CE('div',{className:'kpi-mini',style:{flex:'1 1 70px',borderLeft:'3px solid #1e3a8a',background:'#f0f4ff',animationDelay:'.00s'}},CE('div',{className:'v',style:{color:'#1e3a8a',fontSize:20}},totalW),CE('div',{className:'l'},'Ateliers')),
+        CE('div',{className:'kpi-mini',style:{flex:'1 1 70px',borderLeft:'3px solid #16a34a',background:'#f0fdf4',animationDelay:'.07s'}},CE('div',{className:'v',style:{color:'#166534',fontSize:20}},realises),CE('div',{className:'l'},'Réalisés')),
+        CE('div',{className:'kpi-mini',style:{flex:'1 1 70px',borderLeft:'3px solid #2563eb',background:'#eff6ff',animationDelay:'.14s'}},CE('div',{className:'v',style:{color:'#2563eb',fontSize:20}},planifies),CE('div',{className:'l'},'Planifiés')),
+        CE('div',{className:'kpi-mini',style:{flex:'1 1 70px',borderLeft:'3px solid #7c3aed',background:'#faf5ff',animationDelay:'.21s'}},CE('div',{className:'v',style:{color:'#7c3aed',fontSize:20}},inscritsW),CE('div',{className:'l'},'Inscrits')),
+        CE('div',{className:'kpi-mini',style:{flex:'1 1 70px',borderLeft:'3px solid #0891b2',background:'#ecfeff',animationDelay:'.28s'}},CE('div',{className:'v',style:{color:'#0891b2',fontSize:20}},presentsW),CE('div',{className:'l'},'Présents'))
       ),
 
       // ── Grille ────────────────────────────────────────────
