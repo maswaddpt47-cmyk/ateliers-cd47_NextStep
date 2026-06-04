@@ -1066,3 +1066,5 @@ function VueAdminV10({entries,onRefresh,addLog,conseillersList,onSaveColors,anne
 
 // (évite les conflits de hoisting inter-scripts)
 window.VueAdmin = VueAdminV10;
+
+ReactDOM.createRoot(document.getElementById('root')).render(CE(App));
