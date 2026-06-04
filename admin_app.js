@@ -34,8 +34,9 @@ function AdminLogin({onLogin,savedName,onResetProfil}){
   const[actifList,setActifList]=React.useState(CONSEILLERS_DEFAULT);
   const[conseiller,setConseiller]=React.useState(savedName&&savedName!=='admin'?savedName:(CONSEILLERS_DEFAULT[0]||''));
   React.useEffect(()=>{
+    const year=new Date().getFullYear();
     Promise.all([
-      apiFetch('getData').catch(()=>null),
+      fetch(`${GS_URL}?action=getAll&year=${year}`).then(r=>r.json()).catch(()=>null),
       apiFetch('getComptes').catch(()=>null)
     ]).then(([dataRes,comptesRes])=>{
       const base=(dataRes?.lists?.conseillers?.length?dataRes.lists.conseillers:CONSEILLERS_DEFAULT);
