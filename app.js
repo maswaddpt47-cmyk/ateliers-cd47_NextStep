@@ -183,6 +183,8 @@ function App(){
     setPrefillData({...rest});setEditingId(null);setView('saisie');
   }
 
+  const conseillerActifs = lists.conseillers.filter(c=>!inactifsSet.has(c));
+
   // ── Vue Accueil ───────────────────────────────────────────────
   if(maintenance===null) return CE('div',{style:{display:'flex',alignItems:'center',justifyContent:'center',minHeight:'100vh',background:'#f0f4f8'}},CE('div',{style:{fontSize:13,color:'#718096'}},'Chargement…'));
   if(maintenance!==false) return CE(MaintenanceScreen,{msg:maintenance.msg});
@@ -244,10 +246,9 @@ function App(){
     );
   }
 
-  const conseillerActifs = lists.conseillers.filter(c=>!inactifsSet.has(c));
-
   // ── Vue principale avec sidebar ───────────────────────────────
   const accentColor = filtreConseiller ? conseillerColor(filtreConseiller) : NAV_DEFAULT_COLOR;
+
   const meta = VIEW_META_F[view]||{ico:'📄',label:view,group:''};
 
   // Date courante pour la topbar
