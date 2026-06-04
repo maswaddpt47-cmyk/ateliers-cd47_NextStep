@@ -469,15 +469,40 @@ const COMMUNES = [
   "Saint Pardoux d'Isaac",'TONNEINS',"TOURNONS D'AGENAIS",'VILLENEUVE SUR LOT'
 ];
 const COMMUNES_GPS = {
-  'AGEN':{lat:44.2004,lng:0.6213},'ARGENTON':{lat:44.3167,lng:0.7833},
-  'ASTAFFORT':{lat:44.0447,lng:0.6586},'CASSENEUIL':{lat:44.3614,lng:0.6667},
-  'CASTELMORON SUR LOT':{lat:44.3961,lng:0.4944},'FAUILLET':{lat:44.3833,lng:0.3167},
-  'FIEUX':{lat:44.1500,lng:0.8167},'FUMEL':{lat:44.4967,lng:0.9700},
-  'LAVARDAC':{lat:44.1806,lng:0.2958},'LAYRAC':{lat:44.1347,lng:0.6625},
-  'LE TEMPLE SUR LOT':{lat:44.3833,lng:0.5333},'MONCLAR':{lat:44.2167,lng:0.5833},
-  'NERAC':{lat:44.1381,lng:0.3394},'Ste-Bazeille':{lat:44.3667,lng:0.1833},
-  "Saint Pardoux d'Isaac":{lat:44.4000,lng:0.2167},'TONNEINS':{lat:44.3906,lng:0.3044},
-  "TOURNONS D'AGENAIS":{lat:44.3833,lng:0.9667},'VILLENEUVE SUR LOT':{lat:44.4089,lng:0.7053}
+  // ── Communes du CD47 ──
+  'AGEN':{lat:44.2004,lng:0.6213},
+  'AIGUILLON':{lat:44.2989,lng:0.3408},
+  'ARGENTON':{lat:44.3167,lng:0.7833},
+  'ASTAFFORT':{lat:44.0447,lng:0.6586},
+  'BARBASTE':{lat:44.1558,lng:0.2814},
+  'BON ENCONTRE':{lat:44.1833,lng:0.6417},
+  'CASSENEUIL':{lat:44.3614,lng:0.6667},
+  'CASTELJALOUX':{lat:44.3117,lng:0.0878},
+  'CASTELMORON SUR LOT':{lat:44.3961,lng:0.4944},
+  'CLAIRAC':{lat:44.3600,lng:0.3878},
+  'DAMAZAN':{lat:44.2831,lng:0.2753},
+  'DURAS':{lat:44.6731,lng:0.1794},
+  'FAUILLET':{lat:44.3833,lng:0.3167},
+  'FIEUX':{lat:44.1500,lng:0.8167},
+  'FUMEL':{lat:44.4967,lng:0.9700},
+  'LAVARDAC':{lat:44.1806,lng:0.2958},
+  'LAYRAC':{lat:44.1347,lng:0.6625},
+  'LE PASSAGE':{lat:44.2097,lng:0.5958},
+  'LE TEMPLE SUR LOT':{lat:44.3833,lng:0.5333},
+  'MARMANDE':{lat:44.5019,lng:0.1669},
+  'MEZIN':{lat:44.0558,lng:0.2608},
+  'MONCLAR':{lat:44.2167,lng:0.5833},
+  'NERAC':{lat:44.1381,lng:0.3394},
+  'PENNE D AGENAIS':{lat:44.3586,lng:0.9894},
+  'PORT SAINTE MARIE':{lat:44.2500,lng:0.3833},
+  'PRAYSSAS':{lat:44.2167,lng:0.5167},
+  'SAINTE BAZEILLE':{lat:44.3667,lng:0.1833},
+  'SAINTE LIVRADE SUR LOT':{lat:44.4014,lng:0.5933},
+  'SAINT PARDOUX ISAAC':{lat:44.4000,lng:0.2167},
+  'SOS':{lat:44.0631,lng:0.0344},
+  'TONNEINS':{lat:44.3906,lng:0.3044},
+  'TOURNON D AGENAIS':{lat:44.3833,lng:0.9667},
+  'VILLENEUVE SUR LOT':{lat:44.4089,lng:0.7053},
 };
 const CONSEILLERS_DEFAULT = ['Cynthia Pineau','Corentin Tual','Michel Aswad','Eva Capelle'];
 const STATUTS_DEFAULT = ['Planifié','Réalisé','Annulé','Non réalisé','Reporté'];
@@ -2189,14 +2214,26 @@ function VueCarte({entries,active}){
       if(e.statut==='Planifié')byC[e.commune].planifies++;
     });
     function markerColor(pct){if(pct>=70)return{fill:'#22c55e',stroke:'#166534'};if(pct>=40)return{fill:'#f97316',stroke:'#9a3412'};return{fill:'#3b82f6',stroke:'#1d4ed8'};}
+    function normGPS(s){return s.toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/-/g,' ').replace(/'/g,' ').replace(/\s*\(\d+\)\s*/g,'').replace(/\s+/g,' ').trim();}
     Object.entries(byC).forEach(([commune,s])=>{
-      const normC=commune.toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/-/g,' ').replace(/\s*\(\d+\)\s*/g,'').trim();
-      const g=COMMUNES_GPS[commune]||COMMUNES_GPS[normC]||Object.entries(COMMUNES_GPS).find(([k])=>k.toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/-/g,' ').trim()===normC)?.[1];
+      const normC=normGPS(commune);
+      const g=COMMUNES_GPS[commune]||COMMUNES_GPS[normC]||Object.entries(COMMUNES_GPS).find(([k])=>normGPS(k)===normC)?.[1];
       if(!g)return;
       const pct=s.total>0?Math.round(s.realises/s.total*100):0;
       let fillColor,strokeColor;
-      if(mode==='conum'&&filtreConum!=='Tous'){
-        fillColor=conseillerColor(filtreConum);strokeColor='#1e3a8a';
+      if(mode==='conum'){
+        if(filtreConum!=='Tous'){
+          // Conseiller sélectionné : sa couleur
+          fillColor=conseillerColor(filtreConum);strokeColor='#1e3a8a';
+        } else {
+          // Tous : couleur du conseiller dominant dans cette commune
+          const domConum=Array.from(s.conums).reduce((best,c)=>{
+            const cnt=entriesToUse.filter(e=>e.commune===commune&&(e.conseiller===c||e.co_animateur===c)).length;
+            return cnt>(best.cnt||0)?{c,cnt}:best;
+          },{});
+          fillColor=domConum.c?conseillerColor(domConum.c):'#94a3b8';
+          strokeColor='#1e3a8a';
+        }
       } else {
         const mc=markerColor(pct);fillColor=mc.fill;strokeColor=mc.stroke;
       }
@@ -2229,8 +2266,9 @@ function VueCarte({entries,active}){
         CE('span',null,CE('span',{style:{display:'inline-block',width:12,height:12,borderRadius:'50%',background:'#f97316',marginRight:5,verticalAlign:'middle'}}),'40 – 70%'),
         CE('span',null,CE('span',{style:{display:'inline-block',width:12,height:12,borderRadius:'50%',background:'#3b82f6',marginRight:5,verticalAlign:'middle'}}),'< 40%')
       )
-    : CE('div',{style:{display:'flex',gap:8,flexWrap:'wrap',fontSize:12}},
-        conseillers.filter(c=>c!=='Tous').map(c=>CE('span',{key:c,style:{display:'inline-flex',alignItems:'center',gap:4,background:'#f1f5f9',borderRadius:12,padding:'2px 8px'}},
+    : CE('div',{style:{display:'flex',gap:8,flexWrap:'wrap',fontSize:12,alignItems:'center'}},
+        CE('span',{style:{fontSize:11,color:'#94a3b8',marginRight:4}},filtreConum==='Tous'?'Conseiller dominant par commune :':'Conseiller sélectionné :'),
+        conseillers.filter(c=>c!=='Tous').map(c=>CE('span',{key:c,style:{display:'inline-flex',alignItems:'center',gap:4,background:'#f1f5f9',borderRadius:12,padding:'2px 8px',opacity:filtreConum==='Tous'||filtreConum===c?1:0.35}},
           CE('span',{style:{display:'inline-block',width:10,height:10,borderRadius:'50%',background:conseillerColor(c),flexShrink:0}}),c.split(' ')[0]
         ))
       );
