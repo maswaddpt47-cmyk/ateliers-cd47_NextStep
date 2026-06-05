@@ -22,6 +22,26 @@ function MaintenanceScreen({msg}){
   );
 }
 
+// ── VueAccueilStatic — dropdown CONUM fixe (landing) ─────────
+function VueAccueilStatic({onChoix}){
+  const CONUM_STATIC = [...CONSEILLERS_DEFAULT];
+  const[choix,setChoix]=React.useState('');
+  return CE('div',{className:'accueil-wrap'},
+    CE('div',{className:'accueil-card'},
+      CE('div',{className:'accueil-logo'},'🖥️'),
+      CE('div',{className:'accueil-title'},'Ateliers Inclusion Numérique'),
+      CE('div',{className:'accueil-sub'},'Conseil Départemental du Lot-et-Garonne'),
+      CE('label',{className:'accueil-label'},'Qui êtes-vous ?'),
+      CE('select',{className:'accueil-select',value:choix,onChange:e=>setChoix(e.target.value)},
+        CE('option',{value:''},'— Sélectionner votre nom —'),
+        CONUM_STATIC.map(c=>CE('option',{key:c,value:c},c))
+      ),
+      CE('button',{className:'accueil-btn',disabled:!choix,onClick:()=>onChoix(choix)},'📋 Accéder à mes ateliers'),
+      CE('button',{className:'accueil-skip',onClick:()=>onChoix(null)},'Voir tous les ateliers')
+    )
+  );
+}
+
 function App(){
   const[view,setView]              = React.useState('accueil');
   const[entries,setEntries]        = React.useState([]);
@@ -239,7 +259,7 @@ function App(){
                   );
                 })
               ),
-              CE(VueAccueil,{conseillers:conseillerActifs,onChoix:handleChoixConseiller,loading})
+              CE(VueAccueilStatic,{onChoix:handleChoixConseiller})
             )
       ),
       CE('div',{id:'toast',className:'toast',style:{opacity:0}})
