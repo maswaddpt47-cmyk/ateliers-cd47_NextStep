@@ -927,7 +927,7 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
     setSaving(true);
     try{
       const entry={...form,_id:form._id||genId(),inscrits:form.inscrits===''?'':parseInt(form.inscrits)||0,presents:form.presents===''?'':parseInt(form.presents)||0};
-      const res=await apiFetch('save',{entry});
+      const res=await apiFetch('saveEntry',{entry});
       if(!res.ok)throw new Error(res.error);
       showToast(editId?'✅ Atelier modifié':'✅ Atelier enregistré');
       if(onNewEntry&&!editId)onNewEntry(entry);
@@ -945,7 +945,7 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
       let ok=0; const createdIds=[];
       for(const row of lotRows){
         const entry={_id:genId(),_n:'',statut:'Planifié',date:row.date,horaire:row.horaire,ampm:row.ampm,thematique:row.thematique,orienteur:lotForm.orienteur,commune:lotForm.commune,lieu:lotForm.lieu,conseiller:lotForm.conseiller,co_animateur:lotForm.co_animateur||'',public:lotForm.public,materiel:lotForm.materiel,residence:lotForm.residence,remarques:lotForm.remarques,inscrits:'',presents:''};
-        const res=await apiFetch('save',{entry});
+        const res=await apiFetch('saveEntry',{entry});
         if(!res.ok)throw new Error(res.error);
         if(onNewEntry)onNewEntry(entry);
         createdIds.push(entry._id);ok++;
@@ -1226,7 +1226,7 @@ function VueHistorique({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
     if(!panel)return;setSaving(true);
     try{
       const updated={...panel,statut:panelStatut,inscrits:panelInscrits===''?'':parseInt(panelInscrits)||0,presents:panelPresents===''?'':parseInt(panelPresents)||0,remarques:panelNote};
-      const res=await apiFetch('save',{entry:updated});
+      const res=await apiFetch('saveEntry',{entry:updated});
       if(!res.ok)throw new Error(res.error);
       showToast('✅ Mis à jour');closePanel();onRefresh();
     }catch(err){showToast('❌ '+err.message,false);}
@@ -1456,7 +1456,7 @@ function VueCalendrier({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
     if(!panel)return;setSaving(true);
     try{
       const updated={...panel,statut:panelStatut,inscrits:panelInscrits===''?'':parseInt(panelInscrits)||0,presents:panelPresents===''?'':parseInt(panelPresents)||0,remarques:panelNote};
-      const res=await apiFetch('save',{entry:updated});
+      const res=await apiFetch('saveEntry',{entry:updated});
       if(!res.ok)throw new Error(res.error);
       showToast('✅ Mis à jour');closePanel();onRefresh();
     }catch(err){showToast('❌ '+err.message,false);}
@@ -2410,7 +2410,7 @@ function VueAnomalies({entries,onEdit,communes:communesProp,apiFetch,showToast,a
     setSaving(entry._id);
     try{
       const updated={...entry,commune:valeur.trim()};
-      const res=await apiFetch('save',{entry:updated});
+      const res=await apiFetch('saveEntry',{entry:updated});
       if(res&&res.ok){setSaved(s=>({...s,[entry._id]:true}));if(showToast)showToast('✅ Commune corrigée');if(addLog)addLog('Commune corrigée : '+entry._id,'ok');}
       else{if(showToast)showToast('⚠️ Erreur sauvegarde');}
     }catch(err){if(showToast)showToast('⚠️ Erreur : '+err.message);}
