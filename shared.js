@@ -3230,7 +3230,7 @@ function VueAgendaSemaine({entries,onEdit,onDelete,onDuplicate,canDelete,initCon
         e.thematique||e.commune||'—'),
       e.commune&&e.thematique&&CE('div',{style:{color:'#718096',fontSize:10,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}},e.commune),
       e.horaire&&CE('div',{style:{color:'#a0aec0',fontSize:10,marginTop:1}},e.horaire),
-      retard&&CE('div',{style:{color:'#dc2626',fontSize:9,fontWeight:700,marginTop:2}},'⚠ À mettre à jour')
+      retard&&CE('div',{style:{color:'#dc2626',fontSize:9,fontWeight:700,marginTop:2,animation:'blink-retard 1.4s ease-in-out infinite'}},'⚠ À mettre à jour')
     );
   }
 
