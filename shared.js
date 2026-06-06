@@ -1334,11 +1334,11 @@ function VueHistorique({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
           CE('button',{onClick:closePanel,style:{background:'none',border:'none',fontSize:18,cursor:'pointer',color:'#718096'}},'✕')
         ),
         CE('div',{className:'side-panel-body'},
-          // v9.0 : Flux de clôture rapide si atelier en retard
-          isRetard(panel)&&CE('div',{className:'cloture-banner'},
-            CE('div',{className:'cloture-title'},'⚠️ Atelier passé — à clôturer'),
+          // v9.0 : Flux de clôture rapide — toujours visible
+          CE('div',{className:'cloture-banner',style:{background:isRetard(panel)?'#fffbeb':'#f0f4ff',borderColor:isRetard(panel)?'#fcd34d':'#bfdbfe'}},
+            CE('div',{className:'cloture-title',style:{color:isRetard(panel)?'#92400e':'#1e3a8a'}},isRetard(panel)?'⚠️ Atelier passé — à clôturer':'⚡ Changement rapide de statut'),
             CE('div',{className:'cloture-btns'},
-              CLOTURE_PRESETS.map(p=>CE('button',{key:p.statut,className:'cloture-btn',style:{background:p.bg,color:p.color},onClick:()=>setPanelStatut(p.statut)},p.label))
+              CLOTURE_PRESETS.map(p=>CE('button',{key:p.statut,className:'cloture-btn',style:{background:p.bg,color:p.color,outline:panelStatut===p.statut?'2px solid #1e3a8a':'none'},onClick:()=>setPanelStatut(p.statut)},p.label))
             )
           ),
           CE('div',{style:{fontSize:13,fontWeight:700,color:'#1a202c',marginBottom:8}},panel.thematique),
@@ -1545,10 +1545,10 @@ function VueCalendrier({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
           CE('button',{onClick:closePanel,style:{background:'none',border:'none',fontSize:18,cursor:'pointer',color:'#718096'}},'✕')
         ),
         CE('div',{className:'side-panel-body'},
-          isRetard(panel)&&CE('div',{className:'cloture-banner'},
-            CE('div',{className:'cloture-title'},'⚠️ Atelier passé — à clôturer'),
+          CE('div',{className:'cloture-banner',style:{background:isRetard(panel)?'#fffbeb':'#f0f4ff',borderColor:isRetard(panel)?'#fcd34d':'#bfdbfe'}},
+            CE('div',{className:'cloture-title',style:{color:isRetard(panel)?'#92400e':'#1e3a8a'}},isRetard(panel)?'⚠️ Atelier passé — à clôturer':'⚡ Changement rapide de statut'),
             CE('div',{className:'cloture-btns'},
-              CLOTURE_PRESETS.map(p=>CE('button',{key:p.statut,className:'cloture-btn',style:{background:p.bg,color:p.color},onClick:()=>setPanelStatut(p.statut)},p.label))
+              CLOTURE_PRESETS.map(p=>CE('button',{key:p.statut,className:'cloture-btn',style:{background:p.bg,color:p.color,outline:panelStatut===p.statut?'2px solid #1e3a8a':'none'},onClick:()=>setPanelStatut(p.statut)},p.label))
             )
           ),
           CE('div',{style:{fontSize:13,fontWeight:700,color:'#1a202c',marginBottom:8}},panel.thematique),
