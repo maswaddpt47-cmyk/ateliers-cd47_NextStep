@@ -306,9 +306,9 @@ tr:hover td{background:#f7fafc}
 .bp-nonrealise{background:#f1f5f9;color:#475569}
 .bp-retard{background:#fecaca;color:#991b1b;border:1px solid #f87171;animation:blink-retard 1.4s ease-in-out infinite}
 .bp-public{background:#f1f5f9;color:#475569}
-.side-panel{position:fixed;bottom:0;right:0;width:340px;max-width:95vw;height:auto;max-height:92vh;background:#fff;box-shadow:-4px 0 24px rgba(0,0,0,.15);z-index:500;display:flex;flex-direction:column;transform:translateY(100%);transition:transform .25s ease;border-radius:16px 16px 0 0}
-.side-panel.open{transform:translateY(0)}
-.side-panel-header{padding:16px 20px;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between;background:#f8fafc;border-radius:16px 16px 0 0}
+.side-panel{position:fixed;top:50%;right:0;width:340px;max-width:95vw;height:auto;max-height:92vh;background:#fff;box-shadow:-4px 0 24px rgba(0,0,0,.15);z-index:500;display:flex;flex-direction:column;transform:translate(100%,-50%);transition:transform .25s ease;border-radius:16px 0 0 16px}
+.side-panel.open{transform:translate(0,-50%)}
+.side-panel-header{padding:16px 20px;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between;background:#f8fafc;border-radius:16px 0 0 0}
 .side-panel-header h3{font-size:14px;font-weight:700;color:#1a202c;margin:0}
 .side-panel-body{overflow-y:auto;padding:16px 20px}
 .side-panel-footer{padding:12px 20px;border-top:1px solid #e2e8f0;display:flex;gap:6px;flex-wrap:wrap}
@@ -1363,11 +1363,13 @@ function VueHistorique({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
           CE('div',{className:'sp-field'},CE('label',null,'Remarques'),
             CE('textarea',{value:panelNote,onChange:e=>setPanelNote(e.target.value),rows:3,placeholder:'Ajouter une note…',style:{width:'100%',padding:'8px 10px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:13,resize:'vertical'}}))
         ),
-        CE('div',{className:'side-panel-footer'},
-          canDelete&&CE('button',{className:'btn btn-danger btn-sm',onClick:()=>{setConfirmDel(panel);closePanel();}},'Supprimer'),
-          onDuplicate&&CE('button',{className:'btn btn-secondary btn-sm',style:{background:'#eff6ff',color:'#1d4ed8',border:'1px solid #bfdbfe'},onClick:()=>{onDuplicate(panel);closePanel();}},'📋 Dupliquer'),
-          CE('button',{className:'btn btn-secondary',style:{flex:1},onClick:()=>onEdit(panel._id)},'Éditer complet'),
-          CE('button',{className:'btn btn-primary',style:{flex:1},onClick:savePanel,disabled:saving},saving?'…':'💾 Enregistrer')
+        CE('div',{className:'side-panel-footer',style:{flexDirection:'column',gap:8}},
+          CE('button',{className:'btn btn-primary',style:{width:'100%',padding:'12px',fontSize:15,fontWeight:700,background:'#16a34a',borderColor:'#16a34a'},onClick:savePanel,disabled:saving},saving?'…':'💾 Enregistrer'),
+          CE('div',{style:{display:'flex',gap:6}},
+            canDelete&&CE('button',{className:'btn btn-danger btn-sm',onClick:()=>{setConfirmDel(panel);closePanel();}},'Supprimer'),
+            onDuplicate&&CE('button',{className:'btn btn-secondary btn-sm',style:{background:'#eff6ff',color:'#1d4ed8',border:'1px solid #bfdbfe'},onClick:()=>{onDuplicate(panel);closePanel();}},'📋 Dupliquer'),
+            CE('button',{className:'btn btn-secondary btn-sm',style:{flex:1},onClick:()=>onEdit(panel._id)},'Éditer complet')
+          )
         )
       )
     ),
@@ -1573,11 +1575,13 @@ function VueCalendrier({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
           CE('div',{className:'sp-field'},CE('label',null,'Remarques'),
             CE('textarea',{value:panelNote,onChange:e=>setPanelNote(e.target.value),rows:3,placeholder:'Ajouter une note…',style:{width:'100%',padding:'8px 10px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:13,resize:'vertical'}}))
         ),
-        CE('div',{className:'side-panel-footer'},
-          canDelete&&CE('button',{className:'btn btn-danger btn-sm',onClick:()=>{setConfirmDel(panel);closePanel();}},'Supprimer'),
-          onDuplicate&&CE('button',{className:'btn btn-secondary btn-sm',style:{background:'#eff6ff',color:'#1d4ed8',border:'1px solid #bfdbfe'},onClick:()=>{onDuplicate(panel);closePanel();}},'📋 Dupliquer'),
-          CE('button',{className:'btn btn-secondary',style:{flex:1},onClick:()=>onEdit(panel._id)},'Éditer complet'),
-          CE('button',{className:'btn btn-primary',style:{flex:1},onClick:savePanel,disabled:saving},saving?'…':'💾 Enregistrer')
+        CE('div',{className:'side-panel-footer',style:{flexDirection:'column',gap:8}},
+          CE('button',{className:'btn btn-primary',style:{width:'100%',padding:'12px',fontSize:15,fontWeight:700,background:'#16a34a',borderColor:'#16a34a'},onClick:savePanel,disabled:saving},saving?'…':'💾 Enregistrer'),
+          CE('div',{style:{display:'flex',gap:6}},
+            canDelete&&CE('button',{className:'btn btn-danger btn-sm',onClick:()=>{setConfirmDel(panel);closePanel();}},'Supprimer'),
+            onDuplicate&&CE('button',{className:'btn btn-secondary btn-sm',style:{background:'#eff6ff',color:'#1d4ed8',border:'1px solid #bfdbfe'},onClick:()=>{onDuplicate(panel);closePanel();}},'📋 Dupliquer'),
+            CE('button',{className:'btn btn-secondary btn-sm',style:{flex:1},onClick:()=>onEdit(panel._id)},'Éditer complet')
+          )
         )
       )
     ),
