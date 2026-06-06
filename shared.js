@@ -1371,6 +1371,8 @@ function VueHistorique({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
             CE('button',{className:'btn btn-secondary btn-sm',style:{flex:1},onClick:()=>onEdit(panel._id)},'Éditer complet')
           )
         )
+      )
+    ),
     confirmDel&&CE('div',{style:{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:1000}},
       CE('div',{className:'card',style:{width:360}},
         CE('h2',null,'🗑️ Confirmer la suppression'),
