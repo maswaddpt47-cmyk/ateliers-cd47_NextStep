@@ -306,11 +306,11 @@ tr:hover td{background:#f7fafc}
 .bp-nonrealise{background:#f1f5f9;color:#475569}
 .bp-retard{background:#fecaca;color:#991b1b;border:1px solid #f87171;animation:blink-retard 1.4s ease-in-out infinite}
 .bp-public{background:#f1f5f9;color:#475569}
-.side-panel{position:fixed;top:0;right:0;width:340px;max-width:95vw;height:100vh;background:#fff;box-shadow:-4px 0 24px rgba(0,0,0,.15);z-index:500;display:flex;flex-direction:column;transform:translateX(100%);transition:transform .25s ease}
+.side-panel{position:fixed;top:0;right:0;width:340px;max-width:95vw;height:auto;max-height:92vh;background:#fff;box-shadow:-4px 0 24px rgba(0,0,0,.15);z-index:500;display:flex;flex-direction:column;transform:translateX(100%);transition:transform .25s ease;border-radius:0 0 0 16px}
 .side-panel.open{transform:translateX(0)}
 .side-panel-header{padding:16px 20px;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between;background:#f8fafc}
 .side-panel-header h3{font-size:14px;font-weight:700;color:#1a202c;margin:0}
-.side-panel-body{flex:1;overflow-y:auto;padding:16px 20px}
+.side-panel-body{overflow-y:auto;padding:16px 20px}
 .side-panel-footer{padding:12px 20px;border-top:1px solid #e2e8f0;display:flex;gap:6px;flex-wrap:wrap}
 .side-panel-overlay{position:fixed;inset:0;background:rgba(0,0,0,.3);z-index:499}
 .sp-info-row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f0f4f8;font-size:13px}
