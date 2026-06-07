@@ -297,8 +297,10 @@
   .sidebar-btn.active::before { display:none; }
   .app-content {
     margin-left: 0 !important;
-    margin-bottom: 56px;
+    margin-bottom: 0;
+    padding-bottom: 72px;
   }
+  .app-main { padding-bottom: 72px; }
   .sidebar.pinned ~ .app-content { margin-left:0 !important; }
   .app-topbar { padding: 0 12px; }
   .app-topbar-date { display:none !important; }
