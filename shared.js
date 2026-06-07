@@ -1317,11 +1317,8 @@ function VueHistorique({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
           CE('div',{className:'atelier-card-jour'},d.jour),CE('div',{className:'atelier-card-time'},e.horaire)
         ),
         CE('div',{className:'atelier-card-body'},
-          CE('div',{className:'atelier-card-badges'},
-            badgePill(e.statut,retard),
-            e.orienteur&&CE('span',{style:{fontSize:11,color:'#718096',fontStyle:'italic',alignSelf:'center'}},e.orienteur),
-            CE('span',{className:'badge-pill bp-public'},e.public||'Tous publics')
-          ),
+          CE('div',{className:'atelier-card-badges'},badgePill(e.statut,retard),CE('span',{className:'badge-pill bp-public'},e.public||'Tous publics')),
+          e.orienteur&&CE('div',{style:{fontSize:11,color:'#718096',marginBottom:2,fontStyle:'italic'}},e.orienteur),
           CE('div',{className:'atelier-card-conseiller',style:{color:cColor}},e.conseiller),
           CE('div',{className:'atelier-card-title'},e.thematique),
           CE('div',{className:'atelier-card-sub'},e.commune,' — ',e.lieu,(e.inscrits||e.presents)?CE('span',null,' · ',e.presents||0,'/',e.inscrits||0,' présents'):null)
