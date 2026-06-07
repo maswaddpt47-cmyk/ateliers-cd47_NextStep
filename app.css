@@ -256,8 +256,10 @@
 /* ── Responsive mobile ──────────────────────────────────────── */
 @media (max-width: 640px) {
   .sidebar {
-    position: fixed;
-    z-index: 200;
+    position: fixed !important;
+    z-index: 9999;
+    transform: none !important;
+    will-change: auto;
     width: 100% !important;
     height: 56px;
     min-height: unset;
