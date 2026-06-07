@@ -1175,6 +1175,7 @@ function VueHistorique({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
   const[panelStatut,setPanelStatut]=React.useState('');
   const[panelInscrits,setPanelInscrits]=React.useState('');
   const[panelPresents,setPanelPresents]=React.useState('');
+  const[panelThematique,setPanelThematique]=React.useState('');
   const[panelNote,setPanelNote]=React.useState('');
   const[saving,setSaving]=React.useState(false);
   const[confirmDel,setConfirmDel]=React.useState(null);
@@ -1219,13 +1220,13 @@ function VueHistorique({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
   const kpi=React.useMemo(()=>{const realises=filtered.filter(e=>e.statut==='Réalisé');const annules=filtered.filter(e=>e.statut==='Annulé').length;const inscrits=filtered.reduce((s,e)=>s+(parseInt(e.inscrits)||0),0);const presents=filtered.reduce((s,e)=>s+(parseInt(e.presents)||0),0);const tx=inscrits>0?Math.round(presents/inscrits*100):0;return{total:filtered.length,realises:realises.length,annules,inscrits,presents,tx};},[filtered]);
   const nRetard=entries.filter(e=>isRetard(e)&&(filtConseiller==='Tous'||e.conseiller===filtConseiller)).length;
 
-  function openPanel(e){setPanel(e);setPanelStatut(e.statut);setPanelInscrits(e.inscrits===undefined||e.inscrits===''?'':String(e.inscrits));setPanelPresents(e.presents===undefined||e.presents===''?'':String(e.presents));setPanelNote(e.remarques||'');}
+  function openPanel(e){setPanel(e);setPanelStatut(e.statut);setPanelInscrits(e.inscrits===undefined||e.inscrits===''?'':String(e.inscrits));setPanelPresents(e.presents===undefined||e.presents===''?'':String(e.presents));setPanelThematique(e.thematique||'');setPanelNote(e.remarques||'');}
   function closePanel(){setPanel(null);}
 
   async function savePanel(){
     if(!panel)return;setSaving(true);
     try{
-      const updated={...panel,statut:panelStatut,inscrits:panelInscrits===''?'':parseInt(panelInscrits)||0,presents:panelPresents===''?'':parseInt(panelPresents)||0,remarques:panelNote};
+      const updated={...panel,statut:panelStatut,inscrits:panelInscrits===''?'':parseInt(panelInscrits)||0,presents:panelPresents===''?'':parseInt(panelPresents)||0,thematique:panelThematique,remarques:panelNote};
       const res=await apiFetch('saveEntry',{entry:updated});
       if(!res.ok)throw new Error(res.error);
       showToast('✅ Mis à jour');closePanel();onRefresh();
@@ -1317,8 +1318,11 @@ function VueHistorique({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
           CE('div',{className:'atelier-card-jour'},d.jour),CE('div',{className:'atelier-card-time'},e.horaire)
         ),
         CE('div',{className:'atelier-card-body'},
-          CE('div',{className:'atelier-card-badges'},badgePill(e.statut,retard),CE('span',{className:'badge-pill bp-public'},e.public||'Tous publics')),
-          e.orienteur&&CE('div',{style:{fontSize:11,color:'#718096',marginBottom:2,fontStyle:'italic'}},e.orienteur),
+          CE('div',{className:'atelier-card-badges'},
+            badgePill(e.statut,retard),
+            e.orienteur&&CE('span',{style:{fontSize:11,color:'#718096',fontStyle:'italic',alignSelf:'center'}},e.orienteur),
+            CE('span',{className:'badge-pill bp-public'},e.public||'Tous publics')
+          ),
           CE('div',{className:'atelier-card-conseiller',style:{color:cColor}},e.conseiller),
           CE('div',{className:'atelier-card-title'},e.thematique),
           CE('div',{className:'atelier-card-sub'},e.commune,' — ',e.lieu,(e.inscrits||e.presents)?CE('span',null,' · ',e.presents||0,'/',e.inscrits||0,' présents'):null)
@@ -1361,6 +1365,8 @@ function VueHistorique({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
             CE('input',{type:'number',min:0,value:panelInscrits,onChange:e=>setPanelInscrits(e.target.value),style:{width:'100%',padding:'8px 10px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:13},placeholder:'0'})),
           CE('div',{className:'sp-field'},CE('label',null,'Nombre de présents'),
             CE('input',{type:'number',min:0,value:panelPresents,onChange:e=>setPanelPresents(e.target.value),style:{width:'100%',padding:'8px 10px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:13},placeholder:'0'})),
+          CE('div',{className:'sp-field'},CE('label',null,'Thématique'),
+            CE('input',{type:'text',value:panelThematique,onChange:e=>setPanelThematique(e.target.value),style:{width:'100%',padding:'8px 10px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:13}})),
           CE('div',{className:'sp-field'},CE('label',null,'Remarques'),
             CE('textarea',{value:panelNote,onChange:e=>setPanelNote(e.target.value),rows:3,placeholder:'Ajouter une note…',style:{width:'100%',padding:'8px 10px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:13,resize:'vertical'}}))
         ),
@@ -1402,6 +1408,7 @@ function VueCalendrier({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
   const[panelStatut,setPanelStatut]=React.useState('');
   const[panelInscrits,setPanelInscrits]=React.useState('');
   const[panelPresents,setPanelPresents]=React.useState('');
+  const[panelThematique,setPanelThematique]=React.useState('');
   const[panelNote,setPanelNote]=React.useState('');
   const[saving,setSaving]=React.useState(false);
   const[confirmDel,setConfirmDel]=React.useState(null);
@@ -1453,12 +1460,12 @@ function VueCalendrier({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
   function goToday(){setCalDate(new Date(today.getFullYear(),today.getMonth(),1));setExpandDay(null);}
 
   // Panel
-  function openPanel(e){setPanel(e);setPanelStatut(e.statut);setPanelInscrits(e.inscrits===undefined||e.inscrits===''?'':String(e.inscrits));setPanelPresents(e.presents===undefined||e.presents===''?'':String(e.presents));setPanelNote(e.remarques||'');}
+  function openPanel(e){setPanel(e);setPanelStatut(e.statut);setPanelInscrits(e.inscrits===undefined||e.inscrits===''?'':String(e.inscrits));setPanelPresents(e.presents===undefined||e.presents===''?'':String(e.presents));setPanelThematique(e.thematique||'');setPanelNote(e.remarques||'');}
   function closePanel(){setPanel(null);}
   async function savePanel(){
     if(!panel)return;setSaving(true);
     try{
-      const updated={...panel,statut:panelStatut,inscrits:panelInscrits===''?'':parseInt(panelInscrits)||0,presents:panelPresents===''?'':parseInt(panelPresents)||0,remarques:panelNote};
+      const updated={...panel,statut:panelStatut,inscrits:panelInscrits===''?'':parseInt(panelInscrits)||0,presents:panelPresents===''?'':parseInt(panelPresents)||0,thematique:panelThematique,remarques:panelNote};
       const res=await apiFetch('saveEntry',{entry:updated});
       if(!res.ok)throw new Error(res.error);
       showToast('✅ Mis à jour');closePanel();onRefresh();
@@ -1573,6 +1580,8 @@ function VueCalendrier({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
             CE('input',{type:'number',min:0,value:panelInscrits,onChange:e=>setPanelInscrits(e.target.value),style:{width:'100%',padding:'8px 10px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:13},placeholder:'0'})),
           CE('div',{className:'sp-field'},CE('label',null,'Nombre de présents'),
             CE('input',{type:'number',min:0,value:panelPresents,onChange:e=>setPanelPresents(e.target.value),style:{width:'100%',padding:'8px 10px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:13},placeholder:'0'})),
+          CE('div',{className:'sp-field'},CE('label',null,'Thématique'),
+            CE('input',{type:'text',value:panelThematique,onChange:e=>setPanelThematique(e.target.value),style:{width:'100%',padding:'8px 10px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:13}})),
           CE('div',{className:'sp-field'},CE('label',null,'Remarques'),
             CE('textarea',{value:panelNote,onChange:e=>setPanelNote(e.target.value),rows:3,placeholder:'Ajouter une note…',style:{width:'100%',padding:'8px 10px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:13,resize:'vertical'}}))
         ),
