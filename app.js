@@ -191,6 +191,9 @@ function App(){
     setFiltreConseiller(nom);
     setShowPicker(false);
     setView(visibility.historique?'historique':visibility.calendrier?'calendrier':visibility.saisie?'saisie':'dashboard');
+    if(nom){
+      apiFetch('logAccesIndex',{conseiller:nom,userAgent:navigator.userAgent}).catch(()=>{});
+    }
   }
   function handleEdit(id){setEditingId(id);setPrefillData(null);setView('saisie');}
   function handleSaved(){loadData();setView('historique');}
