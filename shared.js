@@ -578,6 +578,10 @@ function showToast(msg,ok=true){
 
   window.apiFetch = async function apiFetch(action, body={}, _attempt=1){
     const params = new URLSearchParams({action});
+    // Passe source=admin pour que le GAS ignore le mode maintenance
+    if(window.location.pathname.indexOf('admin.html') > -1){
+      params.set('source', 'admin');
+    }
     if(body && Object.keys(body).length){
       Object.entries(body).forEach(([k,v])=>{
         params.set(k, typeof v==='object' ? JSON.stringify(v) : v);
