@@ -163,7 +163,7 @@ function App(){
   React.useEffect(()=>{
     const year=new Date().getFullYear();
     Promise.all([
-      fetch(`${GS_URL}?action=getAll&year=${year}`).then(r=>r.json()).catch(()=>null),
+      fetch(`${GS_URL}?action=getAll&year=${year}&source=admin`).then(r=>r.json()).catch(()=>null),
       apiFetch('getComptes').catch(()=>null)
     ]).then(([dataRes,comptesRes])=>{
       const base=dataRes?.lists?.conseillers?.length?dataRes.lists.conseillers:null;
@@ -241,7 +241,7 @@ function App(){
       const isMobile=/Android|iPhone|iPad/i.test(navigator.userAgent);
       const timeouts=isMobile?[20000,25000,30000]:[8000,10000,12000];
       const timeoutMs=timeouts[attempt-1]||timeouts[timeouts.length-1];
-      const res=await Promise.race([fetch(`${GS_URL}?action=getAll&year=${annee}`),new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')),timeoutMs))]);
+      const res=await Promise.race([fetch(`${GS_URL}?action=getAll&year=${annee}&source=admin`),new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')),timeoutMs))]);
       const data=await res.json();
       if(!data.ok)throw new Error(data.error||'Erreur serveur');
       const incoming=data.entries||[];
@@ -912,7 +912,7 @@ function VueAdminV10({entries,onRefresh,addLog,conseillersList,onSaveColors,anne
       for(let i=0;i<rows_raw.length;i+=BATCH){
         if(cancelRef.current){annule=true;break;}
         const batch=rows_raw.slice(i,i+BATCH);
-        const params=new URLSearchParams({action:'saveMany',entries:JSON.stringify(batch)});
+        const params=new URLSearchParams({action:'saveMany',source:'admin',entries:JSON.stringify(batch)});
         try{
           const res=await Promise.race([fetch(`${GS_URL}?${params.toString()}`),new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')),45000))]);
           const data=await res.json();
