@@ -3,10 +3,7 @@
 ## Avant toute intervention sur les fichiers
 
 1. **Git pull** : toujours faire `git pull origin main` avant de lire ou modifier un fichier
-2. **Backup daté** : avant de modifier un fichier, créer une copie datée dans `_backups/`
-   - Format : `_backups/<fichier>.backup.<YYYYMMDD-HHMM>.<ext>`
-   - Exemple : `_backups/admin_app.backup.20260614-1231.js`
-3. **Commits séparés** : un commit par modification logique, avec préfixe :
+2. **Commits séparés** : un commit par modification logique, avec préfixe :
    - `feat:` nouvelle fonctionnalité
    - `fix:` correction de bug
    - `refactor:` restructuration sans changement de comportement
