@@ -303,7 +303,7 @@ tr:hover td{background:#f7fafc}
 .bp-realise{background:#dcfce7;color:#166534}
 .bp-annule{background:#fee2e2;color:#991b1b}
 .bp-reporte{background:#fef3c7;color:#92400e}
-.bp-nonrealise{background:#f1f5f9;color:#475569}
+.bp-nonrealise{background:#fee2e2;color:#991b1b}
 .bp-retard{background:#fecaca;color:#991b1b;border:1px solid #f87171;animation:blink-retard 1.4s ease-in-out infinite}
 .bp-public{background:#f1f5f9;color:#475569}
 .side-panel{position:fixed;top:0;right:0;width:340px;max-width:95vw;height:auto;max-height:92vh;background:#fff;box-shadow:-4px 0 24px rgba(0,0,0,.15);z-index:500;display:flex;flex-direction:column;transform:translateX(100%);transition:transform .25s ease;border-radius:0 0 0 16px}
