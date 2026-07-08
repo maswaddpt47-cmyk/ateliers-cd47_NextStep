@@ -64,7 +64,7 @@ function AdminLogin({onLogin,savedName,onResetProfil,conseillers:conseillersProp
     try{
       const res=await Promise.race([
         apiFetch('checkPassword',{conseiller,password:pwd,userAgent:navigator.userAgent,source:'admin.html'}),
-        new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')),isMobile?25000:10000))
+        new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')),isMobile?35000:30000))
       ]);
       if(res.ok){
         if((res.role||'user')!=='admin'&&(res.role||'user')!=='superviseur'){
