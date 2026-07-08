@@ -67,8 +67,12 @@ function AdminLogin({onLogin,savedName,onResetProfil,conseillers:conseillersProp
         new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')),isMobile?25000:10000))
       ]);
       if(res.ok){
+        if((res.role||'user')!=='admin'){
+          setErr('⛔ Accès refusé — réservé aux administrateurs.');
+          return;
+        }
         setFailCount(0);setLockUntil(0);
-        touchSession();onLogin(res.role||'user',conseiller);
+        touchSession();onLogin(res.role,conseiller);
       }else{
         const nf=failCount+1;
         setFailCount(nf);
