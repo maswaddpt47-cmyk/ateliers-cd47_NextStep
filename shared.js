@@ -1060,7 +1060,7 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
       CE('input',{type:'text',style:iStyle(false),value:frm.remarques,placeholder:'Notes libres',onChange:e=>setFn('remarques',e.target.value)}))
   );
 
-  return CE('div',{'data-saisie':'1',style:{padding:'4px 0'}},
+  return CE('div',{'data-saisie':'1',style:{padding:'4px 0',...acVars}},
     // Badge conseiller coloré
     accentColor&&CE('div',{style:{display:'inline-flex',alignItems:'center',gap:8,padding:'6px 14px',borderRadius:20,fontSize:12,fontWeight:700,color:'#fff',background:ac,marginBottom:14}},
       editId?'✏️ Modifier':isDup?'📋 Duplication':modeLot?'🔄 Saisie par cycle':'⚡ Saisie One Shot'
@@ -1331,6 +1331,10 @@ function VueHistorique({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
       CE('div',{style:{fontSize:11,color:'#718096',marginTop:8}},`${filtered.length} atelier(s) affiché(s) sur ${entries.length}`)
     ),
     // Liste des ateliers
+    filtered.length===0&&CE('div',{style:{textAlign:'center',padding:'40px 0',color:'#94a3b8',fontSize:14}},
+      CE('div',{style:{fontSize:32,marginBottom:8}},'📭'),
+      entries.length===0?'Aucun atelier enregistré pour cette année.':'Aucun atelier ne correspond aux filtres sélectionnés.'
+    ),
     CE('div',{className:'atelier-list'},filtered.map((e,ei)=>{
       const d=fmtCardDate(e.date);const retard=isRetard(e);const cColor=conseillerColor(e.conseiller);
       return CE(FadeItem,{key:e._id,delay:Math.min(ei*0.05,0.5)},CE('div',{className:'atelier-card',style:{background:retard?'#fffbeb':hexToRgba(cColor,0.04),borderLeft:'none'},onClick:()=>openPanel(e)},
