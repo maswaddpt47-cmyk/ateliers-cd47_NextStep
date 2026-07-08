@@ -953,11 +953,15 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
 
   // ── submit mode lot ──
   async function handleSubmitLot(){
+    // Purger les lignes totalement vides avant validation
+    const rowsFilled=lotRows.filter(r=>r.date||r.horaire||r.thematique.trim());
+    if(rowsFilled.length===0){setFormError('Ajoutez au moins une date dans le tableau.');return;}
+    if(rowsFilled.length<lotRows.length)setLotRows(rowsFilled);
     if(!validateLot())return;
     setSaving(true);
     try{
       let ok=0; const createdIds=[];
-      for(const row of lotRows){
+      for(const row of rowsFilled){
         const entry={_id:genId(),_n:'',statut:'Planifié',date:row.date,horaire:row.horaire,ampm:row.ampm,thematique:row.thematique,orienteur:lotForm.orienteur,commune:lotForm.commune,lieu:lotForm.lieu,conseiller:lotForm.conseiller,co_animateur:lotForm.co_animateur||'',public:lotForm.public,materiel:lotForm.materiel,residence:lotForm.residence,remarques:lotForm.remarques,inscrits:'',presents:''};
         const res=await apiFetch('saveEntry',{entry});
         if(!res.ok)throw new Error(res.error);
