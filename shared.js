@@ -856,6 +856,7 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
   const[lotRowErrors,setLotRowErrors]= React.useState({});
 
   const[saving,setSaving]= React.useState(false);
+  const[formError,setFormError]= React.useState('');
 
   // ── chargement editingId → force mode unique ──
   React.useEffect(()=>{
@@ -887,6 +888,7 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
   function setRow(id,k,v){setLotRows(r=>r.map(x=>x.id===id?{...x,[k]:v}:x));setLotRowErrors(er=>({...er,[id]:{...(er[id]||{}),[k]:''}}));}
 
   // ── validation mode unique ──
+  const FIELD_LABELS={'statut':'Statut','date':'Date','horaire':'Horaire','ampm':'AM/PM','commune':'Commune','lieu':'Lieu','thematique':'Thématique','conseiller':'Conseiller','orienteur':'Orienteur','public':'Type de public','inscrits':'Inscrits'};
   function validate(){
     const e={};
     if(!form.statut)            e.statut='Requis';
@@ -900,7 +902,11 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
     if(!form.orienteur.trim())  e.orienteur='Requis';
     if(!form.public)            e.public='Requis';
     if(form.inscrits==='')      e.inscrits='Requis';
-    setErrors(e);return Object.keys(e).length===0;
+    setErrors(e);
+    const missing=Object.keys(e).map(k=>FIELD_LABELS[k]||k);
+    if(missing.length>0) setFormError('Champs obligatoires manquants : '+missing.join(', '));
+    else setFormError('');
+    return missing.length===0;
   }
 
   // ── validation mode lot ──
@@ -922,6 +928,10 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
       if(Object.keys(er).length>0)re[r.id]=er;
     });
     setLotRowErrors(re);
+    const missing=[...Object.keys(e).map(k=>FIELD_LABELS[k]||k)];
+    if(Object.keys(re).length>0) missing.push('Date/Horaire/AM-PM/Thématique dans le tableau');
+    if(missing.length>0) setFormError('Champs obligatoires manquants : '+missing.join(', '));
+    else setFormError('');
     return Object.keys(e).length===0&&Object.keys(re).length===0;
   }
 
@@ -1109,10 +1119,14 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
         )
       ),
       // Boutons
-      CE('div',{style:{display:'flex',gap:12,marginTop:4}},
-        CE('button',{style:{padding:'13px 28px',border:'none',borderRadius:12,cursor:saving?'not-allowed':'pointer',fontSize:14,fontWeight:700,color:'#fff',background:saving?'#94a3b8':ac,opacity:saving?.7:1,display:'flex',alignItems:'center',gap:8},onClick:handleSubmit,disabled:saving},
-          saving?CE('span',null,CE('span',{className:'spinner'}),'Enregistrement…'):(editId?'💾 Modifier l\'atelier':'💾 Enregistrer l\'atelier')),
-        CE('button',{style:{padding:'13px 24px',border:'2px solid #e2e8f0',borderRadius:12,cursor:'pointer',fontSize:14,fontWeight:600,color:'#718096',background:'#fff'},onClick:reset},isDup||editId?'✖ Annuler':'✖ Réinitialiser')
+      CE('div',{style:{marginTop:4}},
+        formError&&CE('div',{style:{background:'#fff5f5',border:'2px solid #fc8181',borderRadius:10,padding:'10px 14px',marginBottom:10,color:'#c53030',fontSize:13,fontWeight:600,display:'flex',alignItems:'center',gap:8}},
+          CE('span',{style:{fontSize:16}},'⚠️'),formError),
+        CE('div',{style:{display:'flex',gap:12}},
+          CE('button',{style:{padding:'13px 28px',border:'none',borderRadius:12,cursor:saving?'not-allowed':'pointer',fontSize:14,fontWeight:700,color:'#fff',background:saving?'#94a3b8':ac,opacity:saving?.7:1,display:'flex',alignItems:'center',gap:8},onClick:handleSubmit,disabled:saving},
+            saving?CE('span',null,CE('span',{className:'spinner'}),'Enregistrement…'):(editId?'💾 Modifier l\'atelier':'💾 Enregistrer l\'atelier')),
+          CE('button',{style:{padding:'13px 24px',border:'2px solid #e2e8f0',borderRadius:12,cursor:'pointer',fontSize:14,fontWeight:600,color:'#718096',background:'#fff'},onClick:()=>{reset();setFormError('');}},isDup||editId?'✖ Annuler':'✖ Réinitialiser')
+        )
       )
     ),
 
@@ -1152,10 +1166,14 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
         CE('button',{onClick:addRow,style:{display:'flex',alignItems:'center',justifyContent:'center',gap:6,padding:10,background:'#fff',border:`2px dashed ${ac}`,borderRadius:10,cursor:'pointer',fontSize:13,color:ac,fontWeight:700,width:'100%',marginTop:6}},'＋ Ajouter une date')
       ),
       // Boutons
-      CE('div',{style:{display:'flex',gap:12,marginTop:4}},
-        CE('button',{style:{padding:'13px 28px',border:'none',borderRadius:12,cursor:saving?'not-allowed':'pointer',fontSize:14,fontWeight:700,color:'#fff',background:saving?'#94a3b8':ac,opacity:saving?.7:1,display:'flex',alignItems:'center',gap:8},onClick:handleSubmitLot,disabled:saving},
-          saving?CE('span',null,CE('span',{className:'spinner'}),'Création…'):`💾 Créer ${lotRows.length} atelier(s)`),
-        CE('button',{style:{padding:'13px 24px',border:'2px solid #e2e8f0',borderRadius:12,cursor:'pointer',fontSize:14,fontWeight:600,color:'#718096',background:'#fff'},onClick:resetLot},'✖ Réinitialiser')
+      CE('div',{style:{marginTop:4}},
+        formError&&CE('div',{style:{background:'#fff5f5',border:'2px solid #fc8181',borderRadius:10,padding:'10px 14px',marginBottom:10,color:'#c53030',fontSize:13,fontWeight:600,display:'flex',alignItems:'center',gap:8}},
+          CE('span',{style:{fontSize:16}},'⚠️'),formError),
+        CE('div',{style:{display:'flex',gap:12}},
+          CE('button',{style:{padding:'13px 28px',border:'none',borderRadius:12,cursor:saving?'not-allowed':'pointer',fontSize:14,fontWeight:700,color:'#fff',background:saving?'#94a3b8':ac,opacity:saving?.7:1,display:'flex',alignItems:'center',gap:8},onClick:handleSubmitLot,disabled:saving},
+            saving?CE('span',null,CE('span',{className:'spinner'}),'Création…'):`💾 Créer ${lotRows.length} atelier(s)`),
+          CE('button',{style:{padding:'13px 24px',border:'2px solid #e2e8f0',borderRadius:12,cursor:'pointer',fontSize:14,fontWeight:600,color:'#718096',background:'#fff'},onClick:()=>{resetLot();setFormError('');}}, '✖ Réinitialiser')
+        )
       )
     )
   );
