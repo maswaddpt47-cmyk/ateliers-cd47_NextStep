@@ -840,7 +840,7 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
   const conseillers= lists?.conseillers || CONSEILLERS_DEFAULT;
   const publics    = lists?.publics     || PUBLICS_DEFAULT;
   const materiels  = lists?.materiels   || MATERIELS_DEFAULT;
-  const empty={_id:'',_n:'',statut:'',date:'',horaire:'',ampm:'',orienteur:'',commune:'',lieu:'',thematique:'',inscrits:'',presents:'',public:'',conseiller:'',co_animateur:'',materiel:[],residence:'',remarques:''};
+  const empty={_id:'',_n:'',statut:'',date:'',horaire:'',ampm:'',orienteur:'',commune:'',lieu:'',thematique:'',inscrits:4,presents:'',public:'',conseiller:'',co_animateur:'',materiel:[],residence:'',remarques:''};
 
   // ── états mode unique ──
   const[form,setForm]   = React.useState(empty);
@@ -869,7 +869,7 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
   // ── chargement prefillData (duplication) → force mode unique ──
   React.useEffect(()=>{
     if(!prefillData)return;
-    setForm({...empty,...prefillData,_id:'',_n:'',date:'',horaire:'',ampm:'',inscrits:'',presents:'',remarques:'',statut:'Planifié'});
+    setForm({...empty,...prefillData,_id:'',_n:'',date:'',horaire:'',ampm:'',inscrits:4,presents:'',remarques:'',statut:'Planifié'});
     setEditId(null);setIsDup(true);setModeLot(false);setErrors({});
     window.scrollTo(0,0);if(onClearPrefill)onClearPrefill();
   },[prefillData]);
