@@ -172,10 +172,12 @@ function App(){
       apiFetch('getComptes').catch(()=>null)
     ]).then(([dataRes,comptesRes])=>{
       const comptes=comptesRes?.ok&&comptesRes.comptes?comptesRes.comptes:[];
+      const base=dataRes?.lists?.conseillers?.length?dataRes.lists.conseillers:CONSEILLERS_DEFAULT;
+      if(comptes.length===0){setLoginConseillers(base);return;}
       const admins=new Set(comptes.filter(c=>c.role==='admin'||c.role==='superviseur').map(c=>c.conseiller));
       const inactifs=new Set(comptes.filter(c=>c.actif==='NON').map(c=>c.conseiller));
-      const base=dataRes?.lists?.conseillers?.length?dataRes.lists.conseillers:CONSEILLERS_DEFAULT;
-      setLoginConseillers(base.filter(c=>admins.has(c)&&!inactifs.has(c)));
+      const filtered=base.filter(c=>admins.has(c)&&!inactifs.has(c));
+      setLoginConseillers(filtered.length>0?filtered:base);
     });
   },[]);
   const[emails,setEmails]  = React.useState({});
