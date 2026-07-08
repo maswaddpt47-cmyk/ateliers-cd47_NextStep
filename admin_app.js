@@ -171,10 +171,11 @@ function App(){
       fetch(`${GS_URL}?action=getAll&year=${year}&source=admin`).then(r=>r.json()).catch(()=>null),
       apiFetch('getComptes').catch(()=>null)
     ]).then(([dataRes,comptesRes])=>{
-      const base=dataRes?.lists?.conseillers?.length?dataRes.lists.conseillers:null;
-      if(!base)return; // si getAll échoue on garde CONSEILLERS_DEFAULT
-      const inactifs=new Set(comptesRes?.ok&&comptesRes.comptes?comptesRes.comptes.filter(c=>c.actif==='NON').map(c=>c.conseiller):[]);
-      setLoginConseillers(base.filter(c=>!inactifs.has(c)));
+      const comptes=comptesRes?.ok&&comptesRes.comptes?comptesRes.comptes:[];
+      const admins=new Set(comptes.filter(c=>c.role==='admin'||c.role==='superviseur').map(c=>c.conseiller));
+      const inactifs=new Set(comptes.filter(c=>c.actif==='NON').map(c=>c.conseiller));
+      const base=dataRes?.lists?.conseillers?.length?dataRes.lists.conseillers:CONSEILLERS_DEFAULT;
+      setLoginConseillers(base.filter(c=>admins.has(c)&&!inactifs.has(c)));
     });
   },[]);
   const[emails,setEmails]  = React.useState({});
