@@ -1425,7 +1425,6 @@ function VueCalendrier({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
   const todayStr=today.toISOString().slice(0,10);
   const[calDate,setCalDate]=React.useState(new Date(today.getFullYear(),today.getMonth(),1));
   const[filtConseiller,setFiltConseiller]=React.useState(initConseiller||'Tous');
-  const[filtPublic,setFiltPublic]=React.useState('Tous');
   const[panel,setPanel]=React.useState(null);
   const[panelStatut,setPanelStatut]=React.useState('');
   const[panelInscrits,setPanelInscrits]=React.useState('');
@@ -1449,7 +1448,6 @@ function VueCalendrier({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
   const monthEntries=React.useMemo(()=>{
     let r=entries.filter(e=>e.date&&e.date.startsWith(monthStr));
     if(filtConseiller!=='Tous')r=r.filter(e=>e.conseiller===filtConseiller);
-    if(filtPublic!=='Tous')r=r.filter(e=>(e.public||'Tous publics')===filtPublic);
     return r;
   },[entries,monthStr,filtConseiller]);
 
@@ -2346,6 +2344,7 @@ function VueCarte({entries,active}){
   // Init carte
   React.useEffect(()=>{
     if(!active||mapRef.current)return;
+    if(!window.L){console.error('Leaflet non chargé');return;}
     mapRef.current=L.map('map-container').setView([44.35,0.52],9);
     L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',{attribution:'© OpenStreetMap contributors © CARTO',maxZoom:18}).addTo(mapRef.current);
     buildMarkers(entries,modeAffichage);

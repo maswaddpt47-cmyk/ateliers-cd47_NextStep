@@ -137,7 +137,8 @@ var VIEW_META = {
   anomalies:  { ico: '⚠️',  label: 'Anomalies',      group: 'Analyser' },
   powerbi:    { ico: '📈',  label: 'Power BI',       group: 'Analyser' },
   admin:      { ico: '⚙️', label: 'Admin',          group: 'Config' },
-  logs:       { ico: '📜',  label: 'Logs',           group: 'Config' },
+  logs:            { ico: '📜',  label: 'Logs',        group: 'Config' },
+  logs_connexion:  { ico: '🔐',  label: 'Connexions',  group: 'Config' },
 };
 
 // ── App Admin ──────────────────────────────────────────────
