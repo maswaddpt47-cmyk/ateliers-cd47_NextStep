@@ -67,7 +67,7 @@ function AdminLogin({onLogin,savedName,onResetProfil,conseillers:conseillersProp
         new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')),isMobile?25000:10000))
       ]);
       if(res.ok){
-        if((res.role||'user')!=='admin'){
+        if((res.role||'user')!=='admin'&&(res.role||'user')!=='superviseur'){
           setErr('⛔ Accès refusé — réservé aux administrateurs.');
           return;
         }
@@ -390,7 +390,7 @@ function App(){
       ),
       sideBtn('logs','📜','Logs'),
       role==='admin'&&sideBtn('admin','⚙️','Admin'),
-      role==='admin'&&sideBtn('logs_connexion','🔐','Connexions'),
+      (role==='admin'||role==='superviseur')&&sideBtn('logs_connexion','🔐','Connexions'),
 
       // Bas : sélecteur année + notifs
       CE('div',{className:'sidebar-bottom'},
@@ -465,7 +465,7 @@ function App(){
           view==='anomalies'&&CE(VueAnomalies,{entries,onEdit:(id)=>{setEditingId(id);setPrefillData(null);setView('saisie');},communes:window.COMMUNES_47_CACHE||[],apiFetch,showToast,addLog}),
 
           view==='admin'&&role==='admin'&&CE(VueAdmin,{entries,onRefresh:loadData,addLog,conseillersList:lists.conseillers,onSaveColors:(c)=>{applyColors(c);},annee,adminConseiller}),
-          view==='logs_connexion'&&role==='admin'&&CE(VueLogs,null),
+          view==='logs_connexion'&&(role==='admin'||role==='superviseur')&&CE(VueLogs,null),
           view==='logs'&&CE('div',{className:'card'},
             CE('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14,flexWrap:'wrap',gap:8}},
               CE('h2',{style:{margin:0}},'📜 Journal des opérations'),
