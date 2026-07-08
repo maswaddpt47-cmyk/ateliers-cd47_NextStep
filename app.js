@@ -2,6 +2,7 @@
 var VIEW_META_F = {
   saisie:     {ico:'✏️',  label:'Nouveau',      group:'Action'},
   historique: {ico:'📋',  label:'Historique',   group:'Voir'},
+  dashboard:  {ico:'📊',  label:'Dashboard',    group:'Voir'},
   agenda:     {ico:'🗓️', label:'Agenda',        group:'Voir'},
   calendrier: {ico:'📅',  label:'Calendrier',   group:'Voir'},
   carte:      {ico:'🗺️', label:'Carte',        group:'Voir'},
