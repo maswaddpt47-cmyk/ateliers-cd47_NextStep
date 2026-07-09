@@ -1269,6 +1269,16 @@ function VueHistorique({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
     XLSX.writeFile(wb,`ateliers_cd47_${new Date().toISOString().slice(0,10)}.xlsx`);
   }
 
+  function exportICS(){
+    const icsStr=buildICS(filtered);
+    const blob=new Blob([icsStr],{type:'text/calendar;charset=utf-8'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url;a.download=`ateliers_cd47_${new Date().toISOString().slice(0,10)}.ics`;
+    document.body.appendChild(a);a.click();
+    document.body.removeChild(a);URL.revokeObjectURL(url);
+  }
+
   const hexToRgba=(hex,a)=>{const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);return`rgba(${r},${g},${b},${a})`;};
   const BORDER_COLOR={'Planifié':'#3b82f6','Réalisé':'#22c55e','Annulé':'#ef4444','Reporté':'#f59e0b','Non réalisé':'#94a3b8'};
 
@@ -1329,6 +1339,7 @@ function VueHistorique({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
         ),
         CE('button',{className:'btn btn-secondary btn-sm',onClick:()=>setSortDir(d=>-d)},sortDir===1?'↑ Date':'↓ Date'),
         CE('button',{className:'btn btn-secondary btn-sm',onClick:exportXLSX},'📥 XLSX'),
+        CE('button',{className:'btn btn-secondary btn-sm',onClick:exportICS},'📅 ICS'),
         CE('button',{className:'btn btn-secondary btn-sm',onClick:onRefresh},'🔄 Sync'),
         CE('button',{className:'btn btn-secondary btn-sm',onClick:resetFiltres},'✖ Réinitialiser')
       ),
