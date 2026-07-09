@@ -1291,12 +1291,13 @@ function VueHistorique({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
       out.push('END:VCALENDAR');return out.map(_foldICS).join('\r\n');
     }
     const icsStr=_buildICS(filtered);
-    const blob=new Blob([icsStr],{type:'text/calendar;charset=utf-8'});
-    const url=URL.createObjectURL(blob);
+    const fname=`ateliers_cd47_${new Date().toISOString().slice(0,10)}.ics`;
+    // data: URI — fonctionne sur mobile (Android/iOS) contrairement à createObjectURL+click
+    const uri='data:text/calendar;charset=utf-8,'+encodeURIComponent(icsStr);
     const a=document.createElement('a');
-    a.href=url;a.download=`ateliers_cd47_${new Date().toISOString().slice(0,10)}.ics`;
+    a.href=uri;a.download=fname;a.style.display='none';
     document.body.appendChild(a);a.click();
-    document.body.removeChild(a);URL.revokeObjectURL(url);
+    setTimeout(()=>document.body.removeChild(a),200);
   }
 
   const hexToRgba=(hex,a)=>{const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);return`rgba(${r},${g},${b},${a})`;};
