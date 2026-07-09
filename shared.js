@@ -1270,7 +1270,27 @@ function VueHistorique({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
   }
 
   function exportICS(){
-    const icsStr=buildICS(filtered);
+    function _escICS(s){return String(s||'').replace(/\\/g,'\\\\').replace(/;/g,'\\;').replace(/,/g,'\\,').replace(/\n/g,'\\n');}
+    function _foldICS(l){if(l.length<=75)return l;const c=[l.slice(0,75)];let i=75;while(i<l.length){c.push(' '+l.slice(i,i+74));i+=74;}return c.join('\r\n');}
+    function _parseH(h){const s=String(h||'09H00').toUpperCase().replace('H',':');const p=s.split(':');return{hh:String(parseInt(p[0]||9,10)).padStart(2,'0'),mm:String(parseInt(p[1]||0,10)).padStart(2,'0')};}
+    function _buildICS(evts){
+      const out=['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Ateliers Numerique 47//FR','CALSCALE:GREGORIAN','METHOD:PUBLISH'];
+      for(const e of evts){
+        const m=String(e.date||'').match(/^(\d{4})-(\d{2})-(\d{2})/);if(!m)continue;
+        const[,y,mo,j]=m;const{hh,mm}=_parseH(e.horaire);const startH=parseInt(hh,10);
+        const dts=`${y}${mo}${j}T${hh}${mm}00`;
+        let dte;if(startH<23){dte=`${y}${mo}${j}T${String(startH+1).padStart(2,'0')}${mm}00`;}else{const nx=new Date(parseInt(y),parseInt(mo)-1,parseInt(j)+1);dte=`${nx.getFullYear()}${String(nx.getMonth()+1).padStart(2,'0')}${String(nx.getDate()).padStart(2,'0')}T000000`;}
+        const summary=_escICS([e.thematique,e.commune].filter(Boolean).join(' | '));
+        const location=_escICS([e.lieu,e.commune].filter(Boolean).join(', '));
+        const desc=[e.conseiller&&'Conseiller : '+e.conseiller,e.orienteur&&'Orienteur : '+e.orienteur,e.statut&&'Statut : '+e.statut,e.public&&'Public : '+e.public,(e.inscrits!==''&&e.inscrits!=null)&&'Inscrits : '+e.inscrits,(e.presents!==''&&e.presents!=null)&&'Présents : '+e.presents,e.remarques&&'Remarques : '+e.remarques].filter(Boolean);
+        out.push('BEGIN:VEVENT','DTSTART:'+dts,'DTEND:'+dte,'SUMMARY:'+summary);
+        if(location)out.push('LOCATION:'+location);
+        if(desc.length)out.push('DESCRIPTION:'+_escICS(desc.join('\n')));
+        out.push('UID:'+e._id+'@ateliers-cd47','END:VEVENT');
+      }
+      out.push('END:VCALENDAR');return out.map(_foldICS).join('\r\n');
+    }
+    const icsStr=_buildICS(filtered);
     const blob=new Blob([icsStr],{type:'text/calendar;charset=utf-8'});
     const url=URL.createObjectURL(blob);
     const a=document.createElement('a');
