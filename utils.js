@@ -1,13 +1,7 @@
 // Fonctions utilitaires pures — compatibles Node (require) ET navigateur (script tag)
 // Pas de DOM, pas de React, pas d'état global mutable.
-
-const MOIS  = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
-const JOURS = ['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'];
-
-const COMMUNE_MAP = {
-  'TEMPLE SUR LOT':       'LE TEMPLE SUR LOT',
-  'VILLENEUVE-SUR-LOT':   'VILLENEUVE SUR LOT',
-};
+// MOIS, JOURS, COMMUNE_MAP sont déclarés localement dans chaque fonction pour éviter
+// tout conflit de redéclaration avec shared.js en navigateur.
 
 // ── Texte ─────────────────────────────────────────────────────────────────────
 
@@ -28,7 +22,8 @@ function normCommune(s) {
 }
 
 function normalizeCommune(c) {
-  return COMMUNE_MAP[String(c || '').trim()] || String(c || '').trim();
+  const _map = {'TEMPLE SUR LOT':'LE TEMPLE SUR LOT','VILLENEUVE-SUR-LOT':'VILLENEUVE SUR LOT'};
+  return _map[String(c || '').trim()] || String(c || '').trim();
 }
 
 // ── Dates ─────────────────────────────────────────────────────────────────────
@@ -55,16 +50,19 @@ function normalizeHoraire(val) {
 
 function fmtDate(d) {
   if (!d) return '';
+  const _j = ['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'];
   const [y, m, j] = d.split('-');
-  const jour = JOURS[new Date(parseInt(y, 10), parseInt(m, 10) - 1, parseInt(j, 10)).getDay()];
+  const jour = _j[new Date(parseInt(y, 10), parseInt(m, 10) - 1, parseInt(j, 10)).getDay()];
   return `${jour} ${j}/${m}/${y}`;
 }
 
 function fmtCardDate(d) {
   if (!d) return { day: '', month: '', jour: '' };
+  const _j = ['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'];
+  const _m = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
   const [y, m, j] = d.split('-');
-  const jour = JOURS[new Date(parseInt(y, 10), parseInt(m, 10) - 1, parseInt(j, 10)).getDay()];
-  return { day: j, month: MOIS[parseInt(m, 10) - 1], jour };
+  const jour = _j[new Date(parseInt(y, 10), parseInt(m, 10) - 1, parseInt(j, 10)).getDay()];
+  return { day: j, month: _m[parseInt(m, 10) - 1], jour };
 }
 
 function todayLocal() {
@@ -154,6 +152,5 @@ if (typeof module !== 'undefined') {
     normalizeDate, normalizeHoraire, fmtDate, fmtCardDate, todayLocal,
     normalizeMat, matIncludes,
     escapeICS, foldICSLine, parseHoraireICS, parseDateICS, buildICS,
-    MOIS, JOURS, COMMUNE_MAP,
   };
 }

@@ -25,6 +25,7 @@ jobs:
       - run: node --test utils.test.js
       - run: node --test logic.test.js
       - run: node --test contract.test.js
+      - run: node --test integration.test.js
 
   deploy:
     needs: test
