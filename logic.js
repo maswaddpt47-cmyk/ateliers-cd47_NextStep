@@ -1,8 +1,16 @@
 // Logique métier pure — compatible Node (require) ET navigateur (script tag)
 // Dépend de utils.js (chargé avant en navigateur, ou via require en Node).
 
-const _utils = typeof require !== 'undefined' ? require('./utils.js') : window;
-const { stripAccents, normCommune, normalizeDate, normalizeHoraire, normalizeCommune, normalizeMat } = _utils;
+// En Node : on importe utils.js. En navigateur : les fonctions sont déjà en global (utils.js chargé avant).
+if (typeof require !== 'undefined') {
+  const _u = require('./utils.js');
+  var stripAccents     = _u.stripAccents;
+  var normCommune      = _u.normCommune;
+  var normalizeDate    = _u.normalizeDate;
+  var normalizeHoraire = _u.normalizeHoraire;
+  var normalizeCommune = _u.normalizeCommune;
+  var normalizeMat     = _u.normalizeMat;
+}
 
 // ── Statuts et constantes ─────────────────────────────────────────────────────
 
