@@ -470,7 +470,6 @@ const COMMUNES = [
   "Saint Pardoux d'Isaac",'TONNEINS',"TOURNONS D'AGENAIS",'VILLENEUVE SUR LOT'
 ];
 // Normalise un nom de commune : retire le code postal, uniformise la casse
-function normCommune(s){if(!s)return'';return s.replace(/\s*\(\d+\)\s*/g,'').trim();}
 const COMMUNES_GPS = {
   // ── Communes du CD47 ──
   'AGEN':{lat:44.2004,lng:0.6213},
@@ -520,8 +519,7 @@ const PUBLICS_DEFAULT = [
   'Autres'
 ];
 const MATERIELS_DEFAULT = ['Videoprojecteur','Ecran','Classe mobile','Boitier 4G','Tablette','Scanner','Multiprise','Ordinateur'];
-function normalizeMat(s){return String(s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,'').replace(/s$/,'');}
-function matIncludes(arr,m){if(!Array.isArray(arr))return false;const nm=normalizeMat(m);return arr.some(x=>x===m||normalizeMat(x)===nm);}
+// normalizeMat et matIncludes \u2192 utils.js
 
 let STATUTS     = [...STATUTS_DEFAULT];
 let CONSEILLERS = [...CONSEILLERS_DEFAULT];
@@ -534,20 +532,11 @@ const NAV_DEFAULT_COLOR = '#197d89';
 let CONSEILLER_COLORS = {'Cynthia Pineau':'#7C3AED','Corentin Tual':'#2563EB','Michel Aswad':'#059669','Eva Capelle':'#DB2777'};
 function conseillerColor(c){return(c&&CONSEILLER_COLORS[c])||'#6B7280';}
 function applyColors(colors){if(colors&&typeof colors==='object')Object.assign(CONSEILLER_COLORS,colors);}
-const MOIS = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
-const JOURS = ['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'];
-const fmtDate = d=>{if(!d)return'';const[y,m,j]=d.split('-');const jour=JOURS[new Date(parseInt(y),parseInt(m)-1,parseInt(j)).getDay()];return`${jour} ${j}/${m}/${y}`;};
-function fmtCardDate(d){if(!d)return{day:'',month:'',jour:''};const[y,m,j]=d.split('-');const jour=JOURS[new Date(parseInt(y),parseInt(m)-1,parseInt(j)).getDay()];return{day:j,month:MOIS[parseInt(m)-1],jour};}
-// v10.0 : todayLocal() en heure locale (évite le bug UTC après 22h/23h en France)
-function todayLocal(){const d=new Date();return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
+// MOIS, JOURS, fmtDate, fmtCardDate, todayLocal, stripAccents,
+// normalizeDate, normalizeHoraire, normalizeCommune, COMMUNE_MAP → utils.js
 const isPasse = e=>e.date<todayLocal()&&e.statut==='Réalisé';
 const isRetard = e=>e.statut==='Planifié'&&e.date<todayLocal();
 const genId = ()=>`atelier_${Date.now()}_${Math.random().toString(36).slice(2,7)}`;
-function stripAccents(str){return String(str||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();}
-function normalizeDate(val){if(!val)return'';const s=String(val).trim();if(/^\d{4}-\d{2}-\d{2}$/.test(s))return s;if(/^\d{4}-\d{2}-\d{2}T/.test(s))return s.split('T')[0];const m=s.match(/^(\d{2})\/(\d{2})\/(\d{4})/);if(m)return`${m[3]}-${m[2]}-${m[1]}`;return s;}
-function normalizeHoraire(val){if(!val)return'';const s=String(val).trim();const iso=s.match(/T(\d{2}:\d{2})/);if(iso)return iso[1];if(/^\d{1,2}[Hh]\d{2}$/.test(s))return s.replace(/[Hh]/,':');if(/^\d{1,2}:\d{2}(:\d{2})?$/.test(s))return s.slice(0,5);return s;}
-const COMMUNE_MAP={'TEMPLE SUR LOT':'LE TEMPLE SUR LOT','VILLENEUVE-SUR-LOT':'VILLENEUVE SUR LOT'};
-function normalizeCommune(c){return COMMUNE_MAP[String(c||'').trim()]||String(c||'').trim();}
 function badgePill(statut,retard){
   if(retard)return CE('span',{className:'badge-pill bp-retard'},'⚠ À mettre à jour');
   const cls={'Planifié':'bp-planifie','Réalisé':'bp-realise','Annulé':'bp-annule','Reporté':'bp-reporte','Non réalisé':'bp-nonrealise'}[statut]||'bp-nonrealise';
