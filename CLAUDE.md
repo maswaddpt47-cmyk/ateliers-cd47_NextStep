@@ -1,5 +1,9 @@
 # Règles de travail — Ateliers CD47 NextStep
 
+## Branche de travail
+
+Toujours committer et pousser directement sur `main`. Ne pas créer de branche intermédiaire.
+
 ## Avant toute intervention sur les fichiers
 
 1. **Git pull** : toujours faire `git pull origin main` avant de lire ou modifier un fichier
