@@ -27,7 +27,20 @@ jobs:
       - run: node --test contract.test.js
       - run: node --test integration.test.js
 
+  e2e:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm ci
+      - run: npx playwright install chromium
+      - run: npx playwright test --reporter=line
+
   deploy:
+    needs: e2e
     needs: test
     environment:
       name: github-pages

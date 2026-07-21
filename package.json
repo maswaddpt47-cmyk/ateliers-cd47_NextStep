@@ -1,0 +1,22 @@
+{
+  "dependencies": {
+    "@playwright/test": "^1.61.1",
+    "playwright": "^1.61.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "name": "ateliers-cd47_nextstep",
+  "version": "1.0.0",
+  "description": "",
+  "main": "admin_app.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "http://local_proxy@127.0.0.1:41729/git/maswaddpt47-cmyk/ateliers-cd47_NextStep"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}
