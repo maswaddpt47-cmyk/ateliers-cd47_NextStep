@@ -3254,6 +3254,8 @@ function VueAgendaSemaine({entries,onEdit,onDelete,onDuplicate,canDelete,initCon
   filtered.forEach(e=>{if(slots[e.date])slots[e.date][isAM(e)?'AM':'PM'].push(e);});
 
   // ── Libellés ────────────────────────────────────────────────
+  const MOIS=['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
+  const JOURS=['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'];
   const MOIS_LONG=['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
   function fmtWeekLabel(){
     const d1=weekDays[0];const d5=weekDays[4];
