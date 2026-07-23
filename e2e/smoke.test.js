@@ -159,3 +159,33 @@ test('admin — onglet Saisie sans ReferenceError', async ({ page }) => {
   const errs = await clickTab(page, 'Nouveau');
   expect(errs, `Saisie : ${errs.join(' | ')}`).toHaveLength(0);
 });
+
+test('admin — One Shot : suggestions thématique au focus', async ({ page }) => {
+  await login(page);
+  await clickTab(page, 'Nouveau');
+  // Cible spécifiquement le champ thématique par son placeholder
+  const themeInput = page.locator('input[placeholder="Thème abordé lors de l\'atelier…"]');
+  await themeInput.waitFor({ timeout: 5000 });
+  await themeInput.click();
+  await page.waitForTimeout(400);
+  // Le dropdown doit apparaître avec au moins une suggestion du catalogue
+  const items = await page.locator('.combo-dropdown .combo-item').count();
+  expect(items, 'Aucune suggestion thématique en mode One Shot').toBeGreaterThan(0);
+});
+
+test('admin — Cycle : suggestions thématique au focus', async ({ page }) => {
+  await login(page);
+  await clickTab(page, 'Nouveau');
+  // Bascule en mode Cycle
+  await page.getByText('🔄 Saisie par cycle').click();
+  await page.waitForTimeout(400);
+  // Tape dans le champ thématique pour déclencher les suggestions
+  const themeInput = page.locator('input[placeholder="Thème de la séance"]').first();
+  await themeInput.waitFor({ timeout: 5000 });
+  await themeInput.click();
+  await themeInput.type('nav');
+  await page.waitForTimeout(400);
+  // Le dropdown portal est dans le body — cherche un thème connu
+  const found = await page.evaluate(() => document.body.innerText.includes('Naviguer sur internet'));
+  expect(found, 'Aucune suggestion thématique en mode Cycle (portal non rendu)').toBe(true);
+});
