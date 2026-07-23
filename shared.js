@@ -881,7 +881,7 @@ function VueListes({lists,onSave,onClose,emails,onSaveEmails}){
 
 // ═══════════════════════════════════════════════════════════
 // ComboThematiqueFixed — dropdown en position:fixed pour les contextes grid/overflow
-function ComboThematiqueFixed({value,onChange,entries,hasError}){
+function ComboThematiqueFixed({value,onChange,onBlur,entries,hasError}){
   const[inputVal,setInputVal]=React.useState(value||'');
   const[open,setOpen]=React.useState(false);
   const[activeIdx,setActiveIdx]=React.useState(0);
@@ -914,7 +914,7 @@ function ComboThematiqueFixed({value,onChange,entries,hasError}){
       style:{width:'100%',padding:'8px 10px',border:`2px solid ${hasError?'#e53e3e':'#e2e8f0'}`,borderRadius:8,fontSize:12,background:hasError?'#fff5f5':'#f8fafc',outline:'none',boxSizing:'border-box'},
       onChange:e=>{setInputVal(e.target.value);onChange(e.target.value);openDrop();},
       onFocus:openDrop,
-      onBlur:()=>setTimeout(()=>setOpen(false),150),
+      onBlur:()=>setTimeout(()=>{setOpen(false);if(onBlur)onBlur(inputVal);},150),
       onKeyDown:handleKeyDown}),
     open&&suggestions.length>0&&ReactDOM.createPortal(
       CE('div',{ref:dropRef,style:{position:'fixed',top:dropPos.top,left:dropPos.left,width:dropPos.width,background:'#fff',border:'1.5px solid #1e3a8a',borderTop:'none',borderRadius:'0 0 6px 6px',maxHeight:240,overflowY:'auto',zIndex:9999,boxShadow:'0 4px 12px rgba(0,0,0,.15)'}},
@@ -983,6 +983,7 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
   function addRow(){setLotRows(r=>[...r,emptyRow()]);}
   function removeRow(id){if(lotRows.length<=1)return;setLotRows(r=>r.filter(x=>x.id!==id));}
   function setRow(id,k,v){setLotRows(r=>r.map(x=>x.id===id?{...x,[k]:v}:x));setLotRowErrors(er=>{const upd={...(er[id]||{})};delete upd[k];return{...er,[id]:upd};});}
+  function blurRow(id,k,v){setLotRowErrors(er=>{const upd={...(er[id]||{})};if(!v||!String(v).trim())upd[k]='Requis';else delete upd[k];return{...er,[id]:upd};});}
 
   // ── validation mode unique ──
   const FIELD_LABELS={'statut':'Statut','date':'Date','horaire':'Horaire','ampm':'AM/PM','commune':'Commune','lieu':'Lieu','thematique':'Thématique','conseiller':'Conseiller','orienteur':'Orienteur','public':'Type de public','inscrits':'Inscrits'};
@@ -1241,7 +1242,7 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
       // Champs communs
       CE('div',{style:secStyle},champsCommuns(lotForm,setLot,lotErrors,entries)),
       // Tableau des dates
-      CE('div',{style:secStyle},
+      CE('div',{style:{...secStyle,overflow:'visible'}},
         CE('div',{style:{fontSize:13,fontWeight:700,color:ac,marginBottom:12}},'📅 Dates du cycle'),
         CE('div',{style:{display:'grid',gridTemplateColumns:'140px 100px 64px 1fr 32px',gap:8,padding:'0 4px',marginBottom:6}},
           CE('span',{style:{fontSize:11,fontWeight:700,color:'#718096'}},'DATE *'),
@@ -1254,13 +1255,13 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
           const rErr=lotRowErrors[row.id]||{};
           const hasErr=Object.keys(rErr).length>0;
           const brd=(err)=>`2px solid ${err?'#e53e3e':'#e2e8f0'}`;
-          const inp=(type,val,key,err,ph)=>CE('input',{type,value:val,placeholder:ph||'',onChange:e=>setRow(row.id,key,e.target.value),style:{width:'100%',padding:'8px 10px',border:brd(err),borderRadius:8,fontSize:12,background:err?'#fff5f5':'#f8fafc',outline:'none',boxSizing:'border-box'}});
-          return CE('div',{key:row.id,style:{display:'grid',gridTemplateColumns:'140px 100px 64px 1fr 32px',gap:8,alignItems:'start',padding:'9px 10px',borderRadius:10,border:`1.5px solid ${hasErr?'#fc8181':acLight}`,marginBottom:6,background:hasErr?'#fff5f5':acLight}},
+          const inp=(type,val,key,err,ph)=>CE('input',{type,value:val,placeholder:ph||'',onChange:e=>setRow(row.id,key,e.target.value),onBlur:e=>blurRow(row.id,key,e.target.value),style:{width:'100%',padding:'8px 10px',border:brd(err),borderRadius:8,fontSize:12,background:err?'#fff5f5':'#f8fafc',outline:'none',boxSizing:'border-box'}});
+          return CE('div',{key:row.id,style:{display:'grid',gridTemplateColumns:'140px 100px 64px 1fr 32px',gap:8,alignItems:'start',padding:'9px 10px',borderRadius:10,border:`1.5px solid ${hasErr?'#fc8181':acLight}`,marginBottom:6,background:hasErr?'#fff5f5':acLight,position:'relative',overflow:'visible'}},
             inp('date',row.date,'date',rErr.date),
             inp('time',row.horaire,'horaire',rErr.horaire),
-            CE('select',{value:row.ampm,onChange:e=>setRow(row.id,'ampm',e.target.value),style:{width:'100%',padding:'8px 4px',border:brd(rErr.ampm),borderRadius:8,fontSize:12,background:'#f8fafc'}},
+            CE('select',{value:row.ampm,onChange:e=>setRow(row.id,'ampm',e.target.value),onBlur:e=>blurRow(row.id,'ampm',e.target.value),style:{width:'100%',padding:'8px 4px',border:brd(rErr.ampm),borderRadius:8,fontSize:12,background:'#f8fafc'}},
               CE('option',{value:'',disabled:true},'—'),CE('option',{value:'AM'},'AM'),CE('option',{value:'PM'},'PM')),
-            CE(ComboThematiqueFixed,{value:row.thematique,onChange:v=>setRow(row.id,'thematique',v),entries:entries,hasError:!!rErr.thematique}),
+            CE(ComboThematiqueFixed,{value:row.thematique,onChange:v=>setRow(row.id,'thematique',v),onBlur:v=>blurRow(row.id,'thematique',v),entries:entries,hasError:!!rErr.thematique}),
             CE('button',{onClick:()=>removeRow(row.id),disabled:lotRows.length===1,style:{background:'none',border:`1px solid ${acLight}`,borderRadius:6,color:'#9b2c2c',cursor:'pointer',fontSize:15,height:32,width:32,display:'flex',alignItems:'center',justifyContent:'center'}},'×')
           );
         }),
