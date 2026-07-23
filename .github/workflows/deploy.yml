@@ -22,6 +22,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
+      - run: npm ci
       - run: node --test utils.test.js
       - run: node --test logic.test.js
       - run: node --test contract.test.js
@@ -40,8 +41,7 @@ jobs:
       - run: npx playwright test --reporter=line
 
   deploy:
-    needs: e2e
-    needs: test
+    needs: [test, e2e]
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
