@@ -985,6 +985,10 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
   function removeRow(id){if(lotRows.length<=1)return;setLotRows(r=>r.filter(x=>x.id!==id));}
   function setRow(id,k,v){setLotRows(r=>r.map(x=>x.id===id?{...x,[k]:v}:x));setLotRowErrors(er=>{const upd={...(er[id]||{})};delete upd[k];return{...er,[id]:upd};});}
   function blurRow(id,k,v){setLotRowErrors(er=>{const upd={...(er[id]||{})};if(!v||!String(v).trim())upd[k]='Requis';else delete upd[k];return{...er,[id]:upd};});}
+  function validateOnBlur(name,val,errSetter){
+    const empty=typeof val==='string'?!val.trim():(val===''||val===null||val===undefined);
+    if(empty)errSetter(er=>({...er,[name]:'Requis'}));
+  }
 
   // ── validation mode unique ──
   const FIELD_LABELS={'statut':'Statut','date':'Date','horaire':'Horaire','ampm':'AM/PM','commune':'Commune','lieu':'Lieu','thematique':'Thématique','conseiller':'Conseiller','orienteur':'Orienteur','public':'Type de public','inscrits':'Inscrits'};
@@ -1111,7 +1115,7 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
   );
 
   // ── Champs communs (One Shot + Cycle) ─────────────────────
-  const champsCommuns=(frm,setFn,errs,entries_)=>CE('div',null,
+  const champsCommuns=(frm,setFn,errs,entries_,setErrs)=>CE('div',null,
     CE('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}},
       CE('div',null,
         Lbl({t:'Orienteur *',err:!!errs.orienteur}),
@@ -1124,13 +1128,13 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
     ),
     CE('div',{style:{marginTop:12}},
       Lbl({t:'Lieu de l\'atelier *',err:!!errs.lieu}),
-      CE('input',{type:'text',style:iStyle(errs.lieu),value:frm.lieu,placeholder:'Salle, médiathèque, établissement…',onChange:e=>setFn('lieu',e.target.value)}),
+      CE('input',{type:'text',style:iStyle(errs.lieu),value:frm.lieu,placeholder:'Salle, médiathèque, établissement…',onChange:e=>setFn('lieu',e.target.value),onBlur:e=>setErrs&&validateOnBlur('lieu',e.target.value,setErrs)}),
       errs.lieu&&CE('span',{style:{color:'#e53e3e',fontSize:11,fontWeight:600}},errs.lieu)
     ),
     CE('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:12,marginTop:12}},
       CE('div',null,
         Lbl({t:'Conseiller *',err:!!errs.conseiller}),
-        CE('select',{style:sStyle(errs.conseiller),value:frm.conseiller,onChange:e=>setFn('conseiller',e.target.value)},
+        CE('select',{style:sStyle(errs.conseiller),value:frm.conseiller,onChange:e=>setFn('conseiller',e.target.value),onBlur:e=>setErrs&&validateOnBlur('conseiller',e.target.value,setErrs)},
           CE('option',{value:'',disabled:true},'— Choisir —'),
           conseillers.map(c=>CE('option',{key:c,value:c},c))),
         errs.conseiller&&CE('span',{style:{color:'#e53e3e',fontSize:11,fontWeight:600}},errs.conseiller)),
@@ -1141,7 +1145,7 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
           conseillers.filter(c=>c!==frm.conseiller).map(c=>CE('option',{key:c,value:c},c)))),
       CE('div',null,
         Lbl({t:'Type de public *',err:!!errs.public}),
-        CE('select',{style:sStyle(errs.public),value:frm.public,onChange:e=>setFn('public',e.target.value)},
+        CE('select',{style:sStyle(errs.public),value:frm.public,onChange:e=>setFn('public',e.target.value),onBlur:e=>setErrs&&validateOnBlur('public',e.target.value,setErrs)},
           CE('option',{value:'',disabled:true},'— Choisir —'),
           publics.map(p=>CE('option',{key:p,value:p},p))),
         errs.public&&CE('span',{style:{color:'#e53e3e',fontSize:11,fontWeight:600}},errs.public)),
@@ -1189,21 +1193,21 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
         CE('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr 80px',gap:12}},
           CE('div',null,
             Lbl({t:'Date *',err:!!errors.date}),
-            CE('input',{type:'date',style:iStyle(errors.date),value:form.date,onChange:e=>set('date',e.target.value)}),
+            CE('input',{type:'date',style:iStyle(errors.date),value:form.date,onChange:e=>set('date',e.target.value),onBlur:e=>validateOnBlur('date',e.target.value,setErrors)}),
             errors.date&&CE('span',{style:{color:'#e53e3e',fontSize:11,fontWeight:600}},errors.date)),
           CE('div',null,
             Lbl({t:'Horaire *',err:!!errors.horaire}),
-            CE('input',{type:'time',style:iStyle(errors.horaire),value:form.horaire,onChange:e=>set('horaire',e.target.value)}),
+            CE('input',{type:'time',style:iStyle(errors.horaire),value:form.horaire,onChange:e=>set('horaire',e.target.value),onBlur:e=>validateOnBlur('horaire',e.target.value,setErrors)}),
             errors.horaire&&CE('span',{style:{color:'#e53e3e',fontSize:11,fontWeight:600}},errors.horaire)),
           CE('div',null,
             Lbl({t:'AM/PM *',err:!!errors.ampm}),
-            CE('select',{style:sStyle(errors.ampm),value:form.ampm,onChange:e=>set('ampm',e.target.value)},
+            CE('select',{style:sStyle(errors.ampm),value:form.ampm,onChange:e=>set('ampm',e.target.value),onBlur:e=>validateOnBlur('ampm',e.target.value,setErrors)},
               CE('option',{value:'',disabled:true},'—'),CE('option',{value:'AM'},'AM'),CE('option',{value:'PM'},'PM')),
             errors.ampm&&CE('span',{style:{color:'#e53e3e',fontSize:11,fontWeight:600}},errors.ampm))
         )
       ),
       // Champs communs
-      CE('div',{style:secStyle},champsCommuns(form,set,errors,entries)),
+      CE('div',{style:secStyle},champsCommuns(form,set,errors,entries,setErrors)),
       // Thématique
       CE('div',{style:secStyle},
         Lbl({t:'Thématique *',err:!!errors.thematique}),
@@ -1215,7 +1219,7 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
         CE('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}},
           CE('div',null,
             Lbl({t:'Inscrits *',err:!!errors.inscrits}),
-            CE('input',{type:'number',min:0,style:{...nStyle(),border:`2px solid ${errors.inscrits?'#e53e3e':'#e2e8f0'}`},value:form.inscrits,placeholder:'0',onChange:e=>set('inscrits',e.target.value)}),
+            CE('input',{type:'number',min:0,style:{...nStyle(),border:`2px solid ${errors.inscrits?'#e53e3e':'#e2e8f0'}`},value:form.inscrits,placeholder:'0',onChange:e=>set('inscrits',e.target.value),onBlur:e=>validateOnBlur('inscrits',e.target.value,setErrors)}),
             errors.inscrits&&CE('span',{style:{color:'#e53e3e',fontSize:11,fontWeight:600}},errors.inscrits)),
           CE('div',null,
             LblG({t:'Présents'}),
@@ -1242,7 +1246,7 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
         '🔄 ',lotRows.length,' atelier(s) à créer — tous "Planifié", inscrits/présents à compléter après'
       ),
       // Champs communs
-      CE('div',{style:secStyle},champsCommuns(lotForm,setLot,lotErrors,entries)),
+      CE('div',{style:secStyle},champsCommuns(lotForm,setLot,lotErrors,entries,setLotErrors)),
       // Tableau des dates
       CE('div',{style:{...secStyle,overflow:'visible'}},
         CE('div',{style:{fontSize:13,fontWeight:700,color:ac,marginBottom:12}},'📅 Dates du cycle'),
