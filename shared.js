@@ -118,6 +118,7 @@ tr:hover td{background:#f7fafc}
 .combo-dropdown{position:absolute;top:100%;left:0;right:0;background:#fff;border:1.5px solid #1e3a8a;border-top:none;border-radius:0 0 6px 6px;max-height:240px;overflow-y:auto;z-index:200;box-shadow:0 4px 12px rgba(0,0,0,.1)}
 .combo-item{display:flex;align-items:center;gap:10px;padding:7px 12px;cursor:pointer;font-size:13px;transition:background .1s}
 .combo-item:hover,.combo-item.active{background:#eff6ff}
+.combo-cat-header{padding:6px 12px 2px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#1e3a8a;pointer-events:none;user-select:none}
 .combo-cp{font-size:11px;font-weight:700;color:#1e3a8a;min-width:42px;font-family:monospace}
 .combo-nom{color:#1a202c}
 .combo-empty{padding:10px 12px;color:#718096;font-size:12px;font-style:italic}
@@ -659,44 +660,76 @@ function ComboOrienteur({value,onChange,entries,hasError}){
   );
 }
 
-const CATALOGUE_THEMATIQUES=[
-  'Prendre en main l\'ordinateur',
-  'Prendre en main la tablette',
-  'Prendre en main le smartphone',
-  'Télécharger et gérer ses applis (iOS, Android)',
-  'Naviguer sur internet',
-  'Sécuriser son environnement numérique',
-  'Prendre en main sa boite mail',
-  'Recevoir et envoyer un mail avec pièce jointe',
-  'Créer son identité numérique (FranceConnect)',
-  'Démarches administratives en ligne (servicepublic.fr, boussole des jeunes…)',
-  'Espace personnel site administratif (Ameli, CAF, MSA, Impôts…)',
-  'Espace personnel site médical (Mon espace santé, Doctolib…)',
-  'Outils numériques de scolarité (Pronote, Educonnect, Parcoursup…)',
-  'Solutions numériques pour la gestion de budget',
-  'Sécuriser ses achats en ligne et éviter les arnaques',
-  'Traitement de texte',
-  'Tableur',
-  'Manier les PDF',
-  'Transférer et stocker ses fichiers (Drive, Cloud…)',
-  'Organiser ses fichiers multimédias',
-  'Recherche d\'emploi (CV, lettre de motivation…)',
-  'Compte Personnel de Formation (CPF)',
-  'Sites JOB47 et France Travail',
-  'Solutions numériques liées à la mobilité (GPS, bus, covoiturage…)',
-  'Cybersécurité',
-  'Découverte des réseaux sociaux',
-  'Réseaux sociaux et jeunesse',
-  'E-réputation',
-  'Écrans et jeunesse',
-  'Numérique et environnement',
-  'Intelligence artificielle (IA)',
-  'Plateforme ressources numériques de la Médiathèque Départementale',
-  'Regarder et écouter (films, musiques)',
-  'Lire (e-book)',
-  'Apprendre et s\'informer (autoformation, presse)',
-  'Visites virtuelles (musées, opéras, théâtres…)',
+const CATALOGUE_THEMATIQUES_GROUPED=[
+  {cat:'A — Le numérique par l\'outil',items:[
+    'Prendre en main l\'ordinateur',
+    'Prendre en main la tablette',
+    'Prendre en main le smartphone',
+    'Télécharger et gérer ses applis (iOS, Android)',
+    'Naviguer sur internet',
+    'Sécuriser son environnement numérique',
+  ]},
+  {cat:'B — Le numérique pour le quotidien',items:[
+    'Prendre en main sa boite mail',
+    'Recevoir et envoyer un mail avec pièce jointe',
+    'Créer son identité numérique (FranceConnect)',
+    'Démarches administratives en ligne (servicepublic.fr, boussole des jeunes…)',
+    'Espace personnel site administratif (Ameli, CAF, MSA, Impôts…)',
+    'Espace personnel site médical (Mon espace santé, Doctolib…)',
+    'Outils numériques de scolarité (Pronote, Educonnect, Parcoursup…)',
+    'Solutions numériques pour la gestion de budget',
+    'Sécuriser ses achats en ligne et éviter les arnaques',
+  ]},
+  {cat:'C — Bureautique & stockage',items:[
+    'Traitement de texte',
+    'Tableur',
+    'Manier les PDF',
+    'Transférer et stocker ses fichiers (Drive, Cloud…)',
+    'Organiser ses fichiers multimédias',
+  ]},
+  {cat:'D — Emploi & formation',items:[
+    'Recherche d\'emploi (CV, lettre de motivation…)',
+    'Compte Personnel de Formation (CPF)',
+    'Sites JOB47 et France Travail',
+  ]},
+  {cat:'E — Mobilité',items:[
+    'Solutions numériques liées à la mobilité (GPS, bus, covoiturage…)',
+  ]},
+  {cat:'F — Sécurité & citoyenneté numérique',items:[
+    'Cybersécurité',
+    'Découverte des réseaux sociaux',
+    'Réseaux sociaux et jeunesse',
+    'E-réputation',
+    'Écrans et jeunesse',
+  ]},
+  {cat:'G — Environnement & IA',items:[
+    'Numérique et environnement',
+    'Intelligence artificielle (IA)',
+  ]},
+  {cat:'H — Culture & loisirs numériques',items:[
+    'Plateforme ressources numériques de la Médiathèque Départementale',
+    'Regarder et écouter (films, musiques)',
+    'Lire (e-book)',
+    'Apprendre et s\'informer (autoformation, presse)',
+    'Visites virtuelles (musées, opéras, théâtres…)',
+  ]},
 ];
+const CATALOGUE_THEMATIQUES=CATALOGUE_THEMATIQUES_GROUPED.flatMap(g=>g.items);
+
+function buildThemGroups(inputVal,entries){
+  const q=(inputVal||'').trim();
+  const qs=q?stripAccents(q.toLowerCase()):null;
+  const catSet=new Set(CATALOGUE_THEMATIQUES);
+  const extras=[...new Set((entries||[]).map(e=>e.thematique&&e.thematique.trim()).filter(t=>t&&!catSet.has(t)))].sort((a,b)=>a.localeCompare(b,'fr'));
+  const groups=[];
+  CATALOGUE_THEMATIQUES_GROUPED.forEach(({cat,items})=>{
+    const filtered=qs?items.filter(t=>stripAccents(t.toLowerCase()).includes(qs)):items;
+    if(filtered.length>0)groups.push({cat,items:filtered});
+  });
+  const filteredExtras=qs?extras.filter(t=>stripAccents(t.toLowerCase()).includes(qs)):extras;
+  if(filteredExtras.length>0)groups.push({cat:null,items:filteredExtras});
+  return groups;
+}
 
 function ComboThematique({value,onChange,entries,hasError}){
   const[inputVal,setInputVal]=React.useState(value||'');
@@ -705,30 +738,23 @@ function ComboThematique({value,onChange,entries,hasError}){
   const wrapRef=React.useRef(null);
   React.useEffect(()=>{setInputVal(value||'');},[value]);
   React.useEffect(()=>{function h(e){if(wrapRef.current&&!wrapRef.current.contains(e.target))setOpen(false);}document.addEventListener('mousedown',h);return()=>document.removeEventListener('mousedown',h);},[]);
-  const thematiques=React.useMemo(()=>{
-    const s=new Set(CATALOGUE_THEMATIQUES);
-    (entries||[]).forEach(e=>{if(e.thematique&&e.thematique.trim())s.add(e.thematique.trim());});
-    return[...s].sort((a,b)=>a.localeCompare(b,'fr'));
-  },[entries]);
-  const suggestions=React.useMemo(()=>{
-    const q=inputVal.trim();
-    if(!q)return thematiques.slice(0,12);
-    const qs=stripAccents(q.toLowerCase());
-    return thematiques.filter(t=>stripAccents(t.toLowerCase()).includes(qs)).slice(0,20);
-  },[inputVal,thematiques]);
+  const groups=React.useMemo(()=>buildThemGroups(inputVal,entries),[inputVal,entries]);
+  const flatItems=React.useMemo(()=>groups.flatMap(g=>g.items),[groups]);
   function selectItem(name){setInputVal(name);onChange(name);setOpen(false);setActiveIdx(0);}
-  function handleKeyDown(e){if(!open||suggestions.length===0)return;if(e.key==='ArrowDown'){e.preventDefault();setActiveIdx(i=>Math.min(i+1,suggestions.length-1));}else if(e.key==='ArrowUp'){e.preventDefault();setActiveIdx(i=>Math.max(i-1,0));}else if(e.key==='Enter'){e.preventDefault();if(suggestions[activeIdx])selectItem(suggestions[activeIdx]);}else if(e.key==='Escape')setOpen(false);}
+  function handleKeyDown(e){if(!open||flatItems.length===0)return;if(e.key==='ArrowDown'){e.preventDefault();setActiveIdx(i=>Math.min(i+1,flatItems.length-1));}else if(e.key==='ArrowUp'){e.preventDefault();setActiveIdx(i=>Math.max(i-1,0));}else if(e.key==='Enter'){e.preventDefault();if(flatItems[activeIdx])selectItem(flatItems[activeIdx]);}else if(e.key==='Escape')setOpen(false);}
   return CE('div',{className:'combo-wrap',ref:wrapRef},
     CE('input',{type:'text',value:inputVal,placeholder:"Thème abordé lors de l'atelier…",className:hasError?'err':'',autoComplete:'off',
       onChange:e=>{setInputVal(e.target.value);onChange(e.target.value);setOpen(true);setActiveIdx(0);},
       onFocus:()=>setOpen(true),
       onBlur:()=>setTimeout(()=>setOpen(false),150),
       onKeyDown:handleKeyDown}),
-    open&&suggestions.length>0&&CE('div',{className:'combo-dropdown'},
-      suggestions.map((name,i)=>CE('div',{key:name,className:'combo-item'+(i===activeIdx?' active':''),
-        onMouseDown:e=>{e.preventDefault();selectItem(name);},
-        onMouseEnter:()=>setActiveIdx(i)},
-        CE('span',{className:'combo-nom'},name)))
+    open&&flatItems.length>0&&CE('div',{className:'combo-dropdown'},
+      groups.flatMap(({cat,items})=>{
+        const rows=[];
+        if(cat)rows.push(CE('div',{key:'h:'+cat,className:'combo-cat-header'},cat));
+        items.forEach(name=>{const idx=flatItems.indexOf(name);rows.push(CE('div',{key:name,className:'combo-item'+(idx===activeIdx?' active':''),onMouseDown:e=>{e.preventDefault();selectItem(name);},onMouseEnter:()=>setActiveIdx(idx)},CE('span',{className:'combo-nom'},name)));});
+        return rows;
+      })
     )
   );
 }
@@ -891,23 +917,14 @@ function ComboThematiqueFixed({value,onChange,onBlur,entries,hasError}){
   const dropRef=React.useRef(null);
   React.useEffect(()=>{setInputVal(value||'');},[value]);
   React.useEffect(()=>{function h(e){if(wrapRef.current&&!wrapRef.current.contains(e.target)&&dropRef.current&&!dropRef.current.contains(e.target))setOpen(false);}document.addEventListener('mousedown',h);return()=>document.removeEventListener('mousedown',h);},[]);
-  const thematiques=React.useMemo(()=>{
-    const s=new Set(CATALOGUE_THEMATIQUES);
-    (entries||[]).forEach(e=>{if(e.thematique&&e.thematique.trim())s.add(e.thematique.trim());});
-    return[...s].sort((a,b)=>a.localeCompare(b,'fr'));
-  },[entries]);
-  const suggestions=React.useMemo(()=>{
-    const q=inputVal.trim();
-    if(!q)return thematiques.slice(0,12);
-    const qs=stripAccents(q.toLowerCase());
-    return thematiques.filter(t=>stripAccents(t.toLowerCase()).includes(qs)).slice(0,20);
-  },[inputVal,thematiques]);
+  const groups=React.useMemo(()=>buildThemGroups(inputVal,entries),[inputVal,entries]);
+  const flatItems=React.useMemo(()=>groups.flatMap(g=>g.items),[groups]);
   function openDrop(){
     if(inputRef.current){const r=inputRef.current.getBoundingClientRect();setDropPos({top:r.bottom,left:r.left,width:r.width});}
     setOpen(true);setActiveIdx(0);
   }
   function selectItem(name){setInputVal(name);onChange(name);setOpen(false);}
-  function handleKeyDown(e){if(!open||suggestions.length===0)return;if(e.key==='ArrowDown'){e.preventDefault();setActiveIdx(i=>Math.min(i+1,suggestions.length-1));}else if(e.key==='ArrowUp'){e.preventDefault();setActiveIdx(i=>Math.max(i-1,0));}else if(e.key==='Enter'){e.preventDefault();if(suggestions[activeIdx])selectItem(suggestions[activeIdx]);}else if(e.key==='Escape')setOpen(false);}
+  function handleKeyDown(e){if(!open||flatItems.length===0)return;if(e.key==='ArrowDown'){e.preventDefault();setActiveIdx(i=>Math.min(i+1,flatItems.length-1));}else if(e.key==='ArrowUp'){e.preventDefault();setActiveIdx(i=>Math.max(i-1,0));}else if(e.key==='Enter'){e.preventDefault();if(flatItems[activeIdx])selectItem(flatItems[activeIdx]);}else if(e.key==='Escape')setOpen(false);}
   return CE('div',{ref:wrapRef,style:{position:'relative',width:'100%'}},
     CE('input',{ref:inputRef,type:'text',value:inputVal,placeholder:'Thème de la séance',
       className:hasError?'err':'',autoComplete:'off',
@@ -916,12 +933,14 @@ function ComboThematiqueFixed({value,onChange,onBlur,entries,hasError}){
       onFocus:openDrop,
       onBlur:()=>setTimeout(()=>{setOpen(false);if(onBlur)onBlur(inputVal);},150),
       onKeyDown:handleKeyDown}),
-    open&&suggestions.length>0&&ReactDOM.createPortal(
+    open&&flatItems.length>0&&ReactDOM.createPortal(
       CE('div',{ref:dropRef,style:{position:'fixed',top:dropPos.top,left:dropPos.left,width:dropPos.width,background:'#fff',border:'1.5px solid #1e3a8a',borderTop:'none',borderRadius:'0 0 6px 6px',maxHeight:240,overflowY:'auto',zIndex:9999,boxShadow:'0 4px 12px rgba(0,0,0,.15)'}},
-        suggestions.map((name,i)=>CE('div',{key:name,
-          style:{padding:'7px 12px',cursor:'pointer',fontSize:13,background:i===activeIdx?'#eff6ff':'#fff',transition:'background .1s'},
-          onMouseDown:e=>{e.preventDefault();selectItem(name);},
-          onMouseEnter:()=>setActiveIdx(i)},name))
+        groups.flatMap(({cat,items})=>{
+          const rows=[];
+          if(cat)rows.push(CE('div',{key:'h:'+cat,style:{padding:'6px 12px 2px',fontSize:10,fontWeight:800,textTransform:'uppercase',letterSpacing:'.08em',color:'#1e3a8a',pointerEvents:'none',userSelect:'none'}},cat));
+          items.forEach(name=>{const idx=flatItems.indexOf(name);rows.push(CE('div',{key:name,style:{padding:'7px 12px',cursor:'pointer',fontSize:13,background:idx===activeIdx?'#eff6ff':'#fff',transition:'background .1s'},onMouseDown:e=>{e.preventDefault();selectItem(name);},onMouseEnter:()=>setActiveIdx(idx)},name));});
+          return rows;
+        })
       ),
       document.body
     )
