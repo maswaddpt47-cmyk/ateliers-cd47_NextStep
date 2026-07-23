@@ -902,7 +902,7 @@ function ComboThematiqueFixed({value,onChange,entries,hasError}){
     return thematiques.filter(t=>stripAccents(t.toLowerCase()).includes(qs)).slice(0,20);
   },[inputVal,thematiques]);
   function openDrop(){
-    if(inputRef.current){const r=inputRef.current.getBoundingClientRect();setDropPos({top:r.bottom+window.scrollY,left:r.left+window.scrollX,width:r.width});}
+    if(inputRef.current){const r=inputRef.current.getBoundingClientRect();setDropPos({top:r.bottom,left:r.left,width:r.width});}
     setOpen(true);setActiveIdx(0);
   }
   function selectItem(name){setInputVal(name);onChange(name);setOpen(false);}
@@ -916,7 +916,7 @@ function ComboThematiqueFixed({value,onChange,entries,hasError}){
       onBlur:()=>setTimeout(()=>setOpen(false),150),
       onKeyDown:handleKeyDown}),
     open&&suggestions.length>0&&ReactDOM.createPortal(
-      CE('div',{style:{position:'absolute',top:dropPos.top,left:dropPos.left,width:dropPos.width,background:'#fff',border:'1.5px solid #1e3a8a',borderTop:'none',borderRadius:'0 0 6px 6px',maxHeight:240,overflowY:'auto',zIndex:9999,boxShadow:'0 4px 12px rgba(0,0,0,.15)'}},
+      CE('div',{style:{position:'fixed',top:dropPos.top,left:dropPos.left,width:dropPos.width,background:'#fff',border:'1.5px solid #1e3a8a',borderTop:'none',borderRadius:'0 0 6px 6px',maxHeight:240,overflowY:'auto',zIndex:9999,boxShadow:'0 4px 12px rgba(0,0,0,.15)'}},
         suggestions.map((name,i)=>CE('div',{key:name,
           style:{padding:'7px 12px',cursor:'pointer',fontSize:13,background:i===activeIdx?'#eff6ff':'#fff',transition:'background .1s'},
           onMouseDown:e=>{e.preventDefault();selectItem(name);},
