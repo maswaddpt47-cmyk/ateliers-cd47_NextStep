@@ -880,6 +880,53 @@ function VueListes({lists,onSave,onClose,emails,onSaveEmails}){
 // Login — supprimé v10.0 (remplacé par AdminLogin dans admin.html)
 
 // ═══════════════════════════════════════════════════════════
+// ComboThematiqueFixed — dropdown en position:fixed pour les contextes grid/overflow
+function ComboThematiqueFixed({value,onChange,entries,hasError}){
+  const[inputVal,setInputVal]=React.useState(value||'');
+  const[open,setOpen]=React.useState(false);
+  const[activeIdx,setActiveIdx]=React.useState(0);
+  const[dropPos,setDropPos]=React.useState({top:0,left:0,width:0});
+  const inputRef=React.useRef(null);
+  const wrapRef=React.useRef(null);
+  React.useEffect(()=>{setInputVal(value||'');},[value]);
+  React.useEffect(()=>{function h(e){if(wrapRef.current&&!wrapRef.current.contains(e.target))setOpen(false);}document.addEventListener('mousedown',h);return()=>document.removeEventListener('mousedown',h);},[]);
+  const thematiques=React.useMemo(()=>{
+    const s=new Set(CATALOGUE_THEMATIQUES);
+    (entries||[]).forEach(e=>{if(e.thematique&&e.thematique.trim())s.add(e.thematique.trim());});
+    return[...s].sort((a,b)=>a.localeCompare(b,'fr'));
+  },[entries]);
+  const suggestions=React.useMemo(()=>{
+    const q=inputVal.trim();
+    if(!q)return thematiques.slice(0,12);
+    const qs=stripAccents(q.toLowerCase());
+    return thematiques.filter(t=>stripAccents(t.toLowerCase()).includes(qs)).slice(0,20);
+  },[inputVal,thematiques]);
+  function openDrop(){
+    if(inputRef.current){const r=inputRef.current.getBoundingClientRect();setDropPos({top:r.bottom+window.scrollY,left:r.left+window.scrollX,width:r.width});}
+    setOpen(true);setActiveIdx(0);
+  }
+  function selectItem(name){setInputVal(name);onChange(name);setOpen(false);}
+  function handleKeyDown(e){if(!open||suggestions.length===0)return;if(e.key==='ArrowDown'){e.preventDefault();setActiveIdx(i=>Math.min(i+1,suggestions.length-1));}else if(e.key==='ArrowUp'){e.preventDefault();setActiveIdx(i=>Math.max(i-1,0));}else if(e.key==='Enter'){e.preventDefault();if(suggestions[activeIdx])selectItem(suggestions[activeIdx]);}else if(e.key==='Escape')setOpen(false);}
+  return CE('div',{ref:wrapRef,style:{position:'relative',width:'100%'}},
+    CE('input',{ref:inputRef,type:'text',value:inputVal,placeholder:'Thème de la séance',
+      className:hasError?'err':'',autoComplete:'off',
+      style:{width:'100%',padding:'8px 10px',border:`2px solid ${hasError?'#e53e3e':'#e2e8f0'}`,borderRadius:8,fontSize:12,background:hasError?'#fff5f5':'#f8fafc',outline:'none',boxSizing:'border-box'},
+      onChange:e=>{setInputVal(e.target.value);onChange(e.target.value);openDrop();},
+      onFocus:openDrop,
+      onBlur:()=>setTimeout(()=>setOpen(false),150),
+      onKeyDown:handleKeyDown}),
+    open&&suggestions.length>0&&ReactDOM.createPortal(
+      CE('div',{style:{position:'absolute',top:dropPos.top,left:dropPos.left,width:dropPos.width,background:'#fff',border:'1.5px solid #1e3a8a',borderTop:'none',borderRadius:'0 0 6px 6px',maxHeight:240,overflowY:'auto',zIndex:9999,boxShadow:'0 4px 12px rgba(0,0,0,.15)'}},
+        suggestions.map((name,i)=>CE('div',{key:name,
+          style:{padding:'7px 12px',cursor:'pointer',fontSize:13,background:i===activeIdx?'#eff6ff':'#fff',transition:'background .1s'},
+          onMouseDown:e=>{e.preventDefault();selectItem(name);},
+          onMouseEnter:()=>setActiveIdx(i)},name))
+      ),
+      document.body
+    )
+  );
+}
+
 // VUE SAISIE — v9.1 : mode unique + mode lot (cycle)
 // ═══════════════════════════════════════════════════════════
 const emptyRow=()=>({id:genId(),date:'',horaire:'',ampm:'',thematique:''});
@@ -1207,17 +1254,12 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
           const hasErr=Object.keys(rErr).length>0;
           const brd=(err)=>`2px solid ${err?'#e53e3e':'#e2e8f0'}`;
           const inp=(type,val,key,err,ph)=>CE('input',{type,value:val,placeholder:ph||'',onChange:e=>setRow(row.id,key,e.target.value),style:{width:'100%',padding:'8px 10px',border:brd(err),borderRadius:8,fontSize:12,background:err?'#fff5f5':'#f8fafc',outline:'none',boxSizing:'border-box'}});
-          const datalistId='themes-'+row.id;
-          const allThemes=[...new Set([...CATALOGUE_THEMATIQUES,...(entries||[]).map(e=>e.thematique).filter(Boolean)])].sort((a,b)=>a.localeCompare(b,'fr'));
           return CE('div',{key:row.id,style:{display:'grid',gridTemplateColumns:'140px 100px 64px 1fr 32px',gap:8,alignItems:'start',padding:'9px 10px',borderRadius:10,border:`1.5px solid ${hasErr?'#fc8181':acLight}`,marginBottom:6,background:hasErr?'#fff5f5':acLight}},
             inp('date',row.date,'date',rErr.date),
             inp('time',row.horaire,'horaire',rErr.horaire),
             CE('select',{value:row.ampm,onChange:e=>setRow(row.id,'ampm',e.target.value),style:{width:'100%',padding:'8px 4px',border:brd(rErr.ampm),borderRadius:8,fontSize:12,background:'#f8fafc'}},
               CE('option',{value:'',disabled:true},'—'),CE('option',{value:'AM'},'AM'),CE('option',{value:'PM'},'PM')),
-            CE('div',{style:{position:'relative',width:'100%'}},
-              CE('input',{type:'text',list:datalistId,value:row.thematique,placeholder:'Thème de la séance',onChange:e=>setRow(row.id,'thematique',e.target.value),style:{width:'100%',padding:'8px 10px',border:brd(rErr.thematique),borderRadius:8,fontSize:12,background:rErr.thematique?'#fff5f5':'#f8fafc',outline:'none',boxSizing:'border-box'}}),
-              CE('datalist',{id:datalistId},allThemes.map(t=>CE('option',{key:t,value:t})))
-            ),
+            CE(ComboThematiqueFixed,{value:row.thematique,onChange:v=>setRow(row.id,'thematique',v),entries:entries,hasError:!!rErr.thematique}),
             CE('button',{onClick:()=>removeRow(row.id),disabled:lotRows.length===1,style:{background:'none',border:`1px solid ${acLight}`,borderRadius:6,color:'#9b2c2c',cursor:'pointer',fontSize:15,height:32,width:32,display:'flex',alignItems:'center',justifyContent:'center'}},'×')
           );
         }),
