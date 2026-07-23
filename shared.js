@@ -1208,6 +1208,7 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
           const brd=(err)=>`2px solid ${err?'#e53e3e':'#e2e8f0'}`;
           const inp=(type,val,key,err,ph)=>CE('input',{type,value:val,placeholder:ph||'',onChange:e=>setRow(row.id,key,e.target.value),style:{width:'100%',padding:'8px 10px',border:brd(err),borderRadius:8,fontSize:12,background:err?'#fff5f5':'#f8fafc',outline:'none',boxSizing:'border-box'}});
           const datalistId='themes-'+row.id;
+          const allThemes=[...new Set([...CATALOGUE_THEMATIQUES,...(entries||[]).map(e=>e.thematique).filter(Boolean)])].sort((a,b)=>a.localeCompare(b,'fr'));
           return CE('div',{key:row.id,style:{display:'grid',gridTemplateColumns:'140px 100px 64px 1fr 32px',gap:8,alignItems:'start',padding:'9px 10px',borderRadius:10,border:`1.5px solid ${hasErr?'#fc8181':acLight}`,marginBottom:6,background:hasErr?'#fff5f5':acLight}},
             inp('date',row.date,'date',rErr.date),
             inp('time',row.horaire,'horaire',rErr.horaire),
@@ -1215,7 +1216,7 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
               CE('option',{value:'',disabled:true},'—'),CE('option',{value:'AM'},'AM'),CE('option',{value:'PM'},'PM')),
             CE('div',{style:{position:'relative',width:'100%'}},
               CE('input',{type:'text',list:datalistId,value:row.thematique,placeholder:'Thème de la séance',onChange:e=>setRow(row.id,'thematique',e.target.value),style:{width:'100%',padding:'8px 10px',border:brd(rErr.thematique),borderRadius:8,fontSize:12,background:rErr.thematique?'#fff5f5':'#f8fafc',outline:'none',boxSizing:'border-box'}}),
-              CE('datalist',{id:datalistId},CATALOGUE_THEMATIQUES.map(t=>CE('option',{key:t,value:t})))
+              CE('datalist',{id:datalistId},allThemes.map(t=>CE('option',{key:t,value:t})))
             ),
             CE('button',{onClick:()=>removeRow(row.id),disabled:lotRows.length===1,style:{background:'none',border:`1px solid ${acLight}`,borderRadius:6,color:'#9b2c2c',cursor:'pointer',fontSize:15,height:32,width:32,display:'flex',alignItems:'center',justifyContent:'center'}},'×')
           );
