@@ -951,6 +951,7 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
   const[lotRows,setLotRows]     = React.useState([emptyRow(),emptyRow()]);
   const[lotErrors,setLotErrors] = React.useState({});
   const[lotRowErrors,setLotRowErrors]= React.useState({});
+  const[lotSubmitted,setLotSubmitted]= React.useState(false);
 
   const[saving,setSaving]= React.useState(false);
   const[formError,setFormError]= React.useState('');
@@ -972,7 +973,7 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
   },[prefillData]);
 
   function reset(){setForm(empty);setEditId(null);setIsDup(false);setErrors({});}
-  function resetLot(){setLotForm({orienteur:'',commune:'',lieu:'',conseiller:'',co_animateur:'',public:'',materiel:[],residence:'',remarques:''});setLotRows([emptyRow(),emptyRow()]);setLotErrors({});setLotRowErrors({});}
+  function resetLot(){setLotForm({orienteur:'',commune:'',lieu:'',conseiller:'',co_animateur:'',public:'',materiel:[],residence:'',remarques:''});setLotRows([emptyRow(),emptyRow()]);setLotErrors({});setLotRowErrors({});setLotSubmitted(false);}
 
   function set(k,v){setForm(f=>({...f,[k]:v}));setErrors(er=>({...er,[k]:''}));}
   function toggleMat(m){setForm(f=>{const already=matIncludes(f.materiel,m);return{...f,materiel:already?f.materiel.filter(x=>normalizeMat(x)!==normalizeMat(m)):[...f.materiel,m]};});}
@@ -1051,6 +1052,7 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
 
   // ── submit mode lot ──
   async function handleSubmitLot(){
+    setLotSubmitted(true);
     // Purger les lignes totalement vides avant validation
     const rowsFilled=lotRows.filter(r=>r.date||r.horaire||r.thematique.trim());
     if(rowsFilled.length===0){setFormError('Ajoutez au moins une date dans le tableau.');return;}
@@ -1253,7 +1255,7 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
         ),
         lotRows.map((row)=>{
           const rErr=lotRowErrors[row.id]||{};
-          const hasErr=Object.keys(rErr).length>0;
+          const hasErr=lotSubmitted&&Object.keys(rErr).length>0;
           const brd=(err)=>`2px solid ${err?'#e53e3e':'#e2e8f0'}`;
           const inp=(type,val,key,err,ph)=>CE('input',{type,value:val,placeholder:ph||'',onChange:e=>setRow(row.id,key,e.target.value),onBlur:e=>blurRow(row.id,key,e.target.value),style:{width:'100%',padding:'8px 10px',border:brd(err),borderRadius:8,fontSize:12,background:err?'#fff5f5':'#f8fafc',outline:'none',boxSizing:'border-box'}});
           return CE('div',{key:row.id,style:{display:'grid',gridTemplateColumns:'140px 100px 64px 1fr 32px',gap:8,alignItems:'start',padding:'9px 10px',borderRadius:10,border:`1.5px solid ${hasErr?'#fc8181':acLight}`,marginBottom:6,background:hasErr?'#fff5f5':acLight,position:'relative',overflow:'visible'}},
