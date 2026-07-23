@@ -659,6 +659,45 @@ function ComboOrienteur({value,onChange,entries,hasError}){
   );
 }
 
+const CATALOGUE_THEMATIQUES=[
+  'Prendre en main l\'ordinateur',
+  'Prendre en main la tablette',
+  'Prendre en main le smartphone',
+  'Télécharger et gérer ses applis (iOS, Android)',
+  'Naviguer sur internet',
+  'Sécuriser son environnement numérique',
+  'Prendre en main sa boite mail',
+  'Recevoir et envoyer un mail avec pièce jointe',
+  'Créer son identité numérique (FranceConnect)',
+  'Démarches administratives en ligne (servicepublic.fr, boussole des jeunes…)',
+  'Espace personnel site administratif (Ameli, CAF, MSA, Impôts…)',
+  'Espace personnel site médical (Mon espace santé, Doctolib…)',
+  'Outils numériques de scolarité (Pronote, Educonnect, Parcoursup…)',
+  'Solutions numériques pour la gestion de budget',
+  'Sécuriser ses achats en ligne et éviter les arnaques',
+  'Traitement de texte',
+  'Tableur',
+  'Manier les PDF',
+  'Transférer et stocker ses fichiers (Drive, Cloud…)',
+  'Organiser ses fichiers multimédias',
+  'Recherche d\'emploi (CV, lettre de motivation…)',
+  'Compte Personnel de Formation (CPF)',
+  'Sites JOB47 et France Travail',
+  'Solutions numériques liées à la mobilité (GPS, bus, covoiturage…)',
+  'Cybersécurité',
+  'Découverte des réseaux sociaux',
+  'Réseaux sociaux et jeunesse',
+  'E-réputation',
+  'Écrans et jeunesse',
+  'Numérique et environnement',
+  'Intelligence artificielle (IA)',
+  'Plateforme ressources numériques de la Médiathèque Départementale',
+  'Regarder et écouter (films, musiques)',
+  'Lire (e-book)',
+  'Apprendre et s\'informer (autoformation, presse)',
+  'Visites virtuelles (musées, opéras, théâtres…)',
+];
+
 function ComboThematique({value,onChange,entries,hasError}){
   const[inputVal,setInputVal]=React.useState(value||'');
   const[open,setOpen]=React.useState(false);
@@ -666,11 +705,32 @@ function ComboThematique({value,onChange,entries,hasError}){
   const wrapRef=React.useRef(null);
   React.useEffect(()=>{setInputVal(value||'');},[value]);
   React.useEffect(()=>{function h(e){if(wrapRef.current&&!wrapRef.current.contains(e.target))setOpen(false);}document.addEventListener('mousedown',h);return()=>document.removeEventListener('mousedown',h);},[]);
-  const thematiques=React.useMemo(()=>{const s=new Set();(entries||[]).forEach(e=>{if(e.thematique&&e.thematique.trim())s.add(e.thematique.trim());});return[...s].sort((a,b)=>a.localeCompare(b));},[entries]);
-  const suggestions=React.useMemo(()=>{const q=inputVal.trim();if(!q||q.length<2)return[];const qs=stripAccents(q);return thematiques.filter(t=>stripAccents(t).includes(qs)).slice(0,20);},[inputVal,thematiques]);
+  const thematiques=React.useMemo(()=>{
+    const s=new Set(CATALOGUE_THEMATIQUES);
+    (entries||[]).forEach(e=>{if(e.thematique&&e.thematique.trim())s.add(e.thematique.trim());});
+    return[...s].sort((a,b)=>a.localeCompare(b,'fr'));
+  },[entries]);
+  const suggestions=React.useMemo(()=>{
+    const q=inputVal.trim();
+    if(!q)return thematiques.slice(0,12);
+    const qs=stripAccents(q.toLowerCase());
+    return thematiques.filter(t=>stripAccents(t.toLowerCase()).includes(qs)).slice(0,20);
+  },[inputVal,thematiques]);
   function selectItem(name){setInputVal(name);onChange(name);setOpen(false);setActiveIdx(0);}
   function handleKeyDown(e){if(!open||suggestions.length===0)return;if(e.key==='ArrowDown'){e.preventDefault();setActiveIdx(i=>Math.min(i+1,suggestions.length-1));}else if(e.key==='ArrowUp'){e.preventDefault();setActiveIdx(i=>Math.max(i-1,0));}else if(e.key==='Enter'){e.preventDefault();if(suggestions[activeIdx])selectItem(suggestions[activeIdx]);}else if(e.key==='Escape')setOpen(false);}
-  return CE('div',{className:'combo-wrap',ref:wrapRef},CE('input',{type:'text',value:inputVal,placeholder:"Thème abordé lors de l'atelier…",className:hasError?'err':'',autoComplete:'off',onChange:e=>{setInputVal(e.target.value);onChange(e.target.value);setOpen(true);setActiveIdx(0);},onFocus:()=>{if(inputVal.trim().length>=2)setOpen(true);},onBlur:()=>setTimeout(()=>setOpen(false),150),onKeyDown:handleKeyDown}),open&&suggestions.length>0&&CE('div',{className:'combo-dropdown'},suggestions.map((name,i)=>CE('div',{key:name,className:'combo-item'+(i===activeIdx?' active':''),onMouseDown:e=>{e.preventDefault();selectItem(name);},onMouseEnter:()=>setActiveIdx(i)},CE('span',{className:'combo-nom'},name)))));
+  return CE('div',{className:'combo-wrap',ref:wrapRef},
+    CE('input',{type:'text',value:inputVal,placeholder:"Thème abordé lors de l'atelier…",className:hasError?'err':'',autoComplete:'off',
+      onChange:e=>{setInputVal(e.target.value);onChange(e.target.value);setOpen(true);setActiveIdx(0);},
+      onFocus:()=>setOpen(true),
+      onBlur:()=>setTimeout(()=>setOpen(false),150),
+      onKeyDown:handleKeyDown}),
+    open&&suggestions.length>0&&CE('div',{className:'combo-dropdown'},
+      suggestions.map((name,i)=>CE('div',{key:name,className:'combo-item'+(i===activeIdx?' active':''),
+        onMouseDown:e=>{e.preventDefault();selectItem(name);},
+        onMouseEnter:()=>setActiveIdx(i)},
+        CE('span',{className:'combo-nom'},name)))
+    )
+  );
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -1152,7 +1212,7 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
             inp('time',row.horaire,'horaire',rErr.horaire),
             CE('select',{value:row.ampm,onChange:e=>setRow(row.id,'ampm',e.target.value),style:{width:'100%',padding:'8px 4px',border:brd(rErr.ampm),borderRadius:8,fontSize:12,background:'#f8fafc'}},
               CE('option',{value:'',disabled:true},'—'),CE('option',{value:'AM'},'AM'),CE('option',{value:'PM'},'PM')),
-            inp('text',row.thematique,'thematique',rErr.thematique,"Thème de la séance"),
+            CE(ComboThematique,{value:row.thematique,onChange:v=>setRow(row.id,'thematique',v),entries:entries,hasError:!!rErr.thematique}),
             CE('button',{onClick:()=>removeRow(row.id),disabled:lotRows.length===1,style:{background:'none',border:`1px solid ${acLight}`,borderRadius:6,color:'#9b2c2c',cursor:'pointer',fontSize:15,height:32,width:32,display:'flex',alignItems:'center',justifyContent:'center'}},'×')
           );
         }),
