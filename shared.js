@@ -888,8 +888,9 @@ function ComboThematiqueFixed({value,onChange,entries,hasError}){
   const[dropPos,setDropPos]=React.useState({top:0,left:0,width:0});
   const inputRef=React.useRef(null);
   const wrapRef=React.useRef(null);
+  const dropRef=React.useRef(null);
   React.useEffect(()=>{setInputVal(value||'');},[value]);
-  React.useEffect(()=>{function h(e){if(wrapRef.current&&!wrapRef.current.contains(e.target))setOpen(false);}document.addEventListener('mousedown',h);return()=>document.removeEventListener('mousedown',h);},[]);
+  React.useEffect(()=>{function h(e){if(wrapRef.current&&!wrapRef.current.contains(e.target)&&dropRef.current&&!dropRef.current.contains(e.target))setOpen(false);}document.addEventListener('mousedown',h);return()=>document.removeEventListener('mousedown',h);},[]);
   const thematiques=React.useMemo(()=>{
     const s=new Set(CATALOGUE_THEMATIQUES);
     (entries||[]).forEach(e=>{if(e.thematique&&e.thematique.trim())s.add(e.thematique.trim());});
@@ -916,7 +917,7 @@ function ComboThematiqueFixed({value,onChange,entries,hasError}){
       onBlur:()=>setTimeout(()=>setOpen(false),150),
       onKeyDown:handleKeyDown}),
     open&&suggestions.length>0&&ReactDOM.createPortal(
-      CE('div',{style:{position:'fixed',top:dropPos.top,left:dropPos.left,width:dropPos.width,background:'#fff',border:'1.5px solid #1e3a8a',borderTop:'none',borderRadius:'0 0 6px 6px',maxHeight:240,overflowY:'auto',zIndex:9999,boxShadow:'0 4px 12px rgba(0,0,0,.15)'}},
+      CE('div',{ref:dropRef,style:{position:'fixed',top:dropPos.top,left:dropPos.left,width:dropPos.width,background:'#fff',border:'1.5px solid #1e3a8a',borderTop:'none',borderRadius:'0 0 6px 6px',maxHeight:240,overflowY:'auto',zIndex:9999,boxShadow:'0 4px 12px rgba(0,0,0,.15)'}},
         suggestions.map((name,i)=>CE('div',{key:name,
           style:{padding:'7px 12px',cursor:'pointer',fontSize:13,background:i===activeIdx?'#eff6ff':'#fff',transition:'background .1s'},
           onMouseDown:e=>{e.preventDefault();selectItem(name);},
