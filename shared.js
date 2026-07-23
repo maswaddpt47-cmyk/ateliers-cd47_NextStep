@@ -982,7 +982,7 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
   // ── lignes du lot ──
   function addRow(){setLotRows(r=>[...r,emptyRow()]);}
   function removeRow(id){if(lotRows.length<=1)return;setLotRows(r=>r.filter(x=>x.id!==id));}
-  function setRow(id,k,v){setLotRows(r=>r.map(x=>x.id===id?{...x,[k]:v}:x));setLotRowErrors(er=>({...er,[id]:{...(er[id]||{}),[k]:''}}));}
+  function setRow(id,k,v){setLotRows(r=>r.map(x=>x.id===id?{...x,[k]:v}:x));setLotRowErrors(er=>{const upd={...(er[id]||{})};delete upd[k];return{...er,[id]:upd};});}
 
   // ── validation mode unique ──
   const FIELD_LABELS={'statut':'Statut','date':'Date','horaire':'Horaire','ampm':'AM/PM','commune':'Commune','lieu':'Lieu','thematique':'Thématique','conseiller':'Conseiller','orienteur':'Orienteur','public':'Type de public','inscrits':'Inscrits'};
@@ -1170,7 +1170,7 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
     // Toggle One Shot / Cycle
     canToggle&&CE('div',{style:{display:'flex',gap:0,border:'1.5px solid #e2e8f0',borderRadius:8,overflow:'hidden',marginBottom:16,width:'fit-content'}},
       CE('button',{style:{padding:'8px 20px',background:!modeLot?ac:'#fff',border:'none',cursor:'pointer',fontSize:13,fontWeight:700,color:!modeLot?'#fff':'#718096',transition:'all .15s'},onClick:()=>{setModeLot(false);resetLot();}},'⚡ Saisie One Shot'),
-      CE('button',{style:{padding:'8px 20px',background:modeLot?ac:'#fff',border:'none',cursor:'pointer',fontSize:13,fontWeight:700,color:modeLot?'#fff':'#718096',transition:'all .15s'},onClick:()=>{setModeLot(true);reset();}},'🔄 Saisie par cycle')
+      CE('button',{style:{padding:'8px 20px',background:modeLot?ac:'#fff',border:'none',cursor:'pointer',fontSize:13,fontWeight:700,color:modeLot?'#fff':'#718096',transition:'all .15s'},onClick:()=>{setModeLot(true);reset();resetLot();}},'🔄 Saisie par cycle')
     ),
 
     isDup&&CE('div',{className:'dup-badge'},'📋 Duplication — vérifiez et complétez avant d\'enregistrer'),
