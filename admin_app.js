@@ -73,6 +73,7 @@ function AdminLogin({onLogin,savedName,onResetProfil,conseillers:conseillersProp
         }
         setFailCount(0);setLockUntil(0);
         touchSession();onLogin(res.role,conseiller);
+        setTimeout(function(){apiFetch('logLogin',{conseiller,role:res.role||'user',userAgent:navigator.userAgent,source:'admin.html'}).catch(function(){});},0);
       }else{
         const nf=failCount+1;
         setFailCount(nf);
