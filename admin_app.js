@@ -73,7 +73,6 @@ function AdminLogin({onLogin,savedName,onResetProfil,conseillers:conseillersProp
         }
         setFailCount(0);setLockUntil(0);
         touchSession();onLogin(res.role,conseiller);
-        setTimeout(function(){apiFetch('logLogin',{conseiller,role:res.role||'user',userAgent:navigator.userAgent,source:'admin.html'}).catch(function(){});},0);
       }else{
         const nf=failCount+1;
         setFailCount(nf);
@@ -803,7 +802,7 @@ function VueAdminV10({entries,onRefresh,addLog,conseillersList,onSaveColors,anne
     });
   },[]);
   const[resetStep,setResetStep]=React.useState(0);
-  const[visibility,setVisibility]=React.useState({});
+  const[visibility,setVisibility]=React.useState(null);
   const[visSaving,setVisSaving]=React.useState(false);
   const[importing,setImporting]=React.useState(false);
   const[colorDraft,setColorDraft]=React.useState({...CONSEILLER_COLORS});
