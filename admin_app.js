@@ -26,6 +26,7 @@ function AdminLogin({onLogin,savedName,onResetProfil,conseillers:conseillersProp
   const[pwd,setPwd]=React.useState('');
   const[err,setErr]=React.useState('');
   const[loading,setLoading]=React.useState(false);
+  const[warming,setWarming]=React.useState(true);
   const[hint,setHint]=React.useState('');
   const[show,setShow]=React.useState(false);
   const[failCount,setFailCount]=React.useState(0);
@@ -39,10 +40,9 @@ function AdminLogin({onLogin,savedName,onResetProfil,conseillers:conseillersProp
     setConseiller(c=>base.includes(c)?c:base[0]);
   },[base.join(',')]);
 
-  // Préchauffage GAS : appel léger fire-and-forget dès l'affichage du
-  // formulaire, pour que le cold start soit déjà passé au clic sur Connexion.
+  // Préchauffage GAS : bloque le bouton Connexion jusqu'à la réponse de getConfig.
   React.useEffect(()=>{
-    apiFetch('getConfig').catch(()=>{});
+    apiFetch('getConfig').catch(()=>{}).finally(()=>setWarming(false));
   },[]);
 
   // Tick du countdown
@@ -128,7 +128,7 @@ function AdminLogin({onLogin,savedName,onResetProfil,conseillers:conseillersProp
             ),
             err&&CE('p',{style:{color:'#c53030',fontSize:13,marginBottom:8}},err),
             hint&&!err&&CE('p',{style:{color:'#718096',fontSize:12,marginBottom:8,display:'flex',alignItems:'center',gap:6}},CE('span',{className:'spinner',style:{width:12,height:12,borderWidth:2}}),hint),
-            CE('button',{onClick:handleSubmit,disabled:loading||!pwd.trim(),style:{width:'100%',padding:'11px',background:'#1e3a8a',color:'#fff',border:'none',borderRadius:8,fontSize:14,fontWeight:700,cursor:'pointer'}},loading?'Vérification…':'Connexion')
+            CE('button',{onClick:handleSubmit,disabled:loading||warming||!pwd.trim(),style:{width:'100%',padding:'11px',background:warming?'#718096':'#1e3a8a',color:'#fff',border:'none',borderRadius:8,fontSize:14,fontWeight:700,cursor:warming?'not-allowed':'pointer'}},loading?'Vérification…':warming?'Préchauffage…':'Connexion')
           )
     )
   );
