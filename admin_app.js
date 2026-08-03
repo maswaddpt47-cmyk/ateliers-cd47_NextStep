@@ -39,6 +39,12 @@ function AdminLogin({onLogin,savedName,onResetProfil,conseillers:conseillersProp
     setConseiller(c=>base.includes(c)?c:base[0]);
   },[base.join(',')]);
 
+  // Préchauffage GAS : appel léger fire-and-forget dès l'affichage du
+  // formulaire, pour que le cold start soit déjà passé au clic sur Connexion.
+  React.useEffect(()=>{
+    apiFetch('getConfig').catch(()=>{});
+  },[]);
+
   // Tick du countdown
   React.useEffect(()=>{
     if(!lockUntil||lockUntil<=Date.now()) return;
