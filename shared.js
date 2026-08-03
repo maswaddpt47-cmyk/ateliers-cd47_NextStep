@@ -582,7 +582,13 @@ function showToast(msg,ok=true){
         fetch(`${GS_URL}?${params.toString()}`),
         new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')), TIMEOUT_MS))
       ]);
-      return res.json();
+      const text = await res.text();
+      try{
+        return JSON.parse(text);
+      }catch(parseErr){
+        // Le GAS a renvoyé du HTML (page d'erreur/permission) au lieu de JSON
+        throw new Error(`Réponse invalide du serveur (HTTP ${res.status}) — déploiement GAS à vérifier.`);
+      }
     }catch(err){
       if(err.message==='timeout' && _attempt <= MAX_RETRY){
         console.warn(`[apiFetch] Timeout "${action}" — retry ${_attempt}/${MAX_RETRY} dans ${RETRY_DELAY/1000}s`);
