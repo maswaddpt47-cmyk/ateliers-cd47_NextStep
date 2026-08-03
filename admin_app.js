@@ -803,7 +803,7 @@ function VueAdminV10({entries,onRefresh,addLog,conseillersList,onSaveColors,anne
     });
   },[]);
   const[resetStep,setResetStep]=React.useState(0);
-  const[visibility,setVisibility]=React.useState(null);
+  const[visibility,setVisibility]=React.useState({});
   const[visSaving,setVisSaving]=React.useState(false);
   const[importing,setImporting]=React.useState(false);
   const[colorDraft,setColorDraft]=React.useState({...CONSEILLER_COLORS});
