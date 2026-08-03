@@ -161,7 +161,10 @@ function App(){
 
   React.useEffect(()=>{loadCommunes47().catch(()=>{});},[]);
 
-  // Check maintenance
+  // Check maintenance — sert aussi de préchauffage GAS : contrairement à
+  // admin.html, il n'y a pas d'écran de connexion ici, App() est rendu
+  // directement au chargement, donc cet appel réveille déjà le cold start
+  // avant toute action de l'utilisateur.
   React.useEffect(()=>{
     apiFetch('getConfig').then(res=>{
       if(res.ok&&res.config){
