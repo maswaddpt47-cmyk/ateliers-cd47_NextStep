@@ -40,9 +40,10 @@ function AdminLogin({onLogin,savedName,onResetProfil,conseillers:conseillersProp
     setConseiller(c=>base.includes(c)?c:base[0]);
   },[base.join(',')]);
 
-  // Préchauffage GAS : bloque le bouton Connexion jusqu'à la réponse de getConfig.
+  // Préchauffage GAS : on appelle getAll (l'appel le plus lourd, fait juste après login)
+  // pour que le cache Sheets soit chaud avant que l'utilisateur clique sur Connexion.
   React.useEffect(()=>{
-    apiFetch('getConfig').catch(()=>{}).finally(()=>setWarming(false));
+    apiFetch('getAll',{year:new Date().getFullYear(),source:'admin'}).catch(()=>{}).finally(()=>setWarming(false));
   },[]);
 
   // Tick du countdown
