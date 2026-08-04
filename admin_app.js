@@ -40,10 +40,10 @@ function AdminLogin({onLogin,savedName,onResetProfil,conseillers:conseillersProp
     setConseiller(c=>base.includes(c)?c:base[0]);
   },[base.join(',')]);
 
-  // Préchauffage GAS : on appelle getAll (l'appel le plus lourd, fait juste après login)
-  // pour que le cache Sheets soit chaud avant que l'utilisateur clique sur Connexion.
+  // Préchauffage GAS sans timeout — on attend la vraie réponse pour débloquer Connexion.
   React.useEffect(()=>{
-    apiFetch('getAll',{year:new Date().getFullYear(),source:'admin'}).catch(()=>{}).finally(()=>setWarming(false));
+    fetch(`${GS_URL}?action=getAll&year=${new Date().getFullYear()}&source=admin`)
+      .then(r=>r.json()).catch(()=>{}).finally(()=>setWarming(false));
   },[]);
 
   // Tick du countdown
@@ -254,7 +254,7 @@ function App(){
     try{
       // Timeout adaptatif : court sur PC/fibre, long sur mobile/4G
       const isMobile=/Android|iPhone|iPad/i.test(navigator.userAgent);
-      const timeouts=isMobile?[20000,25000,30000]:[8000,10000,12000];
+      const timeouts=isMobile?[20000,25000,30000]:[25000,30000,35000];
       const timeoutMs=timeouts[attempt-1]||timeouts[timeouts.length-1];
       const res=await Promise.race([fetch(`${GS_URL}?action=getAll&year=${annee}&source=admin`),new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')),timeoutMs))]);
       const data=await res.json();
