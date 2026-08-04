@@ -464,6 +464,32 @@ function FadeItem({children,delay=0,style={}}){
 
 const GS_URL = 'https://script.google.com/macros/s/AKfycbx_YutREW-ucdGKXiHB7Y2hgUMHBJqAF0NprMrXB9p4_dEHPxrWk7nsXxCLDcJBDDHPEw/exec';
 
+// ── Écran d'attente d'un appel GAS ─────────────────────────────────────────
+// Un getAll prend 10 à 30 s, redirection /exec → echo comprise. Sans rien à
+// l'écran, l'attente passe pour un blocage : on affiche ce qui se passe et un
+// compteur de secondes, qui prouve que ça avance.
+function AttenteGAS({titre}){
+  const PALIERS = [
+    {t:0,     txt:'Connexion à Google Sheets…'},
+    {t:4000,  txt:'Réveil du script Google Apps Script…'},
+    {t:10000, txt:'Lecture du classeur — cela peut prendre 30 s…'},
+    {t:25000, txt:'Toujours en cours, le serveur Google est lent — on patiente…'},
+  ];
+  const[palier,setPalier]=React.useState(0);
+  const[secs,setSecs]=React.useState(0);
+  React.useEffect(()=>{
+    const timers=PALIERS.slice(1).map((p,i)=>setTimeout(()=>setPalier(i+1),p.t));
+    const tick=setInterval(()=>setSecs(s=>s+1),1000);
+    return()=>{timers.forEach(clearTimeout);clearInterval(tick);};
+  },[]);
+  return CE('div',{style:{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:14,padding:'40px 20px',textAlign:'center'}},
+    CE('span',{className:'spinner',style:{width:30,height:30,borderWidth:3}}),
+    titre&&CE('div',{style:{fontSize:15,fontWeight:700,color:'#1e3a8a'}},titre),
+    CE('div',{style:{fontSize:13,color:'#718096',maxWidth:340,lineHeight:1.5}},PALIERS[palier].txt),
+    CE('div',{style:{fontSize:12,color:'#a0aec0',fontVariantNumeric:'tabular-nums'}},secs+' s')
+  );
+}
+
 const COMMUNES = [
   'AGEN','ARGENTON','ASTAFFORT','CASSENEUIL','CASTELMORON SUR LOT',
   'FAUILLET','FIEUX','FUMEL','LAVARDAC','LAYRAC',
@@ -564,7 +590,11 @@ function showToast(msg,ok=true){
   const MAX_RETRY   = 1;
   const RETRY_DELAY = 3000;
   const isMobile    = /Android|iPhone|iPad/i.test(navigator.userAgent);
-  const TIMEOUT_MS  = isMobile ? 20000 : 12000;
+  // Mesuré en production : /exec répond 302 en 2-3 s, puis la redirection
+  // script.googleusercontent.com/…/echo met encore 10 à 26 s avant de rendre
+  // le corps (ou de répondre 404). Avec 12 s le retry était tué avant d'avoir
+  // abouti — d'où le « Le serveur ne répond pas » sur un GAS déjà réveillé.
+  const TIMEOUT_MS  = isMobile ? 35000 : 30000;
   // /exec renvoie une redirection 302 vers script.googleusercontent.com.
   // Quand le GAS est saturé (plusieurs exécutions en parallèle), cette
   // redirection répond 404/429/5xx : c'est transitoire, pas un problème de
