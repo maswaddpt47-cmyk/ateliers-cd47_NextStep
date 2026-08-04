@@ -258,6 +258,10 @@ function App(){
         error
           ? CE('div',{className:'error-box'},CE('strong',null,'❌ Impossible de charger'),CE('span',null,error),CE('button',{className:'btn btn-primary',onClick:()=>loadData()},'🔄 Réessayer'))
           : CE('div',null,
+              // Le seul retour visuel était un « Chargement… » de 11 px dans la
+              // barre du haut : la landing semblait figée pendant les ~20 s du
+              // getAll. AttenteGAS dit où on en est, avec un compteur.
+              loading&&CE(AttenteGAS,null),
               !loading&&entries.length>0&&CE('div',{className:'accueil-stats'},
                 lists.conseillers.map(c=>{
                   const n=statsMois[c]||0;
@@ -399,6 +403,7 @@ function App(){
       CE('div',{className:'app-main'},
         error&&CE('div',{className:'error-box'},CE('strong',null,'❌ Impossible de charger'),CE('span',null,error),CE('button',{className:'btn btn-primary',onClick:()=>loadData()},'🔄 Réessayer')),
         loading&&!error&&CE('div',null,
+          CE(AttenteGAS,null),
           [1,2,3].map(i=>CE('div',{key:i,className:'skeleton skeleton-card'}))
         ),
         // viewRef sur le wrapper — capte les change events des selects internes
