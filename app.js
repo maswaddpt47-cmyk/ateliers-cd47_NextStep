@@ -157,10 +157,11 @@ function App(){
 
   React.useEffect(()=>{loadCommunes47().catch(()=>{});},[]);
 
-  // Check maintenance — sert aussi de préchauffage GAS : contrairement à
-  // admin.html, il n'y a pas d'écran de connexion ici, App() est rendu
-  // directement au chargement, donc cet appel réveille déjà le cold start
-  // avant toute action de l'utilisateur.
+  // Check maintenance : ne bloque plus l'affichage de la landing. Le mode
+  // maintenance est un cas rare, activé à la main par un admin — faire
+  // attendre CHAQUE chargement pour ce cas rare n'a pas de sens. La landing
+  // s'affiche donc tout de suite ; si getConfig confirme la maintenance,
+  // MaintenanceScreen prend le relais quelques secondes plus tard.
   React.useEffect(()=>{
     apiFetch('getConfig').then(res=>{
       if(res.ok&&res.config){
@@ -211,10 +212,10 @@ function App(){
   const conseillerActifs = lists.conseillers.filter(c=>!inactifsSet.has(c));
 
   // ── Vue Accueil ───────────────────────────────────────────────
-  // 15 s d'écran quasi vide passaient pour un plantage : on montre l'étape en
-  // cours et un compteur de secondes.
-  if(maintenance===null) return CE('div',{style:{display:'flex',alignItems:'center',justifyContent:'center',minHeight:'100vh',background:'#f0f4f8'}},CE(AttenteGAS,{titre:'Ateliers Inclusion Numérique'}));
-  if(maintenance!==false) return CE(MaintenanceScreen,{msg:maintenance.msg});
+  // maintenance===null (réponse pas encore arrivée) est traité comme "pas en
+  // maintenance" : on affiche la landing tout de suite, sans attendre. Seule
+  // une confirmation positive de getConfig bascule sur MaintenanceScreen.
+  if(maintenance && maintenance!==false) return CE(MaintenanceScreen,{msg:maintenance.msg});
 
   if(view==='accueil'){
     const now=new Date();
