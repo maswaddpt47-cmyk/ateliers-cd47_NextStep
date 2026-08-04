@@ -629,10 +629,20 @@ function showToast(msg,ok=true){
 // le résultat après connexion.
 (function(){
   const TTL_MS  = 45000;     // fenêtre pendant laquelle le prefetch reste valable
-  const HARD_MS = 60000;     // plafond absolu : voir plus bas
+  const HARD_MS = 45000;     // plafond absolu par tentative : voir plus bas
+  const MAX_RETRY   = 2;
+  const RETRY_DELAY = 2000;
+  // Observé en production : /exec répond 302 vers script.googleusercontent.com
+  // /…/echo?user_content_key=…, et cette cible de redirection répond 404 (ou se
+  // fait annuler) par intermittence, même quand le GAS a bien exécuté. Sans
+  // retry ici, un seul de ces 404 suffit à faire échouer tout le chargement.
+  const RETRYABLE_HTTP = [404, 408, 429, 500, 502, 503, 504];
   const cache   = new Map(); // année → {promise, inflight, ts}
 
-  async function rawGetAll(year, source){
+  const wait = ms => new Promise(r=>setTimeout(r, ms));
+
+  async function rawGetAll(year, source, attempt){
+    attempt = attempt || 1;
     const params = new URLSearchParams({action:'getAll', year:String(year)});
     if(source) params.set('source', source);
     // Plafond absolu : sans lui, une requête qui ne revient jamais (coupure
@@ -645,20 +655,42 @@ function showToast(msg,ok=true){
     try{
       res = await fetch(`${GS_URL}?${params.toString()}`, {signal:ctrl.signal});
     }catch(err){
-      // AbortError → traité comme un timeout par les appelants
-      throw ctrl.signal.aborted ? new Error('timeout') : err;
+      // Abort du plafond → timeout, laissé aux appelants.
+      if(ctrl.signal.aborted) throw new Error('timeout');
+      // Échec réseau (redirection annulée, connexion coupée) → nouvelle tentative
+      if(attempt <= MAX_RETRY){
+        console.warn(`[fetchAll] ${err.message} — tentative ${attempt+1}/${MAX_RETRY+1}`);
+        await wait(RETRY_DELAY);
+        return rawGetAll(year, source, attempt + 1);
+      }
+      throw err;
     }finally{
       clearTimeout(kill);
     }
     if(!res.ok){
-      const e = new Error(`HTTP ${res.status}`);
+      if(RETRYABLE_HTTP.indexOf(res.status) > -1 && attempt <= MAX_RETRY){
+        console.warn(`[fetchAll] HTTP ${res.status} — tentative ${attempt+1}/${MAX_RETRY+1}`);
+        await wait(RETRY_DELAY);
+        return rawGetAll(year, source, attempt + 1);
+      }
+      const e = new Error(RETRYABLE_HTTP.indexOf(res.status) > -1
+        ? `Google a répondu HTTP ${res.status} après ${MAX_RETRY+1} tentatives — serveur saturé, réessaie dans quelques secondes.`
+        : `Réponse invalide du serveur (HTTP ${res.status}) — déploiement GAS à vérifier.`);
       e.httpStatus = res.status;
       throw e;
     }
     const text = await res.text();
     let data;
     try{ data = JSON.parse(text); }
-    catch(_){ throw new Error(`Réponse invalide du serveur (HTTP ${res.status}) — GAS saturé ou déploiement à vérifier.`); }
+    catch(_){
+      // Corps non-JSON : page d'erreur Google intermittente, même traitement
+      if(attempt <= MAX_RETRY){
+        console.warn('[fetchAll] réponse non-JSON — nouvelle tentative');
+        await wait(RETRY_DELAY);
+        return rawGetAll(year, source, attempt + 1);
+      }
+      throw new Error(`Réponse invalide du serveur (HTTP ${res.status}) — GAS saturé ou déploiement à vérifier.`);
+    }
     if(!data || !data.ok) throw new Error((data && data.error) || 'Erreur serveur');
     return data;
   }

@@ -285,7 +285,9 @@ function App(){
       setSeenIds(prev=>{if(prev.size===0)return new Set(incoming.map(e=>e._id));const nouvs=incoming.filter(e=>!prev.has(e._id));if(nouvs.length>0)setNewEntries(n=>[...nouvs,...n]);return new Set(incoming.map(e=>e._id));});
       setLoading(false);setSyncing(false);
     }catch(err){
-      if(err.message==='timeout'&&attempt<3){addLog(`Tentative ${attempt}/3…`,'info');const isMobile=/Android|iPhone|iPad/i.test(navigator.userAgent);setTimeout(()=>loadData(attempt+1,silent,useCache),isMobile?[3000,6000][attempt-1]:2000);}
+      // err.httpStatus : 404/5xx transitoire de la redirection GAS — fetchAll a
+      // déjà réessayé en interne, on lui laisse une dernière chance ici.
+      if((err.message==='timeout'||err.httpStatus)&&attempt<3){addLog(`Tentative ${attempt}/3…`,'info');const isMobile=/Android|iPhone|iPad/i.test(navigator.userAgent);setTimeout(()=>loadData(attempt+1,silent,useCache),isMobile?[3000,6000][attempt-1]:2000);}
       else{setError(attempt>1?'Google Sheets ne répond pas après 3 tentatives.':'Impossible de charger : '+err.message);addLog('Erreur : '+err.message,'err');setLoading(false);setSyncing(false);}
     }
   }

@@ -142,7 +142,7 @@ function App(){
       });
       setLoading(false);
     }catch(err){
-      if(err.message==='timeout'&&attempt<3){
+      if((err.message==='timeout'||err.httpStatus)&&attempt<3){
         const isMobile=/Android|iPhone|iPad/i.test(navigator.userAgent);
         setTimeout(()=>loadData(attempt+1,silent),isMobile?[3000,6000][attempt-1]:2000);
       }else{
