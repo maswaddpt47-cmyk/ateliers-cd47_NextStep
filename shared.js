@@ -613,7 +613,7 @@ function showToast(msg,ok=true){
       throw err;
     }
   };
-})()
+})();
 
 // ── getAll partagé : un seul appel réseau par année ────────────────────────
 // Google Apps Script sérialise les exécutions concurrentes d'un même script.
@@ -680,7 +680,7 @@ function showToast(msg,ok=true){
   };
 
   window.invalidateFetchAll = function(){ cache.clear(); };
-})()
+})();
 async function loadCommunes47(){
   if(COMMUNES_47_CACHE)return COMMUNES_47_CACHE;
   try{
