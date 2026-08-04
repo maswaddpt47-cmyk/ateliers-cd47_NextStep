@@ -499,6 +499,19 @@ const GS_URL = 'https://script.google.com/macros/s/AKfycbx_YutREW-ucdGKXiHB7Y2hg
 //      vol en même temps).
 const GAS_RETRYABLE_HTTP = [404, 408, 429, 500, 502, 503, 504];
 
+// Plafond de temps par appel. Sans lui, un fetch() qui ne se résout jamais
+// (fréquent en 4G mobile : coupure silencieuse, NAT qui abandonne la
+// connexion sans erreur) laisse l'utilisateur bloqué indéfiniment — le
+// compteur continue de tourner (minuteur local, indépendant du réseau) sans
+// qu'aucune reprise ne puisse jamais se déclencher, puisque le catch() qui
+// porte la logique de retry n'est atteint que si fetch() finit par échouer.
+// Observé en production : 73 s d'attente puis obligation de recharger la
+// page à la main. Ce plafond n'est PAS un pari sur "GAS a fini ou pas" — il
+// existe uniquement pour garantir qu'un appel bloqué finit par échouer
+// proprement et laisser la main à un retry ou au bouton Réessayer.
+const GAS_IS_MOBILE  = /Android|iPhone|iPad/i.test(navigator.userAgent);
+const GAS_TIMEOUT_MS = GAS_IS_MOBILE ? 35000 : 25000;
+
 // Journal consultable : window.__gasLog, et console pour le suivi en direct.
 window.__gasLog = [];
 window.logGas = function(action, attempt, ms, issue){
@@ -514,12 +527,20 @@ window.logGas = function(action, attempt, ms, issue){
 // de transport (jamais atteint Google) ou un refus immédiat (429/503).
 window.gasUnAppel = async function(url, action, numero){
   const t0 = Date.now();
+  const ctrl = new AbortController();
+  const chien = setTimeout(()=>ctrl.abort(), GAS_TIMEOUT_MS);
   let res;
   try{
-    res = await fetch(url);
+    res = await fetch(url, {signal:ctrl.signal});
   }catch(err){
+    if(ctrl.signal.aborted){
+      logGas(action, numero, Date.now()-t0, `bloqué — abandonné après ${GAS_TIMEOUT_MS/1000}s`);
+      throw Object.assign(new Error('timeout'), {reessayable:true});
+    }
     logGas(action, numero, Date.now()-t0, 'réseau : '+err.message);
     throw Object.assign(new Error(err.message), {reessayable:true});
+  }finally{
+    clearTimeout(chien);
   }
   if(!res.ok){
     logGas(action, numero, Date.now()-t0, 'HTTP '+res.status);
@@ -686,6 +707,8 @@ function showToast(msg,ok=true){
       }
       if(err.httpStatus)
         throw new Error(`Google a répondu HTTP ${err.httpStatus} — réessaie dans quelques secondes.`);
+      if(err.message==='timeout')
+        throw new Error(`Aucune réponse de Google après ${GAS_TIMEOUT_MS/1000}s — la connexion est peut-être instable, réessaie.`);
       throw err;
     }
   };
@@ -721,6 +744,8 @@ function showToast(msg,ok=true){
       }
       if(err.httpStatus)
         throw new Error(`Google a répondu HTTP ${err.httpStatus} — réessaie dans quelques secondes.`);
+      if(err.message==='timeout')
+        throw new Error(`Aucune réponse de Google après ${GAS_TIMEOUT_MS/1000}s — la connexion est peut-être instable, réessaie.`);
       throw err;
     }
   }
