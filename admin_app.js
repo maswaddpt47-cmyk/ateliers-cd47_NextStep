@@ -40,13 +40,14 @@ function AdminLogin({onLogin,savedName,onResetProfil,conseillers:conseillersProp
     setConseiller(c=>base.includes(c)?c:base[0]);
   },[base.join(',')]);
 
-  // Préchauffage GAS sans timeout — on attend la vraie réponse pour débloquer
-  // Connexion. Passe par fetchAll : le résultat est mis en cache et réutilisé
-  // par loadData après connexion, donc ce préchauffage est aussi le prefetch
-  // des données (un seul getAll pour toute la page).
+  // Préchauffage par un appel léger (getConfig, ~2 s) et non par getAll (~20 s) :
+  // réveiller l'instance GAS suffit, et se connecter n'a besoin que de
+  // checkPassword. Le getAll ne part qu'après authentification, quand il sert
+  // vraiment. Le bouton Connexion n'est plus bloqué par ce préchauffage — il
+  // l'était par l'appel le plus lourd de la page, obligeant à attendre ~20 s
+  // avant même de pouvoir saisir le mot de passe.
   React.useEffect(()=>{
-    fetchAll(new Date().getFullYear(),{source:'admin'})
-      .catch(()=>{}).finally(()=>setWarming(false));
+    apiFetch('getConfig').catch(()=>{}).finally(()=>setWarming(false));
   },[]);
 
   // Tick du countdown
@@ -132,7 +133,8 @@ function AdminLogin({onLogin,savedName,onResetProfil,conseillers:conseillersProp
             ),
             err&&CE('p',{style:{color:'#c53030',fontSize:13,marginBottom:8}},err),
             hint&&!err&&CE('p',{style:{color:'#718096',fontSize:12,marginBottom:8,display:'flex',alignItems:'center',gap:6}},CE('span',{className:'spinner',style:{width:12,height:12,borderWidth:2}}),hint),
-            CE('button',{onClick:handleSubmit,disabled:loading||warming||!pwd.trim(),style:{width:'100%',padding:'11px',background:warming?'#718096':'#1e3a8a',color:'#fff',border:'none',borderRadius:8,fontSize:14,fontWeight:700,cursor:warming?'not-allowed':'pointer'}},loading?'Vérification…':warming?'Préchauffage…':'Connexion')
+            warming&&!err&&CE('p',{style:{color:'#a0aec0',fontSize:11,marginBottom:8}},'Préchauffage du serveur en cours — tu peux te connecter dès maintenant.'),
+            CE('button',{onClick:handleSubmit,disabled:loading||!pwd.trim(),style:{width:'100%',padding:'11px',background:'#1e3a8a',color:'#fff',border:'none',borderRadius:8,fontSize:14,fontWeight:700,cursor:loading?'progress':'pointer'}},loading?'Vérification…':'Connexion')
           )
     )
   );
@@ -175,20 +177,18 @@ function App(){
   });
   // Chargé avant l'auth pour alimenter le dropdown de login
   const[loginConseillers,setLoginConseillers]=React.useState(CONSEILLERS_DEFAULT);
-  // Séquentiel et non parallèle : getComptes attend la fin du getAll pour ne
-  // pas ajouter une exécution GAS concurrente pendant le cold start.
+  // Dropdown construit sur getComptes seul : la feuille Comptes porte déjà le
+  // nom, le rôle et l'état actif de chacun. Le getAll qui servait à récupérer
+  // lists.conseillers coûtait ~20 s pour la même information.
   React.useEffect(()=>{
-    const year=new Date().getFullYear();
-    fetchAll(year,{source:'admin'}).catch(()=>null)
-      .then(dataRes=>apiFetch('getComptes').catch(()=>null).then(comptesRes=>[dataRes,comptesRes]))
-    .then(([dataRes,comptesRes])=>{
-      const comptes=comptesRes?.ok&&comptesRes.comptes?comptesRes.comptes:[];
-      const base=dataRes?.lists?.conseillers?.length?dataRes.lists.conseillers:CONSEILLERS_DEFAULT;
-      if(comptes.length===0){setLoginConseillers(base);return;}
-      const admins=new Set(comptes.filter(c=>c.role==='admin'||c.role==='superviseur').map(c=>c.conseiller));
-      const inactifs=new Set(comptes.filter(c=>c.actif==='NON').map(c=>c.conseiller));
-      const filtered=base.filter(c=>admins.has(c)&&!inactifs.has(c));
-      setLoginConseillers(filtered.length>0?filtered:base);
+    apiFetch('getComptes').catch(()=>null).then(res=>{
+      const comptes=res?.ok&&res.comptes?res.comptes:[];
+      if(comptes.length===0)return; // on garde CONSEILLERS_DEFAULT
+      const eligibles=comptes
+        .filter(c=>(c.role==='admin'||c.role==='superviseur')&&c.actif!=='NON')
+        .map(c=>c.conseiller)
+        .filter(Boolean);
+      setLoginConseillers(eligibles.length>0?eligibles:CONSEILLERS_DEFAULT);
     });
   },[]);
   const[emails,setEmails]  = React.useState({});
@@ -344,10 +344,7 @@ function App(){
     CE('div',{className:'login-card'},
       CE('h2',null,'👤 Qui êtes-vous ?'),
       loading
-        ? CE('div',{style:{display:'flex',flexDirection:'column',alignItems:'center',gap:12,padding:'24px 0',color:'#9ca3af'}},
-            CE('span',{className:'spinner',style:{width:24,height:24,borderWidth:3}}),
-            CE('span',{style:{fontSize:13}},'Chargement en cours…')
-          )
+        ? CE(AttenteGAS,null)
         : CE(React.Fragment,null,
             CE('p',{style:{fontSize:13,color:'#718096',margin:'8px 0 20px'}},'Pour personnaliser votre interface'),
             (lists.conseillers||CONSEILLERS_DEFAULT).map(c=>
@@ -479,10 +476,7 @@ function App(){
       ),
 
       CE('div',{className:'app-main'},
-        loading&&CE('div',{style:{display:'flex',alignItems:'center',justifyContent:'center',flexDirection:'column',gap:16,height:260,color:'#9ca3af'}},
-          CE('span',{className:'spinner',style:{width:32,height:32,borderWidth:3,borderTopColor:accentColor,borderColor:accentColor+'33'}}),
-          CE('span',{style:{fontSize:13,fontWeight:600}},'Chargement des données…')
-        ),
+        loading&&CE(AttenteGAS,{titre:'Chargement des ateliers'}),
         error&&CE('div',{className:'error-box'},CE('strong',null,'❌ Impossible de charger'),CE('span',null,error),CE('button',{className:'btn btn-primary',onClick:()=>loadData()},'🔄 Réessayer')),
         !loading&&!error&&CE('div',{key:view,className:'view-anim'},
           view==='saisie'&&CE(VueSaisie,{entries,onSaved:handleSaved,onNewEntry:e=>{setNewEntries(n=>[e,...n]);setSeenIds(s=>{const ns=new Set(s);ns.add(e._id);return ns;});},lists,editingId,onClearEdit:()=>setEditingId(null),prefillData,onClearPrefill:()=>setPrefillData(null),accentColor:conseillerColor(adminConseiller)}),
