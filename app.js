@@ -64,14 +64,12 @@ function App(){
   const[online,setOnline]          = React.useState(navigator.onLine);
   const[showPicker,setShowPicker]   = React.useState(false);
   const[inactifsSet,setInactifsSet] = React.useState(new Set());
-  // gasReady : passe à true dès que le check maintenance a répondu. Les autres
-  // appels GAS attendent ce signal — GAS sérialise les exécutions concurrentes,
-  // et un appel qui patiente dans la file consomme quand même son timeout.
-  const[gasReady,setGasReady]       = React.useState(false);
+  // Appel indépendant du check maintenance : le faire attendre getConfig (qui
+  // peut prendre plusieurs secondes) retardait Historique pour rien — même
+  // défaut que celui corrigé sur la landing, ici sur les données elles-mêmes.
   React.useEffect(()=>{
-    if(!gasReady) return;
     apiFetch('getComptes').then(res=>{if(res.ok&&res.comptes){setInactifsSet(new Set(res.comptes.filter(c=>c.actif==='NON').map(c=>c.conseiller)));}}).catch(()=>{});
-  },[gasReady]);
+  },[]);
   const[sidebarPinned,setSidebarPinned] = React.useState(()=>localStorage.getItem('sidebar_pinned')==='1');
 
   // Ref pour l'event delegation sur les vues avec filtre conseiller
@@ -169,20 +167,20 @@ function App(){
         const msg=res.config['maintenance_msg']||'';
         setMaintenance(active?{msg}:false);
       } else setMaintenance(false);
-    }).catch(()=>setMaintenance(false)).finally(()=>setGasReady(true));
+    }).catch(()=>setMaintenance(false));
   },[]);
 
+  // Indépendant du check maintenance : voir plus haut. getAll part dès le
+  // montage, en parallèle de getConfig — rien ne justifie de les enchaîner.
   React.useEffect(()=>{
-    if(!gasReady) return;
     if(isFirstLoad.current){isFirstLoad.current=false;loadData();}
     else{setSeenIds(new Set());loadData();}
-  },[annee,gasReady]);
+  },[annee]);
 
   React.useEffect(()=>{
-    if(!gasReady) return;
     const id=setInterval(()=>loadData(1,true),5*60*1000);
     return()=>clearInterval(id);
-  },[annee,gasReady]);
+  },[annee]);
 
   React.useEffect(()=>{
     const label=view==='accueil'?'Accueil':VIEW_META_F[view]?.label||view;
