@@ -40,10 +40,13 @@ function AdminLogin({onLogin,savedName,onResetProfil,conseillers:conseillersProp
     setConseiller(c=>base.includes(c)?c:base[0]);
   },[base.join(',')]);
 
-  // Préchauffage GAS sans timeout — on attend la vraie réponse pour débloquer Connexion.
+  // Préchauffage GAS sans timeout — on attend la vraie réponse pour débloquer
+  // Connexion. Passe par fetchAll : le résultat est mis en cache et réutilisé
+  // par loadData après connexion, donc ce préchauffage est aussi le prefetch
+  // des données (un seul getAll pour toute la page).
   React.useEffect(()=>{
-    fetch(`${GS_URL}?action=getAll&year=${new Date().getFullYear()}&source=admin`)
-      .then(r=>r.json()).catch(()=>{}).finally(()=>setWarming(false));
+    fetchAll(new Date().getFullYear(),{source:'admin'})
+      .catch(()=>{}).finally(()=>setWarming(false));
   },[]);
 
   // Tick du countdown
@@ -172,12 +175,13 @@ function App(){
   });
   // Chargé avant l'auth pour alimenter le dropdown de login
   const[loginConseillers,setLoginConseillers]=React.useState(CONSEILLERS_DEFAULT);
+  // Séquentiel et non parallèle : getComptes attend la fin du getAll pour ne
+  // pas ajouter une exécution GAS concurrente pendant le cold start.
   React.useEffect(()=>{
     const year=new Date().getFullYear();
-    Promise.all([
-      fetch(`${GS_URL}?action=getAll&year=${year}&source=admin`).then(r=>r.json()).catch(()=>null),
-      apiFetch('getComptes').catch(()=>null)
-    ]).then(([dataRes,comptesRes])=>{
+    fetchAll(year,{source:'admin'}).catch(()=>null)
+      .then(dataRes=>apiFetch('getComptes').catch(()=>null).then(comptesRes=>[dataRes,comptesRes]))
+    .then(([dataRes,comptesRes])=>{
       const comptes=comptesRes?.ok&&comptesRes.comptes?comptesRes.comptes:[];
       const base=dataRes?.lists?.conseillers?.length?dataRes.lists.conseillers:CONSEILLERS_DEFAULT;
       if(comptes.length===0){setLoginConseillers(base);return;}
@@ -248,17 +252,24 @@ function App(){
     };
   },[auth]);
 
-  async function loadData(attempt=1, silent=false){
+  // useCache=true : accepte le résultat du prefetch du login (chargement
+  // initial). Sinon on force un appel réseau — après une écriture, un refresh
+  // manuel ou la synchro auto, les données doivent être fraîches.
+  async function loadData(attempt=1, silent=false, useCache=false){
     setSyncing(true);
-    if(!silent) setLoading(true);setError(null);
+    if(!silent) setLoading(true);
+    setError(null);
     try{
       // Timeout adaptatif : court sur PC/fibre, long sur mobile/4G
       const isMobile=/Android|iPhone|iPad/i.test(navigator.userAgent);
       const timeouts=isMobile?[20000,25000,30000]:[25000,30000,35000];
       const timeoutMs=timeouts[attempt-1]||timeouts[timeouts.length-1];
-      const res=await Promise.race([fetch(`${GS_URL}?action=getAll&year=${annee}&source=admin`),new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')),timeoutMs))]);
-      const data=await res.json();
-      if(!data.ok)throw new Error(data.error||'Erreur serveur');
+      // attempt>1 : si la réponse de la tentative précédente est arrivée juste
+      // après son timeout, on la prend plutôt que de relancer un getAll.
+      const data=await Promise.race([
+        fetchAll(annee,{source:'admin',force:!(useCache||attempt>1)}),
+        new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')),timeoutMs))
+      ]);
       const incoming=data.entries||[];
       setEntries(incoming);
       if(data.lists){
@@ -274,21 +285,29 @@ function App(){
       setSeenIds(prev=>{if(prev.size===0)return new Set(incoming.map(e=>e._id));const nouvs=incoming.filter(e=>!prev.has(e._id));if(nouvs.length>0)setNewEntries(n=>[...nouvs,...n]);return new Set(incoming.map(e=>e._id));});
       setLoading(false);setSyncing(false);
     }catch(err){
-      if(err.message==='timeout'&&attempt<3){addLog(`Tentative ${attempt}/3…`,'info');const isMobile=/Android|iPhone|iPad/i.test(navigator.userAgent);setTimeout(()=>loadData(attempt+1,silent),isMobile?[3000,6000][attempt-1]:2000);}
+      if(err.message==='timeout'&&attempt<3){addLog(`Tentative ${attempt}/3…`,'info');const isMobile=/Android|iPhone|iPad/i.test(navigator.userAgent);setTimeout(()=>loadData(attempt+1,silent,useCache),isMobile?[3000,6000][attempt-1]:2000);}
       else{setError(attempt>1?'Google Sheets ne répond pas après 3 tentatives.':'Impossible de charger : '+err.message);addLog('Erreur : '+err.message,'err');setLoading(false);setSyncing(false);}
     }
   }
 
   const isFirstLoad=React.useRef(true);
   React.useEffect(()=>{loadCommunes47().catch(()=>{});},[]);
+  // Attendre l'authentification avant de charger : sur l'écran de login, ces
+  // hooks tournaient déjà (ils sont déclarés avant le `if(!auth) return`), donc
+  // loadData enchaînait ses 3 tentatives en concurrence avec le préchauffage et
+  // le chargement du dropdown. Ses 3 timeouts expiraient avant que le mot de
+  // passe soit saisi, et l'erreur restée en state s'affichait sur l'onglet
+  // Historique juste après une connexion pourtant réussie.
   React.useEffect(()=>{
-    if(isFirstLoad.current){isFirstLoad.current=false;loadData();}
+    if(!auth) return;
+    if(isFirstLoad.current){isFirstLoad.current=false;loadData(1,false,true);}
     else{setSeenIds(new Set());loadData();}
-  },[annee]);
+  },[annee,auth]);
   React.useEffect(()=>{
+    if(!auth) return;
     const id=setInterval(()=>loadData(1,true),5*60*1000);
     return()=>clearInterval(id);
-  },[annee]);
+  },[annee,auth]);
   async function handleDelete(id){
     try{const res=await apiFetch('delete',{_id:id});if(!res.ok)throw new Error(res.error);showToast('✅ Atelier supprimé');addLog('Suppression '+id,'ok');loadData();}
     catch(err){showToast('❌ '+err.message,false);}
@@ -462,19 +481,19 @@ function App(){
           CE('span',{className:'spinner',style:{width:32,height:32,borderWidth:3,borderTopColor:accentColor,borderColor:accentColor+'33'}}),
           CE('span',{style:{fontSize:13,fontWeight:600}},'Chargement des données…')
         ),
-        error&&CE('div',{className:'error-box'},CE('strong',null,'❌ Impossible de charger'),CE('span',null,error),CE('button',{className:'btn btn-primary',onClick:loadData},'🔄 Réessayer')),
+        error&&CE('div',{className:'error-box'},CE('strong',null,'❌ Impossible de charger'),CE('span',null,error),CE('button',{className:'btn btn-primary',onClick:()=>loadData()},'🔄 Réessayer')),
         !loading&&!error&&CE('div',{key:view,className:'view-anim'},
           view==='saisie'&&CE(VueSaisie,{entries,onSaved:handleSaved,onNewEntry:e=>{setNewEntries(n=>[e,...n]);setSeenIds(s=>{const ns=new Set(s);ns.add(e._id);return ns;});},lists,editingId,onClearEdit:()=>setEditingId(null),prefillData,onClearPrefill:()=>setPrefillData(null),accentColor:conseillerColor(adminConseiller)}),
-          view==='historique'&&CE(VueHistorique,{key:'hist_'+adminConseiller,entries,onEdit:handleEdit,onDelete:handleDelete,onRefresh:loadData,onDuplicate:handleDuplicate,canDelete:true,initConseiller:adminConseiller&&adminConseiller!=='admin'?adminConseiller:null,onResetConseiller:()=>{},onChangeConseiller:(c)=>{const nom=c==='Tous'?'admin':c;localStorage.setItem('adm_conseiller',nom);setAdminConseiller(nom);}}),
+          view==='historique'&&CE(VueHistorique,{key:'hist_'+adminConseiller,entries,onEdit:handleEdit,onDelete:handleDelete,onRefresh:()=>loadData(),onDuplicate:handleDuplicate,canDelete:true,initConseiller:adminConseiller&&adminConseiller!=='admin'?adminConseiller:null,onResetConseiller:()=>{},onChangeConseiller:(c)=>{const nom=c==='Tous'?'admin':c;localStorage.setItem('adm_conseiller',nom);setAdminConseiller(nom);}}),
           view==='agenda'&&CE(VueAgendaSemaine,{key:'agenda_'+adminConseiller,entries,onEdit:handleEdit,onDelete:handleDelete,onDuplicate:handleDuplicate,canDelete:true,initConseiller:adminConseiller&&adminConseiller!=='admin'?adminConseiller:null,accentColor}),
-          view==='calendrier'&&CE(VueCalendrier,{key:'cal_'+adminConseiller,entries,onEdit:handleEdit,onDelete:handleDelete,onRefresh:loadData,onDuplicate:handleDuplicate,canDelete:true,initConseiller:adminConseiller&&adminConseiller!=='admin'?adminConseiller:null,onResetConseiller:()=>{},onChangeConseiller:(c)=>{const nom=c==='Tous'?'admin':c;localStorage.setItem('adm_conseiller',nom);setAdminConseiller(nom);}}),
+          view==='calendrier'&&CE(VueCalendrier,{key:'cal_'+adminConseiller,entries,onEdit:handleEdit,onDelete:handleDelete,onRefresh:()=>loadData(),onDuplicate:handleDuplicate,canDelete:true,initConseiller:adminConseiller&&adminConseiller!=='admin'?adminConseiller:null,onResetConseiller:()=>{},onChangeConseiller:(c)=>{const nom=c==='Tous'?'admin':c;localStorage.setItem('adm_conseiller',nom);setAdminConseiller(nom);}}),
           view==='dashboard'&&CE(VueDashboardTabs,{entries,conseillers:lists.conseillers}),
           view==='carte'&&CE(VueCarte,{entries,active:view==='carte'}),
           view==='roadmap'&&CE(VueRoadmap,{entries,annee,conseillers:lists.conseillers}),
           view==='bingo'&&CE(VueBingo,{entries}),
           view==='anomalies'&&CE(VueAnomalies,{entries,onEdit:(id)=>{setEditingId(id);setPrefillData(null);setView('saisie');},communes:window.COMMUNES_47_CACHE||[],apiFetch,showToast,addLog}),
 
-          view==='admin'&&role==='admin'&&CE(VueAdmin,{entries,onRefresh:loadData,addLog,conseillersList:lists.conseillers,onSaveColors:(c)=>{applyColors(c);},annee,adminConseiller}),
+          view==='admin'&&role==='admin'&&CE(VueAdmin,{entries,onRefresh:()=>loadData(),addLog,conseillersList:lists.conseillers,onSaveColors:(c)=>{applyColors(c);},annee,adminConseiller}),
           view==='logs_connexion'&&(role==='admin'||role==='superviseur')&&CE(VueLogs,null),
           view==='logs'&&CE('div',{className:'card'},
             CE('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14,flexWrap:'wrap',gap:8}},

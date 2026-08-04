@@ -64,7 +64,14 @@ function App(){
   const[online,setOnline]          = React.useState(navigator.onLine);
   const[showPicker,setShowPicker]   = React.useState(false);
   const[inactifsSet,setInactifsSet] = React.useState(new Set());
-  React.useEffect(()=>{apiFetch('getComptes').then(res=>{if(res.ok&&res.comptes){setInactifsSet(new Set(res.comptes.filter(c=>c.actif==='NON').map(c=>c.conseiller)));}}).catch(()=>{});},[]);
+  // gasReady : passe à true dès que le check maintenance a répondu. Les autres
+  // appels GAS attendent ce signal — GAS sérialise les exécutions concurrentes,
+  // et un appel qui patiente dans la file consomme quand même son timeout.
+  const[gasReady,setGasReady]       = React.useState(false);
+  React.useEffect(()=>{
+    if(!gasReady) return;
+    apiFetch('getComptes').then(res=>{if(res.ok&&res.comptes){setInactifsSet(new Set(res.comptes.filter(c=>c.actif==='NON').map(c=>c.conseiller)));}}).catch(()=>{});
+  },[gasReady]);
   const[sidebarPinned,setSidebarPinned] = React.useState(()=>localStorage.getItem('sidebar_pinned')==='1');
 
   // Ref pour l'event delegation sur les vues avec filtre conseiller
@@ -100,15 +107,18 @@ function App(){
     if(!silent) setLoading(true);
     setError(null);
     try{
+      // Timeouts alignés sur admin : 8 s sur PC ne couvrait pas un cold start
+      // Sheets, la 1ʳᵉ tentative expirait toujours pour rien (~15 s avant
+      // affichage du dropdown, le temps que la 2ᵉ aboutisse).
       const isMobile=/Android|iPhone|iPad/i.test(navigator.userAgent);
-      const timeouts=isMobile?[20000,25000,30000]:[8000,10000,12000];
+      const timeouts=isMobile?[20000,25000,30000]:[25000,30000,35000];
       const timeoutMs=timeouts[attempt-1]||timeouts[timeouts.length-1];
-      const res=await Promise.race([
-        fetch(`${GS_URL}?action=getAll&year=${annee}`),
+      // attempt>1 : réutilise la réponse arrivée juste après le timeout
+      // précédent au lieu de relancer un getAll.
+      const data=await Promise.race([
+        fetchAll(annee,{force:attempt===1}),
         new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')),timeoutMs))
       ]);
-      const data=await res.json();
-      if(!data.ok)throw new Error(data.error||'Erreur serveur');
       const incoming=data.entries||[];
       setEntries(incoming);
       if(data.lists){
@@ -172,18 +182,20 @@ function App(){
         const msg=res.config['maintenance_msg']||'';
         setMaintenance(active?{msg}:false);
       } else setMaintenance(false);
-    }).catch(()=>setMaintenance(false));
+    }).catch(()=>setMaintenance(false)).finally(()=>setGasReady(true));
   },[]);
 
   React.useEffect(()=>{
+    if(!gasReady) return;
     if(isFirstLoad.current){isFirstLoad.current=false;loadData();}
     else{setSeenIds(new Set());loadData();}
-  },[annee]);
+  },[annee,gasReady]);
 
   React.useEffect(()=>{
+    if(!gasReady) return;
     const id=setInterval(()=>loadData(1,true),5*60*1000);
     return()=>clearInterval(id);
-  },[annee]);
+  },[annee,gasReady]);
 
   React.useEffect(()=>{
     const label=view==='accueil'?'Accueil':VIEW_META_F[view]?.label||view;
@@ -242,7 +254,7 @@ function App(){
       ),
       CE('div',{className:'main'},
         error
-          ? CE('div',{className:'error-box'},CE('strong',null,'❌ Impossible de charger'),CE('span',null,error),CE('button',{className:'btn btn-primary',onClick:loadData},'🔄 Réessayer'))
+          ? CE('div',{className:'error-box'},CE('strong',null,'❌ Impossible de charger'),CE('span',null,error),CE('button',{className:'btn btn-primary',onClick:()=>loadData()},'🔄 Réessayer'))
           : CE('div',null,
               !loading&&entries.length>0&&CE('div',{className:'accueil-stats'},
                 lists.conseillers.map(c=>{
@@ -383,16 +395,16 @@ function App(){
       ),
 
       CE('div',{className:'app-main'},
-        error&&CE('div',{className:'error-box'},CE('strong',null,'❌ Impossible de charger'),CE('span',null,error),CE('button',{className:'btn btn-primary',onClick:loadData},'🔄 Réessayer')),
+        error&&CE('div',{className:'error-box'},CE('strong',null,'❌ Impossible de charger'),CE('span',null,error),CE('button',{className:'btn btn-primary',onClick:()=>loadData()},'🔄 Réessayer')),
         loading&&!error&&CE('div',null,
           [1,2,3].map(i=>CE('div',{key:i,className:'skeleton skeleton-card'}))
         ),
         // viewRef sur le wrapper — capte les change events des selects internes
         !loading&&!error&&CE('div',{ref:viewRef,className:'view-anim',key:view+'_'+(filtreConseiller||'all')},
           view==='saisie'&&visibility.saisie&&CE(VueSaisie,{entries,onSaved:handleSaved,onNewEntry:e=>{setNewEntries(n=>[e,...n]);setSeenIds(s=>{const ns=new Set(s);ns.add(e._id);return ns;});},lists,editingId,onClearEdit:()=>setEditingId(null),prefillData,onClearPrefill:()=>setPrefillData(null),accentColor:conseillerColor(filtreConseiller||'')}),
-          view==='historique'&&visibility.historique&&CE(VueHistorique,{entries,onEdit:handleEdit,onDelete:handleDelete,onRefresh:loadData,onDuplicate:handleDuplicate,initConseiller:filtreConseiller,onResetConseiller:()=>{},canDelete:true}),
+          view==='historique'&&visibility.historique&&CE(VueHistorique,{entries,onEdit:handleEdit,onDelete:handleDelete,onRefresh:()=>loadData(),onDuplicate:handleDuplicate,initConseiller:filtreConseiller,onResetConseiller:()=>{},canDelete:true}),
           view==='agenda'&&visibility.agenda&&CE(VueAgendaSemaine,{entries,onEdit:handleEdit,onDelete:handleDelete,onDuplicate:handleDuplicate,canDelete:true,initConseiller:filtreConseiller,accentColor}),
-          view==='calendrier'&&visibility.calendrier&&CE(VueCalendrier,{entries,onEdit:handleEdit,onDelete:handleDelete,onRefresh:loadData,onDuplicate:handleDuplicate,initConseiller:filtreConseiller,onResetConseiller:()=>{},canDelete:true}),
+          view==='calendrier'&&visibility.calendrier&&CE(VueCalendrier,{entries,onEdit:handleEdit,onDelete:handleDelete,onRefresh:()=>loadData(),onDuplicate:handleDuplicate,initConseiller:filtreConseiller,onResetConseiller:()=>{},canDelete:true}),
           view==='dashboard'&&visibility.dashboard&&CE(VueDashboardTabs,{entries,conseillers:lists.conseillers}),
           view==='carte'&&visibility.carte&&CE(VueCarte,{entries,active:view==='carte'}),
           view==='roadmap'&&visibility.roadmap&&CE(VueRoadmap,{entries,annee,conseillers:lists.conseillers}),
