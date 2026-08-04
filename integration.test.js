@@ -93,6 +93,36 @@ describe('logic.js → admin_app.js : pas de redéclaration const/let', () => {
   });
 });
 
+// ── Concurrence GAS : un seul point d'appel à getAll ─────────────────────────
+// Google Apps Script sérialise les exécutions concurrentes d'un même script :
+// plusieurs getAll simultanés au chargement font expirer les timeouts (cold
+// start) et provoquent des 404 sur la redirection /exec côté mobile.
+// Tous les appels doivent passer par fetchAll() (shared.js), qui garantit un
+// seul appel réseau en vol par année.
+describe('getAll — un seul appel réseau (single-flight)', () => {
+  it('shared.js définit window.fetchAll', () => {
+    assert.match(shared, /window\.fetchAll\s*=/,
+      'fetchAll manquant dans shared.js');
+  });
+
+  for (const [name, src] of [['app.js', app], ['admin_app.js', admin]]) {
+    it(`${name} — aucun fetch("action=getAll") direct`, () => {
+      const hits = src.split('\n')
+        .map((l, i) => [i + 1, l])
+        .filter(([, l]) => /action=getAll/.test(l));
+      assert.deepEqual(hits.map(([n]) => n), [],
+        `fetch getAll direct ligne(s) ${hits.map(([n]) => n).join(', ')} — utiliser fetchAll()`);
+    });
+  }
+
+  it('admin_app.js — loadData attendu après authentification', () => {
+    assert.match(admin, /if\(!auth\)\s*return;/,
+      'les effets de chargement doivent être gardés par auth : sinon loadData ' +
+      'épuise ses 3 tentatives pendant l\'écran de login et l\'erreur s\'affiche ' +
+      'après une connexion réussie');
+  });
+});
+
 // ── Syntaxe de chaque fichier ─────────────────────────────────────────────────
 describe('syntaxe JS valide', () => {
   for (const [name, src] of [['utils.js', utils], ['logic.js', logic], ['shared.js', shared], ['app.js', app], ['admin_app.js', admin]]) {
