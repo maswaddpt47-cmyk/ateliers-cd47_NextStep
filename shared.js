@@ -463,29 +463,33 @@ function FadeItem({children,delay=0,style={}}){
 }
 
 const GS_URL = 'https://script.google.com/macros/s/AKfycbx_YutREW-ucdGKXiHB7Y2hgUMHBJqAF0NprMrXB9p4_dEHPxrWk7nsXxCLDcJBDDHPEw/exec';
-// ── Politique d'attente GAS et journal des appels ───────────────────────────
-// Mesuré en production : quand l'appel aboutit, la redirection /exec → echo
-// rend le corps en moins de 300 ms. Les 10 à 26 s observés correspondent
-// toujours à une clé user_content_key morte qui traîne avant de rendre un 404.
-// Il ne faut donc PAS être patient : il faut abandonner vite et redemander une
-// clé fraîche. Les timeouts montent quand même d'une tentative à l'autre, pour
-// couvrir le cas où le GAS démarre réellement à froid.
+// ── Politique d'appel GAS : lancers en parallèle, journal des appels ────────
+// Deux modes d'échec coexistent et sont indiscernables depuis JavaScript, qui
+// ne voit pas la redirection /exec → script.googleusercontent.com/…/echo :
 //
-// Un seul niveau porte les tentatives. Auparavant loadData réessayait 3 fois
-// et chaque essai relançait un fetchAll qui réessayait 3 fois : jusqu'à 9
-// appels réseau et plus de 2 minutes d'attente.
-const GAS_IS_MOBILE = /Android|iPhone|iPad/i.test(navigator.userAgent);
-// Deux tentatives, pas trois : couper à 12 s aurait tué un getAll légitimement
-// lent (un /exec à 18 s a été observé), et trois tentatives repoussaient le
-// budget total au-delà de la minute. 15 s abandonne assez tôt une clé morte,
-// 25 s laisse aboutir un vrai démarrage à froid.
-//   succès habituel      : 2 à 4 s
-//   clé morte + reprise   : ~18 s
-//   pire cas (tout échoue) : 41 s sur PC, 51 s sur mobile
-const GAS_TIMEOUTS  = GAS_IS_MOBILE ? [20000, 30000] : [15000, 25000];
-const GAS_RETRY_DELAY = 1200;
-const GAS_BUDGET_MS = GAS_TIMEOUTS.reduce((a,b)=>a+b,0) + GAS_RETRY_DELAY*(GAS_TIMEOUTS.length-1);
+//   a) le GAS exécute vraiment longtemps  → /exec met 12 à 16 s (mesuré)
+//   b) la clé user_content_key est morte  → l'echo traîne puis rend un 404
+//
+// Un timeout ne peut pas trancher : trop court il tue un appel (a) en train
+// d'aboutir, trop long il fait attendre pour rien sur un cas (b). D'où le
+// choix de ne plus annuler : on lance un second appel après GAS_RELANCE_MS
+// sans tuer le premier, et on garde le premier qui répond.
+//   cas (a) : le 1er appel gagne, la relance est jetée
+//   cas (b) : la relance obtient une clé fraîche et répond en 2-3 s
+//
+// GAS sérialise les exécutions d'un même script : si le 1er appel travaille
+// encore, la relance patiente derrière lui et c'est le 1er qui gagne. La
+// relance ne coûte donc une exécution de plus que dans le cas (b), où la
+// première est justement déjà terminée.
+const GAS_IS_MOBILE   = /Android|iPhone|iPad/i.test(navigator.userAgent);
+const GAS_RELANCE_MS  = GAS_IS_MOBILE ? 16000 : 12000;  // délai avant de doubler
+const GAS_MAX_LANCERS = 3;                              // 1 appel + 2 relances
+const GAS_BUDGET_MS   = GAS_IS_MOBILE ? 60000 : 45000;  // plafond absolu
 const GAS_RETRYABLE_HTTP = [404, 408, 429, 500, 502, 503, 504];
+
+// Seules ces actions sont doublées : elles sont sans effet de bord. Doubler une
+// écriture créerait des doublons dans le classeur.
+const GAS_ACTIONS_LECTURE = ['getAll','getConfig','getComptes','getVisibility'];
 
 // Journal consultable : window.__gasLog, et console pour le suivi en direct.
 window.__gasLog = [];
@@ -496,6 +500,77 @@ window.logGas = function(action, attempt, ms, issue){
   const txt = `[GAS] ${action} #${attempt} — ${e.issue} en ${(ms/1000).toFixed(1)} s`;
   if(issue) console.warn(txt); else console.info(txt);
   if(window.gasLogHook){ try{ window.gasLogHook(e); }catch(_){} }
+};
+
+// Un lancer : renvoie le JSON, ou lève une erreur portant .reessayable
+window.gasUnLancer = async function(url, action, numero, signal){
+  const t0 = Date.now();
+  let res;
+  try{
+    res = await fetch(url, signal ? {signal} : undefined);
+  }catch(err){
+    if(signal && signal.aborted) throw Object.assign(new Error('abandonné'), {abandonne:true});
+    logGas(action, numero, Date.now()-t0, 'réseau : '+err.message);
+    throw Object.assign(new Error(err.message), {reessayable:true});
+  }
+  if(!res.ok){
+    logGas(action, numero, Date.now()-t0, 'HTTP '+res.status);
+    throw Object.assign(new Error(`HTTP ${res.status}`), {
+      httpStatus:res.status,
+      reessayable:GAS_RETRYABLE_HTTP.indexOf(res.status) > -1
+    });
+  }
+  const text = await res.text();
+  let data;
+  try{ data = JSON.parse(text); }
+  catch(_){
+    logGas(action, numero, Date.now()-t0, 'réponse non-JSON');
+    throw Object.assign(new Error('Réponse invalide du serveur — déploiement GAS à vérifier.'), {reessayable:true});
+  }
+  logGas(action, numero, Date.now()-t0);
+  return data;
+};
+
+// Lance jusqu'à GAS_MAX_LANCERS appels décalés et rend le premier qui aboutit.
+window.gasFetchDouble = function(url, action){
+  return new Promise((resolve, reject)=>{
+    const ctrl = new AbortController();
+    let lances = 0, termines = 0, fini = false, derniere = null;
+    const minuteries = [];
+
+    const stop = ()=>{ minuteries.forEach(clearTimeout); ctrl.abort(); };
+
+    const echec = ()=>{
+      if(fini) return;
+      fini = true; stop();
+      if(derniere && derniere.httpStatus)
+        reject(Object.assign(new Error(`Google a répondu HTTP ${derniere.httpStatus} sur ${lances} appel(s) — réessaie dans quelques secondes.`), {httpStatus:derniere.httpStatus}));
+      else
+        reject(derniere || new Error(`Aucune réponse de Google après ${Math.round(GAS_BUDGET_MS/1000)} s — réessaie dans quelques secondes.`));
+    };
+
+    const lancer = ()=>{
+      if(fini || lances >= GAS_MAX_LANCERS) return;
+      const numero = ++lances;
+      gasUnLancer(url, action, numero, ctrl.signal).then(data=>{
+        if(fini) return;
+        fini = true; stop(); resolve(data);
+      }).catch(err=>{
+        termines++;
+        if(!err.abandonne) derniere = err;
+        if(fini) return;
+        // Échec franc : on relance tout de suite plutôt que d'attendre le délai
+        if(lances < GAS_MAX_LANCERS && err.reessayable) lancer();
+        else if(termines >= lances && lances >= GAS_MAX_LANCERS) echec();
+      });
+      if(lances < GAS_MAX_LANCERS){
+        minuteries.push(setTimeout(lancer, GAS_RELANCE_MS));
+      }
+    };
+
+    minuteries.push(setTimeout(echec, GAS_BUDGET_MS));
+    lancer();
+  });
 };
 
 
@@ -620,7 +695,7 @@ function showToast(msg,ok=true){
   clearTimeout(_toastTimer);_toastTimer=setTimeout(()=>{t.style.opacity='0';},3500);
 }
 
-// ── API v16.0 — tentatives échelonnées, budget borné, journalisé ──
+// ── API v17.0 — lectures doublées, écritures jamais doublées ──
 (function(){
   window.apiFetch = async function apiFetch(action, body={}, _attempt=1){
     const params = new URLSearchParams({action});
@@ -633,43 +708,25 @@ function showToast(msg,ok=true){
         params.set(k, typeof v==='object' ? JSON.stringify(v) : v);
       });
     }
-    const timeout = GAS_TIMEOUTS[_attempt-1] || GAS_TIMEOUTS[GAS_TIMEOUTS.length-1];
+    const url = `${GS_URL}?${params.toString()}`;
+
+    // Lectures : appels doublés, on garde le premier qui répond.
+    if(GAS_ACTIONS_LECTURE.indexOf(action) > -1){
+      return gasFetchDouble(url, action);
+    }
+
+    // Écritures et actions à effet de bord : un seul appel en vol à la fois,
+    // jamais doublé — deux saveEntry en parallèle créeraient un doublon.
+    // Une seule reprise, et seulement sur un échec franc de transport.
     const t0 = Date.now();
-    let reessayable = false;
     try{
-      const res = await Promise.race([
-        fetch(`${GS_URL}?${params.toString()}`),
-        new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')), timeout))
-      ]);
-      if(!res.ok){
-        reessayable = GAS_RETRYABLE_HTTP.indexOf(res.status) > -1;
-        logGas(action, _attempt, Date.now()-t0, 'HTTP '+res.status);
-        const e = new Error(`HTTP ${res.status}`);
-        e.httpStatus = res.status;
-        throw e;
-      }
-      const text = await res.text();
-      let data;
-      try{ data = JSON.parse(text); }
-      catch(parseErr){
-        // Réponse non-JSON : page d'erreur Google, souvent intermittente
-        reessayable = true;
-        logGas(action, _attempt, Date.now()-t0, 'réponse non-JSON');
-        throw new Error(`Réponse invalide du serveur (HTTP ${res.status}) — déploiement GAS à vérifier.`);
-      }
-      logGas(action, _attempt, Date.now()-t0);
+      const data = await gasUnLancer(url, action, _attempt, null);
       return data;
     }catch(err){
-      if(err.message==='timeout'){
-        reessayable = true;
-        logGas(action, _attempt, Date.now()-t0, 'timeout');
-      }
-      if(reessayable && _attempt < GAS_TIMEOUTS.length){
-        await new Promise(r=>setTimeout(r, GAS_RETRY_DELAY));
+      if(err.reessayable && _attempt < 2){
+        await new Promise(r=>setTimeout(r, 1500));
         return window.apiFetch(action, body, _attempt + 1);
       }
-      if(err.message==='timeout')
-        throw new Error(`Aucune réponse de Google après ${GAS_TIMEOUTS.length} tentatives — réessaie dans quelques secondes.`);
       if(err.httpStatus)
         throw new Error(`Google a répondu HTTP ${err.httpStatus} — réessaie dans quelques secondes.`);
       throw err;
@@ -692,64 +749,14 @@ function showToast(msg,ok=true){
 (function(){
   const TTL_MS = 45000;      // fenêtre pendant laquelle le prefetch reste valable
   const cache  = new Map();  // année → {promise, inflight, ts}
-  const wait = ms => new Promise(r=>setTimeout(r, ms));
 
-  async function unTour(year, source, attempt){
+  function rawGetAll(year, source){
     const params = new URLSearchParams({action:'getAll', year:String(year)});
     if(source) params.set('source', source);
-    const ctrl = new AbortController();
-    const kill = setTimeout(()=>ctrl.abort(), GAS_TIMEOUTS[attempt-1]||GAS_TIMEOUTS[GAS_TIMEOUTS.length-1]);
-    const t0 = Date.now();
-    let res;
-    try{
-      res = await fetch(`${GS_URL}?${params.toString()}`, {signal:ctrl.signal});
-    }catch(err){
-      logGas('getAll', attempt, Date.now()-t0, ctrl.signal.aborted ? 'timeout' : 'réseau : '+err.message);
-      const e = new Error(ctrl.signal.aborted ? 'timeout' : err.message);
-      e.reessayable = true;
-      throw e;
-    }finally{
-      clearTimeout(kill);
-    }
-    if(!res.ok){
-      logGas('getAll', attempt, Date.now()-t0, 'HTTP '+res.status);
-      const e = new Error(`HTTP ${res.status}`);
-      e.httpStatus = res.status;
-      e.reessayable = GAS_RETRYABLE_HTTP.indexOf(res.status) > -1;
-      throw e;
-    }
-    const text = await res.text();
-    let data;
-    try{ data = JSON.parse(text); }
-    catch(_){
-      logGas('getAll', attempt, Date.now()-t0, 'réponse non-JSON');
-      const e = new Error('Réponse invalide du serveur — GAS saturé ou déploiement à vérifier.');
-      e.reessayable = true;
-      throw e;
-    }
-    if(!data || !data.ok){
-      logGas('getAll', attempt, Date.now()-t0, 'erreur GAS : '+((data&&data.error)||'?'));
-      throw new Error((data && data.error) || 'Erreur serveur'); // erreur métier : pas de retry
-    }
-    logGas('getAll', attempt, Date.now()-t0);
-    return data;
-  }
-
-  async function rawGetAll(year, source){
-    let derniere;
-    for(let attempt=1; attempt<=GAS_TIMEOUTS.length; attempt++){
-      try{ return await unTour(year, source, attempt); }
-      catch(err){
-        derniere = err;
-        if(!err.reessayable || attempt === GAS_TIMEOUTS.length) break;
-        await wait(GAS_RETRY_DELAY);
-      }
-    }
-    if(derniere && derniere.httpStatus)
-      throw Object.assign(new Error(`Google a répondu HTTP ${derniere.httpStatus} après ${GAS_TIMEOUTS.length} tentatives — réessaie dans quelques secondes.`), {httpStatus:derniere.httpStatus});
-    if(derniere && derniere.message === 'timeout')
-      throw new Error(`Aucune réponse de Google après ${GAS_TIMEOUTS.length} tentatives — réessaie dans quelques secondes.`);
-    throw derniere || new Error('Erreur serveur');
+    return gasFetchDouble(`${GS_URL}?${params.toString()}`, 'getAll').then(data=>{
+      if(!data || !data.ok) throw new Error((data && data.error) || 'Erreur serveur');
+      return data;
+    });
   }
 
   // force:true = ignore le cache terminé (après une écriture, un refresh manuel).
