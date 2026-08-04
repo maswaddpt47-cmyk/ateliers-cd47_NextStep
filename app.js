@@ -107,18 +107,8 @@ function App(){
     if(!silent) setLoading(true);
     setError(null);
     try{
-      // Timeouts alignés sur admin : 8 s sur PC ne couvrait pas un cold start
-      // Sheets, la 1ʳᵉ tentative expirait toujours pour rien (~15 s avant
-      // affichage du dropdown, le temps que la 2ᵉ aboutisse).
-      const isMobile=/Android|iPhone|iPad/i.test(navigator.userAgent);
-      const timeouts=isMobile?[20000,25000,30000]:[25000,30000,35000];
-      const timeoutMs=timeouts[attempt-1]||timeouts[timeouts.length-1];
-      // attempt>1 : réutilise la réponse arrivée juste après le timeout
-      // précédent au lieu de relancer un getAll.
-      const data=await Promise.race([
-        fetchAll(annee,{force:attempt===1}),
-        new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')),timeoutMs))
-      ]);
+      // fetchAll porte seul les tentatives (3 essais échelonnés, budget borné).
+      const data=await fetchAll(annee,{force:true});
       const incoming=data.entries||[];
       setEntries(incoming);
       if(data.lists){
@@ -142,13 +132,9 @@ function App(){
       });
       setLoading(false);
     }catch(err){
-      if((err.message==='timeout'||err.httpStatus)&&attempt<3){
-        const isMobile=/Android|iPhone|iPad/i.test(navigator.userAgent);
-        setTimeout(()=>loadData(attempt+1,silent),isMobile?[3000,6000][attempt-1]:2000);
-      }else{
-        setError(attempt>1?'Google Sheets ne répond pas après 3 tentatives.':'Impossible de charger : '+err.message);
-        setLoading(false);
-      }
+      // fetchAll a déjà épuisé ses tentatives : on affiche, sans relancer.
+      setError('Impossible de charger : '+err.message);
+      setLoading(false);
     }
   }
 

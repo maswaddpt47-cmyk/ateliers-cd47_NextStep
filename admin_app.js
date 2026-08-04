@@ -260,16 +260,10 @@ function App(){
     if(!silent) setLoading(true);
     setError(null);
     try{
-      // Timeout adaptatif : court sur PC/fibre, long sur mobile/4G
-      const isMobile=/Android|iPhone|iPad/i.test(navigator.userAgent);
-      const timeouts=isMobile?[20000,25000,30000]:[25000,30000,35000];
-      const timeoutMs=timeouts[attempt-1]||timeouts[timeouts.length-1];
-      // attempt>1 : si la réponse de la tentative précédente est arrivée juste
-      // après son timeout, on la prend plutôt que de relancer un getAll.
-      const data=await Promise.race([
-        fetchAll(annee,{source:'admin',force:!(useCache||attempt>1)}),
-        new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')),timeoutMs))
-      ]);
+      // fetchAll porte seul les tentatives (3 essais échelonnés, budget borné).
+      // Une échelle de retry supplémentaire ici multipliait les appels : 3 × 3
+      // = jusqu'à 9 appels réseau et plus de 2 minutes d'attente.
+      const data=await fetchAll(annee,{source:'admin',force:!useCache});
       const incoming=data.entries||[];
       setEntries(incoming);
       if(data.lists){
@@ -285,12 +279,22 @@ function App(){
       setSeenIds(prev=>{if(prev.size===0)return new Set(incoming.map(e=>e._id));const nouvs=incoming.filter(e=>!prev.has(e._id));if(nouvs.length>0)setNewEntries(n=>[...nouvs,...n]);return new Set(incoming.map(e=>e._id));});
       setLoading(false);setSyncing(false);
     }catch(err){
-      // err.httpStatus : 404/5xx transitoire de la redirection GAS — fetchAll a
-      // déjà réessayé en interne, on lui laisse une dernière chance ici.
-      if((err.message==='timeout'||err.httpStatus)&&attempt<3){addLog(`Tentative ${attempt}/3…`,'info');const isMobile=/Android|iPhone|iPad/i.test(navigator.userAgent);setTimeout(()=>loadData(attempt+1,silent,useCache),isMobile?[3000,6000][attempt-1]:2000);}
-      else{setError(attempt>1?'Google Sheets ne répond pas après 3 tentatives.':'Impossible de charger : '+err.message);addLog('Erreur : '+err.message,'err');setLoading(false);setSyncing(false);}
+      // fetchAll a déjà épuisé ses tentatives : on affiche, sans relancer.
+      setError('Impossible de charger : '+err.message);
+      addLog('Erreur : '+err.message,'err');
+      setLoading(false);setSyncing(false);
     }
   }
+
+  // Chaque appel GAS atterrit dans l'onglet Logs avec sa durée et son numéro de
+  // tentative : on lit où passe le temps sans ouvrir les DevTools.
+  React.useEffect(()=>{
+    window.gasLogHook=e=>addLog(
+      `GAS ${e.action} #${e.attempt} — ${e.issue} en ${(e.ms/1000).toFixed(1)} s`,
+      e.issue==='ok'?'ok':'err'
+    );
+    return()=>{window.gasLogHook=null;};
+  },[]);
 
   const isFirstLoad=React.useRef(true);
   React.useEffect(()=>{loadCommunes47().catch(()=>{});},[]);
