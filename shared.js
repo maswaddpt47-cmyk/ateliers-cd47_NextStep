@@ -590,33 +590,34 @@ function AttenteGAS({titre}){
     const tickAstuce=setInterval(()=>setAstuce(a=>(a+1)%ASTUCES.length),4000);
     return()=>{timers.forEach(clearTimeout);clearInterval(tick);clearInterval(tickAstuce);};
   },[]);
-  // Cadran façon "leader" de bobine de cinéma : trait qui balaie le cercle en
-  // continu (une durée totale inconnue, contrairement à un vrai compte à
-  // rebours de film, donc on compte les secondes écoulées plutôt qu'à
-  // rebours vers zéro) + léger scintillement pour l'effet pellicule ancienne.
+  // Cadran façon "leader" vintage de bobine de cinéma (cercle beige, croix
+  // fixe, part sombre façon camembert qui balaie). Durée totale inconnue,
+  // contrairement à un vrai compte à rebours de film, donc on compte les
+  // secondes écoulées plutôt qu'à rebours vers zéro. @property permet
+  // l'interpolation fluide de --wipe dans le conic-gradient ; sans support
+  // navigateur, ça dégrade sans casser (juste moins fluide).
   return CE('div',{style:{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:14,padding:'40px 20px',textAlign:'center'}},
     CE('style',null,`
-      @keyframes attenteSweep{ from{transform:translate(-50%,0) rotate(0deg);} to{transform:translate(-50%,0) rotate(360deg);} }
-      @keyframes attenteFlicker{ 0%,100%{opacity:1;} 40%{opacity:.88;} 55%{opacity:1;} 82%{opacity:.92;} }
+      @property --wipe{ syntax:'<angle>'; inherits:false; initial-value:0deg; }
+      @keyframes attenteWipe{ from{--wipe:0deg;} to{--wipe:360deg;} }
+      @keyframes attenteFlicker{ 0%,100%{opacity:1;} 40%{opacity:.9;} 60%{opacity:1;} 85%{opacity:.94;} }
       .attente-reel{
-        width:70px;height:70px;border-radius:50%;background:#111827;
-        border:3px solid #cbd5e1;position:relative;
+        --wipe:0deg;
+        width:78px;height:78px;border-radius:50%;position:relative;
+        background:conic-gradient(rgba(58,52,40,.6) var(--wipe), transparent var(--wipe)), #d9d3bd;
+        border:3px solid #6b6552;
+        animation:attenteWipe 1s linear infinite, attenteFlicker 2.4s ease-in-out infinite;
         display:flex;align-items:center;justify-content:center;
-        animation:attenteFlicker 2.6s ease-in-out infinite;
       }
-      .attente-reel .aiguille{
-        position:absolute;top:50%;left:50%;width:2px;height:31px;
-        background:#f8fafc;transform-origin:top center;
-        transform:translate(-50%,0) rotate(0deg);
-        animation:attenteSweep 1s linear infinite;
-      }
+      .attente-reel::before,.attente-reel::after{content:'';position:absolute;background:#6b6552;}
+      .attente-reel::before{left:5px;right:5px;top:50%;height:2px;transform:translateY(-50%);}
+      .attente-reel::after{top:5px;bottom:5px;left:50%;width:2px;transform:translateX(-50%);}
       .attente-reel .chiffre{
-        position:relative;z-index:2;color:#f8fafc;font-weight:800;font-size:20px;
-        font-variant-numeric:tabular-nums;text-shadow:0 0 4px rgba(0,0,0,.6);
+        position:relative;z-index:2;color:#2b2820;font-weight:800;font-size:22px;
+        font-variant-numeric:tabular-nums;
       }
     `),
     CE('div',{className:'attente-reel'},
-      CE('span',{className:'aiguille'}),
       CE('span',{className:'chiffre'},secs)
     ),
     titre&&CE('div',{style:{fontSize:15,fontWeight:700,color:'#1e3a8a'}},titre),
