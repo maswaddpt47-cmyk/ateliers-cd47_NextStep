@@ -15,7 +15,11 @@ const MIME = {
 };
 
 const server = http.createServer((req, res) => {
-  const filePath = path.join(ROOT, req.url === '/' ? 'index.html' : req.url);
+  // Un vrai serveur (GitHub Pages inclus) ignore la query string pour
+  // résoudre le fichier ; ce serveur minimal doit faire pareil, sinon
+  // shared.js?v=1 est cherché tel quel comme nom de fichier sur disque.
+  const urlPath = req.url.split('?')[0];
+  const filePath = path.join(ROOT, urlPath === '/' ? 'index.html' : urlPath);
   const ext = path.extname(filePath);
   fs.readFile(filePath, (err, data) => {
     if (err) { res.writeHead(404); res.end('Not found'); return; }
