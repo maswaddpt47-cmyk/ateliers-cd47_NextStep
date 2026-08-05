@@ -574,7 +574,6 @@ function AttenteGAS({titre}){
     {t:15000, txt:'Toujours en cours, le serveur Google est lent — on patiente…'},
     {t:22000, txt:'Ça traîne un peu plus que d’habitude — encore un peu…'},
   ];
-  const FRAMES = ['💻','📡','☁️','📊'];
   const ASTUCES = [
     '💡 Cliquez sur un atelier en retard dans Historique pour le clôturer en un clic.',
     '💡 La Carte affiche la répartition des ateliers par commune.',
@@ -584,20 +583,44 @@ function AttenteGAS({titre}){
   ];
   const[palier,setPalier]=React.useState(0);
   const[secs,setSecs]=React.useState(0);
-  const[frame,setFrame]=React.useState(0);
   const[astuce,setAstuce]=React.useState(()=>Math.floor(Math.random()*ASTUCES.length));
   React.useEffect(()=>{
     const timers=PALIERS.slice(1).map((p,i)=>setTimeout(()=>setPalier(i+1),p.t));
     const tick=setInterval(()=>setSecs(s=>s+1),1000);
-    const tickFrame=setInterval(()=>setFrame(f=>(f+1)%FRAMES.length),650);
     const tickAstuce=setInterval(()=>setAstuce(a=>(a+1)%ASTUCES.length),4000);
-    return()=>{timers.forEach(clearTimeout);clearInterval(tick);clearInterval(tickFrame);clearInterval(tickAstuce);};
+    return()=>{timers.forEach(clearTimeout);clearInterval(tick);clearInterval(tickAstuce);};
   },[]);
+  // Cadran façon "leader" de bobine de cinéma : trait qui balaie le cercle en
+  // continu (une durée totale inconnue, contrairement à un vrai compte à
+  // rebours de film, donc on compte les secondes écoulées plutôt qu'à
+  // rebours vers zéro) + léger scintillement pour l'effet pellicule ancienne.
   return CE('div',{style:{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:14,padding:'40px 20px',textAlign:'center'}},
-    CE('span',{style:{fontSize:32,lineHeight:1}},FRAMES[frame]),
+    CE('style',null,`
+      @keyframes attenteSweep{ from{transform:translate(-50%,0) rotate(0deg);} to{transform:translate(-50%,0) rotate(360deg);} }
+      @keyframes attenteFlicker{ 0%,100%{opacity:1;} 40%{opacity:.88;} 55%{opacity:1;} 82%{opacity:.92;} }
+      .attente-reel{
+        width:70px;height:70px;border-radius:50%;background:#111827;
+        border:3px solid #cbd5e1;position:relative;
+        display:flex;align-items:center;justify-content:center;
+        animation:attenteFlicker 2.6s ease-in-out infinite;
+      }
+      .attente-reel .aiguille{
+        position:absolute;top:50%;left:50%;width:2px;height:31px;
+        background:#f8fafc;transform-origin:top center;
+        transform:translate(-50%,0) rotate(0deg);
+        animation:attenteSweep 1s linear infinite;
+      }
+      .attente-reel .chiffre{
+        position:relative;z-index:2;color:#f8fafc;font-weight:800;font-size:20px;
+        font-variant-numeric:tabular-nums;text-shadow:0 0 4px rgba(0,0,0,.6);
+      }
+    `),
+    CE('div',{className:'attente-reel'},
+      CE('span',{className:'aiguille'}),
+      CE('span',{className:'chiffre'},secs)
+    ),
     titre&&CE('div',{style:{fontSize:15,fontWeight:700,color:'#1e3a8a'}},titre),
     CE('div',{style:{fontSize:13,color:'#718096',maxWidth:340,lineHeight:1.5}},PALIERS[palier].txt),
-    CE('div',{style:{fontSize:12,color:'#a0aec0',fontVariantNumeric:'tabular-nums'}},secs+' s'),
     secs>=3&&CE('div',{key:astuce,style:{fontSize:11,color:'#94a3b8',maxWidth:280,marginTop:4,fontStyle:'italic'}},ASTUCES[astuce])
   );
 }
