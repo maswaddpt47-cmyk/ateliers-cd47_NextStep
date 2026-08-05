@@ -81,10 +81,16 @@ function AdminLogin({onLogin,savedName,onResetProfil,conseillers:conseillersProp
     const t2=setTimeout(()=>setHint('Démarrage de Google Apps Script…'),6000);
     const t3=isMobile?setTimeout(()=>setHint('Réseau mobile détecté, patience…'),12000):null;
     try{
-      const res=await Promise.race([
-        apiFetch('checkPassword',{conseiller,password:pwd,userAgent:navigator.userAgent,source:'admin.html'}),
-        new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')),isMobile?35000:30000))
-      ]);
+      // Pas de Promise.race ici : apiFetch a déjà son propre plafond + une
+      // reprise (gasUnAppel). Un minuteur extérieur plus court abandonnait
+      // avant que cette reprise interne aboutisse — l'appel continuait en
+      // arrière-plan (rien ne l'annule), son résultat était jeté, le bouton
+      // Connexion se réactivait, et un second clic empilait un deuxième
+      // checkPassword EN CONCURRENCE avec le premier. Vu en production :
+      // "checkPassword #1" et "#2" tournant au même moment, 404 en boucle,
+      // jusqu'à ce que l'un des deux passe enfin. attendre apiFetch
+      // directement garantit une seule tentative en vol à la fois.
+      const res=await apiFetch('checkPassword',{conseiller,password:pwd,userAgent:navigator.userAgent,source:'admin.html'});
       if(res.ok){
         if((res.role||'user')!=='admin'&&(res.role||'user')!=='superviseur'){
           setErr('⛔ Accès refusé — réservé aux administrateurs.');
