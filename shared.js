@@ -561,27 +561,44 @@ window.gasUnAppel = async function(url, action, numero){
 };
 
 // ── Écran d'attente d'un appel GAS ─────────────────────────────────────────
-// Un getAll prend 10 à 30 s, redirection /exec → echo comprise. Sans rien à
-// l'écran, l'attente passe pour un blocage : on affiche ce qui se passe et un
-// compteur de secondes, qui prouve que ça avance.
+// Un getAll prend 10 à 30 s en cas de cache froid, redirection /exec → echo
+// comprise. Sans rien à l'écran, l'attente passe pour un blocage : on affiche
+// ce qui se passe, un compteur de secondes qui prouve que ça avance, et une
+// petite animation + astuces pour rendre l'attente moins pesante — rien ici
+// n'affecte la durée réelle de l'appel, purement cosmétique.
 function AttenteGAS({titre}){
   const PALIERS = [
     {t:0,     txt:'Connexion à Google Sheets…'},
     {t:4000,  txt:'Lecture du classeur — Google répond en 10 à 20 s…'},
+    {t:10000, txt:'On y est presque…'},
     {t:15000, txt:'Toujours en cours, le serveur Google est lent — on patiente…'},
+    {t:22000, txt:'Ça traîne un peu plus que d’habitude — encore un peu…'},
+  ];
+  const FRAMES = ['💻','📡','☁️','📊'];
+  const ASTUCES = [
+    '💡 Cliquez sur un atelier en retard dans Historique pour le clôturer en un clic.',
+    '💡 La Carte affiche la répartition des ateliers par commune.',
+    '💡 Le Bingo repère d’un coup d’œil les communes déjà couvertes.',
+    '💡 Le premier chargement de la journée est souvent le plus long — les suivants sont plus rapides.',
+    '💡 Exportez vos ateliers en XLSX ou en calendrier (ICS) depuis Historique.',
   ];
   const[palier,setPalier]=React.useState(0);
   const[secs,setSecs]=React.useState(0);
+  const[frame,setFrame]=React.useState(0);
+  const[astuce,setAstuce]=React.useState(()=>Math.floor(Math.random()*ASTUCES.length));
   React.useEffect(()=>{
     const timers=PALIERS.slice(1).map((p,i)=>setTimeout(()=>setPalier(i+1),p.t));
     const tick=setInterval(()=>setSecs(s=>s+1),1000);
-    return()=>{timers.forEach(clearTimeout);clearInterval(tick);};
+    const tickFrame=setInterval(()=>setFrame(f=>(f+1)%FRAMES.length),650);
+    const tickAstuce=setInterval(()=>setAstuce(a=>(a+1)%ASTUCES.length),4000);
+    return()=>{timers.forEach(clearTimeout);clearInterval(tick);clearInterval(tickFrame);clearInterval(tickAstuce);};
   },[]);
   return CE('div',{style:{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:14,padding:'40px 20px',textAlign:'center'}},
-    CE('span',{className:'spinner',style:{width:30,height:30,borderWidth:3}}),
+    CE('span',{style:{fontSize:32,lineHeight:1}},FRAMES[frame]),
     titre&&CE('div',{style:{fontSize:15,fontWeight:700,color:'#1e3a8a'}},titre),
     CE('div',{style:{fontSize:13,color:'#718096',maxWidth:340,lineHeight:1.5}},PALIERS[palier].txt),
-    CE('div',{style:{fontSize:12,color:'#a0aec0',fontVariantNumeric:'tabular-nums'}},secs+' s')
+    CE('div',{style:{fontSize:12,color:'#a0aec0',fontVariantNumeric:'tabular-nums'}},secs+' s'),
+    secs>=3&&CE('div',{key:astuce,style:{fontSize:11,color:'#94a3b8',maxWidth:280,marginTop:4,fontStyle:'italic'}},ASTUCES[astuce])
   );
 }
 
