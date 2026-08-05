@@ -26,7 +26,6 @@ function AdminLogin({onLogin,savedName,onResetProfil,conseillers:conseillersProp
   const[pwd,setPwd]=React.useState('');
   const[err,setErr]=React.useState('');
   const[loading,setLoading]=React.useState(false);
-  const[warming,setWarming]=React.useState(true);
   const[hint,setHint]=React.useState('');
   const[show,setShow]=React.useState(false);
   const[failCount,setFailCount]=React.useState(0);
@@ -39,12 +38,6 @@ function AdminLogin({onLogin,savedName,onResetProfil,conseillers:conseillersProp
     if(!base.length)return;
     setConseiller(c=>base.includes(c)?c:base[0]);
   },[base.join(',')]);
-
-  // getConfig sert de témoin pour le hint "Préchauffage…" — le bouton
-  // Connexion n'en dépend plus, il est actif dès l'affichage du formulaire.
-  React.useEffect(()=>{
-    apiFetch('getConfig').catch(()=>{}).finally(()=>setWarming(false));
-  },[]);
 
   // Préchargement des ateliers en parallèle de la saisie du mot de passe :
   // getAll ne dépend pas d'un jeton, rien n'empêche de le lancer avant que
@@ -147,7 +140,6 @@ function AdminLogin({onLogin,savedName,onResetProfil,conseillers:conseillersProp
             ),
             err&&CE('p',{style:{color:'#c53030',fontSize:13,marginBottom:8}},err),
             hint&&!err&&CE('p',{style:{color:'#718096',fontSize:12,marginBottom:8,display:'flex',alignItems:'center',gap:6}},CE('span',{className:'spinner',style:{width:12,height:12,borderWidth:2}}),hint),
-            warming&&!err&&CE('p',{style:{color:'#a0aec0',fontSize:11,marginBottom:8}},'Préchauffage du serveur en cours — tu peux te connecter dès maintenant.'),
             CE('button',{onClick:handleSubmit,disabled:loading||!pwd.trim(),style:{width:'100%',padding:'11px',background:'#1e3a8a',color:'#fff',border:'none',borderRadius:8,fontSize:14,fontWeight:700,cursor:loading?'progress':'pointer'}},loading?'Vérification…':'Connexion')
           )
     )
