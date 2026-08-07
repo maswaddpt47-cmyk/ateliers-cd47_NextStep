@@ -30,7 +30,7 @@ function VueAccueilStatic({onChoix}){
   return CE('div',{className:'accueil-wrap'},
     CE('div',{className:'accueil-card'},
       CE('div',{className:'accueil-logo'},'🖥️'),
-      CE('div',{className:'accueil-title'},'Ateliers Inclusion Numérique'),
+      CE('div',{className:'accueil-title'},'Ateliers Inclusion Numérique — NextStep'),
       CE('div',{className:'accueil-sub'},'Conseil Départemental du Lot-et-Garonne'),
       CE('label',{className:'accueil-label'},'Qui êtes-vous ?'),
       CE('select',{className:'accueil-select',value:choix,onChange:e=>setChoix(e.target.value)},

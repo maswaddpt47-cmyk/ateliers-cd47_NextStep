@@ -110,7 +110,7 @@ function AdminLogin({onLogin,savedName,onResetProfil,conseillers:conseillersProp
 
   return CE('div',{className:'login-wrap'},
     CE('div',{className:'login-card'},
-      CE('h2',null,'🔐 Accès Admin'),
+      CE('h2',null,'🔐 Accès Admin NextStep'),
       savedName&&savedName!=='admin'&&CE('div',{style:{background:'#eff6ff',border:'1px solid #bfdbfe',borderRadius:8,padding:'8px 12px',marginBottom:12,display:'flex',alignItems:'center',justifyContent:'space-between',fontSize:12}},
         CE('span',{style:{color:'#1e3a8a',fontWeight:700}},'👤 Connecté en tant que : '+savedName),
         CE('button',{onClick:onResetProfil,style:{background:'none',border:'none',color:'#9ca3af',cursor:'pointer',fontSize:11,textDecoration:'underline'}},'Changer')
