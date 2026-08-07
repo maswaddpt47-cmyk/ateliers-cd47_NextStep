@@ -19,7 +19,10 @@ Toujours committer et pousser directement sur `main`. Ne pas créer de branche i
 - `admin_app.js` — frontend admin
 - `index.html` — page principale conseillers
 - `admin.html` — page admin
-- GAS backend — Google Apps Script (pas dans le repo), URL dans `shared.js` → `GS_URL`
+- GAS backend — Google Apps Script, URL dans `shared.js` → `GS_URL`. Le script
+  lui-même n'est pas dans ce repo (pas d'API de push GAS) ; `gas/GAS_NEXTSTEP.js`
+  en est une copie de référence versionnée, à tenir à jour manuellement après
+  chaque déploiement confirmé (voir `gas/README.md`).
 
 ## Tests unitaires — règle obligatoire
 
