@@ -721,13 +721,53 @@ function showToast(msg,ok=true){
   clearTimeout(_toastTimer);_toastTimer=setTimeout(()=>{t.style.opacity='0';},3500);
 }
 
-// ── API v18.0 — un seul appel, retry uniquement sur échec de transport ──
+// ── Auth admin : token généré par checkPassword côté GAS, stocké en
+// sessionStorage. Avant ce correctif, aucune vérification n'existait côté
+// serveur sur les actions admin (saveConfig, resetPassword, getLogs...) —
+// seulement à l'écran dans admin_app.js, donc contournable en appelant
+// l'URL /exec directement avec les bons paramètres. apiFetch envoie ce
+// token sur les actions listées dans ADMIN_ONLY_ACTIONS ci-dessous ; GAS le
+// vérifie une fois le correctif backend déployé (avant ça, un token absent
+// est simplement ignoré par l'ancien GAS, donc rien ne casse pendant la
+// transition).
+window.authToken = {
+  get()  { return sessionStorage.getItem('gs_token') || null; },
+  set(t) { sessionStorage.setItem('gs_token', t); },
+  clear(){ sessionStorage.removeItem('gs_token'); sessionStorage.removeItem('gs_role'); },
+  getRole()  { return sessionStorage.getItem('gs_role') || 'user'; },
+  setRole(r) { sessionStorage.setItem('gs_role', r); }
+};
+window.onLoginSuccess = function(res){
+  if(res && res.token){
+    window.authToken.set(res.token);
+    window.authToken.setRole(res.role || 'user');
+  }
+};
+window.onLogout = function(){
+  window.authToken.clear();
+};
+
+// ── API v18.1 — un seul appel, retry uniquement sur échec de transport ──
 (function(){
+  // Actions admin qui exigent un token vérifié côté GAS. saveEntry/saveMany/
+  // delete restent hors de cette liste : Index les utilise sans jamais
+  // passer par un écran de connexion.
+  const ADMIN_ONLY_ACTIONS = new Set([
+    'saveLists','saveConfig','setConfig',
+    'saveVisibility','saveColors','saveEmails',
+    'saveCompte','resetPassword','setPassword',
+    'getLogs'
+  ]);
+
   window.apiFetch = async function apiFetch(action, body={}, _attempt=1){
     const params = new URLSearchParams({action});
     // Passe source=admin pour que le GAS ignore le mode maintenance
     if(window.location.pathname.indexOf('admin.html') > -1){
       params.set('source', 'admin');
+    }
+    if(ADMIN_ONLY_ACTIONS.has(action)){
+      const token = window.authToken.get();
+      if(token) params.set('token', token);
     }
     if(body && Object.keys(body).length){
       Object.entries(body).forEach(([k,v])=>{

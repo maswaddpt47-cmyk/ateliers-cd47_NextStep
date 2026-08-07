@@ -15,6 +15,7 @@ function isSessionExpired(){
 }
 function clearSession(){
   localStorage.removeItem(SESSION_KEY);
+  window.onLogout&&window.onLogout();
 }
 
 // ════════════════════════════════════════════════════════════
@@ -90,6 +91,7 @@ function AdminLogin({onLogin,savedName,onResetProfil,conseillers:conseillersProp
           return;
         }
         setFailCount(0);setLockUntil(0);
+        window.onLoginSuccess&&window.onLoginSuccess(res);
         touchSession();onLogin(res.role,conseiller);
       }else{
         const nf=failCount+1;
