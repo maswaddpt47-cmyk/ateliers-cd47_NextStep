@@ -796,13 +796,15 @@ window.onLogout = function(){
 })();
 
 // ── getAll partagé : un seul appel réseau par année ────────────────────────
-// Google Apps Script sérialise les exécutions concurrentes d'un même script.
 // admin.html lançait 3 getAll simultanés au chargement (préchauffage du
-// formulaire de login + liste des conseillers du dropdown + loadData) : le
-// 3ᵉ attendait la fin des 2 premiers, donc ~3× le temps d'un getAll, et les
-// timeouts de loadData (25/30/35 s) expiraient tous les trois → « Google
-// Sheets ne répond pas après 3 tentatives ». La même concurrence fait
-// répondre 404 à la redirection /exec sur mobile.
+// formulaire de login + liste des conseillers du dropdown + loadData) : au
+// mieux 3 exécutions GAS pour la même donnée, au pire les 3 timeouts de
+// loadData (25/30/35 s) qui expirent en même temps → « Google Sheets ne
+// répond pas après 3 tentatives ». Vérifié depuis via le panneau Exécutions
+// Apps Script : GAS ne sérialise pas ses exécutions (deux doGet démarrés à
+// 1s d'intervalle s'y chevauchent) — la dédup ci-dessous reste justifiée
+// (3 appels réseau pour la même donnée est un gaspillage dans tous les cas),
+// mais pas pour la raison initialement supposée.
 //
 // fetchAll() garantit un seul appel en vol par année et sert un cache court :
 // le préchauffage du login devient un vrai prefetch dont loadData réutilise

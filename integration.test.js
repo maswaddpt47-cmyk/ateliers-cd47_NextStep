@@ -94,9 +94,8 @@ describe('logic.js → admin_app.js : pas de redéclaration const/let', () => {
 });
 
 // ── Concurrence GAS : un seul point d'appel à getAll ─────────────────────────
-// Google Apps Script sérialise les exécutions concurrentes d'un même script :
-// plusieurs getAll simultanés au chargement font expirer les timeouts (cold
-// start) et provoquent des 404 sur la redirection /exec côté mobile.
+// Plusieurs getAll simultanés au chargement gaspillent des exécutions GAS
+// pour la même donnée et font expirer les timeouts ensemble en cas de lenteur.
 // Tous les appels doivent passer par fetchAll() (shared.js), qui garantit un
 // seul appel réseau en vol par année.
 describe('getAll — un seul appel réseau (single-flight)', () => {
