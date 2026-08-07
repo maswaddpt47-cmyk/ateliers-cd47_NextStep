@@ -91,7 +91,7 @@ function AdminLogin({onLogin,savedName,onResetProfil,conseillers:conseillersProp
           return;
         }
         setFailCount(0);setLockUntil(0);
-        window.onLoginSuccess&&window.onLoginSuccess(res);
+        window.onLoginSuccess&&window.onLoginSuccess(conseiller,res);
         touchSession();onLogin(res.role,conseiller);
       }else{
         const nf=failCount+1;

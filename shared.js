@@ -737,10 +737,21 @@ window.authToken = {
   getRole()  { return sessionStorage.getItem('gs_role') || 'user'; },
   setRole(r) { sessionStorage.setItem('gs_role', r); }
 };
-window.onLoginSuccess = function(res){
+window.onLoginSuccess = function(conseiller, res){
   if(res && res.token){
     window.authToken.set(res.token);
     window.authToken.setRole(res.role || 'user');
+    // logLogin en fire-and-forget : le succès n'a plus besoin d'attendre
+    // l'écriture du log de connexion pour répondre (voir GAS actionCheckPassword,
+    // qui ne journalise plus que les échecs sur son chemin critique).
+    setTimeout(function(){
+      window.apiFetch && window.apiFetch('logLogin',{
+        conseiller: conseiller,
+        role: res.role || 'user',
+        userAgent: navigator.userAgent,
+        source: window.location.pathname.indexOf('admin.html') > -1 ? 'admin.html' : 'index.html'
+      }).catch(function(){});
+    }, 0);
   }
 };
 window.onLogout = function(){
