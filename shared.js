@@ -721,13 +721,64 @@ function showToast(msg,ok=true){
   clearTimeout(_toastTimer);_toastTimer=setTimeout(()=>{t.style.opacity='0';},3500);
 }
 
-// ── API v18.0 — un seul appel, retry uniquement sur échec de transport ──
+// ── Auth admin : token généré par checkPassword côté GAS, stocké en
+// sessionStorage. Avant ce correctif, aucune vérification n'existait côté
+// serveur sur les actions admin (saveConfig, resetPassword, getLogs...) —
+// seulement à l'écran dans admin_app.js, donc contournable en appelant
+// l'URL /exec directement avec les bons paramètres. apiFetch envoie ce
+// token sur les actions listées dans ADMIN_ONLY_ACTIONS ci-dessous ; GAS le
+// vérifie une fois le correctif backend déployé (avant ça, un token absent
+// est simplement ignoré par l'ancien GAS, donc rien ne casse pendant la
+// transition).
+window.authToken = {
+  get()  { return sessionStorage.getItem('gs_token') || null; },
+  set(t) { sessionStorage.setItem('gs_token', t); },
+  clear(){ sessionStorage.removeItem('gs_token'); sessionStorage.removeItem('gs_role'); },
+  getRole()  { return sessionStorage.getItem('gs_role') || 'user'; },
+  setRole(r) { sessionStorage.setItem('gs_role', r); }
+};
+window.onLoginSuccess = function(conseiller, res){
+  if(res && res.token){
+    window.authToken.set(res.token);
+    window.authToken.setRole(res.role || 'user');
+    // logLogin en fire-and-forget : le succès n'a plus besoin d'attendre
+    // l'écriture du log de connexion pour répondre (voir GAS actionCheckPassword,
+    // qui ne journalise plus que les échecs sur son chemin critique).
+    setTimeout(function(){
+      window.apiFetch && window.apiFetch('logLogin',{
+        conseiller: conseiller,
+        role: res.role || 'user',
+        userAgent: navigator.userAgent,
+        source: window.location.pathname.indexOf('admin.html') > -1 ? 'admin.html' : 'index.html'
+      }).catch(function(){});
+    }, 0);
+  }
+};
+window.onLogout = function(){
+  window.authToken.clear();
+};
+
+// ── API v18.1 — un seul appel, retry uniquement sur échec de transport ──
 (function(){
+  // Actions admin qui exigent un token vérifié côté GAS. saveEntry/saveMany/
+  // delete restent hors de cette liste : Index les utilise sans jamais
+  // passer par un écran de connexion.
+  const ADMIN_ONLY_ACTIONS = new Set([
+    'saveLists','saveConfig','setConfig',
+    'saveVisibility','saveColors','saveEmails',
+    'saveCompte','resetPassword','setPassword',
+    'getLogs'
+  ]);
+
   window.apiFetch = async function apiFetch(action, body={}, _attempt=1){
     const params = new URLSearchParams({action});
     // Passe source=admin pour que le GAS ignore le mode maintenance
     if(window.location.pathname.indexOf('admin.html') > -1){
       params.set('source', 'admin');
+    }
+    if(ADMIN_ONLY_ACTIONS.has(action)){
+      const token = window.authToken.get();
+      if(token) params.set('token', token);
     }
     if(body && Object.keys(body).length){
       Object.entries(body).forEach(([k,v])=>{
@@ -756,13 +807,15 @@ function showToast(msg,ok=true){
 })();
 
 // ── getAll partagé : un seul appel réseau par année ────────────────────────
-// Google Apps Script sérialise les exécutions concurrentes d'un même script.
 // admin.html lançait 3 getAll simultanés au chargement (préchauffage du
-// formulaire de login + liste des conseillers du dropdown + loadData) : le
-// 3ᵉ attendait la fin des 2 premiers, donc ~3× le temps d'un getAll, et les
-// timeouts de loadData (25/30/35 s) expiraient tous les trois → « Google
-// Sheets ne répond pas après 3 tentatives ». La même concurrence fait
-// répondre 404 à la redirection /exec sur mobile.
+// formulaire de login + liste des conseillers du dropdown + loadData) : au
+// mieux 3 exécutions GAS pour la même donnée, au pire les 3 timeouts de
+// loadData (25/30/35 s) qui expirent en même temps → « Google Sheets ne
+// répond pas après 3 tentatives ». Vérifié depuis via le panneau Exécutions
+// Apps Script : GAS ne sérialise pas ses exécutions (deux doGet démarrés à
+// 1s d'intervalle s'y chevauchent) — la dédup ci-dessous reste justifiée
+// (3 appels réseau pour la même donnée est un gaspillage dans tous les cas),
+// mais pas pour la raison initialement supposée.
 //
 // fetchAll() garantit un seul appel en vol par année et sert un cache court :
 // le préchauffage du login devient un vrai prefetch dont loadData réutilise
