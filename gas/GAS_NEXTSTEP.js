@@ -1,5 +1,11 @@
 
-// ── GAS Backend v10.11.0 ──────────────────────────────────────
+// ── GAS Backend v10.11.1 ──────────────────────────────────────
+// v10.11.1 : PRÉVENTIF — 'alertesRetard' ajouté à isFormatB dans actionGetLogs.
+//            envoyerAlertesRetard() n'appelle actuellement aucun _logAction ici
+//            (contrairement à NewGen), donc sans effet visible aujourd'hui —
+//            corrige juste le même trou que celui trouvé et corrigé sur NewGen
+//            (v11.16), pour ne pas le redécouvrir en prod si cette journalisation
+//            est ajoutée un jour.
 // v10.11.0 : PERF — checkPassword n'écrit plus dans Comptes (FailCount/
 //            LockUntil) pour son propre rate-limit, ni ne journalise plus
 //            un succès de façon synchrone : voir le commentaire détaillé
@@ -602,7 +608,7 @@ function actionGetLogs(p){
     if(ts instanceof Date) ts = ts.toISOString();
     else if(ts && !isNaN(Date.parse(String(ts)))) ts = new Date(String(ts)).toISOString();
     var col1 = String(r[1] || '').trim();
-    var isFormatB = (col1==='login'||col1==='loginFail'||col1==='saveEntry'||col1==='delete'||col1==='accesIndex');
+    var isFormatB = (col1==='login'||col1==='loginFail'||col1==='saveEntry'||col1==='delete'||col1==='accesIndex'||col1==='alertesRetard');
     var conseiller, role, success, tentatives, ua;
     if(isFormatB){
       conseiller = String(r[2]||'');
