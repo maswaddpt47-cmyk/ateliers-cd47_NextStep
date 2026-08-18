@@ -780,23 +780,60 @@ function ChangerMotDePasse({adminConseiller}){
 }
 
 // ── VueLogs : audit des connexions (admin seulement) ─────────
+const LOGS_COLONNES=[
+  {label:'Horodatage',key:'timestamp'},
+  {label:'Action',key:'action'},
+  {label:'Conseiller',key:'conseiller'},
+  {label:'Rôle',key:'role'},
+  {label:'Via',key:'source'},
+  {label:'Résultat',key:'success'},
+  {label:'Tentatives',key:'tentatives'},
+  {label:'Appareil',key:'user_agent'}
+];
 function VueLogs(){
   const[logs,setLogs]=React.useState([]);
   const[loading,setLoading]=React.useState(true);
   const[err,setErr]=React.useState('');
   const[filter,setFilter]=React.useState('all');
+  const[conseillerFilter,setConseillerFilter]=React.useState('all');
+  const[sortKey,setSortKey]=React.useState(null);
+  const[sortDir,setSortDir]=React.useState('asc');
   React.useEffect(()=>{
     apiFetch('getLogs',{n:100})
       .then(res=>{if(res.ok)setLogs(res.logs||[]);else setErr(res.error||'Erreur');})
       .catch(e=>setErr('Erreur réseau : '+e.message))
       .finally(()=>setLoading(false));
   },[]);
-  const filtered=filter==='all'?logs:filter==='ok'?logs.filter(l=>l.success):logs.filter(l=>!l.success);
+  function toggleSort(key){
+    if(sortKey===key) setSortDir(d=>d==='asc'?'desc':'asc');
+    else{ setSortKey(key); setSortDir('asc'); }
+  }
+  const filtered=React.useMemo(()=>{
+    let out=filter==='all'?logs:filter==='ok'?logs.filter(l=>l.success):logs.filter(l=>!l.success);
+    if(conseillerFilter!=='all') out=out.filter(l=>l.conseiller===conseillerFilter);
+    if(sortKey){
+      out=[...out].sort((a,b)=>{
+        let va=a[sortKey],vb=b[sortKey];
+        if(sortKey==='timestamp'){va=va?new Date(va).getTime():0;vb=vb?new Date(vb).getTime():0;}
+        else if(sortKey==='success'){va=va?1:0;vb=vb?1:0;}
+        else if(sortKey==='tentatives'){va=va||0;vb=vb||0;}
+        else{va=String(va||'').toLowerCase();vb=String(vb||'').toLowerCase();}
+        if(va<vb)return sortDir==='asc'?-1:1;
+        if(va>vb)return sortDir==='asc'?1:-1;
+        return 0;
+      });
+    }
+    return out;
+  },[logs,filter,conseillerFilter,sortKey,sortDir]);
   function formatTs(ts){if(!ts)return'—';try{return new Date(ts).toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});}catch{return ts;}}
   return CE('div',{className:'card'},
     CE('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:16,flexWrap:'wrap',gap:8}},
       CE('h2',{style:{margin:0}},'🔐 Logs de connexion'),
-      CE('div',{style:{display:'flex',gap:6}},
+      CE('div',{style:{display:'flex',gap:6,flexWrap:'wrap'}},
+        CE('select',{value:conseillerFilter,onChange:e=>setConseillerFilter(e.target.value),style:{fontSize:11,padding:'3px 8px',borderRadius:6,cursor:'pointer',border:'1px solid #e2e8f0',background:'#f8fafc',color:'#4a5568'}},
+          CE('option',{value:'all'},'Tous les conseillers'),
+          CONSEILLERS.map(c=>CE('option',{key:c,value:c},c))
+        ),
         ['all','ok','err'].map(f=>CE('button',{key:f,onClick:()=>setFilter(f),style:{fontSize:11,padding:'3px 10px',borderRadius:6,cursor:'pointer',fontWeight:filter===f?700:400,border:filter===f?'1.5px solid #1e3a8a':'1px solid #e2e8f0',background:filter===f?'#eff6ff':'#f8fafc',color:filter===f?'#1e3a8a':f==='ok'?'#16a34a':f==='err'?'#dc2626':'#718096'}},{all:'Tous',ok:'✅ Succès',err:'❌ Échecs'}[f]))
       )
     ),
@@ -808,7 +845,7 @@ function VueLogs(){
         ?CE('p',{style:{color:'#718096',fontSize:13}},'Aucune entrée.')
         :CE('div',{style:{overflowX:'auto'}},
           CE('table',{style:{width:'100%',borderCollapse:'collapse',fontSize:12}},
-            CE('thead',null,CE('tr',null,['Horodatage','Action','Conseiller','Rôle','Via','Résultat','Tentatives','Appareil'].map(h=>CE('th',{key:h,style:{padding:'8px 10px',textAlign:'left',fontWeight:700,color:'#4a5568',borderBottom:'2px solid #e2e8f0',background:'#f7fafc',whiteSpace:'nowrap'}},h)))),
+            CE('thead',null,CE('tr',null,LOGS_COLONNES.map(({label,key})=>CE('th',{key:label,onClick:()=>toggleSort(key),style:{padding:'8px 10px',textAlign:'left',fontWeight:700,color:'#4a5568',borderBottom:'2px solid #e2e8f0',background:'#f7fafc',whiteSpace:'nowrap',cursor:'pointer',userSelect:'none'}},label+(sortKey===key?(sortDir==='asc'?' ▲':' ▼'):''))))),
             CE('tbody',null,filtered.map((l,i)=>CE('tr',{key:i,style:{background:l.success?(i%2===0?'#f0fdf4':'#fff'):(i%2===0?'#fff5f5':'#fff')}},
               CE('td',{style:{padding:'6px 10px',borderBottom:'1px solid #f0f0f0',whiteSpace:'nowrap',color:'#4a5568'}},formatTs(l.timestamp)),
               CE('td',{style:{padding:'6px 10px',borderBottom:'1px solid #f0f0f0'}},CE('span',{style:{display:'inline-block',padding:'2px 8px',borderRadius:10,fontSize:11,fontWeight:600,background:'#f1f5f9',color:'#475569',fontFamily:'monospace'}},l.action||'—')),
