@@ -625,7 +625,7 @@ function actionGetLogs(p){
     else if(ts && !isNaN(Date.parse(String(ts)))) ts = new Date(String(ts)).toISOString();
     var col1 = String(r[1] || '').trim();
     var isFormatB = (col1==='login'||col1==='loginFail'||col1==='saveEntry'||col1==='delete'||col1==='accesIndex'||col1==='alertesRetard');
-    var conseiller, role, success, tentatives, ua;
+    var conseiller, role, success, tentatives, ua, action;
     if(isFormatB){
       conseiller = String(r[2]||'');
       role       = String(r[4]||'user');
@@ -633,6 +633,7 @@ function actionGetLogs(p){
       var sv     = r[6];
       success    = (sv===true||sv==='TRUE'||sv==='true'||sv===1||sv==='1');
       tentatives = parseInt(r[7]||0);
+      action     = col1;
     } else {
       conseiller = String(r[1]||'');
       var rawRole= String(r[2]||'').trim();
@@ -643,11 +644,15 @@ function actionGetLogs(p){
       if(sv3==='OUI'||sv3==='TRUE'||sv3==='1') success=true;
       else if(sv3==='NON'||sv3==='FALSE'||sv3==='0') success=false;
       else success=(rawRole==='OK'||rawRole==='admin'||rawRole==='user');
+      // Format historique (avant l'ajout de la colonne action dédiée) : col1 est
+      // ici le nom du conseiller, pas une action — checkPassword est la seule
+      // action connue à avoir jamais utilisé ce format.
+      action = 'checkPassword';
     }
     return {
       timestamp:ts, conseiller:conseiller, role:role,
       success:success, tentatives:tentatives, user_agent:ua,
-      source:String(r[8]||'')
+      source:String(r[8]||''), action:action
     };
   });
   return {ok:true, logs:logs};
