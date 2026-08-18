@@ -790,6 +790,7 @@ const LOGS_COLONNES=[
   {label:'Tentatives',key:'tentatives'},
   {label:'Appareil',key:'user_agent'}
 ];
+let logsCache=null; // {data:[...], ts:number} — survit aux démontages du composant
 function VueLogs(){
   const[logs,setLogs]=React.useState([]);
   const[loading,setLoading]=React.useState(true);
@@ -798,12 +799,15 @@ function VueLogs(){
   const[conseillerFilter,setConseillerFilter]=React.useState('all');
   const[sortKey,setSortKey]=React.useState(null);
   const[sortDir,setSortDir]=React.useState('asc');
-  React.useEffect(()=>{
+  function fetchLogs(force){
+    if(!force&&logsCache&&Date.now()-logsCache.ts<2*60*1000){setLogs(logsCache.data);setLoading(false);return;}
+    setLoading(true);setErr('');
     apiFetch('getLogs',{n:100})
-      .then(res=>{if(res.ok)setLogs(res.logs||[]);else setErr(res.error||'Erreur');})
+      .then(res=>{if(res.ok){logsCache={data:res.logs||[],ts:Date.now()};setLogs(res.logs||[]);}else setErr(res.error||'Erreur');})
       .catch(e=>setErr('Erreur réseau : '+e.message))
       .finally(()=>setLoading(false));
-  },[]);
+  }
+  React.useEffect(()=>{fetchLogs(false);},[]);
   function toggleSort(key){
     if(sortKey===key) setSortDir(d=>d==='asc'?'desc':'asc');
     else{ setSortKey(key); setSortDir('asc'); }
@@ -830,6 +834,7 @@ function VueLogs(){
     CE('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:16,flexWrap:'wrap',gap:8}},
       CE('h2',{style:{margin:0}},'🔐 Logs de connexion'),
       CE('div',{style:{display:'flex',gap:6,flexWrap:'wrap'}},
+        CE('button',{onClick:()=>fetchLogs(true),disabled:loading,style:{fontSize:11,padding:'3px 10px',borderRadius:6,cursor:'pointer',border:'1px solid #e2e8f0',background:'#f8fafc',color:'#4a5568'}},loading?'…':'🔄 Actualiser'),
         CE('select',{value:conseillerFilter,onChange:e=>setConseillerFilter(e.target.value),style:{fontSize:11,padding:'3px 8px',borderRadius:6,cursor:'pointer',border:'1px solid #e2e8f0',background:'#f8fafc',color:'#4a5568'}},
           CE('option',{value:'all'},'Tous les conseillers'),
           CONSEILLERS.map(c=>CE('option',{key:c,value:c},c))
