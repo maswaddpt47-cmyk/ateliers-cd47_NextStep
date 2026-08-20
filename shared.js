@@ -87,7 +87,7 @@ tr:hover td{background:#f7fafc}
 .progress-bar{height:8px;background:#e2e8f0;border-radius:4px;overflow:hidden;margin-top:8px}
 .progress-fill{height:100%;background:#1e3a8a;border-radius:4px;transition:width .3s}
 .listes-overlay{position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:800;display:flex;align-items:center;justify-content:center;padding:16px}
-.listes-modal{background:#fff;border-radius:14px;width:580px;max-width:100%;max-height:90vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.25);overflow:hidden}
+.listes-modal{background:#fff;border-radius:14px;width:760px;max-width:96vw;max-height:90vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.25);overflow:hidden}
 .listes-header{background:#1e3a8a;color:#fff;padding:18px 22px 14px;flex-shrink:0;position:relative}
 .listes-header h2{font-size:17px;font-weight:700;margin-bottom:2px}
 .listes-header p{font-size:12px;opacity:.75}
@@ -107,7 +107,7 @@ tr:hover td{background:#f7fafc}
 .listes-arrows button:hover:not(:disabled){background:#f0f4f8;color:#1e3a8a}
 .listes-arrows button:disabled{opacity:.3;cursor:default}
 .listes-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
-.listes-name{flex:1;font-size:13px;font-weight:500;color:#1a202c}
+.listes-name{flex:1;min-width:60px;font-size:13px;font-weight:500;color:#1a202c;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .listes-name input{border:1.5px solid #1e3a8a;border-radius:5px;padding:3px 7px;font-size:13px;width:100%;outline:none}
 .listes-actions{display:flex;gap:5px;flex-shrink:0}
 .listes-add-row{display:flex;gap:8px;margin-top:14px}
@@ -1091,6 +1091,16 @@ function VueListes({lists,onSave,onClose,emails,onSaveEmails}){
     }catch(_){showToast('❌ Hors-ligne',false);}
     finally{setComptesSaving(s=>({...s,[nom]:false}));}
   }
+  async function handleSaveRole(nom,newRole){
+    setComptesSaving(s=>({...s,[nom]:true}));
+    const existing=comptes[nom]||{actif:'OUI'};
+    try{
+      const res=await apiFetch('saveCompte',{conseiller:nom,role:newRole,actif:existing.actif});
+      if(res&&res.ok){setComptes(m=>({...m,[nom]:{...existing,role:newRole}}));showToast('✅ Rôle mis à jour : '+newRole);}
+      else showToast('❌ Erreur GAS',false);
+    }catch(_){showToast('❌ Hors-ligne',false);}
+    finally{setComptesSaving(s=>({...s,[nom]:false}));}
+  }
   return CE('div',{className:'listes-overlay',onClick:e=>{if(e.target.className==='listes-overlay')onClose();}},
     CE('div',{className:'listes-modal'},
       CE('div',{className:'listes-header'},
@@ -1113,15 +1123,15 @@ function VueListes({lists,onSave,onClose,emails,onSaveEmails}){
             }
           },draft.conseillers.every(c=>rappelsActif[c]!==false)?'🔕 Tout désactiver':'✅ Tout activer')
         ),
-        items.map((item,i)=>CE('div',{key:i,className:'listes-item',style:{flexWrap:'wrap'}},
+        items.map((item,i)=>CE('div',{key:i,className:'listes-item'},
           CE('div',{className:'listes-arrows'},
             CE('button',{onClick:()=>moveUp(i),disabled:i===0,title:'Monter'},'▲'),
             CE('button',{onClick:()=>moveDown(i),disabled:i===items.length-1,title:'Descendre'},'▼')
           ),
           CE('span',{className:'listes-dot',style:{background:getItemColor(activeTab,item)}}),
           editIdx===i
-            ?CE('div',{className:'listes-name'},CE('input',{autoFocus:true,value:editVal,onChange:e=>setEditVal(e.target.value),onKeyDown:e=>{if(e.key==='Enter')saveEdit(i);if(e.key==='Escape')setEditIdx(null);}}))
-            :CE('div',{className:'listes-name'},item),
+            ?CE('div',{className:'listes-name',style:activeTab==='conseillers'?{flex:'0 1 100px',maxWidth:100}:null},CE('input',{autoFocus:true,value:editVal,onChange:e=>setEditVal(e.target.value),onKeyDown:e=>{if(e.key==='Enter')saveEdit(i);if(e.key==='Escape')setEditIdx(null);}}))
+            :CE('div',{className:'listes-name',style:activeTab==='conseillers'?{flex:'0 1 100px',maxWidth:100}:null},item),
           // Champ email + toggle rappel inline pour l'onglet Conseillers
           activeTab==='conseillers'&&CE(React.Fragment,null,
             CE('input',{
@@ -1130,7 +1140,7 @@ function VueListes({lists,onSave,onClose,emails,onSaveEmails}){
               value:emailDraft[item]||'',
               onChange:e=>setEmailDraft(d=>({...d,[item]:e.target.value})),
               title:'Email pour les rappels automatiques',
-              style:{flex:'1 1 140px',minWidth:0,padding:'5px 8px',border:'1.5px solid #bee3f8',borderRadius:6,fontSize:12,color:'#2a69ac',background:'#ebf8ff'}
+              style:{flex:'0 1 130px',minWidth:60,padding:'5px 8px',border:'1.5px solid #bee3f8',borderRadius:6,fontSize:12,color:'#2a69ac',background:'#ebf8ff'}
             }),
             CE('div',{title:rappelsActif[item]!==false?'Rappels email activés — cliquer pour désactiver':'Rappels email désactivés — cliquer pour activer',style:{flexShrink:0,display:'flex',flexDirection:'column',alignItems:'center',fontSize:10,color:rappelsActif[item]!==false?'#2563eb':'#9ca3af',gap:2}},
               CE('label',{className:'tgl',style:{marginBottom:0}},
@@ -1150,6 +1160,17 @@ function VueListes({lists,onSave,onClose,emails,onSaveEmails}){
                 CE('span',{className:'tgl-track',style:comptes[item]?.actif==='NON'?{background:'#e2e8f0'}:{}})
               ),
               CE('span',null,comptes[item]?.actif!=='NON'?'🔑 login':'🔑 inactif')
+            ),
+            CE('select',{
+              value:comptes[item]?.role||'user',
+              disabled:!!comptesSaving[item],
+              onChange:e=>handleSaveRole(item,e.target.value),
+              title:'Rôle du conseiller',
+              style:{flexShrink:0,flexGrow:0,width:112,fontSize:11,padding:'5px 4px',borderRadius:6,border:'1.5px solid #e2e8f0',background:'#fff',color:'#4a5568',cursor:'pointer'}
+            },
+              CE('option',{value:'user'},'👤 Utilisateur'),
+              CE('option',{value:'admin'},'⚙️ Admin'),
+              CE('option',{value:'superviseur'},'👁️ Superviseur')
             )
           ),
           CE('div',{className:'listes-actions'},
