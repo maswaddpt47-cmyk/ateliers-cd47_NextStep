@@ -1132,12 +1132,15 @@ function VueListes({lists,onSave,onClose,emails,onSaveEmails}){
               title:'Email pour les rappels automatiques',
               style:{flex:'1 1 140px',minWidth:0,padding:'5px 8px',border:'1.5px solid #bee3f8',borderRadius:6,fontSize:12,color:'#2a69ac',background:'#ebf8ff'}
             }),
-            CE('label',{className:'tgl',title:rappelsActif[item]!==false?'Rappels activés — cliquer pour désactiver':'Rappels désactivés — cliquer pour activer',style:{flexShrink:0}},
-              CE('input',{type:'checkbox',checked:rappelsActif[item]!==false,disabled:rappelsSaving,
-                onChange:e=>{const n={...rappelsActif,[item]:e.target.checked};handleSaveRappels(n);}}),
-              CE('span',{className:'tgl-track'})
+            CE('div',{title:rappelsActif[item]!==false?'Rappels email activés — cliquer pour désactiver':'Rappels email désactivés — cliquer pour activer',style:{flexShrink:0,display:'flex',flexDirection:'column',alignItems:'center',fontSize:10,color:rappelsActif[item]!==false?'#2563eb':'#9ca3af',gap:2}},
+              CE('label',{className:'tgl',style:{marginBottom:0}},
+                CE('input',{type:'checkbox',checked:rappelsActif[item]!==false,disabled:rappelsSaving,
+                  onChange:e=>{const n={...rappelsActif,[item]:e.target.checked};handleSaveRappels(n);}}),
+                CE('span',{className:'tgl-track',style:rappelsActif[item]===false?{background:'#e2e8f0'}:{}})
+              ),
+              CE('span',null,rappelsActif[item]!==false?'📧 mail':'🔕 mail')
             ),
-            CE('label',{
+            CE('div',{
               title:(comptes[item]?.actif!=='NON'?'Compte actif (visible au login) — cliquer pour désactiver':'Compte inactif (caché au login) — cliquer pour activer'),
               style:{flexShrink:0,display:'flex',flexDirection:'column',alignItems:'center',fontSize:10,color:comptes[item]?.actif!=='NON'?'#22543d':'#9ca3af',gap:2}
             },
@@ -1146,7 +1149,7 @@ function VueListes({lists,onSave,onClose,emails,onSaveEmails}){
                   onChange:e=>handleToggleActif(item,e.target.checked)}),
                 CE('span',{className:'tgl-track',style:comptes[item]?.actif==='NON'?{background:'#e2e8f0'}:{}})
               ),
-              CE('span',null,comptes[item]?.actif!=='NON'?'actif':'inactif')
+              CE('span',null,comptes[item]?.actif!=='NON'?'🔑 login':'🔑 inactif')
             )
           ),
           CE('div',{className:'listes-actions'},
