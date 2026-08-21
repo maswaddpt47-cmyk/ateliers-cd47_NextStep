@@ -50,23 +50,48 @@ var ADMIN_ONLY_ACTIONS = [
   'getLogs'
 ];
 var ADMIN_ROLES = ['admin','superviseur'];
-var TOKEN_TTL_SECONDS = 8 * 60 * 60;
+// v10.12.1 : CORRECTIF — tokens passés de CacheService à PropertiesService.
+// Contexte, hypothèse non vérifiée avec certitude sur CE script précis (pas
+// d'accès aux Exécutions Apps Script depuis cette session) : "Non autorisé :
+// Token invalide ou expiré" observé en production sur l'onglet Connexions
+// (admin.html), 21/08. Deux éléments objectifs, eux confirmés dans ce
+// fichier avant correctif : (1) même symptôme exact que l'incident résolu
+// sur ATELIERS_NEWGEN le même jour, où CacheService.put() suivi d'un get()
+// dans la même exécution s'est avéré échouer systématiquement (preuve
+// directe obtenue via un diagnostic temporaire, voir historique NEWGEN) ;
+// (2) TOKEN_TTL_SECONDS valait ici 8*60*60 (28800s), au-dessus de la limite
+// documentée de CacheService.put() (21600s/6h max) — exactement la même
+// configuration fautive que NEWGEN avant son correctif. Le rate-limit de
+// connexion (rlKey/rlData dans actionCheckPassword) reste sur CacheService
+// à dessein, comme sur NEWGEN : donnée courte durée (16 min), un échec de
+// lecture y est sans gravité (au pire un verrou de brute-force ne "prend"
+// pas), contrairement au token qui bloque tout accès si sa lecture échoue.
+var TOKEN_TTL_SECONDS = 6 * 60 * 60;
 function _generateToken(conseiller, role){
   var token = Utilities.getUuid();
-  CacheService.getScriptCache().put('token_' + token,
-    JSON.stringify({conseiller:conseiller, role:role, ts:new Date().getTime()}),
-    TOKEN_TTL_SECONDS);
+  var props = PropertiesService.getScriptProperties();
+  var now = new Date().getTime();
+  var payload = JSON.stringify({conseiller:conseiller, role:role, ts:now, exp:now + TOKEN_TTL_SECONDS*1000});
+  props.setProperty('token_' + token, payload);
   return token;
 }
 // Ne vérifie que la validité du token et le rôle qu'il porte — jamais une
 // correspondance avec un paramètre "conseiller" de la requête (voir note
 // v10.10.0 ci-dessus sur les actions admin ciblant un autre conseiller).
+// PropertiesService n'a pas de TTL natif comme CacheService.put() : l'expiration
+// est vérifiée manuellement via le champ exp du payload, propriété nettoyée
+// si dépassée.
 function _verifyToken(token){
   if(!token) return {ok:false, error:'Token manquant'};
-  var raw = CacheService.getScriptCache().get('token_' + token);
+  var props = PropertiesService.getScriptProperties();
+  var raw = props.getProperty('token_' + token);
   if(!raw) return {ok:false, error:'Token invalide ou expiré'};
   try{
     var payload = JSON.parse(raw);
+    if(payload.exp && new Date().getTime() > payload.exp){
+      props.deleteProperty('token_' + token);
+      return {ok:false, error:'Token expiré'};
+    }
     return {ok:true, role:payload.role, conseiller:payload.conseiller};
   }catch(_){ return {ok:false, error:'Token corrompu'}; }
 }
