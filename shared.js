@@ -462,7 +462,13 @@ function FadeItem({children,delay=0,style={}}){
   return CE('div',{style:{opacity:v?1:0,transition:'opacity .6s ease',...style}},children);
 }
 
-const GS_URL = 'https://script.google.com/macros/s/AKfycbx_YutREW-ucdGKXiHB7Y2hgUMHBJqAF0NprMrXB9p4_dEHPxrWk7nsXxCLDcJBDDHPEw/exec';
+// window.GS_URL_OVERRIDE : bascule optionnelle vers une URL Apps Script de
+// test (déploiement séparé, isolé de la production), utilisée uniquement par
+// index2.html (sandbox) pour tester selfSetPassword sans risquer le
+// déploiement de production. index.html/admin.html ne définissent jamais
+// cette variable : GS_URL vaut donc toujours l'URL de production pour eux,
+// comportement strictement inchangé.
+const GS_URL = window.GS_URL_OVERRIDE || 'https://script.google.com/macros/s/AKfycbx_YutREW-ucdGKXiHB7Y2hgUMHBJqAF0NprMrXB9p4_dEHPxrWk7nsXxCLDcJBDDHPEw/exec';
 // ── Politique d'appel GAS : un seul appel, jamais de retry sur simple lenteur ─
 // Fait mesuré (Network + onglet Logs, en production) : /exec met 12 à 16 s à
 // répondre en temps d'exécution réel — « exec?action=getConfig… 15.87 s »,
