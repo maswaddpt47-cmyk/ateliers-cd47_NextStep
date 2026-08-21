@@ -730,6 +730,16 @@ function showToast(msg,ok=true){
 // vérifie une fois le correctif backend déployé (avant ça, un token absent
 // est simplement ignoré par l'ancien GAS, donc rien ne casse pendant la
 // transition).
+// ── Politique de mot de passe (auto-choisi par un conseiller) ───
+// 12 caractères min., majuscule, minuscule, chiffre, caractère spécial.
+// Ne s'applique pas au mot de passe par défaut (cd47+prénom) généré par
+// resetPassword : celui-ci est volontairement faible mais temporaire —
+// le changement obligatoire à la connexion force à le remplacer.
+const PWD_POLICY_MSG='Le mot de passe doit contenir au moins 12 caractères, une majuscule, une minuscule, un chiffre et un caractère spécial.';
+function pwdPolicyOk(pwd){
+  return typeof pwd==='string'&&pwd.length>=12&&/[A-Z]/.test(pwd)&&/[a-z]/.test(pwd)&&/[0-9]/.test(pwd)&&/[^A-Za-z0-9]/.test(pwd);
+}
+
 window.authToken = {
   get()  { return sessionStorage.getItem('gs_token') || null; },
   set(t) { sessionStorage.setItem('gs_token', t); },
