@@ -79,6 +79,31 @@ Avant chaque commit touchant `utils.js`, `logic.js` ou le format des données :
 
 La CI bloque le déploiement si un test échoue.
 
+### Tests navigateur (Playwright, job `e2e` de la CI)
+
+`e2e/smoke.test.js` — `index.html`/`admin.html` se chargent et chaque onglet
+s'ouvre sans erreur JS (GAS et CDN mockés). Runner : `npx playwright test
+--reporter=line` (exige `npm ci` et un Chromium — celui préinstallé en local,
+sinon `npx playwright install chromium`).
+
+**Pourquoi il est indispensable :** les trois suites Node ne testent que des
+fonctions pures. Elles passent même quand `shared.js` lève une erreur au
+chargement et laisse les deux pages blanches — un point-virgule manquant
+devant une IIFE suffit. Seul `e2e` voit ce genre de casse, et il bloque le
+déploiement avant qu'elle n'atteigne GitHub Pages.
+
+**Économie de tokens/quota — pas par défaut sur les changements mineurs :**
+`node --check` (syntaxe) reste systématique dans tous les cas — c'est lui qui
+attrape la classe de bug (point-virgule manquant, IIFE cassée) qui justifiait
+`e2e` à l'origine. Mais `e2e` n'est **pas** à relancer par défaut pour un
+changement mineur (texte, style, ajout d'un élément UI sans nouvelle logique)
+— l'utilisateur vérifie lui-même en direct, et la CI relance `e2e` à chaque
+push de toute façon (bloque le déploiement si ça casse). À exécuter
+localement avant de commiter dès que le changement touche à un comportement :
+nouveau flux d'authentification, nouvelle action GAS, changement d'état/de
+flux, ou en cas de doute — demander à l'utilisateur si l'un des deux n'est
+pas sûr du niveau de risque.
+
 ## GAS — règles critiques
 
 - Toutes les actions passent par `doGet` (GET uniquement, pas POST)
