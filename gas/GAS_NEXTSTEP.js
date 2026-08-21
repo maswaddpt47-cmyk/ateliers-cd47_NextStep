@@ -324,7 +324,37 @@ function handleAction(p){
   if(action==='saveEmails')      return actionSaveEmails(p);
   if(action==='logAccesIndex')   return actionLogAccesIndex(p);
   if(action==='saveMany')        return actionSaveMany(p);
+  if(action==='selfSetPassword') return actionSelfSetPassword(p);
   return {ok:false, error:'action inconnue: '+action};
+}
+// v10.12.0 : FEAT — nouvelle action selfSetPassword : un conseiller connecté
+// (n'importe quel rôle) peut changer SON PROPRE mot de passe. Volontairement
+// hors ADMIN_ONLY_ACTIONS — la protection vient de _verifyToken : le
+// conseiller ciblé est toujours celui du token (tokenCheck.conseiller),
+// jamais un p.conseiller envoyé par le client, donc impossible de changer le
+// mot de passe de quelqu'un d'autre par ce chemin. Sert le nouveau flux
+// "mot de passe par défaut détecté à la connexion → changement obligatoire"
+// sur index2.html (sandbox, voir gas/README.md). Politique appliquée
+// uniquement ici et à setPassword — pas à resetPassword, dont le mot de
+// passe par défaut (cd47+prénom) est volontairement faible mais temporaire.
+var PWD_POLICY_MSG = 'Le mot de passe doit contenir au moins 12 caractères, une majuscule, une minuscule, un chiffre et un caractère spécial.';
+function _pwdPolicyOk(pwd){
+  return typeof pwd === 'string' && pwd.length >= 12 && /[A-Z]/.test(pwd) && /[a-z]/.test(pwd) && /[0-9]/.test(pwd) && /[^A-Za-z0-9]/.test(pwd);
+}
+function actionSelfSetPassword(p){
+  var tokenCheck = _verifyToken(p.token);
+  if(!tokenCheck.ok) return {ok:false, error:'Non autorisé : ' + tokenCheck.error};
+  var nom = tokenCheck.conseiller;
+  var pwd = String(p.password||'').trim();
+  if(!pwd) return {ok:false, error:'Mot de passe manquant'};
+  if(!_pwdPolicyOk(pwd)) return {ok:false, error:PWD_POLICY_MSG};
+  var row = _findCompte(nom);
+  if(!row) return {ok:false, error:'Conseiller introuvable'};
+  var sh = _ss().getSheetByName('Comptes');
+  var headers = sh.getRange(1,1,1,sh.getLastColumn()).getValues()[0]
+                  .map(function(h){return String(h).trim();});
+  sh.getRange(row.rowIndex, headers.indexOf('Hash')+1).setValue(_sha256(pwd));
+  return {ok:true};
 }
 function actionSaveEntry(p){
   var d = p;
