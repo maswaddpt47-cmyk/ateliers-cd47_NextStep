@@ -12,14 +12,11 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js" defer></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.4.3/echarts.min.js" defer></script>
 <link rel="stylesheet" href="app.css?v=2"/>
-<script>
-  // ⚠️ SANDBOX — à remplacer par l'URL du déploiement Apps Script de TEST
-  // (Déployer > Nouveau déploiement, à partir du code de gas/GAS_NEXTSTEP.js
-  // avec selfSetPassword) AVANT de tester ce fichier. Doit rester différente
-  // de l'URL de production dans shared.js → GS_URL, tant que selfSetPassword
-  // n'est pas validé. Voir gas/README.md.
-  window.GS_URL_OVERRIDE = 'REMPLACER_PAR_URL_DEPLOIEMENT_TEST';
-</script>
+<!-- window.GS_URL_OVERRIDE (voir shared.js) n'est plus nécessaire ici : le
+     déploiement de production contient déjà selfSetPassword (confirmé —
+     même fichier que le correctif token PropertiesService du 21/08, testé
+     en prod). index2.html utilise donc directement l'URL de prod, comme
+     index.html/admin.html. -->
 <script src="utils.js?v=2"></script>
 <script src="logic.js?v=2"></script>
 <script src="shared.js?v=2"></script>
