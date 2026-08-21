@@ -735,11 +735,11 @@ function ChangerMotDePasse({adminConseiller}){
 
   async function handleSave(){
     if(!currentPwd){setMsg({ok:false,txt:'Mot de passe actuel requis'});return;}
-    if(pwd.length<4){setMsg({ok:false,txt:'4 caractères minimum'});return;}
+    if(!pwdPolicyOk(pwd)){setMsg({ok:false,txt:'❌ Règle du mot de passe non respectée.'});return;}
     if(pwd!==pwd2){setMsg({ok:false,txt:'Les mots de passe ne correspondent pas'});return;}
     setSaving(true);setMsg(null);
     try{
-      const res=await apiFetch('setPassword',{conseiller:adminConseiller,currentPwd,pwd});
+      const res=await apiFetch('setPassword',{conseiller:adminConseiller,currentPwd,password:pwd});
       if(res.ok){setMsg({ok:true,txt:'✅ Mot de passe mis à jour'});setCurrentPwd('');setPwd('');setPwd2('');}
       else setMsg({ok:false,txt:res.error||'Erreur'});
     }catch(e){setMsg({ok:false,txt:'Erreur réseau'});}
@@ -762,7 +762,7 @@ function ChangerMotDePasse({adminConseiller}){
       CE('div',null,
         CE('label',null,'Nouveau mot de passe'),
         CE('div',{style:{position:'relative'}},
-          CE('input',{type:show?'text':'password',value:pwd,onChange:e=>setPwd(e.target.value),placeholder:'Min. 4 caractères',style:inputStyle}),
+          CE('input',{type:show?'text':'password',value:pwd,onChange:e=>setPwd(e.target.value),placeholder:'Nouveau mot de passe',style:inputStyle}),
           CE('button',{onClick:()=>setShow(s=>!s),style:eyeStyle},show?'🙈':'👁️')
         )
       ),
@@ -775,7 +775,50 @@ function ChangerMotDePasse({adminConseiller}){
       ),
       CE('button',{className:'btn btn-primary',disabled:saving||!currentPwd||!pwd||!pwd2,onClick:handleSave,style:{alignSelf:'flex-end'}},saving?'Sauvegarde…':'💾 Sauvegarder')
     ),
-    msg&&CE('p',{style:{marginTop:8,fontSize:13,color:msg.ok?'#276749':'#c53030'}},msg.txt)
+    CE('p',{style:{marginTop:8,fontSize:11,color:'#a0aec0'}},'12 caractères min. avec majuscule, minuscule, chiffre et caractère spécial.'),
+    msg&&CE('p',{style:{marginTop:4,fontSize:13,color:msg.ok?'#276749':'#c53030'}},msg.txt)
+  );
+}
+
+function ReinitialiserMotDePasseCollegue({conseillers}){
+  const[cible,setCible]=React.useState('');
+  const[saving,setSaving]=React.useState(false);
+  const[result,setResult]=React.useState(null); // {ok, newPassword} | {ok:false, txt}
+  const[copied,setCopied]=React.useState(false);
+
+  async function handleReset(){
+    if(!cible)return;
+    if(!window.confirm('Réinitialiser le mot de passe de '+cible+' au mot de passe par défaut ?\n\nCette action est immédiate et remplace son mot de passe actuel.'))return;
+    setSaving(true);setResult(null);setCopied(false);
+    try{
+      const res=await apiFetch('resetPassword',{conseiller:cible});
+      if(res&&res.ok)setResult({ok:true,newPassword:res.newPassword});
+      else setResult({ok:false,txt:res&&res.error||'Erreur GAS'});
+    }catch(_){setResult({ok:false,txt:'Hors-ligne'});}
+    finally{setSaving(false);}
+  }
+
+  return CE('div',{className:'admin-section'},
+    CE('h3',null,'🔑 Mot de passe oublié — réinitialiser pour un collègue'),
+    CE('p',{style:{fontSize:12,color:'#4a5568',marginBottom:12}},'Remet le mot de passe par défaut du conseiller sélectionné. Communiquez-lui ensuite le nouveau mot de passe affiché ci-dessous (téléphone, en personne…).'),
+    CE('div',{style:{display:'flex',gap:10,flexWrap:'wrap',alignItems:'flex-end'}},
+      CE('div',null,
+        CE('label',null,'Conseiller'),
+        CE('select',{value:cible,onChange:e=>{setCible(e.target.value);setResult(null);},style:{marginTop:4,display:'block',padding:'8px 12px',border:'1px solid #e2e8f0',borderRadius:6,fontSize:13,minWidth:200}},
+          CE('option',{value:''},'— Sélectionner —'),
+          (conseillers||[]).map(c=>CE('option',{key:c,value:c},c))
+        )
+      ),
+      CE('button',{className:'btn btn-primary',disabled:!cible||saving,onClick:handleReset},saving?'Réinitialisation…':'🔑 Réinitialiser')
+    ),
+    result&&result.ok&&CE('div',{style:{marginTop:12,padding:'12px 14px',background:'#f0fff4',border:'1.5px solid #9ae6b4',borderRadius:8}},
+      CE('div',{style:{fontSize:12,color:'#276749',fontWeight:700,marginBottom:6}},'✅ Nouveau mot de passe de '+cible+' :'),
+      CE('div',{style:{display:'flex',alignItems:'center',gap:10}},
+        CE('code',{style:{fontFamily:"'SF Mono',Consolas,monospace",fontSize:14,color:'#22543d',background:'#fff',border:'1px solid #9ae6b4',borderRadius:6,padding:'4px 10px'}},result.newPassword),
+        CE('button',{className:'btn btn-sm btn-secondary',onClick:()=>{navigator.clipboard.writeText(result.newPassword).then(()=>{setCopied(true);setTimeout(()=>setCopied(false),1200);});}},copied?'✅ Copié':'📋 Copier')
+      )
+    ),
+    result&&!result.ok&&CE('p',{style:{marginTop:8,fontSize:13,color:'#c53030'}},'❌ '+result.txt)
   );
 }
 
@@ -1226,7 +1269,8 @@ function VueAdminV10({entries,onRefresh,addLog,conseillersList,onSaveColors,anne
           CE('a',{href:lastExport.url,download:lastExport.name,style:{color:'#276749',fontWeight:700,textDecoration:'underline'}},lastExport.name)
         )
       ),
-      CE(ChangerMotDePasse,{adminConseiller})
+      CE(ChangerMotDePasse,{adminConseiller}),
+      CE(ReinitialiserMotDePasseCollegue,{conseillers:conseillersList})
     )
   );
 }
