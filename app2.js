@@ -444,7 +444,11 @@ function App(){
         CE('span',{className:'logo'},'🖥️ Ateliers Inclusion Numérique'),
         loading&&CE('span',{style:{fontSize:11,color:'rgba(255,255,255,.6)',marginLeft:8,display:'flex',alignItems:'center',gap:5}},
           CE('span',{className:'spinner',style:{borderTopColor:'rgba(255,255,255,.8)',borderColor:'rgba(255,255,255,.2)'}}),
-          'Chargement…')
+          'Chargement…'),
+        CE('button',{
+          onClick:handleLogout, title:'Déconnexion',
+          style:{marginLeft:'auto',background:'none',border:'none',cursor:'pointer',fontSize:16,color:'#fff',padding:'2px 6px'}
+        },'🚪')
       ),
       CE('div',{className:'main'},
         error
