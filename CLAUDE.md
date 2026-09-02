@@ -38,6 +38,28 @@ Extrait du guide de collaboration multi-projets, adapté pour ce dépôt.
 7. Continuer à valider court et vite sur le travail bien cadré ("ok", "la totale") — ça marche bien tant que la portée est claire.
 8. Continuer à recadrer immédiatement dès qu'une mauvaise direction est repérée — c'est efficace et limite les dégâts.
 
+## Routine RGPD & sécurité des accès/données
+
+Source canonique : `MD-LIB/rgpd-securite.md`. À vérifier en début de session
+(dès qu'un fichier touchant à des données utilisateurs, accès, identifiants
+ou config d'hébergement est lu/modifié) et avant de considérer un chantier
+terminé (formulaire, export, nouvel appel API, stockage, authentification).
+
+Checklist condensée :
+- **RGPD** : minimisation des champs collectés, base légale de la collecte,
+  durée de conservation/purge, droits des personnes (accès/rectification/
+  suppression), sous-traitants et hébergement (GAS, CDN — hors UE ?), données
+  sensibles, traçabilité des traitements.
+- **Sécurité** : pas de secret/clé/token en clair dans le code ou poussé sur
+  le repo, action sensible protégée par authentification réelle, échanges en
+  HTTPS, pas de donnée sensible en localStorage/cookies sans nécessité, libs/
+  CDN externes vérifiées, permissions par défaut minimales, logs sans données
+  personnelles en clair.
+
+Signaler tout point non garanti explicitement dans la réponse (`⚠️ RGPD/
+sécurité : ...`), même sans qu'on le demande — immédiatement si critique
+(secret exposé, donnée sensible non protégée), sinon en une ligne courte.
+
 ## Branche de travail
 
 Toujours committer et pousser directement sur `main`. Ne pas créer de branche intermédiaire.
