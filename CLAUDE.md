@@ -63,9 +63,8 @@ sécurité : ...`), même sans qu'on le demande — immédiatement si critique
 **Audit trimestriel :** en complément, un audit de sécurité approfondi
 (`/security-review` sur `main` + checklist RGPD/sécurité complète sur tout
 le repo) est prévu tous les trois mois. C'est une routine planifiée
-(`create_trigger`) rattachée à une session Claude Code Remote précise, pas
-une automatisation intégrée à ce fichier — si la session support expire,
-la routine s'arrête et il faut la reprogrammer. Voir
+(`create_trigger`, mode session neuve à chaque déclenchement — indépendante
+de toute session de travail), avec notification push/email. Voir
 `MD-LIB/rgpd-securite.md` pour le détail.
 
 ## Branche de travail
