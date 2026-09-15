@@ -1391,18 +1391,37 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
     if(!validateLot())return;
     setSaving(true);
     try{
-      let ok=0; const createdIds=[];
-      for(const row of rowsFilled){
-        const entry={_id:genId(),_n:'',statut:'Planifié',date:row.date,horaire:row.horaire,ampm:row.ampm,thematique:row.thematique,orienteur:lotForm.orienteur,commune:lotForm.commune,lieu:lotForm.lieu,conseiller:lotForm.conseiller,co_animateur:lotForm.co_animateur||'',public:lotForm.public,materiel:lotForm.materiel,residence:lotForm.residence,remarques:lotForm.remarques,inscrits:4,presents:''};
-        const res=await apiFetch('saveEntry',{entry});
-        if(!res.ok)throw new Error(res.error);
-        if(onNewEntry)onNewEntry(entry);
-        createdIds.push(entry._id);ok++;
+      const entries=rowsFilled.map(row=>({_id:genId(),_n:'',statut:'Planifié',date:row.date,horaire:row.horaire,ampm:row.ampm,thematique:row.thematique,orienteur:lotForm.orienteur,commune:lotForm.commune,lieu:lotForm.lieu,conseiller:lotForm.conseiller,co_animateur:lotForm.co_animateur||'',public:lotForm.public,materiel:lotForm.materiel,residence:lotForm.residence,remarques:lotForm.remarques,inscrits:4,presents:''}));
+      // Un seul appel réseau pour tout le cycle (au lieu d'un saveEntry par date
+      // en boucle séquentielle) : actionSaveMany traite chaque entrée côté
+      // serveur, dans la même exécution GAS — un aléa réseau n'a plus qu'un
+      // aller-retour à survivre au lieu d'un par date, et n'interrompt plus la
+      // suite. Avant ce correctif, un échec sur la 3e date sur 4 laissait les
+      // 2 suivantes jamais tentées, sans qu'on puisse savoir lesquelles sans
+      // aller vérifier Historique à la main (observé en prod le 15/09/2026).
+      // _id étant généré une seule fois ici et actionSaveEntry étant idempotent
+      // par _id (met à jour la ligne existante plutôt que d'en créer une
+      // seconde), une reprise automatique par apiFetch sur échec de transport
+      // ne peut pas dupliquer une entrée déjà écrite avec succès.
+      const res=await apiFetch('saveMany',{entries:JSON.stringify(entries)});
+      let failedIdx=[];
+      if(!res.ok){
+        try{
+          const m=/Erreurs batch: (.+)/.exec(res.error||'');
+          if(m)failedIdx=JSON.parse(m[1]).map(e=>e.idx);
+        }catch(_){}
       }
-      showToast(`✅ ${ok} atelier(s) créé(s)`);
-      window._pendingHighlight=createdIds;
+      const succeeded=entries.filter((_,i)=>failedIdx.indexOf(i)===-1);
+      succeeded.forEach(entry=>{ if(onNewEntry)onNewEntry(entry); });
+      window._pendingHighlight=succeeded.map(e=>e._id);
+      if(!res.ok){
+        const failedDates=failedIdx.map(i=>(entries[i]&&entries[i].date)||('#'+(i+1))).join(', ');
+        showToast(`⚠️ ${succeeded.length}/${entries.length} créé(s) — échec sur ${failedDates||'une ou plusieurs dates'} : vérifiez Historique avant de resoumettre`,false);
+      }else{
+        showToast(`✅ ${entries.length} atelier(s) créé(s)`);
+      }
       onSaved();resetLot();
-    }catch(err){showToast('❌ '+err.message,false);}
+    }catch(err){showToast('❌ '+err.message+' — vérifiez Historique avant de resoumettre (certaines dates peuvent déjà être enregistrées)',false);}
     finally{setSaving(false);}
   }
 
