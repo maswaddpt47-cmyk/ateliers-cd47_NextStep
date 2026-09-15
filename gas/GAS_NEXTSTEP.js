@@ -41,17 +41,13 @@
 // v10.9.8 : SS caché au scope global — openById une seule fois par instance GAS
 // v10.9.7 : log source (admin.html/index.html) dans Logs_Connexion
 // v10.9.6 : fix matériel — normMat par codepoint Unicode, alias pluriel, logs debug
-// ⚠️ AUDIT SÉCURITÉ 02/09/2026 : saveEntry/saveMany/delete (voir doGet plus bas)
-// sont accessibles sans aucun token, y compris en simple GET — n'importe qui
-// connaissant GS_URL (codée en dur dans shared.js, donc visible de tout
-// visiteur du site) peut supprimer ou modifier n'importe quelle ligne de la
-// feuille sans authentification. Même architecture que ATELIERS_NEWGEN
-// (OPEN_WRITE_ACTIONS, gas/GAS_NEWGEN.js), où c'est un choix assumé et
-// documenté (v11.14) pour ne pas casser Index (jamais d'écran de connexion).
-// Ici le même choix a été fait implicitement, sans le documenter comme tel :
-// à traiter en priorité lors d'une session de travail dédiée (token léger,
-// vérification d'ID existant, ou acceptation explicite du risque) — voir
-// MD-LIB/rgpd-securite.md pour la routine d'audit qui a détecté ce point.
+// ✅ AUDIT SÉCURITÉ 02/09/2026 — RÉSOLU 15/09/2026 : saveEntry/saveMany/delete
+// étaient accessibles sans aucun token, y compris en simple GET. Testé en
+// conditions réelles sur le sandbox index2.html (v10.13.0, verrou scopé
+// source==='index2') avant promotion en production le 15/09 : voir
+// _checkStrictWrite plus bas, désormais inconditionnel (index.html a un
+// login depuis cette même date). Même architecture que ATELIERS_NEWGEN
+// (OPEN_WRITE_ACTIONS fermé, gas/GAS_NEWGEN.js).
 var SS_ID = '1WQdb2PQ40600CW9eaIQ_mKUEqLU3FQPdaAi3W0eW-mo';
 // Actions qui exigent désormais un token valide ET un rôle admin/superviseur.
 var ADMIN_ONLY_ACTIONS = [
@@ -112,26 +108,18 @@ function _requireAdminRole(p){
   if(ADMIN_ROLES.indexOf(tokenCheck.role) === -1) return {ok:false, error:'Non autorisé : réservé aux administrateurs'};
   return {ok:true};
 }
-// v10.13.0 : TEST — verrou token sur saveEntry/saveMany/delete, restreint au
-// sandbox index2.html (p.source==='index2'). Trouvé lors de l'audit sécurité
-// du 02/09/2026 : ces 3 actions sont accessibles sans authentification, y
-// compris via une simple requête GET, n'importe qui connaissant GS_URL
-// pouvant créer/modifier/supprimer une ligne. Correctif impossible à tester
-// directement sur index.html (aucun login là-bas, aucun conseiller n'a de
-// token — l'exiger casserait tout de suite tout le monde). index2.html a le
-// login/token déjà validé (chantier précédent) : en restreignant la
-// vérification à p.source==='index2' (envoyé par shared.js uniquement pour
-// index2.html), on peut valider le verrou en conditions réelles, sur le
-// même déploiement de prod, sans le moindre risque pour index.html — qui
-// n'envoie jamais ce paramètre et continue donc sans aucune vérification.
-// Une fois validé et index2 promu en index.html officiel, ce scoping sera
-// retiré (ou étendu à toutes les sources) pour clore définitivement la
-// faille.
+// v10.13.0 : verrou token sur saveEntry/saveMany/delete. Testé d'abord scopé
+// au sandbox index2.html (p.source==='index2', déployé et validé en
+// conditions réelles le 15/09/2026 — token valide accepté, token absent/
+// invalide rejeté, zéro régression sur index.html qui n'envoyait jamais ce
+// paramètre). index2 promu en index.html officiel le même jour : le
+// scoping par source n'a plus lieu d'être, la vérification s'applique
+// maintenant à toute requête, quelle que soit son origine (index.html et
+// admin.html ont tous deux un login désormais, donc un token dès qu'un
+// utilisateur est connecté).
 var STRICT_WRITE_ACTIONS = ['saveEntry','saveMany','delete'];
-var STRICT_WRITE_SOURCES = ['index2'];
 function _checkStrictWrite(p, action){
   if(STRICT_WRITE_ACTIONS.indexOf(action) === -1) return {ok:true};
-  if(STRICT_WRITE_SOURCES.indexOf(p.source) === -1) return {ok:true};
   var tokenCheck = _verifyToken(p.token);
   if(!tokenCheck.ok) return {ok:false, error:'Non autorisé : ' + tokenCheck.error};
   return {ok:true};
