@@ -1042,6 +1042,8 @@ function VueAdminV10({entries,onRefresh,addLog,conseillersList,onSaveColors,anne
         if(cancelRef.current){annule=true;break;}
         const batch=rows_raw.slice(i,i+BATCH);
         const params=new URLSearchParams({action:'saveMany',source:'admin',entries:JSON.stringify(batch)});
+        const _importToken=window.authToken.get();
+        if(_importToken)params.set('token',_importToken);
         try{
           const res=await Promise.race([fetch(`${GS_URL}?${params.toString()}`),new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')),45000))]);
           const data=await res.json();
