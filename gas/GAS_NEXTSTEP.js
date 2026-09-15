@@ -112,6 +112,30 @@ function _requireAdminRole(p){
   if(ADMIN_ROLES.indexOf(tokenCheck.role) === -1) return {ok:false, error:'Non autorisé : réservé aux administrateurs'};
   return {ok:true};
 }
+// v10.13.0 : TEST — verrou token sur saveEntry/saveMany/delete, restreint au
+// sandbox index2.html (p.source==='index2'). Trouvé lors de l'audit sécurité
+// du 02/09/2026 : ces 3 actions sont accessibles sans authentification, y
+// compris via une simple requête GET, n'importe qui connaissant GS_URL
+// pouvant créer/modifier/supprimer une ligne. Correctif impossible à tester
+// directement sur index.html (aucun login là-bas, aucun conseiller n'a de
+// token — l'exiger casserait tout de suite tout le monde). index2.html a le
+// login/token déjà validé (chantier précédent) : en restreignant la
+// vérification à p.source==='index2' (envoyé par shared.js uniquement pour
+// index2.html), on peut valider le verrou en conditions réelles, sur le
+// même déploiement de prod, sans le moindre risque pour index.html — qui
+// n'envoie jamais ce paramètre et continue donc sans aucune vérification.
+// Une fois validé et index2 promu en index.html officiel, ce scoping sera
+// retiré (ou étendu à toutes les sources) pour clore définitivement la
+// faille.
+var STRICT_WRITE_ACTIONS = ['saveEntry','saveMany','delete'];
+var STRICT_WRITE_SOURCES = ['index2'];
+function _checkStrictWrite(p, action){
+  if(STRICT_WRITE_ACTIONS.indexOf(action) === -1) return {ok:true};
+  if(STRICT_WRITE_SOURCES.indexOf(p.source) === -1) return {ok:true};
+  var tokenCheck = _verifyToken(p.token);
+  if(!tokenCheck.ok) return {ok:false, error:'Non autorisé : ' + tokenCheck.error};
+  return {ok:true};
+}
 // CORRECTION 1 — ouverture paresseuse du classeur.
 // `var SS = SpreadsheetApp.openById(SS_ID)` au scope global ne conserve rien
 // entre les requetes : Apps Script reevalue tout le fichier a CHAQUE appel,
@@ -224,6 +248,8 @@ function doGet(e){
     var roleCheck = _requireAdminRole(p);
     if(!roleCheck.ok) return json(roleCheck);
   }
+  var strictCheck = _checkStrictWrite(p, action);
+  if(!strictCheck.ok) return json(strictCheck);
   return json(handleAction(p));
 }
 // Le mode maintenance n'est jamais mis en cache : il sort de _getAllFrais avec
@@ -337,6 +363,8 @@ function doPost(e){
     var roleCheck = _requireAdminRole(p);
     if(!roleCheck.ok) return json(roleCheck);
   }
+  var strictCheck = _checkStrictWrite(p, action);
+  if(!strictCheck.ok) return json(strictCheck);
   return json(handleAction(p));
 }
 function handleAction(p){
