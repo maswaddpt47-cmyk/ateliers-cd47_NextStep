@@ -791,11 +791,20 @@ window.onLogout = function(){
     // Passe source=admin pour que le GAS ignore le mode maintenance
     if(window.location.pathname.indexOf('admin.html') > -1){
       params.set('source', 'admin');
+    } else if(window.location.pathname.indexOf('index2.html') > -1){
+      // Sandbox login (index2/app2) : source=index2 permet au GAS de
+      // restreindre à ce seul chemin la vérification stricte du token sur
+      // saveEntry/saveMany/delete, sans jamais affecter index.html en prod
+      // (aucun login là-bas, donc aucun token — ce paramètre n'y est jamais
+      // envoyé, la vérification stricte n'y est donc jamais activée).
+      params.set('source', 'index2');
     }
-    if(ADMIN_ONLY_ACTIONS.has(action)){
-      const token = window.authToken.get();
-      if(token) params.set('token', token);
-    }
+    // Le token est attaché dès qu'il existe, quelle que soit l'action —
+    // sans effet sur index.html (authToken vaut toujours null là-bas, pas
+    // de login) ; sur index2.html il est désormais vérifié côté GAS pour
+    // saveEntry/saveMany/delete (voir source=index2 ci-dessus).
+    const token = window.authToken.get();
+    if(token) params.set('token', token);
     if(body && Object.keys(body).length){
       Object.entries(body).forEach(([k,v])=>{
         params.set(k, typeof v==='object' ? JSON.stringify(v) : v);
