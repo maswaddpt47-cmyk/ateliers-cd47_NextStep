@@ -135,7 +135,27 @@ pas sûr du niveau de risque.
 
 ## GAS — règles critiques
 
-- Toutes les actions passent par `doGet` (GET uniquement, pas POST)
+- Toutes les actions passent par `doGet` (GET uniquement, pas POST) — les
+  Exécutions Apps Script listent donc uniquement `doGet` (et `keepAlive` pour
+  le déclencheur horaire) comme nom de fonction, jamais `checkPassword`,
+  `getAll`, etc. Pour retrouver un appel précis, comparer les horodatages
+  avec le Journal client (`window.__gasLog`), pas filtrer par nom d'action.
 - `ContentService` n'a pas de `.setHeader()` — CORS automatique
 - Paramètre mot de passe : `password` (pas `pwd`)
 - Dates retournées : `yyyy-MM-dd` pour `date`, `HH:mm` pour `horaire`
+
+### Limite connue — latence de livraison indépendante du temps d'exécution
+
+Confirmé les 15-16/09/2026 (captures croisées Journal client + Exécutions
+Apps Script, sur Index puis sur Admin) : des appels (`checkPassword`,
+`getComptes`) mesurés à 23-25 s côté navigateur, alors que l'exécution
+`doGet` correspondante (même horodatage) dure moins de 2 s côté serveur.
+L'écart se situe dans l'acheminement de la réponse après exécution
+(redirection `/exec`), pas dans le script — Google Workspace ne signalait
+aucun incident sur Apps Script à ce moment-là. Ce n'est pas corrigible par
+une modification du code GAS ou frontend : c'est une limite de fiabilité de
+la couche de livraison des Web Apps Apps Script, à mitiger (retries côté
+client, message d'attente) plutôt qu'à "réparer". Ne pas rouvrir un audit de
+contention/appels redondants sans avoir d'abord recoupé Journal client vs
+Exécutions sur le créneau concerné — si l'exécution serveur est rapide,
+inutile de chercher la cause côté code.
