@@ -78,6 +78,18 @@ Toujours committer et pousser directement sur `main`. Ne pas créer de branche i
    - `feat:` nouvelle fonctionnalité
    - `fix:` correction de bug
    - `refactor:` restructuration sans changement de comportement
+3. **Cache-busting obligatoire** : `index.html` et `admin.html` chargent
+   `app.css`/`admin.css`, `utils.js`, `logic.js`, `shared.js`, `app.js`/
+   `admin_app.js`(/`admin_config.js`) avec un paramètre `?v=N`. À chaque
+   commit qui modifie le **contenu** d'un de ces fichiers, incrémenter son
+   `?v=` dans **chaque** page HTML qui le charge — `shared.js` est partagé
+   par les deux pages et doit être bumpé dans les deux, même si une seule a
+   changé par ailleurs. Sans ce bump, le correctif n'atteint jamais les
+   navigateurs qui ont déjà l'ancienne version en cache (confirmé en prod le
+   16/09/2026 : un correctif resté sans effet sur un poste malgré un
+   déploiement réussi ; `admin.html` a aussi été retrouvé bloqué sur des
+   versions de `shared.js`/`admin_app.js` vieilles de plusieurs semaines).
+   Vérifier ce point avant de conclure qu'un correctif ne marche pas.
 
 ## Architecture
 
