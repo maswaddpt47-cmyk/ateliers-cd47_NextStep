@@ -19,6 +19,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
@@ -27,6 +29,7 @@ jobs:
       - run: node --test logic.test.js
       - run: node --test contract.test.js
       - run: node --test integration.test.js
+      - run: node scripts/check-cache-busting.js "${{ github.event.before }}" "${{ github.sha }}"
 
   e2e:
     needs: test
