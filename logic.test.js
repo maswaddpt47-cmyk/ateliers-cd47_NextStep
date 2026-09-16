@@ -7,6 +7,7 @@ const {
   normalizeMateriel,
   applyFilters,
   normalizeImportRow,
+  findMobileClassConflicts,
 } = require('./logic.js');
 
 // ── STATUTS_VALIDES ───────────────────────────────────────────────────────────
@@ -156,5 +157,74 @@ describe('normalizeImportRow', () => {
   it('inscrits="" reste ""', () => {
     const r = normalizeImportRow({ inscrits: '' });
     assert.equal(r.inscrits, '');
+  });
+});
+
+// ── findMobileClassConflicts ──────────────────────────────────────────────────
+describe('findMobileClassConflicts', () => {
+  it('détecte 2 conseillers distincts avec Classe mobile le même jour', () => {
+    const entries = [
+      { statut: 'Planifié', date: '2026-10-01', conseiller: 'Alice', materiel: ['Classe mobile'] },
+      { statut: 'Planifié', date: '2026-10-01', conseiller: 'Bob',   materiel: ['Classe mobile'] },
+    ];
+    const conflits = findMobileClassConflicts(entries);
+    assert.equal(conflits.length, 1);
+    assert.equal(conflits[0].date, '2026-10-01');
+    assert.equal(conflits[0].entries.length, 2);
+  });
+
+  it('pas de conflit si un seul conseiller ce jour-là (même avec 2 ateliers)', () => {
+    const entries = [
+      { statut: 'Planifié', date: '2026-10-01', conseiller: 'Alice', materiel: ['Classe mobile'] },
+      { statut: 'Planifié', date: '2026-10-01', conseiller: 'Alice', materiel: ['Classe mobile'] },
+    ];
+    assert.equal(findMobileClassConflicts(entries).length, 0);
+  });
+
+  it('pas de conflit si dates différentes', () => {
+    const entries = [
+      { statut: 'Planifié', date: '2026-10-01', conseiller: 'Alice', materiel: ['Classe mobile'] },
+      { statut: 'Planifié', date: '2026-10-02', conseiller: 'Bob',   materiel: ['Classe mobile'] },
+    ];
+    assert.equal(findMobileClassConflicts(entries).length, 0);
+  });
+
+  it('ignore les ateliers Annulés', () => {
+    const entries = [
+      { statut: 'Annulé',   date: '2026-10-01', conseiller: 'Alice', materiel: ['Classe mobile'] },
+      { statut: 'Planifié', date: '2026-10-01', conseiller: 'Bob',   materiel: ['Classe mobile'] },
+    ];
+    assert.equal(findMobileClassConflicts(entries).length, 0);
+  });
+
+  it('ignore les ateliers sans Classe mobile', () => {
+    const entries = [
+      { statut: 'Planifié', date: '2026-10-01', conseiller: 'Alice', materiel: ['Tablette'] },
+      { statut: 'Planifié', date: '2026-10-01', conseiller: 'Bob',   materiel: ['Videoprojecteur'] },
+    ];
+    assert.equal(findMobileClassConflicts(entries).length, 0);
+  });
+
+  it('insensible à la casse/pluriel (via matIncludes)', () => {
+    const entries = [
+      { statut: 'Planifié', date: '2026-10-01', conseiller: 'Alice', materiel: ['classe mobile'] },
+      { statut: 'Planifié', date: '2026-10-01', conseiller: 'Bob',   materiel: ['Classe Mobiles'] },
+    ];
+    assert.equal(findMobileClassConflicts(entries).length, 1);
+  });
+
+  it('3 conseillers distincts le même jour → un seul groupe de conflit avec les 3 entrées', () => {
+    const entries = [
+      { statut: 'Planifié', date: '2026-10-01', conseiller: 'Alice', materiel: ['Classe mobile'] },
+      { statut: 'Planifié', date: '2026-10-01', conseiller: 'Bob',   materiel: ['Classe mobile'] },
+      { statut: 'Planifié', date: '2026-10-01', conseiller: 'Cynthia', materiel: ['Classe mobile'] },
+    ];
+    const conflits = findMobileClassConflicts(entries);
+    assert.equal(conflits.length, 1);
+    assert.equal(conflits[0].entries.length, 3);
+  });
+
+  it('tableau vide → aucun conflit', () => {
+    assert.deepEqual(findMobileClassConflicts([]), []);
   });
 });

@@ -1461,7 +1461,18 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
   );
 
   // ── Champs communs (One Shot + Cycle) ─────────────────────
-  const champsCommuns=(frm,setFn,errs,entries_,setErrs)=>CE('div',null,
+  // datesConflit : date(s) concernée(s) par ce formulaire (une seule en mode
+  // unique, une par ligne en mode cycle) — sert uniquement à l'alerte
+  // Classe mobile ci-dessous, purement informative (jamais bloquante).
+  const champsCommuns=(frm,setFn,errs,entries_,setErrs,datesConflit)=>{
+    const matMobileActif=matIncludes(frm.materiel,'Classe mobile');
+    const conflitsMat=matMobileActif&&datesConflit&&datesConflit.length
+      ?[...new Set(datesConflit.filter(Boolean))].map(d=>({
+          date:d,
+          autres:(entries_||entries).filter(e=>e._id!==editId&&e.date===d&&e.statut!=='Annulé'&&e.conseiller&&e.conseiller!==frm.conseiller&&matIncludes(e.materiel,'Classe mobile'))
+        })).filter(g=>g.autres.length>0)
+      :[];
+    return CE('div',null,
     CE('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}},
       CE('div',null,
         Lbl({t:'Orienteur *',err:!!errs.orienteur}),
@@ -1507,12 +1518,21 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
           return CE('label',{key:m,style:{display:'flex',alignItems:'center',gap:6,padding:'7px 12px',border:`2px solid ${chk?ac:'#e2e8f0'}`,borderRadius:20,cursor:'pointer',fontSize:12,fontWeight:600,color:chk?ac:'#718096',background:chk?acLight:'#fff',transition:'all .15s',userSelect:'none'},onClick:e=>{e.preventDefault();(modeLot?toggleLotMat:toggleMat)(m);}},
             CE('input',{type:'checkbox',checked:chk,style:{display:'none'},onChange:()=>{}}),m);
         })
+      ),
+      // Alerte purement informative (jamais bloquante) : Classe mobile est un
+      // matériel physique unique, ne peut pas être à deux endroits le même
+      // jour. Les Annulés et le conseiller lui-même sont exclus du calcul.
+      conflitsMat.length>0&&CE('div',{style:{marginTop:8,display:'flex',flexDirection:'column',gap:4,background:'#fff7ed',border:'1px solid #fed7aa',borderRadius:8,padding:'8px 12px'}},
+        conflitsMat.map(g=>CE('div',{key:g.date,style:{fontSize:12,color:'#9a3412',display:'flex',alignItems:'flex-start',gap:6}},
+          CE('span',null,'⚠️'),
+          CE('span',null,fmtDate(g.date)+' — Classe mobile déjà réservée par '+g.autres.map(e=>e.conseiller).join(', ')+' ce jour-là. Pour info, rien ne vous empêche d\'enregistrer.')
+        ))
       )
     ),
     CE('div',{style:{marginTop:12}},
       LblG({t:'Remarques'}),
       CE('input',{type:'text',style:iStyle(false),value:frm.remarques,placeholder:'Notes libres',onChange:e=>setFn('remarques',e.target.value)}))
-  );
+  );};
 
   return CE('div',{'data-saisie':'1',style:{padding:'4px 0',...acVars}},
     // Badge conseiller coloré
@@ -1553,7 +1573,7 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
         )
       ),
       // Champs communs
-      CE('div',{style:secStyle},champsCommuns(form,set,errors,entries,setErrors)),
+      CE('div',{style:secStyle},champsCommuns(form,set,errors,entries,setErrors,[form.date])),
       // Thématique
       CE('div',{style:secStyle},
         Lbl({t:'Thématique *',err:!!errors.thematique}),
@@ -1592,7 +1612,7 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
         '🔄 ',lotRows.length,' atelier(s) à créer — tous "Planifié", inscrits/présents à compléter après'
       ),
       // Champs communs
-      CE('div',{style:secStyle},champsCommuns(lotForm,setLot,lotErrors,entries,setLotErrors)),
+      CE('div',{style:secStyle},champsCommuns(lotForm,setLot,lotErrors,entries,setLotErrors,lotRows.map(r=>r.date))),
       // Tableau des dates
       CE('div',{style:{...secStyle,overflow:'visible'}},
         CE('div',{style:{fontSize:13,fontWeight:700,color:ac,marginBottom:12}},'📅 Dates du cycle'),
@@ -2930,6 +2950,12 @@ function VueAnomalies({entries,onEdit,communes:communesProp,apiFetch,showToast,a
   },[entries,communes]);
   const anomaliesFiltrees=filtreConum==='Tous'?anomalies:anomalies.filter(a=>a.e.conseiller===filtreConum||a.e.co_animateur===filtreConum);
   const filtered=filter==='manquants'?anomaliesFiltrees.filter(a=>a.champsVides.length>0):filter==='communes'?anomaliesFiltrees.filter(a=>a.communeInvalide):anomaliesFiltrees;
+  // Conflit matériel : 2+ conseillers ont réservé la Classe mobile (matériel
+  // physique partagé) le même jour — alerte informative, indépendante des
+  // anomalies de champs/commune ci-dessus (voir findMobileClassConflicts,
+  // logic.js).
+  const conflitsMobile=React.useMemo(()=>findMobileClassConflicts(entries),[entries]);
+  const conflitsFiltres=filtreConum==='Tous'?conflitsMobile:conflitsMobile.filter(g=>g.entries.some(e=>e.conseiller===filtreConum));
   async function handleSaveCommune(entry,valeur){
     if(!valeur||!valeur.trim())return;
     setSaving(entry._id);
@@ -2963,13 +2989,37 @@ function VueAnomalies({entries,onEdit,communes:communesProp,apiFetch,showToast,a
       CE('div',{style:{background:'#ede9fe',borderRadius:8,padding:'8px 14px',flex:'1',minWidth:120,cursor:'pointer',border:filter==='communes'?'2px solid #7c3aed':'2px solid transparent'},onClick:()=>setFilter('communes')},
         CE('div',{style:{fontSize:20,fontWeight:700,color:'#6d28d9'}},nbCommunes),
         CE('div',{style:{fontSize:11,color:'#4c1d95'}},loadingCommunes?'⏳ Chargement…':'Communes invalides')
+      ),
+      CE('div',{style:{background:'#ffedd5',borderRadius:8,padding:'8px 14px',flex:'1',minWidth:120,cursor:'pointer',border:filter==='conflits'?'2px solid #ea580c':'2px solid transparent'},onClick:()=>setFilter('conflits')},
+        CE('div',{style:{fontSize:20,fontWeight:700,color:'#9a3412'}},conflitsMobile.length),
+        CE('div',{style:{fontSize:11,color:'#7c2d12'}},'⚠️ Conflits Classe mobile')
       )
     ),
     CE('div',{className:'chip-bar',style:{marginBottom:12}},
       conumsList.map(c=>CE('span',{key:c,className:'chip'+(c==='Tous'?' chip-all':'')+(filtreConum===c?' active':''),style:c!=='Tous'?{color:conseillerColor(c)}:{},onClick:()=>setFiltreConum(p=>p===c&&c!=='Tous'?'Tous':c)},
         CE('span',{className:'chip-dot',style:c!=='Tous'?{background:conseillerColor(c)}:{}}),c))
     ),
-    filtered.length===0
+    filter==='conflits'
+      ?(conflitsFiltres.length===0
+          ?CE('div',{style:{textAlign:'center',padding:'40px 0',color:'#16a34a',fontSize:14}},
+              CE('div',{style:{fontSize:32,marginBottom:8}},'✅'),
+              'Aucun conflit Classe mobile'
+            )
+          :CE('div',{style:{display:'flex',flexDirection:'column',gap:8}},
+              conflitsFiltres.map(g=>CE('div',{key:g.date,style:{background:'#fff7ed',border:'1px solid #fed7aa',borderRadius:8,padding:'10px 14px'}},
+                CE('div',{style:{fontWeight:700,fontSize:12,color:'#9a3412',marginBottom:6}},'📅 '+fmtDate(g.date)+' — Classe mobile réservée par '+g.entries.length+' conseillers'),
+                CE('div',{style:{display:'flex',flexDirection:'column',gap:4}},
+                  g.entries.map(e=>CE('div',{key:e._id,style:{display:'flex',alignItems:'center',gap:8,fontSize:12,flexWrap:'wrap'}},
+                    CE('span',{style:{fontWeight:600,color:conseillerColor(e.conseiller)}},e.conseiller||'—'),
+                    CE('span',{style:{color:'#6b7280'}},e.thematique||''),
+                    CE('span',{style:{color:'#9ca3af'}},e.commune||''),
+                    onEdit&&CE('button',{onClick:()=>onEdit(e._id),style:{fontSize:11,padding:'2px 8px',borderRadius:4,border:'1px solid #3b82f6',background:'#eff6ff',color:'#1d4ed8',cursor:'pointer',marginLeft:'auto'}},'✏️ Ouvrir')
+                  ))
+                )
+              ))
+            )
+        )
+      :filtered.length===0
       ?CE('div',{style:{textAlign:'center',padding:'40px 0',color:'#16a34a',fontSize:14}},
           CE('div',{style:{fontSize:32,marginBottom:8}},'✅'),
           'Aucune anomalie dans cette catégorie'

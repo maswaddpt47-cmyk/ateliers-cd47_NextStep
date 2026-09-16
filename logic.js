@@ -10,6 +10,7 @@ if (typeof require !== 'undefined') {
   var normalizeHoraire = _u.normalizeHoraire;
   var normalizeCommune = _u.normalizeCommune;
   var normalizeMat     = _u.normalizeMat;
+  var matIncludes      = _u.matIncludes;
 }
 
 // ── Statuts et constantes ─────────────────────────────────────────────────────
@@ -95,6 +96,26 @@ function applyFilters(entries, filters) {
   });
 }
 
+// ── Conflits matériel ─────────────────────────────────────────────────────────
+
+// Repère les dates où 2+ conseillers distincts ont réservé "Classe mobile" —
+// matériel physique partagé, ne peut être utilisé qu'à un seul endroit à la
+// fois. Alerte informative uniquement (jamais bloquante à la saisie) : les
+// Annulés sont exclus, un atelier annulé n'immobilise plus le matériel.
+function findMobileClassConflicts(entries) {
+  const parDate = {};
+  entries.forEach(e => {
+    if (e.statut === 'Annulé') return;
+    if (!e.date) return;
+    if (!matIncludes(e.materiel, 'Classe mobile')) return;
+    (parDate[e.date] = parDate[e.date] || []).push(e);
+  });
+  return Object.keys(parDate)
+    .map(date => ({ date, entries: parDate[date] }))
+    .filter(g => new Set(g.entries.map(e => e.conseiller)).size >= 2)
+    .sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
+}
+
 // ── Normalisation d'une entrée importée (CSV / XLSX) ─────────────────────────
 
 function normalizeImportRow(raw) {
@@ -128,5 +149,6 @@ if (typeof module !== 'undefined') {
     normalizeMateriel,
     applyFilters,
     normalizeImportRow,
+    findMobileClassConflicts,
   };
 }
