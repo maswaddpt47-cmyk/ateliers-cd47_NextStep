@@ -96,6 +96,18 @@ function applyFilters(entries, filters) {
   });
 }
 
+// ── Visibilité matériel ──────────────────────────────────────────────────────
+
+// Un matériel masqué (Admin → Listes → Matériels) disparaît des nouvelles
+// cases à cocher du formulaire de saisie, mais reste affiché s'il est déjà
+// sélectionné sur l'entrée en cours (édition) — jamais de perte de
+// visibilité sur une donnée existante. Extrait de VueSaisie (inline
+// jusqu'ici) pour être testable, même principe que sur ATELIERS_NEWGEN
+// (filterMaterielsVisibles).
+function filterMaterielsVisibles(materiels, masques, selectionnes) {
+  return (materiels || []).filter(m => !matIncludes(masques, m) || matIncludes(selectionnes, m));
+}
+
 // ── Conflits matériel ─────────────────────────────────────────────────────────
 
 // Repère les dates où 2+ conseillers distincts ont réservé "Classe mobile" —
@@ -150,5 +162,6 @@ if (typeof module !== 'undefined') {
     applyFilters,
     normalizeImportRow,
     findMobileClassConflicts,
+    filterMaterielsVisibles,
   };
 }

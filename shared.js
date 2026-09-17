@@ -1539,8 +1539,8 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
       CE('div',{style:{display:'flex',flexWrap:'wrap',gap:8}},
         // Un matériel masqué (Admin → Listes) disparaît des nouveaux choix,
         // mais reste affiché s'il est déjà coché sur cette entrée — jamais de
-        // perte de visibilité sur une donnée existante.
-        materiels.filter(m=>matIncludes(frm.materiel,m)||!matIncludes(materielsMasques||[],m)).map(m=>{
+        // perte de visibilité sur une donnée existante (filterMaterielsVisibles, logic.js).
+        filterMaterielsVisibles(materiels,materielsMasques||[],frm.materiel).map(m=>{
           const chk=matIncludes(frm.materiel,m);
           return CE('label',{key:m,style:{display:'flex',alignItems:'center',gap:6,padding:'7px 12px',border:`2px solid ${chk?ac:'#e2e8f0'}`,borderRadius:20,cursor:'pointer',fontSize:12,fontWeight:600,color:chk?ac:'#718096',background:chk?acLight:'#fff',transition:'all .15s',userSelect:'none'},onClick:e=>{e.preventDefault();(modeLot?toggleLotMat:toggleMat)(m);}},
             CE('input',{type:'checkbox',checked:chk,style:{display:'none'},onChange:()=>{}}),m);

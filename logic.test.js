@@ -8,6 +8,7 @@ const {
   applyFilters,
   normalizeImportRow,
   findMobileClassConflicts,
+  filterMaterielsVisibles,
 } = require('./logic.js');
 
 // ── STATUTS_VALIDES ───────────────────────────────────────────────────────────
@@ -226,5 +227,29 @@ describe('findMobileClassConflicts', () => {
 
   it('tableau vide → aucun conflit', () => {
     assert.deepEqual(findMobileClassConflicts([]), []);
+  });
+});
+
+// ── filterMaterielsVisibles ────────────────────────────────────────────────────
+describe('filterMaterielsVisibles', () => {
+  const materiels = ['Videoprojecteur', 'Ecran', 'Classe mobile', 'Scanner'];
+
+  it('sans masqués, renvoie la liste complète', () => {
+    assert.deepEqual(filterMaterielsVisibles(materiels, [], []), materiels);
+  });
+  it('retire les matériels masqués', () => {
+    assert.deepEqual(filterMaterielsVisibles(materiels, ['Scanner'], []), ['Videoprojecteur', 'Ecran', 'Classe mobile']);
+  });
+  it('garde un matériel masqué s\'il est déjà sélectionné (édition)', () => {
+    assert.deepEqual(filterMaterielsVisibles(materiels, ['Scanner'], ['Scanner']), materiels);
+  });
+  it('insensible à la casse/pluriel', () => {
+    assert.deepEqual(filterMaterielsVisibles(materiels, ['scanners'], []), ['Videoprojecteur', 'Ecran', 'Classe mobile']);
+  });
+  it('masqués vide/absent → aucun filtrage', () => {
+    assert.deepEqual(filterMaterielsVisibles(materiels, undefined, undefined), materiels);
+  });
+  it('liste de matériels vide → []', () => {
+    assert.deepEqual(filterMaterielsVisibles([], ['Scanner'], []), []);
   });
 });
