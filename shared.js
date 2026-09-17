@@ -3150,6 +3150,58 @@ function FriseMateriel({entries,onEdit}){
   );
 }
 
+// ─── VueGestionOrdi ────────────────────────────────────────────────────────
+// Onglet dédié à la gestion du matériel partagé : Classe mobile (même jour,
+// matériel indivisible) et stock d'ordinateurs (période de prêt, divisible).
+// Contrairement à VueAnomalies (champs manquants/communes invalides), pas de
+// filtre par conseiller ni d'autres catégories — le stock est partagé par
+// tous, chacun doit voir l'ensemble des conflits.
+function VueGestionOrdi({entries,onEdit}){
+  const conflitsMobile=React.useMemo(()=>findMobileClassConflicts(entries),[entries]);
+  const conflitsOrdi=React.useMemo(()=>findOrdinateursConflicts(entries),[entries]);
+  // Compteurs des tuiles : conflits actifs/à venir uniquement — l'historique
+  // (dates passées) est visible plus bas dans chaque bloc, pas dans le total.
+  const today=todayLocal();
+  const nbActifsMobile=conflitsMobile.filter(g=>!estConflitPasse(g,today)).length;
+  const nbActifsOrdi=conflitsOrdi.filter(g=>!estConflitPasse(g,today)).length;
+  return CE(React.Fragment,null,
+    CE(FriseMateriel,{entries,onEdit}),
+    CE('div',{className:'card',style:{maxWidth:900,margin:'0 auto'}},
+      CE('div',{style:{display:'flex',alignItems:'center',gap:12,marginBottom:16}},
+        CE('span',{style:{fontSize:22}},'🖥️'),
+        CE('div',null,
+          CE('h2',{style:{margin:0,fontSize:16,fontWeight:700}},'Gestion ordi'),
+          CE('p',{style:{margin:0,fontSize:12,color:'#6b7280'}},'Classe mobile & stock de '+STOCK_ORDINATEURS+' ordinateurs prêtés aux participants')
+        )
+      ),
+      CE('div',{style:{display:'flex',gap:10,marginBottom:16,flexWrap:'wrap'}},
+        CE('div',{style:{background:'#ffedd5',borderRadius:8,padding:'8px 14px',flex:'1',minWidth:120}},
+          CE('div',{style:{fontSize:20,fontWeight:700,color:'#9a3412'}},nbActifsMobile),
+          CE('div',{style:{fontSize:11,color:'#7c2d12'}},'⚠️ Conflits Classe mobile')
+        ),
+        CE('div',{style:{background:'#fee2e2',borderRadius:8,padding:'8px 14px',flex:'1',minWidth:120}},
+          CE('div',{style:{fontSize:20,fontWeight:700,color:'#991b1b'}},nbActifsOrdi),
+          CE('div',{style:{fontSize:11,color:'#7f1d1d'}},'🖥️ Stock ordinateurs dépassé')
+        )
+      ),
+      CE('div',{style:{marginBottom:8,fontSize:12,fontWeight:700,color:'#9a3412'}},'Classe mobile'),
+      CE(BlocConflits,{
+        groupes:conflitsMobile, vide:'Aucun conflit Classe mobile',
+        bg:'#fff7ed', border:'#fed7aa', titreColor:'#9a3412',
+        renderTitre:g=>'📅 '+fmtDate(g.date)+' — Classe mobile réservée par '+g.entries.length+' conseillers',
+        renderItem:itemConflitMobile(onEdit)
+      }),
+      CE('div',{style:{margin:'20px 0 8px',fontSize:12,fontWeight:700,color:'#991b1b'}},'Stock ordinateurs'),
+      CE(BlocConflits,{
+        groupes:conflitsOrdi, vide:'Aucun dépassement de stock',
+        bg:'#fef2f2', border:'#fecaca', titreColor:'#991b1b',
+        renderTitre:titreConflitOrdi,
+        renderItem:itemConflitOrdi(onEdit)
+      })
+    )
+  );
+}
+
 // ─── VueAnomalies ──────────────────────────────────────────────────────────
 function VueAnomalies({entries,onEdit,communes:communesProp,apiFetch,showToast,addLog}){
   const CE=React.createElement;
@@ -3191,20 +3243,6 @@ function VueAnomalies({entries,onEdit,communes:communesProp,apiFetch,showToast,a
   },[entries,communes]);
   const anomaliesFiltrees=filtreConum==='Tous'?anomalies:anomalies.filter(a=>a.e.conseiller===filtreConum||a.e.co_animateur===filtreConum);
   const filtered=filter==='manquants'?anomaliesFiltrees.filter(a=>a.champsVides.length>0):filter==='communes'?anomaliesFiltrees.filter(a=>a.communeInvalide):anomaliesFiltrees;
-  // Conflit matériel : 2+ conseillers ont réservé la Classe mobile (matériel
-  // physique partagé) le même jour — alerte informative, indépendante des
-  // anomalies de champs/commune ci-dessus (voir findMobileClassConflicts,
-  // logic.js).
-  const conflitsMobile=React.useMemo(()=>findMobileClassConflicts(entries),[entries]);
-  const conflitsFiltres=filtreConum==='Tous'?conflitsMobile:conflitsMobile.filter(g=>g.entries.some(e=>e.conseiller===filtreConum));
-  // Conflit stock ordinateurs : le cumul des ordinateurs prêtés (nb_ordinateurs)
-  // sur une période de prêt qui se chevauche (date_prelevement_materiel →
-  // date_retour_materiel) dépasse le stock disponible (10 par défaut) —
-  // distinct de conflitsMobile (Classe mobile = matériel indivisible, même
-  // jour uniquement) : ici le stock est divisible et la période peut
-  // s'étaler sur plusieurs jours. Voir findOrdinateursConflicts, logic.js.
-  const conflitsOrdi=React.useMemo(()=>findOrdinateursConflicts(entries),[entries]);
-  const conflitsOrdiFiltres=filtreConum==='Tous'?conflitsOrdi:conflitsOrdi.filter(g=>g.entries.some(e=>e.conseiller===filtreConum));
   async function handleSaveCommune(entry,valeur){
     if(!valeur||!valeur.trim())return;
     setSaving(entry._id);
@@ -3238,38 +3276,13 @@ function VueAnomalies({entries,onEdit,communes:communesProp,apiFetch,showToast,a
       CE('div',{style:{background:'#ede9fe',borderRadius:8,padding:'8px 14px',flex:'1',minWidth:120,cursor:'pointer',border:filter==='communes'?'2px solid #7c3aed':'2px solid transparent'},onClick:()=>setFilter('communes')},
         CE('div',{style:{fontSize:20,fontWeight:700,color:'#6d28d9'}},nbCommunes),
         CE('div',{style:{fontSize:11,color:'#4c1d95'}},loadingCommunes?'⏳ Chargement…':'Communes invalides')
-      ),
-      CE('div',{style:{background:'#ffedd5',borderRadius:8,padding:'8px 14px',flex:'1',minWidth:120,cursor:'pointer',border:filter==='conflits'?'2px solid #ea580c':'2px solid transparent'},onClick:()=>setFilter('conflits')},
-        CE('div',{style:{fontSize:20,fontWeight:700,color:'#9a3412'}},conflitsMobile.length),
-        CE('div',{style:{fontSize:11,color:'#7c2d12'}},'⚠️ Conflits Classe mobile')
-      ),
-      CE('div',{style:{background:'#fee2e2',borderRadius:8,padding:'8px 14px',flex:'1',minWidth:120,cursor:'pointer',border:filter==='conflits-ordi'?'2px solid #dc2626':'2px solid transparent'},onClick:()=>setFilter('conflits-ordi')},
-        CE('div',{style:{fontSize:20,fontWeight:700,color:'#991b1b'}},conflitsOrdi.length),
-        CE('div',{style:{fontSize:11,color:'#7f1d1d'}},'🖥️ Conflits stock ordinateurs')
       )
     ),
     CE('div',{className:'chip-bar',style:{marginBottom:12}},
       conumsList.map(c=>CE('span',{key:c,className:'chip'+(c==='Tous'?' chip-all':'')+(filtreConum===c?' active':''),style:c!=='Tous'?{color:conseillerColor(c)}:{},onClick:()=>setFiltreConum(p=>p===c&&c!=='Tous'?'Tous':c)},
         CE('span',{className:'chip-dot',style:c!=='Tous'?{background:conseillerColor(c)}:{}}),c))
     ),
-    filter==='conflits'
-      ?CE(BlocConflits,{
-          groupes:conflitsFiltres, vide:'Aucun conflit Classe mobile',
-          bg:'#fff7ed', border:'#fed7aa', titreColor:'#9a3412',
-          renderTitre:g=>'📅 '+fmtDate(g.date)+' — Classe mobile réservée par '+g.entries.length+' conseillers',
-          renderItem:itemConflitMobile(onEdit)
-        })
-      :filter==='conflits-ordi'
-      ?CE(React.Fragment,null,
-          CE(FriseMateriel,{entries,onEdit}),
-          CE(BlocConflits,{
-            groupes:conflitsOrdiFiltres, vide:'Aucun conflit de stock ordinateurs',
-            bg:'#fef2f2', border:'#fecaca', titreColor:'#991b1b',
-            renderTitre:titreConflitOrdi,
-            renderItem:itemConflitOrdi(onEdit)
-          })
-        )
-      :filtered.length===0
+    filtered.length===0
       ?CE('div',{style:{textAlign:'center',padding:'40px 0',color:'#16a34a',fontSize:14}},
           CE('div',{style:{fontSize:32,marginBottom:8}},'✅'),
           'Aucune anomalie dans cette catégorie'

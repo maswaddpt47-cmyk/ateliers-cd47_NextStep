@@ -159,6 +159,7 @@ var VIEW_META = {
   graphiques: { ico: '📊',  label: 'Statistiques',   group: 'Analyser' },
   bingo:      { ico: '🎯',  label: 'Bingo',          group: 'Analyser' },
   anomalies:  { ico: '⚠️',  label: 'Anomalies',      group: 'Analyser' },
+  gestion_ordi: { ico: '🖥️', label: 'Gestion ordi',  group: 'Analyser' },
   powerbi:    { ico: '📈',  label: 'Power BI',       group: 'Analyser' },
   admin:      { ico: '⚙️', label: 'Admin',          group: 'Config' },
   logs:            { ico: '📜',  label: 'Logs',        group: 'Config' },
@@ -419,6 +420,7 @@ function App(){
       sideBtn('dashboard','📊','Dashboard'),
       sideBtn('bingo','🎯','Bingo'),
       sideBtn('anomalies','⚠️','Anomalies'),
+      sideBtn('gestion_ordi','🖥️','Gestion ordi'),
 
       // Groupe : Config — Listes ICI (remonté v9.3b)
       CE('div',{className:'sidebar-sep'}),
@@ -503,6 +505,7 @@ function App(){
           view==='roadmap'&&CE(VueRoadmap,{entries,annee,conseillers:lists.conseillers}),
           view==='bingo'&&CE(VueBingo,{entries}),
           view==='anomalies'&&CE(VueAnomalies,{entries,onEdit:(id)=>{setEditingId(id);setPrefillData(null);setView('saisie');},communes:window.COMMUNES_47_CACHE||[],apiFetch,showToast,addLog}),
+          view==='gestion_ordi'&&CE(VueGestionOrdi,{entries,onEdit:(id)=>{setEditingId(id);setPrefillData(null);setView('saisie');}}),
 
           view==='admin'&&role==='admin'&&CE(VueAdmin,{entries,onRefresh:()=>loadData(),addLog,conseillersList:lists.conseillers,onSaveColors:(c)=>{applyColors(c);},annee,adminConseiller}),
           view==='logs_connexion'&&(role==='admin'||role==='superviseur')&&CE(VueLogs,null),

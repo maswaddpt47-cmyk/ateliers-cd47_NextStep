@@ -161,20 +161,27 @@ test('admin — onglet Admin sans ReferenceError (dont section Stock ordinateurs
   await expect(page.getByText('🖥️ Stock ordinateurs')).toBeVisible();
 });
 
-test('admin — onglet Anomalies sans ReferenceError (dont Conflits stock ordinateurs)', async ({ page }) => {
+test('admin — onglet Anomalies sans ReferenceError (champs manquants/communes uniquement)', async ({ page }) => {
   await login(page);
   const errs = await clickTab(page, 'Anomalies');
   expect(errs, `Anomalies : ${errs.join(' | ')}`).toHaveLength(0);
-  await page.getByText('Conflits stock ordinateurs').click();
-  await page.waitForTimeout(200);
-  const laterErrs = page._jsErrors.filter(e => /ReferenceError|TypeError|is not defined/i.test(e));
-  expect(laterErrs, `Onglet Conflits stock ordinateurs : ${laterErrs.join(' | ')}`).toHaveLength(0);
+  // Les conflits Classe mobile/stock ordinateurs ont été déplacés vers leur
+  // propre onglet "Gestion ordi" (split Admin) — ne doivent plus apparaître ici.
+  await expect(page.getByText('Conflits stock ordinateurs')).toHaveCount(0);
+  await expect(page.getByText('Conflits Classe mobile')).toHaveCount(0);
+});
+
+test('admin — onglet Gestion ordi sans ReferenceError', async ({ page }) => {
+  await login(page);
+  const errs = await clickTab(page, 'Gestion ordi');
+  expect(errs, `Gestion ordi : ${errs.join(' | ')}`).toHaveLength(0);
+  await expect(page.getByText('Conflits Classe mobile')).toBeVisible();
+  await expect(page.getByText('Stock ordinateurs dépassé')).toBeVisible();
 });
 
 test('admin — Frise du parc : rendu + bouton Agrandir (panneau plein écran via portail)', async ({ page }) => {
   await login(page);
-  await clickTab(page, 'Anomalies');
-  await page.getByText('Conflits stock ordinateurs').click();
+  await clickTab(page, 'Gestion ordi');
   await page.waitForTimeout(200);
   await expect(page.getByText(/Frise du parc/).first()).toBeVisible();
   await expect(page.getByText('Aujourd\'hui')).toBeVisible();
