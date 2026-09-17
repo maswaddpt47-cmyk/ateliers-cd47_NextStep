@@ -1053,7 +1053,7 @@ function getItemColor(tabKey,name){
   if(tabKey==='materiels')return'#0891b2';
   return'#94a3b8';
 }
-function VueListes({lists,onSave,onClose,emails,onSaveEmails}){
+function VueListes({lists,onSave,onClose,emails,onSaveEmails,materielsMasques,onSaveMasques}){
   const TABS=[{key:'statuts',label:'Statuts'},{key:'conseillers',label:'Conseillers'},{key:'publics',label:'Types de public'},{key:'materiels',label:'Matériels'}];
   const[activeTab,setActiveTab]=React.useState('statuts');
   const[draft,setDraft]=React.useState({statuts:[...lists.statuts],conseillers:[...lists.conseillers],publics:[...lists.publics],materiels:[...lists.materiels]});
@@ -1065,6 +1065,11 @@ function VueListes({lists,onSave,onClose,emails,onSaveEmails}){
   const[rappelsSaving,setRappelsSaving]=React.useState(false);
   const[comptes,setComptes]=React.useState({});   // { CONSEILLER: {role, actif} }
   const[comptesSaving,setComptesSaving]=React.useState({});
+  // Matériels masqués du formulaire de saisie sans être supprimés de la
+  // liste (garde l'historique/les exports intacts). Persisté via l'action
+  // générique setConfig, purgée du cache comme toute écriture de config.
+  const[masquesDraft,setMasquesDraft]=React.useState(()=>new Set(materielsMasques||[]));
+  function toggleMasque(item){setMasquesDraft(s=>{const n=new Set(s);n.has(item)?n.delete(item):n.add(item);return n;});}
 
   const items=draft[activeTab];
   function setItems(fn){setDraft(d=>({...d,[activeTab]:fn(d[activeTab])}));setEditIdx(null);}
@@ -1085,6 +1090,13 @@ function VueListes({lists,onSave,onClose,emails,onSaveEmails}){
       if(res&&res.ok){if(onSaveEmails)onSaveEmails(emailDraft);}
       else showToast('⚠️ Emails : erreur GAS',false);
     }catch(_){showToast('⚠️ Emails : hors-ligne',false);}
+    // Sauvegarder les matériels masqués (action générique setConfig, purge le cache)
+    try{
+      const arr=[...masquesDraft];
+      const res=await apiFetch('setConfig',{key:'materiels_masques',value:JSON.stringify(arr)});
+      if(res&&res.ok){if(onSaveMasques)onSaveMasques(arr);}
+      else showToast('⚠️ Matériels masqués : erreur GAS',false);
+    }catch(_){showToast('⚠️ Matériels masqués : hors-ligne',false);}
     showToast('✅ Listes et emails enregistrés');
     onClose();
   }
@@ -1191,6 +1203,18 @@ function VueListes({lists,onSave,onClose,emails,onSaveEmails}){
               CE('option',{value:'superviseur'},'👁️ Superviseur')
             )
           ),
+          // Masquer du formulaire de saisie sans supprimer de la liste —
+          // l'historique/les exports gardent la valeur intacte.
+          activeTab==='materiels'&&CE('div',{
+            title:masquesDraft.has(item)?'Masqué du formulaire de saisie — cliquer pour réafficher':'Visible dans le formulaire de saisie — cliquer pour masquer',
+            style:{flexShrink:0,display:'flex',flexDirection:'column',alignItems:'center',fontSize:10,color:masquesDraft.has(item)?'#9ca3af':'#2563eb',gap:2}
+          },
+            CE('label',{className:'tgl',style:{marginBottom:0}},
+              CE('input',{type:'checkbox',checked:!masquesDraft.has(item),onChange:()=>toggleMasque(item)}),
+              CE('span',{className:'tgl-track',style:masquesDraft.has(item)?{background:'#e2e8f0'}:{}})
+            ),
+            CE('span',null,masquesDraft.has(item)?'🙈 masqué':'👁️ visible')
+          ),
           CE('div',{className:'listes-actions'},
             editIdx===i
               ?CE('button',{className:'btn btn-primary btn-sm',onClick:()=>saveEdit(i)},'✓ OK')
@@ -1259,7 +1283,7 @@ function ComboThematiqueFixed({value,onChange,onBlur,entries,hasError}){
 // ═══════════════════════════════════════════════════════════
 const emptyRow=()=>({id:genId(),date:'',horaire:'',ampm:'',thematique:''});
 
-function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefillData,onClearPrefill,accentColor}){
+function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefillData,onClearPrefill,accentColor,materielsMasques}){
   const statuts    = lists?.statuts     || STATUTS_DEFAULT;
   const conseillers= lists?.conseillers || CONSEILLERS_DEFAULT;
   const publics    = lists?.publics     || PUBLICS_DEFAULT;
@@ -1513,7 +1537,10 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
     CE('div',{style:{marginTop:12}},
       LblG({t:'Matériel utilisé'}),
       CE('div',{style:{display:'flex',flexWrap:'wrap',gap:8}},
-        materiels.map(m=>{
+        // Un matériel masqué (Admin → Listes) disparaît des nouveaux choix,
+        // mais reste affiché s'il est déjà coché sur cette entrée — jamais de
+        // perte de visibilité sur une donnée existante.
+        materiels.filter(m=>matIncludes(frm.materiel,m)||!matIncludes(materielsMasques||[],m)).map(m=>{
           const chk=matIncludes(frm.materiel,m);
           return CE('label',{key:m,style:{display:'flex',alignItems:'center',gap:6,padding:'7px 12px',border:`2px solid ${chk?ac:'#e2e8f0'}`,borderRadius:20,cursor:'pointer',fontSize:12,fontWeight:600,color:chk?ac:'#718096',background:chk?acLight:'#fff',transition:'all .15s',userSelect:'none'},onClick:e=>{e.preventDefault();(modeLot?toggleLotMat:toggleMat)(m);}},
             CE('input',{type:'checkbox',checked:chk,style:{display:'none'},onChange:()=>{}}),m);

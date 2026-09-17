@@ -279,6 +279,11 @@ function _getAllFrais(p){
       try{ if(cfg['conseiller_colors']) conseiller_colors = JSON.parse(cfg['conseiller_colors']); }catch(_){}
       var emails = {};
       try{ if(cfg['emails']) emails = JSON.parse(cfg['emails']); }catch(_){}
+      // Matériels masqués du formulaire de saisie sans être retirés de la
+      // liste canonique (lists.materiels) — reutilise l'action generique
+      // setConfig pour l'ecriture, aucune nouvelle action GAS necessaire.
+      var materiels_masques = [];
+      try{ if(cfg['materiels_masques']) materiels_masques = JSON.parse(cfg['materiels_masques']); }catch(_){}
       var entries = [];
       try{
         var sh = ss.getSheetByName('Ateliers_next_step');
@@ -338,7 +343,8 @@ function _getAllFrais(p){
         }
       }catch(err){ Logger.log('entries error: '+err); }
       return {ok:true, entries:entries, lists:lists, visibility:visibility,
-              conseiller_colors:conseiller_colors, emails:emails};
+              conseiller_colors:conseiller_colors, emails:emails,
+              materiels_masques:materiels_masques};
     }catch(err){
       return {ok:false, error:String(err)};
     }

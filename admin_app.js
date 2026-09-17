@@ -200,6 +200,7 @@ function App(){
     });
   },[]);
   const[emails,setEmails]  = React.useState({});
+  const[materielsMasques,setMaterielsMasques] = React.useState([]);
   const[lastSync,setLastSync]= React.useState(null);
   const[syncing,setSyncing]= React.useState(false);
   const[logFilter,setLogFilter]= React.useState('all');
@@ -282,6 +283,7 @@ function App(){
       }
       if(data.conseiller_colors){applyColors(data.conseiller_colors);}
       if(data.emails){setEmails(data.emails);addLog('Emails chargés','ok');}
+      if(Array.isArray(data.materiels_masques))setMaterielsMasques(data.materiels_masques);
       addLog(`${incoming.length} ateliers chargés (${annee})`,'ok');
       setLastSync(new Date());
       setSeenIds(prev=>{if(prev.size===0)return new Set(incoming.map(e=>e._id));const nouvs=incoming.filter(e=>!prev.has(e._id));if(nouvs.length>0)setNewEntries(n=>[...nouvs,...n]);return new Set(incoming.map(e=>e._id));});
@@ -491,7 +493,7 @@ function App(){
         loading&&CE(AttenteGAS,{titre:'Chargement des ateliers'}),
         error&&CE('div',{className:'error-box'},CE('strong',null,'❌ Impossible de charger'),CE('span',null,error),CE('button',{className:'btn btn-primary',onClick:()=>loadData()},'🔄 Réessayer')),
         !loading&&!error&&CE('div',{key:view,className:'view-anim'},
-          view==='saisie'&&CE(VueSaisie,{entries,onSaved:handleSaved,onNewEntry:e=>{setNewEntries(n=>[e,...n]);setSeenIds(s=>{const ns=new Set(s);ns.add(e._id);return ns;});},lists,editingId,onClearEdit:()=>setEditingId(null),prefillData,onClearPrefill:()=>setPrefillData(null),accentColor:conseillerColor(adminConseiller)}),
+          view==='saisie'&&CE(VueSaisie,{entries,onSaved:handleSaved,onNewEntry:e=>{setNewEntries(n=>[e,...n]);setSeenIds(s=>{const ns=new Set(s);ns.add(e._id);return ns;});},lists,editingId,onClearEdit:()=>setEditingId(null),prefillData,onClearPrefill:()=>setPrefillData(null),accentColor:conseillerColor(adminConseiller),materielsMasques}),
           view==='historique'&&CE(VueHistorique,{key:'hist_'+adminConseiller,entries,onEdit:handleEdit,onDelete:handleDelete,onRefresh:()=>loadData(),onDuplicate:handleDuplicate,canDelete:true,initConseiller:adminConseiller&&adminConseiller!=='admin'?adminConseiller:null,onResetConseiller:()=>{},onChangeConseiller:(c)=>{const nom=c==='Tous'?'admin':c;localStorage.setItem('adm_conseiller',nom);setAdminConseiller(nom);}}),
           view==='agenda'&&CE(VueAgendaSemaine,{key:'agenda_'+adminConseiller,entries,onEdit:handleEdit,onDelete:handleDelete,onDuplicate:handleDuplicate,canDelete:true,initConseiller:adminConseiller&&adminConseiller!=='admin'?adminConseiller:null,accentColor}),
           view==='calendrier'&&CE(VueCalendrier,{key:'cal_'+adminConseiller,entries,onEdit:handleEdit,onDelete:handleDelete,onRefresh:()=>loadData(),onDuplicate:handleDuplicate,canDelete:true,initConseiller:adminConseiller&&adminConseiller!=='admin'?adminConseiller:null,onResetConseiller:()=>{},onChangeConseiller:(c)=>{const nom=c==='Tous'?'admin':c;localStorage.setItem('adm_conseiller',nom);setAdminConseiller(nom);}}),
@@ -556,7 +558,9 @@ function App(){
       onSave:handleSaveLists,
       onClose:()=>setShowListes(false),
       emails,
-      onSaveEmails:handleSaveEmails
+      onSaveEmails:handleSaveEmails,
+      materielsMasques,
+      onSaveMasques:setMaterielsMasques
     }),
 
     CE('div',{id:'toast',className:'toast',style:{opacity:0}})

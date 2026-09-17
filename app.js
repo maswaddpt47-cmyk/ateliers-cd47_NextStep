@@ -239,6 +239,7 @@ function App(){
   const[online,setOnline]          = React.useState(navigator.onLine);
   const[showPicker,setShowPicker]   = React.useState(false);
   const[inactifsSet,setInactifsSet] = React.useState(new Set());
+  const[materielsMasques,setMaterielsMasques] = React.useState([]);
   // Appel indépendant du check maintenance : le faire attendre getConfig (qui
   // peut prendre plusieurs secondes) retardait Historique pour rien — même
   // défaut que celui corrigé sur la landing, ici sur les données elles-mêmes.
@@ -317,6 +318,7 @@ function App(){
       }
       if(data.visibility)setVisibility(v=>({...v,...data.visibility}));
       if(data.conseiller_colors)applyColors(data.conseiller_colors);
+      if(Array.isArray(data.materiels_masques))setMaterielsMasques(data.materiels_masques);
       setLastSync(new Date());
       setSeenIds(prev=>{
         if(prev.size===0)return new Set(incoming.map(e=>e._id));
@@ -611,7 +613,7 @@ function App(){
         ),
         // viewRef sur le wrapper — capte les change events des selects internes
         !loading&&!error&&CE('div',{ref:viewRef,className:'view-anim',key:view+'_'+(filtreConseiller||'all')},
-          view==='saisie'&&visibility.saisie&&CE(VueSaisie,{entries,onSaved:handleSaved,onNewEntry:e=>{setNewEntries(n=>[e,...n]);setSeenIds(s=>{const ns=new Set(s);ns.add(e._id);return ns;});},lists,editingId,onClearEdit:()=>setEditingId(null),prefillData,onClearPrefill:()=>setPrefillData(null),accentColor:conseillerColor(filtreConseiller||'')}),
+          view==='saisie'&&visibility.saisie&&CE(VueSaisie,{entries,onSaved:handleSaved,onNewEntry:e=>{setNewEntries(n=>[e,...n]);setSeenIds(s=>{const ns=new Set(s);ns.add(e._id);return ns;});},lists,editingId,onClearEdit:()=>setEditingId(null),prefillData,onClearPrefill:()=>setPrefillData(null),accentColor:conseillerColor(filtreConseiller||''),materielsMasques}),
           view==='historique'&&visibility.historique&&CE(VueHistorique,{entries,onEdit:handleEdit,onDelete:handleDelete,onRefresh:()=>loadData(),onDuplicate:handleDuplicate,initConseiller:filtreConseiller,onResetConseiller:()=>{},canDelete:true}),
           view==='agenda'&&visibility.agenda&&CE(VueAgendaSemaine,{entries,onEdit:handleEdit,onDelete:handleDelete,onDuplicate:handleDuplicate,canDelete:true,initConseiller:filtreConseiller,accentColor}),
           view==='calendrier'&&visibility.calendrier&&CE(VueCalendrier,{entries,onEdit:handleEdit,onDelete:handleDelete,onRefresh:()=>loadData(),onDuplicate:handleDuplicate,initConseiller:filtreConseiller,onResetConseiller:()=>{},canDelete:true}),
