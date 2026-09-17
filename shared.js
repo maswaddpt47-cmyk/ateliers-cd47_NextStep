@@ -3032,6 +3032,14 @@ function VueAnomalies({entries,onEdit,communes:communesProp,apiFetch,showToast,a
   // logic.js).
   const conflitsMobile=React.useMemo(()=>findMobileClassConflicts(entries),[entries]);
   const conflitsFiltres=filtreConum==='Tous'?conflitsMobile:conflitsMobile.filter(g=>g.entries.some(e=>e.conseiller===filtreConum));
+  // Conflit stock ordinateurs : le cumul des ordinateurs prêtés (nb_ordinateurs)
+  // sur une période de prêt qui se chevauche (date_prelevement_materiel →
+  // date_retour_materiel) dépasse le stock disponible (10 par défaut) —
+  // distinct de conflitsMobile (Classe mobile = matériel indivisible, même
+  // jour uniquement) : ici le stock est divisible et la période peut
+  // s'étaler sur plusieurs jours. Voir findOrdinateursConflicts, logic.js.
+  const conflitsOrdi=React.useMemo(()=>findOrdinateursConflicts(entries),[entries]);
+  const conflitsOrdiFiltres=filtreConum==='Tous'?conflitsOrdi:conflitsOrdi.filter(g=>g.entries.some(e=>e.conseiller===filtreConum));
   async function handleSaveCommune(entry,valeur){
     if(!valeur||!valeur.trim())return;
     setSaving(entry._id);
@@ -3069,6 +3077,10 @@ function VueAnomalies({entries,onEdit,communes:communesProp,apiFetch,showToast,a
       CE('div',{style:{background:'#ffedd5',borderRadius:8,padding:'8px 14px',flex:'1',minWidth:120,cursor:'pointer',border:filter==='conflits'?'2px solid #ea580c':'2px solid transparent'},onClick:()=>setFilter('conflits')},
         CE('div',{style:{fontSize:20,fontWeight:700,color:'#9a3412'}},conflitsMobile.length),
         CE('div',{style:{fontSize:11,color:'#7c2d12'}},'⚠️ Conflits Classe mobile')
+      ),
+      CE('div',{style:{background:'#fee2e2',borderRadius:8,padding:'8px 14px',flex:'1',minWidth:120,cursor:'pointer',border:filter==='conflits-ordi'?'2px solid #dc2626':'2px solid transparent'},onClick:()=>setFilter('conflits-ordi')},
+        CE('div',{style:{fontSize:20,fontWeight:700,color:'#991b1b'}},conflitsOrdi.length),
+        CE('div',{style:{fontSize:11,color:'#7f1d1d'}},'🖥️ Conflits stock ordinateurs')
       )
     ),
     CE('div',{className:'chip-bar',style:{marginBottom:12}},
@@ -3088,6 +3100,29 @@ function VueAnomalies({entries,onEdit,communes:communesProp,apiFetch,showToast,a
                   g.entries.map(e=>CE('div',{key:e._id,style:{display:'flex',alignItems:'center',gap:8,fontSize:12,flexWrap:'wrap'}},
                     CE('span',{style:{fontWeight:600,color:conseillerColor(e.conseiller)}},e.conseiller||'—'),
                     CE('span',{style:{color:'#6b7280'}},e.thematique||''),
+                    CE('span',{style:{color:'#9ca3af'}},e.commune||''),
+                    (parseInt(e.nb_ordinateurs)>0)&&CE('span',{style:{color:'#9ca3af'}},'🖥️ '+e.nb_ordinateurs+(e.date_retour_materiel?' — retour '+fmtDate(e.date_retour_materiel):'')),
+                    onEdit&&CE('button',{onClick:()=>onEdit(e._id),style:{fontSize:11,padding:'2px 8px',borderRadius:4,border:'1px solid #3b82f6',background:'#eff6ff',color:'#1d4ed8',cursor:'pointer',marginLeft:'auto'}},'✏️ Ouvrir')
+                  ))
+                )
+              ))
+            )
+        )
+      :filter==='conflits-ordi'
+      ?(conflitsOrdiFiltres.length===0
+          ?CE('div',{style:{textAlign:'center',padding:'40px 0',color:'#16a34a',fontSize:14}},
+              CE('div',{style:{fontSize:32,marginBottom:8}},'✅'),
+              'Aucun conflit de stock ordinateurs'
+            )
+          :CE('div',{style:{display:'flex',flexDirection:'column',gap:8}},
+              conflitsOrdiFiltres.map(g=>CE('div',{key:g.date+'_'+g.dateFin,style:{background:'#fef2f2',border:'1px solid #fecaca',borderRadius:8,padding:'10px 14px'}},
+                CE('div',{style:{fontWeight:700,fontSize:12,color:'#991b1b',marginBottom:6}},
+                  '📅 '+fmtPeriode(g.date,g.dateFin)+' — jusqu\'à '+g.total+' ordinateurs demandés sur 10 en stock'),
+                CE('div',{style:{display:'flex',flexDirection:'column',gap:4}},
+                  g.entries.map(e=>CE('div',{key:e._id,style:{display:'flex',alignItems:'center',gap:8,fontSize:12,flexWrap:'wrap'}},
+                    CE('span',{style:{fontWeight:600,color:conseillerColor(e.conseiller)}},e.conseiller||'—'),
+                    CE('span',{style:{color:'#6b7280'}},e.qte+' ordi(s)'),
+                    CE('span',{style:{color:'#9ca3af'}},fmtPeriode(e.dateDebut,e.dateFin)),
                     CE('span',{style:{color:'#9ca3af'}},e.commune||''),
                     onEdit&&CE('button',{onClick:()=>onEdit(e._id),style:{fontSize:11,padding:'2px 8px',borderRadius:4,border:'1px solid #3b82f6',background:'#eff6ff',color:'#1d4ed8',cursor:'pointer',marginLeft:'auto'}},'✏️ Ouvrir')
                   ))

@@ -154,6 +154,16 @@ test('admin — onglet Bingo sans ReferenceError', async ({ page }) => {
   expect(errs, `Bingo : ${errs.join(' | ')}`).toHaveLength(0);
 });
 
+test('admin — onglet Anomalies sans ReferenceError (dont Conflits stock ordinateurs)', async ({ page }) => {
+  await login(page);
+  const errs = await clickTab(page, 'Anomalies');
+  expect(errs, `Anomalies : ${errs.join(' | ')}`).toHaveLength(0);
+  await page.getByText('Conflits stock ordinateurs').click();
+  await page.waitForTimeout(200);
+  const laterErrs = page._jsErrors.filter(e => /ReferenceError|TypeError|is not defined/i.test(e));
+  expect(laterErrs, `Onglet Conflits stock ordinateurs : ${laterErrs.join(' | ')}`).toHaveLength(0);
+});
+
 test('admin — onglet Saisie sans ReferenceError', async ({ page }) => {
   await login(page);
   const errs = await clickTab(page, 'Nouveau');
