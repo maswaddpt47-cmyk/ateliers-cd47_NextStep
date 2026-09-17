@@ -189,3 +189,28 @@ test('admin — Cycle : suggestions thématique au focus', async ({ page }) => {
   const found = await page.evaluate(() => document.body.innerText.includes('Naviguer sur internet'));
   expect(found, 'Aucune suggestion thématique en mode Cycle (portal non rendu)').toBe(true);
 });
+
+test('admin — Classe mobile coché : champs ordinateurs prêtés apparaissent (One Shot)', async ({ page }) => {
+  await login(page);
+  await clickTab(page, 'Nouveau');
+  await page.getByText('Classe mobile', { exact: true }).click();
+  await page.waitForTimeout(200);
+  await expect(page.getByText('Ordinateurs prêtés')).toBeVisible();
+  await expect(page.getByText('Date de prélèvement ordi')).toBeVisible();
+  await expect(page.getByText('Date de retour ordi')).toBeVisible();
+});
+
+test('admin — Classe mobile coché en Cycle : dates par séance, pas de date partagée', async ({ page }) => {
+  await login(page);
+  await clickTab(page, 'Nouveau');
+  await page.getByText('🔄 Saisie par cycle').click();
+  await page.waitForTimeout(200);
+  await page.getByText('Classe mobile', { exact: true }).click();
+  await page.waitForTimeout(200);
+  await expect(page.getByText('Ordinateurs prêtés')).toBeVisible();
+  // Pas de date de prélèvement/retour partagée en mode cycle (par séance uniquement)
+  await expect(page.getByText('Date de prélèvement ordi')).toHaveCount(0);
+  await expect(page.getByText('Les dates de prélèvement/retour se saisissent par séance')).toBeVisible();
+  await expect(page.getByText('Prélèvement ordi').first()).toBeVisible();
+  await expect(page.getByText('Retour ordi').first()).toBeVisible();
+});

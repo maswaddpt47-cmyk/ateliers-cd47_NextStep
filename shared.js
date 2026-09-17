@@ -701,6 +701,9 @@ const NAV_DEFAULT_COLOR = '#197d89';
 let CONSEILLER_COLORS = {'Cynthia Pineau':'#7C3AED','Corentin Tual':'#2563EB','Michel Aswad':'#059669','Eva Capelle':'#DB2777'};
 function conseillerColor(c){return(c&&CONSEILLER_COLORS[c])||'#6B7280';}
 function applyColors(colors){if(colors&&typeof colors==='object')Object.assign(CONSEILLER_COLORS,colors);}
+// periodePretMateriel → logic.js (chargé avant en navigateur). Affichage
+// uniquement : une seule date si prélèvement=retour, sinon une plage.
+function fmtPeriode(debut,fin){return debut===fin?fmtDate(debut):fmtDate(debut)+' → '+fmtDate(fin);}
 // MOIS, JOURS, fmtDate, fmtCardDate, todayLocal, stripAccents,
 // normalizeDate, normalizeHoraire, normalizeCommune, COMMUNE_MAP → utils.js
 const isPasse = e=>e.date<todayLocal()&&e.statut==='Réalisé';
@@ -1281,14 +1284,14 @@ function ComboThematiqueFixed({value,onChange,onBlur,entries,hasError}){
 
 // VUE SAISIE — v9.1 : mode unique + mode lot (cycle)
 // ═══════════════════════════════════════════════════════════
-const emptyRow=()=>({id:genId(),date:'',horaire:'',ampm:'',thematique:''});
+const emptyRow=()=>({id:genId(),date:'',horaire:'',ampm:'',thematique:'',date_prelevement_materiel:'',date_retour_materiel:''});
 
 function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefillData,onClearPrefill,accentColor,materielsMasques}){
   const statuts    = lists?.statuts     || STATUTS_DEFAULT;
   const conseillers= lists?.conseillers || CONSEILLERS_DEFAULT;
   const publics    = lists?.publics     || PUBLICS_DEFAULT;
   const materiels  = lists?.materiels   || MATERIELS_DEFAULT;
-  const empty={_id:'',_n:'',statut:'',date:'',horaire:'',ampm:'',orienteur:'',commune:'',lieu:'',thematique:'',inscrits:4,presents:'',public:'',conseiller:'',co_animateur:'',materiel:[],residence:'',remarques:''};
+  const empty={_id:'',_n:'',statut:'',date:'',horaire:'',ampm:'',orienteur:'',commune:'',lieu:'',thematique:'',inscrits:4,presents:'',public:'',conseiller:'',co_animateur:'',materiel:[],residence:'',remarques:'',nb_ordinateurs:'',date_prelevement_materiel:'',date_retour_materiel:''};
 
   // ── états mode unique ──
   const[form,setForm]   = React.useState(empty);
@@ -1298,7 +1301,7 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
 
   // ── états mode lot ──
   const[modeLot,setModeLot]     = React.useState(false);
-  const[lotForm,setLotForm]     = React.useState({orienteur:'',commune:'',lieu:'',conseiller:'',co_animateur:'',public:'',materiel:[],residence:'',remarques:''});
+  const[lotForm,setLotForm]     = React.useState({orienteur:'',commune:'',lieu:'',conseiller:'',co_animateur:'',public:'',materiel:[],residence:'',remarques:'',nb_ordinateurs:''});
   const[lotRows,setLotRows]     = React.useState([emptyRow(),emptyRow()]);
   const[lotErrors,setLotErrors] = React.useState({});
   const[lotRowErrors,setLotRowErrors]= React.useState({});
@@ -1324,7 +1327,7 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
   },[prefillData]);
 
   function reset(){setForm(empty);setEditId(null);setIsDup(false);setErrors({});}
-  function resetLot(){setLotForm({orienteur:'',commune:'',lieu:'',conseiller:'',co_animateur:'',public:'',materiel:[],residence:'',remarques:''});setLotRows([emptyRow(),emptyRow()]);setLotErrors({});setLotRowErrors({});setLotSubmitted(false);}
+  function resetLot(){setLotForm({orienteur:'',commune:'',lieu:'',conseiller:'',co_animateur:'',public:'',materiel:[],residence:'',remarques:'',nb_ordinateurs:''});setLotRows([emptyRow(),emptyRow()]);setLotErrors({});setLotRowErrors({});setLotSubmitted(false);}
 
   function set(k,v){setForm(f=>({...f,[k]:v}));setErrors(er=>({...er,[k]:''}));}
   function toggleMat(m){setForm(f=>{const already=matIncludes(f.materiel,m);return{...f,materiel:already?f.materiel.filter(x=>normalizeMat(x)!==normalizeMat(m)):[...f.materiel,m]};});}
@@ -1394,7 +1397,7 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
     if(!validate())return;
     setSaving(true);
     try{
-      const entry={...form,_id:form._id||genId(),inscrits:form.inscrits===''?'':parseInt(form.inscrits)||0,presents:form.presents===''?'':parseInt(form.presents)||0};
+      const entry={...form,_id:form._id||genId(),inscrits:form.inscrits===''?'':parseInt(form.inscrits)||0,presents:form.presents===''?'':parseInt(form.presents)||0,nb_ordinateurs:form.nb_ordinateurs===''?'':parseInt(form.nb_ordinateurs)||0};
       const res=await apiFetch('saveEntry',{entry});
       if(!res.ok)throw new Error(res.error);
       showToast(editId?'✅ Atelier modifié':'✅ Atelier enregistré');
@@ -1415,7 +1418,7 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
     if(!validateLot())return;
     setSaving(true);
     try{
-      const entries=rowsFilled.map(row=>({_id:genId(),_n:'',statut:'Planifié',date:row.date,horaire:row.horaire,ampm:row.ampm,thematique:row.thematique,orienteur:lotForm.orienteur,commune:lotForm.commune,lieu:lotForm.lieu,conseiller:lotForm.conseiller,co_animateur:lotForm.co_animateur||'',public:lotForm.public,materiel:lotForm.materiel,residence:lotForm.residence,remarques:lotForm.remarques,inscrits:4,presents:''}));
+      const entries=rowsFilled.map(row=>({_id:genId(),_n:'',statut:'Planifié',date:row.date,horaire:row.horaire,ampm:row.ampm,thematique:row.thematique,orienteur:lotForm.orienteur,commune:lotForm.commune,lieu:lotForm.lieu,conseiller:lotForm.conseiller,co_animateur:lotForm.co_animateur||'',public:lotForm.public,materiel:lotForm.materiel,residence:lotForm.residence,remarques:lotForm.remarques,inscrits:4,presents:'',nb_ordinateurs:lotForm.nb_ordinateurs===''?'':parseInt(lotForm.nb_ordinateurs)||0,date_prelevement_materiel:row.date_prelevement_materiel||'',date_retour_materiel:row.date_retour_materiel||''}));
       // Un seul appel réseau pour tout le cycle (au lieu d'un saveEntry par date
       // en boucle séquentielle) : actionSaveMany traite chaque entrée côté
       // serveur, dans la même exécution GAS — un aléa réseau n'a plus qu'un
@@ -1556,6 +1559,27 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
         ))
       )
     ),
+    // Nombre d'ordinateurs prêtés + dates de prélèvement/retour : uniquement
+    // pertinent si Classe mobile est cochée (les 10 ordinateurs du stock à
+    // prêter aux participants, distincts du matériel "Ordinateur" du
+    // conseiller lui-même). Le prélèvement peut précéder la date de
+    // l'atelier (ex. retrait le mardi pour un atelier le vendredi) — sert
+    // au calcul de findOrdinateursConflicts (periodePretMateriel).
+    matMobileActif&&CE('div',{style:{marginTop:12,display:'grid',gridTemplateColumns:modeLot?'1fr':'1fr 1fr 1fr',gap:12}},
+      CE('div',null,
+        LblG({t:'Ordinateurs prêtés'}),
+        CE('input',{type:'number',min:0,max:10,style:iStyle(false),value:frm.nb_ordinateurs,placeholder:'Ex : 4',onChange:e=>setFn('nb_ordinateurs',e.target.value)})),
+      // En mode cycle, les dates de prélèvement/retour se saisissent par
+      // séance (tableau ci-dessous) — une seule date partagée pour tout le
+      // cycle n'aurait pas de sens (séances étalées sur plusieurs semaines).
+      !modeLot&&CE('div',null,
+        LblG({t:'Date de prélèvement ordi'}),
+        CE('input',{type:'date',style:iStyle(false),value:frm.date_prelevement_materiel||'',onChange:e=>setFn('date_prelevement_materiel',e.target.value)})),
+      !modeLot&&CE('div',null,
+        LblG({t:'Date de retour ordi'}),
+        CE('input',{type:'date',style:iStyle(false),value:frm.date_retour_materiel||'',onChange:e=>setFn('date_retour_materiel',e.target.value)}))
+    ),
+    modeLot&&matMobileActif&&CE('div',{style:{marginTop:4,fontSize:11,color:'#94a3b8'}},'Les dates de prélèvement/retour se saisissent par séance dans le tableau ci-dessous.'),
     CE('div',{style:{marginTop:12}},
       LblG({t:'Remarques'}),
       CE('input',{type:'text',style:iStyle(false),value:frm.remarques,placeholder:'Notes libres',onChange:e=>setFn('remarques',e.target.value)}))
@@ -1655,13 +1679,34 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
           const hasErr=lotSubmitted&&Object.keys(rErr).length>0;
           const brd=(err)=>`2px solid ${err?'#e53e3e':'#e2e8f0'}`;
           const inp=(type,val,key,err,ph)=>CE('input',{type,value:val,placeholder:ph||'',onChange:e=>setRow(row.id,key,e.target.value),onBlur:e=>blurRow(row.id,key,e.target.value),style:{width:'100%',padding:'8px 10px',border:brd(err),borderRadius:8,fontSize:12,background:err?'#fff5f5':'#f8fafc',outline:'none',boxSizing:'border-box'}});
-          return CE('div',{key:row.id,style:{display:'grid',gridTemplateColumns:'140px 100px 64px 1fr 32px',gap:8,alignItems:'start',padding:'9px 10px',borderRadius:10,border:`1.5px solid ${hasErr?'#fc8181':acLight}`,marginBottom:6,background:hasErr?'#fff5f5':acLight,position:'relative',overflow:'visible'}},
-            inp('date',row.date,'date',rErr.date),
-            inp('time',row.horaire,'horaire',rErr.horaire),
-            CE('select',{value:row.ampm,onChange:e=>setRow(row.id,'ampm',e.target.value),onBlur:e=>blurRow(row.id,'ampm',e.target.value),style:{width:'100%',padding:'8px 4px',border:brd(rErr.ampm),borderRadius:8,fontSize:12,background:'#f8fafc'}},
-              CE('option',{value:'',disabled:true},'—'),CE('option',{value:'AM'},'AM'),CE('option',{value:'PM'},'PM')),
-            CE(ComboThematiqueFixed,{value:row.thematique,onChange:v=>setRow(row.id,'thematique',v),onBlur:v=>blurRow(row.id,'thematique',v),entries:entries,hasError:!!rErr.thematique}),
-            CE('button',{onClick:()=>removeRow(row.id),disabled:lotRows.length===1,style:{background:'none',border:`1px solid ${acLight}`,borderRadius:6,color:'#9b2c2c',cursor:'pointer',fontSize:15,height:32,width:32,display:'flex',alignItems:'center',justifyContent:'center'}},'×')
+          return CE('div',{key:row.id,style:{borderRadius:10,border:`1.5px solid ${hasErr?'#fc8181':acLight}`,marginBottom:6,background:hasErr?'#fff5f5':acLight,position:'relative',overflow:'visible'}},
+            CE('div',{style:{display:'grid',gridTemplateColumns:'140px 100px 64px 1fr 32px',gap:8,alignItems:'start',padding:'9px 10px'}},
+              inp('date',row.date,'date',rErr.date),
+              inp('time',row.horaire,'horaire',rErr.horaire),
+              CE('select',{value:row.ampm,onChange:e=>setRow(row.id,'ampm',e.target.value),onBlur:e=>blurRow(row.id,'ampm',e.target.value),style:{width:'100%',padding:'8px 4px',border:brd(rErr.ampm),borderRadius:8,fontSize:12,background:'#f8fafc'}},
+                CE('option',{value:'',disabled:true},'—'),CE('option',{value:'AM'},'AM'),CE('option',{value:'PM'},'PM')),
+              CE(ComboThematiqueFixed,{value:row.thematique,onChange:v=>setRow(row.id,'thematique',v),onBlur:v=>blurRow(row.id,'thematique',v),entries:entries,hasError:!!rErr.thematique}),
+              CE('button',{onClick:()=>removeRow(row.id),disabled:lotRows.length===1,style:{background:'none',border:`1px solid ${acLight}`,borderRadius:6,color:'#9b2c2c',cursor:'pointer',fontSize:15,height:32,width:32,display:'flex',alignItems:'center',justifyContent:'center'}},'×')
+            ),
+            // Dates de prélèvement/retour matériel — uniquement si Classe
+            // mobile est cochée (champ commun du cycle), par séance car
+            // chaque date de ce tableau emprunte et rend le matériel à son
+            // propre rythme (le prélèvement peut précéder la date de cette
+            // séance).
+            // Champs optionnels : pas de blurRow ici (contrairement à inp())
+            // — sinon un blur sur un champ resté vide le marquerait "Requis"
+            // dans lotRowErrors alors qu'il ne l'est pas (validateLot() ne le
+            // corrigerait qu'à la prochaine tentative de soumission).
+            matIncludes(lotForm.materiel,'Classe mobile')&&CE('div',{style:{display:'flex',gap:8,padding:'0 10px 9px',borderTop:`1px solid ${acLight}`}},
+              CE('div',{style:{flex:1}},
+                CE('span',{style:{fontSize:10,fontWeight:700,color:'#718096',textTransform:'uppercase',letterSpacing:'.06em',display:'block',marginTop:6,marginBottom:3}},'Prélèvement ordi'),
+                CE('input',{type:'date',value:row.date_prelevement_materiel||'',onChange:e=>setRow(row.id,'date_prelevement_materiel',e.target.value),style:{width:'100%',padding:'8px 10px',border:'2px solid #e2e8f0',borderRadius:8,fontSize:12,background:'#f8fafc',outline:'none',boxSizing:'border-box'}})
+              ),
+              CE('div',{style:{flex:1}},
+                CE('span',{style:{fontSize:10,fontWeight:700,color:'#718096',textTransform:'uppercase',letterSpacing:'.06em',display:'block',marginTop:6,marginBottom:3}},'Retour ordi'),
+                CE('input',{type:'date',value:row.date_retour_materiel||'',onChange:e=>setRow(row.id,'date_retour_materiel',e.target.value),style:{width:'100%',padding:'8px 10px',border:'2px solid #e2e8f0',borderRadius:8,fontSize:12,background:'#f8fafc',outline:'none',boxSizing:'border-box'}})
+              )
+            )
           );
         }),
         CE('button',{onClick:addRow,style:{display:'flex',alignItems:'center',justifyContent:'center',gap:6,padding:10,background:'#fff',border:`2px dashed ${ac}`,borderRadius:10,cursor:'pointer',fontSize:13,color:ac,fontWeight:700,width:'100%',marginTop:6}},'＋ Ajouter une date')
@@ -1912,6 +1957,8 @@ function VueHistorique({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
           panel.orienteur&&CE('div',{className:'sp-info-row'},CE('span',null,'Orienteur'),CE('span',null,panel.orienteur)),
           CE('div',{className:'sp-info-row'},CE('span',null,'Public'),CE('span',null,panel.public)),
           CE('div',{className:'sp-info-row'},CE('span',null,'Conseiller'),CE('span',{style:{color:conseillerColor(panel.conseiller),fontWeight:700}},panel.conseiller)),panel.co_animateur&&CE('div',{className:'sp-info-row'},CE('span',null,'Co-animateur'),CE('span',{style:{color:conseillerColor(panel.co_animateur),fontWeight:700}},panel.co_animateur)),
+          parseInt(panel.nb_ordinateurs)>0&&CE('div',{className:'sp-info-row'},CE('span',null,'Ordinateurs prêtés'),CE('span',null,panel.nb_ordinateurs)),
+          parseInt(panel.nb_ordinateurs)>0&&(panel.date_prelevement_materiel||panel.date_retour_materiel)&&CE('div',{className:'sp-info-row'},CE('span',null,'Période de prêt'),CE('span',null,fmtPeriode(periodePretMateriel(panel).debut,periodePretMateriel(panel).fin))),
           panel.materiel&&panel.materiel.length>0&&CE('div',{style:{marginTop:10,marginBottom:4}},
             CE('div',{style:{fontSize:11,fontWeight:700,color:'#718096',marginBottom:4}},'MATÉRIEL'),
             panel.materiel.map(m=>CE('span',{key:m,className:'mat-chip'},m))
@@ -2125,6 +2172,8 @@ function VueCalendrier({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
           panel.orienteur&&CE('div',{className:'sp-info-row'},CE('span',null,'Orienteur'),CE('span',null,panel.orienteur)),
           CE('div',{className:'sp-info-row'},CE('span',null,'Public'),CE('span',null,panel.public)),
           CE('div',{className:'sp-info-row'},CE('span',null,'Conseiller'),CE('span',{style:{color:conseillerColor(panel.conseiller),fontWeight:700}},panel.conseiller)),panel.co_animateur&&CE('div',{className:'sp-info-row'},CE('span',null,'Co-animateur'),CE('span',{style:{color:conseillerColor(panel.co_animateur),fontWeight:700}},panel.co_animateur)),
+          parseInt(panel.nb_ordinateurs)>0&&CE('div',{className:'sp-info-row'},CE('span',null,'Ordinateurs prêtés'),CE('span',null,panel.nb_ordinateurs)),
+          parseInt(panel.nb_ordinateurs)>0&&(panel.date_prelevement_materiel||panel.date_retour_materiel)&&CE('div',{className:'sp-info-row'},CE('span',null,'Période de prêt'),CE('span',null,fmtPeriode(periodePretMateriel(panel).debut,periodePretMateriel(panel).fin))),
           panel.materiel&&panel.materiel.length>0&&CE('div',{style:{marginTop:10,marginBottom:4}},
             CE('div',{style:{fontSize:11,fontWeight:700,color:'#718096',marginBottom:4}},'MATÉRIEL'),
             panel.materiel.map(m=>CE('span',{key:m,className:'mat-chip'},m))
