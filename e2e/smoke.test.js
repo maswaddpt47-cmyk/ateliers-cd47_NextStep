@@ -154,6 +154,13 @@ test('admin — onglet Bingo sans ReferenceError', async ({ page }) => {
   expect(errs, `Bingo : ${errs.join(' | ')}`).toHaveLength(0);
 });
 
+test('admin — onglet Admin sans ReferenceError (dont section Stock ordinateurs)', async ({ page }) => {
+  await login(page);
+  const errs = await clickTab(page, 'Admin');
+  expect(errs, `Admin : ${errs.join(' | ')}`).toHaveLength(0);
+  await expect(page.getByText('🖥️ Stock ordinateurs')).toBeVisible();
+});
+
 test('admin — onglet Anomalies sans ReferenceError (dont Conflits stock ordinateurs)', async ({ page }) => {
   await login(page);
   const errs = await clickTab(page, 'Anomalies');
@@ -162,6 +169,31 @@ test('admin — onglet Anomalies sans ReferenceError (dont Conflits stock ordina
   await page.waitForTimeout(200);
   const laterErrs = page._jsErrors.filter(e => /ReferenceError|TypeError|is not defined/i.test(e));
   expect(laterErrs, `Onglet Conflits stock ordinateurs : ${laterErrs.join(' | ')}`).toHaveLength(0);
+});
+
+test('admin — Frise du parc : rendu + bouton Agrandir (panneau plein écran via portail)', async ({ page }) => {
+  await login(page);
+  await clickTab(page, 'Anomalies');
+  await page.getByText('Conflits stock ordinateurs').click();
+  await page.waitForTimeout(200);
+  await expect(page.getByText(/Frise du parc/).first()).toBeVisible();
+  await expect(page.getByText('Aujourd\'hui')).toBeVisible();
+  // Bouton Agrandir → panneau monté via ReactDOM.createPortal dans document.body,
+  // en dehors du wrapper .view-anim (transform actif en permanence après son
+  // animation d'entrée, qui piégerait un position:fixed classique dans sa largeur).
+  await page.getByText('🔍 Agrandir').click();
+  await page.waitForTimeout(200);
+  const panelInBody = await page.evaluate(() => {
+    const overlay = document.querySelector('.side-panel-overlay');
+    return !!overlay && overlay.parentElement === document.body;
+  });
+  expect(panelInBody, 'Le panneau agrandi doit être un enfant direct de <body> (portail)').toBe(true);
+  await expect(page.getByText('✕ Fermer')).toBeVisible();
+  const errs = page._jsErrors.filter(e => /ReferenceError|TypeError|is not defined/i.test(e));
+  expect(errs, `Panneau agrandi : ${errs.join(' | ')}`).toHaveLength(0);
+  await page.getByText('✕ Fermer').click();
+  await page.waitForTimeout(200);
+  await expect(page.getByText('✕ Fermer')).toHaveCount(0);
 });
 
 test('admin — onglet Saisie sans ReferenceError', async ({ page }) => {

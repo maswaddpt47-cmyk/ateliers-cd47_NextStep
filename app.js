@@ -319,6 +319,7 @@ function App(){
       if(data.visibility)setVisibility(v=>({...v,...data.visibility}));
       if(data.conseiller_colors)applyColors(data.conseiller_colors);
       if(Array.isArray(data.materiels_masques))setMaterielsMasques(data.materiels_masques);
+      if(data.stockOrdinateurs)STOCK_ORDINATEURS=parseInt(data.stockOrdinateurs)||STOCK_ORDINATEURS;
       setLastSync(new Date());
       setSeenIds(prev=>{
         if(prev.size===0)return new Set(incoming.map(e=>e._id));

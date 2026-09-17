@@ -2985,6 +2985,171 @@ function VueCarte({entries,active}){
 // VUE BINGO — par commune
 // ═══════════════════════════════════════════════════════════
 
+// ── Conflits matériel — helpers partagés (Anomalies + Frise) ────────────────
+// Portés depuis ATELIERS_NEWGEN. estConflitPasse/periodePretMateriel/
+// getPretsMateriel/totauxParJourMateriel/findOrdinateursConflicts vivent
+// dans logic.js (chargé avant, en global navigateur).
+function titreConflitOrdi(g){return '📅 '+fmtPeriode(g.date,g.dateFin)+' — jusqu\'à '+g.total+' ordinateurs demandés sur '+STOCK_ORDINATEURS+' en stock';}
+// findMobileClassConflicts pousse l'entry brute dans chaque groupe : nb_
+// ordinateurs/date_retour_materiel sont déjà là, pas besoin de les recalculer.
+function itemConflitMobile(onEdit){
+  return e=>CE('div',{key:e._id,style:{display:'flex',flexDirection:'column',gap:2,fontSize:12,padding:'4px 0'}},
+    CE('div',{style:{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}},
+      CE('span',{style:{fontWeight:600,color:conseillerColor(e.conseiller)}},e.conseiller||'—'),
+      CE('span',{style:{color:'#6b7280'}},e.thematique||''),
+      CE('span',{style:{color:'#9ca3af'}},e.commune||''),
+      onEdit&&CE('button',{onClick:()=>onEdit(e._id),style:{fontSize:11,padding:'2px 8px',borderRadius:4,border:'1px solid #3b82f6',background:'#eff6ff',color:'#1d4ed8',cursor:'pointer',marginLeft:'auto'}},'✏️ Ouvrir')
+    ),
+    (parseInt(e.nb_ordinateurs)>0)&&CE('div',{style:{color:'#9ca3af',fontSize:11}},
+      '🖥️ '+e.nb_ordinateurs+' ordinateur(s)'+(e.date_retour_materiel?' — retour prévu '+fmtDate(e.date_retour_materiel):''))
+  );
+}
+function itemConflitOrdi(onEdit){
+  return e=>CE('div',{key:e._id,style:{display:'flex',flexDirection:'column',gap:2,fontSize:12,padding:'4px 0'}},
+    CE('div',{style:{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}},
+      CE('span',{style:{fontWeight:600,color:conseillerColor(e.conseiller)}},e.conseiller||'—'),
+      CE('span',{style:{color:'#6b7280'}},e.qte+' ordinateur(s)'),
+      onEdit&&CE('button',{onClick:()=>onEdit(e._id),style:{fontSize:11,padding:'2px 8px',borderRadius:4,border:'1px solid #3b82f6',background:'#eff6ff',color:'#1d4ed8',cursor:'pointer',marginLeft:'auto'}},'✏️ Ouvrir')
+    ),
+    CE('div',{style:{color:'#9ca3af',fontSize:11}}, ([e.commune,e.lieu].filter(Boolean).join(' · ')||'—')+' — '+fmtPeriode(e.dateDebut,e.dateFin))
+  );
+}
+// Rendu d'une liste de groupes de conflits (par date) — réutilisé par les
+// deux catégories de VueAnomalies (Classe mobile même jour / stock
+// ordinateurs). renderTitre(g) et renderItem(e,g) laissent chaque catégorie
+// personnaliser son contenu, seule la coquille (état vide vs liste) est
+// commune. Une fois la date de l'atelier passée, plus rien à décider — le
+// conflit bascule dans une section "Historique" séparée (grisée), sous les
+// conflits encore actifs/à venir, plutôt que de rester mélangé avec eux.
+function BlocConflits({groupes,vide,bg,border,titreColor,renderTitre,renderItem}){
+  if(groupes.length===0)return CE('div',{style:{textAlign:'center',padding:'40px 0',color:'#16a34a',fontSize:14}},
+    CE('div',{style:{fontSize:32,marginBottom:8}},'✅'), vide
+  );
+  const today=todayLocal();
+  const actifs=groupes.filter(g=>!estConflitPasse(g,today));
+  const historique=groupes.filter(g=>estConflitPasse(g,today));
+  const carte=(g,muted)=>CE('div',{key:g.date,style:{background:muted?'#f8fafc':bg,border:'1px solid '+(muted?'#e2e8f0':border),borderRadius:8,padding:'10px 14px',opacity:muted?.75:1}},
+    CE('div',{style:{fontWeight:700,fontSize:12,color:muted?'#64748b':titreColor,marginBottom:6}},renderTitre(g)),
+    CE('div',{style:{display:'flex',flexDirection:'column',gap:4}}, g.entries.map(e=>renderItem(e,g)))
+  );
+  return CE('div',{style:{display:'flex',flexDirection:'column',gap:8}},
+    actifs.length===0
+      ?CE('div',{style:{textAlign:'center',padding:'16px 0',color:'#16a34a',fontSize:13}},'✅ Aucun conflit actif ou à venir')
+      :actifs.map(g=>carte(g,false)),
+    historique.length>0&&CE('div',{style:{marginTop:4}},
+      CE('div',{style:{fontSize:11,fontWeight:700,color:'#9ca3af',textTransform:'uppercase',letterSpacing:'.04em',margin:'4px 0 6px'}},'🗄️ Historique — dates passées'),
+      CE('div',{style:{display:'flex',flexDirection:'column',gap:8}}, historique.map(g=>carte(g,true)))
+    )
+  );
+}
+// Frise/Gantt du parc d'ordinateurs : une ligne par prêt Classe mobile, une
+// barre du prélèvement au retour sur un axe de dates — les chevauchements
+// sautent aux yeux visuellement, plus besoin de lire chaque carte de
+// conflit une par une. Fenêtre de 28 jours navigable (± 1 semaine par clic).
+const FRISE_NB_JOURS=28;
+function FriseMateriel({entries,onEdit}){
+  const[offset,setOffset]=React.useState(0);
+  const[agrandi,setAgrandi]=React.useState(false);
+  const today=todayLocal();
+  const jourDebut=addJoursIso(today,offset);
+  const jours=React.useMemo(()=>Array.from({length:FRISE_NB_JOURS},(_,i)=>addJoursIso(jourDebut,i)),[jourDebut]);
+  const jourFin=jours[jours.length-1];
+  const prets=React.useMemo(()=>getPretsMateriel(entries),[entries]);
+  const pretsVisibles=React.useMemo(()=>prets.filter(p=>p.fin>=jourDebut&&p.debut<=jourFin).sort((a,b)=>a.debut<b.debut?-1:a.debut>b.debut?1:0),[prets,jourDebut,jourFin]);
+  const totaux=React.useMemo(()=>totauxParJourMateriel(prets,jours),[prets,jours]);
+  // Index (0-based) d'un jour dans la fenêtre visible, clampé aux bornes —
+  // une barre qui déborde de la fenêtre est simplement tronquée à l'affichage.
+  const colIdx=d=>d<jourDebut?0:d>jourFin?jours.length-1:jours.indexOf(d);
+  const MOIS_ABREGE=['jan','fév','mar','avr','mai','jun','jul','aoû','sep','oct','nov','déc'];
+  const jourLabel=d=>{const[y,m,j]=d.split('-');return{num:parseInt(j,10),mois:MOIS_ABREGE[parseInt(m,10)-1],weekend:[0,6].includes(new Date(parseInt(y,10),parseInt(m,10)-1,parseInt(j,10)).getDay())};};
+  const navBoutons=CE('div',{style:{display:'flex',gap:6}},
+    CE('button',{onClick:()=>setOffset(o=>o-7),style:{padding:'4px 10px',border:'1px solid #e2e8f0',borderRadius:6,background:'#fff',cursor:'pointer',fontSize:12}},'◀ Semaine'),
+    CE('button',{onClick:()=>setOffset(0),style:{padding:'4px 10px',border:'1px solid #e2e8f0',borderRadius:6,background:offset===0?'#eff6ff':'#fff',color:offset===0?'#1d4ed8':'#1a202c',cursor:'pointer',fontSize:12}},'Aujourd\'hui'),
+    CE('button',{onClick:()=>setOffset(o=>o+7),style:{padding:'4px 10px',border:'1px solid #e2e8f0',borderRadius:6,background:'#fff',cursor:'pointer',fontSize:12}},'Semaine ▶')
+  );
+  // colWidth/tailleTexte paramétrables : version compacte dans la carte,
+  // version agrandie dans le panneau plein écran (au clic sur 🔍 Agrandir).
+  function renderGrille(colWidth,tailleTexte){
+    const gridTemplate='140px repeat('+jours.length+',minmax('+colWidth+'px,1fr))';
+    if(pretsVisibles.length===0)return CE('div',{style:{textAlign:'center',padding:'24px 0',color:'#16a34a',fontSize:13}},'✅ Aucun prêt Classe mobile sur cette période');
+    return CE('div',{style:{minWidth:jours.length*colWidth+140}},
+      // En-tête jours
+      CE('div',{style:{display:'grid',gridTemplateColumns:gridTemplate,gap:1}},
+        CE('div',null),
+        jours.map(d=>{const l=jourLabel(d);const estAujourdhui=d===today;
+          return CE('div',{key:d,style:{textAlign:'center',fontSize:tailleTexte,color:estAujourdhui?'#1d4ed8':l.weekend?'#cbd5e0':'#9ca3af',fontWeight:estAujourdhui?700:400,padding:'2px 0',borderBottom:estAujourdhui?'2px solid #1d4ed8':'2px solid transparent'}},l.num+' '+l.mois);
+        })
+      ),
+      // Ligne stock cumulé
+      CE('div',{style:{display:'grid',gridTemplateColumns:gridTemplate,gap:1,marginBottom:6}},
+        CE('div',{style:{fontSize:tailleTexte+1,fontWeight:700,color:'#718096',alignSelf:'center'}},'Stock ('+STOCK_ORDINATEURS+')'),
+        jours.map(d=>{const t=totaux[d]||0;const depasse=t>STOCK_ORDINATEURS;
+          return CE('div',{key:d,title:t+' ordinateur(s) réservé(s)',style:{height:colWidth<32?14:22,background:t===0?'#f1f5f9':depasse?'#dc2626':'#86efac',borderRadius:2,fontSize:tailleTexte,color:depasse?'#fff':'#166534',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:700}},t>0?t:'');
+        })
+      ),
+      // Une ligne par prêt
+      CE('div',{style:{display:'flex',flexDirection:'column',gap:colWidth<32?3:6}},
+        pretsVisibles.map(p=>{
+          const debutIdx=colIdx(p.debut),finIdx=colIdx(p.fin),atelierIdx=colIdx(p.dateAtelier);
+          const conflit=(jours.slice(debutIdx,finIdx+1)).some(d=>(totaux[d]||0)>STOCK_ORDINATEURS);
+          return CE('div',{key:p._id,style:{display:'grid',gridTemplateColumns:gridTemplate,gap:1,alignItems:'center'}},
+            CE('div',{style:{fontSize:tailleTexte+2,fontWeight:600,color:conseillerColor(p.conseiller),whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',paddingRight:4}},p.conseiller||'—'),
+            CE('div',{style:{gridColumn:(debutIdx+2)+' / '+(finIdx+3),gridRow:'1',background:conflit?'#fecaca':'#bfdbfe',border:'1px solid '+(conflit?'#dc2626':'#3b82f6'),borderRadius:6,padding:'2px 6px',fontSize:tailleTexte+1,color:conflit?'#7f1d1d':'#1e3a8a',fontWeight:600,cursor:onEdit?'pointer':'default',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'},onClick:()=>onEdit&&onEdit(p._id),title:(p.commune||'')+' · '+p.qte+' ordinateur(s) · '+fmtPeriode(p.debut,p.fin)},
+              p.qte+' 🖥️ '+(p.commune||'')),
+            // Repère du jour de l'atelier (distinct du prélèvement/retour qui
+            // entourent la barre) — un triangle superposé, sans bloquer le
+            // clic sur la barre en dessous.
+            CE('div',{key:p._id+'_mark',title:'Atelier le '+fmtDate(p.dateAtelier),style:{gridColumn:(atelierIdx+2)+' / '+(atelierIdx+3),gridRow:'1',alignSelf:'start',justifySelf:'center',pointerEvents:'none',fontSize:tailleTexte+3,lineHeight:1,color:'#1a202c',transform:'translateY(-70%)'}},'▼')
+          );
+        })
+      )
+    );
+  }
+  const legende=CE('div',{style:{fontSize:10,color:'#94a3b8',marginBottom:8}},'▼ = jour de l\'atelier (entre le prélèvement et le retour de la barre)');
+  return CE(React.Fragment,null,
+    CE('div',{className:'card',style:{maxWidth:'100%',margin:'0 auto 16px',overflowX:'auto'}},
+      CE('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:4,flexWrap:'wrap',gap:8}},
+        CE('div',{style:{display:'flex',alignItems:'center',gap:8}},
+          CE('span',{style:{fontSize:18}},'📊'),
+          CE('h3',{style:{margin:0,fontSize:14,fontWeight:700}},'Frise du parc — '+fmtPeriode(jourDebut,jourFin))
+        ),
+        CE('div',{style:{display:'flex',gap:6,alignItems:'center'}},
+          navBoutons,
+          CE('button',{onClick:()=>setAgrandi(true),title:'Agrandir la frise',style:{padding:'4px 10px',border:'1px solid #3b82f6',borderRadius:6,background:'#eff6ff',color:'#1d4ed8',cursor:'pointer',fontSize:12,fontWeight:600}},'🔍 Agrandir')
+        )
+      ),
+      legende,
+      renderGrille(22,9)
+    ),
+    // Panneau plein écran monté via portail dans document.body : le wrapper
+    // .view-anim (animation d'entrée d'onglet) laisse un
+    // transform:translateY(0) actif en permanence après coup (fill-mode
+    // "both", @keyframes fadeSlideIn), ce qui en fait la containing block de
+    // tout position:fixed à l'intérieur — le panneau se retrouverait coincé
+    // dans la largeur du contenu au lieu de l'écran entier. Le portail sort
+    // du sous-arbre .view-anim et échappe au problème (même bug/correctif
+    // que sur ATELIERS_NEWGEN, 8964b53 — vérifié : NextStep a la même
+    // définition CSS .view-anim/fadeSlideIn).
+    agrandi&&ReactDOM.createPortal(
+      CE(React.Fragment,null,
+        CE('div',{className:'side-panel-overlay',onClick:()=>setAgrandi(false)}),
+        CE('div',{style:{position:'fixed',top:'4%',left:'4%',right:'4%',bottom:'4%',background:'#fff',borderRadius:14,padding:'20px 24px',zIndex:1000,overflow:'auto',boxShadow:'0 10px 40px rgba(0,0,0,.35)'}},
+          CE('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:16,flexWrap:'wrap',gap:8}},
+            CE('h3',{style:{margin:0,fontSize:18,fontWeight:700}},'📊 Frise du parc — '+fmtPeriode(jourDebut,jourFin)),
+            CE('div',{style:{display:'flex',gap:8,alignItems:'center'}},
+              navBoutons,
+              CE('button',{onClick:()=>setAgrandi(false),style:{padding:'4px 12px',border:'1px solid #e2e8f0',borderRadius:6,background:'#fff',cursor:'pointer',fontSize:13}},'✕ Fermer')
+            )
+          ),
+          legende,
+          renderGrille(48,12)
+        )
+      ),
+      document.body
+    )
+  );
+}
+
 // ─── VueAnomalies ──────────────────────────────────────────────────────────
 function VueAnomalies({entries,onEdit,communes:communesProp,apiFetch,showToast,addLog}){
   const CE=React.createElement;
@@ -3088,47 +3253,21 @@ function VueAnomalies({entries,onEdit,communes:communesProp,apiFetch,showToast,a
         CE('span',{className:'chip-dot',style:c!=='Tous'?{background:conseillerColor(c)}:{}}),c))
     ),
     filter==='conflits'
-      ?(conflitsFiltres.length===0
-          ?CE('div',{style:{textAlign:'center',padding:'40px 0',color:'#16a34a',fontSize:14}},
-              CE('div',{style:{fontSize:32,marginBottom:8}},'✅'),
-              'Aucun conflit Classe mobile'
-            )
-          :CE('div',{style:{display:'flex',flexDirection:'column',gap:8}},
-              conflitsFiltres.map(g=>CE('div',{key:g.date,style:{background:'#fff7ed',border:'1px solid #fed7aa',borderRadius:8,padding:'10px 14px'}},
-                CE('div',{style:{fontWeight:700,fontSize:12,color:'#9a3412',marginBottom:6}},'📅 '+fmtDate(g.date)+' — Classe mobile réservée par '+g.entries.length+' conseillers'),
-                CE('div',{style:{display:'flex',flexDirection:'column',gap:4}},
-                  g.entries.map(e=>CE('div',{key:e._id,style:{display:'flex',alignItems:'center',gap:8,fontSize:12,flexWrap:'wrap'}},
-                    CE('span',{style:{fontWeight:600,color:conseillerColor(e.conseiller)}},e.conseiller||'—'),
-                    CE('span',{style:{color:'#6b7280'}},e.thematique||''),
-                    CE('span',{style:{color:'#9ca3af'}},e.commune||''),
-                    (parseInt(e.nb_ordinateurs)>0)&&CE('span',{style:{color:'#9ca3af'}},'🖥️ '+e.nb_ordinateurs+(e.date_retour_materiel?' — retour '+fmtDate(e.date_retour_materiel):'')),
-                    onEdit&&CE('button',{onClick:()=>onEdit(e._id),style:{fontSize:11,padding:'2px 8px',borderRadius:4,border:'1px solid #3b82f6',background:'#eff6ff',color:'#1d4ed8',cursor:'pointer',marginLeft:'auto'}},'✏️ Ouvrir')
-                  ))
-                )
-              ))
-            )
-        )
+      ?CE(BlocConflits,{
+          groupes:conflitsFiltres, vide:'Aucun conflit Classe mobile',
+          bg:'#fff7ed', border:'#fed7aa', titreColor:'#9a3412',
+          renderTitre:g=>'📅 '+fmtDate(g.date)+' — Classe mobile réservée par '+g.entries.length+' conseillers',
+          renderItem:itemConflitMobile(onEdit)
+        })
       :filter==='conflits-ordi'
-      ?(conflitsOrdiFiltres.length===0
-          ?CE('div',{style:{textAlign:'center',padding:'40px 0',color:'#16a34a',fontSize:14}},
-              CE('div',{style:{fontSize:32,marginBottom:8}},'✅'),
-              'Aucun conflit de stock ordinateurs'
-            )
-          :CE('div',{style:{display:'flex',flexDirection:'column',gap:8}},
-              conflitsOrdiFiltres.map(g=>CE('div',{key:g.date+'_'+g.dateFin,style:{background:'#fef2f2',border:'1px solid #fecaca',borderRadius:8,padding:'10px 14px'}},
-                CE('div',{style:{fontWeight:700,fontSize:12,color:'#991b1b',marginBottom:6}},
-                  '📅 '+fmtPeriode(g.date,g.dateFin)+' — jusqu\'à '+g.total+' ordinateurs demandés sur 10 en stock'),
-                CE('div',{style:{display:'flex',flexDirection:'column',gap:4}},
-                  g.entries.map(e=>CE('div',{key:e._id,style:{display:'flex',alignItems:'center',gap:8,fontSize:12,flexWrap:'wrap'}},
-                    CE('span',{style:{fontWeight:600,color:conseillerColor(e.conseiller)}},e.conseiller||'—'),
-                    CE('span',{style:{color:'#6b7280'}},e.qte+' ordi(s)'),
-                    CE('span',{style:{color:'#9ca3af'}},fmtPeriode(e.dateDebut,e.dateFin)),
-                    CE('span',{style:{color:'#9ca3af'}},e.commune||''),
-                    onEdit&&CE('button',{onClick:()=>onEdit(e._id),style:{fontSize:11,padding:'2px 8px',borderRadius:4,border:'1px solid #3b82f6',background:'#eff6ff',color:'#1d4ed8',cursor:'pointer',marginLeft:'auto'}},'✏️ Ouvrir')
-                  ))
-                )
-              ))
-            )
+      ?CE(React.Fragment,null,
+          CE(FriseMateriel,{entries,onEdit}),
+          CE(BlocConflits,{
+            groupes:conflitsOrdiFiltres, vide:'Aucun conflit de stock ordinateurs',
+            bg:'#fef2f2', border:'#fecaca', titreColor:'#991b1b',
+            renderTitre:titreConflitOrdi,
+            renderItem:itemConflitOrdi(onEdit)
+          })
         )
       :filtered.length===0
       ?CE('div',{style:{textAlign:'center',padding:'40px 0',color:'#16a34a',fontSize:14}},

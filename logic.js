@@ -143,7 +143,9 @@ function findMobileClassConflicts(entries) {
 // mêmes conseillers sur chaque jour d'un même chevauchement de plusieurs
 // jours. Chaque conseiller d'un bloc est en conflit avec tous les autres
 // conseillers du même bloc.
-const STOCK_ORDINATEURS = 10;
+// let (pas const) : écrasée par la config GAS (stockOrdinateurs renvoyé par
+// getAll) dans loadData (app.js/admin_app.js), modifiable depuis Admin.
+let STOCK_ORDINATEURS = 10;
 
 // Cumul du jour à partir d'une liste d'items {conseiller, qte} — au max par
 // conseiller, pas en somme : un même conseiller qui enchaîne deux ateliers

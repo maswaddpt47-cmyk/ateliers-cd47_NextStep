@@ -284,6 +284,7 @@ function App(){
       if(data.conseiller_colors){applyColors(data.conseiller_colors);}
       if(data.emails){setEmails(data.emails);addLog('Emails chargés','ok');}
       if(Array.isArray(data.materiels_masques))setMaterielsMasques(data.materiels_masques);
+      if(data.stockOrdinateurs){STOCK_ORDINATEURS=parseInt(data.stockOrdinateurs)||STOCK_ORDINATEURS;}
       addLog(`${incoming.length} ateliers chargés (${annee})`,'ok');
       setLastSync(new Date());
       setSeenIds(prev=>{if(prev.size===0)return new Set(incoming.map(e=>e._id));const nouvs=incoming.filter(e=>!prev.has(e._id));if(nouvs.length>0)setNewEntries(n=>[...nouvs,...n]);return new Set(incoming.map(e=>e._id));});
@@ -1111,9 +1112,14 @@ function VueAdminV10({entries,onRefresh,addLog,conseillersList,onSaveColors,anne
   const[maintenanceMsg,setMaintenanceMsg]=React.useState('');
   const[maintenanceSaving,setMaintenanceSaving]=React.useState(false);
   const[maintenanceLoaded,setMaintenanceLoaded]=React.useState(false);
+  const[stockOrdiDraft,setStockOrdiDraft]=React.useState(STOCK_ORDINATEURS);
+  const[stockOrdiSaving,setStockOrdiSaving]=React.useState(false);
   React.useEffect(()=>{
     apiFetch('getConfig').then(res=>{
-      if(res.ok&&res.config){setMaintenanceOn(res.config['maintenance']==='true');setMaintenanceMsg(res.config['maintenance_msg']||'');}
+      if(res.ok&&res.config){
+        setMaintenanceOn(res.config['maintenance']==='true');setMaintenanceMsg(res.config['maintenance_msg']||'');
+        if(res.config['stock_ordinateurs'])setStockOrdiDraft(parseInt(res.config['stock_ordinateurs'])||STOCK_ORDINATEURS);
+      }
       setMaintenanceLoaded(true);
     }).catch(()=>setMaintenanceLoaded(true));
   },[]);
@@ -1127,6 +1133,18 @@ function VueAdminV10({entries,onRefresh,addLog,conseillersList,onSaveColors,anne
       addLog('Maintenance '+(newState?'activée':'désactivée'),'ok');
     }catch(err){showToast('❌ '+err.message,false);}
     finally{setMaintenanceSaving(false);}
+  }
+  async function handleSaveStockOrdi(){
+    const n=parseInt(stockOrdiDraft);
+    if(!n||n<1){showToast('⚠️ Nombre invalide',false);return;}
+    setStockOrdiSaving(true);
+    try{
+      await apiFetch('setConfig',{key:'stock_ordinateurs',value:String(n)});
+      STOCK_ORDINATEURS=n;setStockOrdiDraft(n);
+      showToast('✅ Stock ordinateurs mis à jour ('+n+')');
+      addLog('Stock ordinateurs → '+n,'ok');
+    }catch(err){showToast('❌ '+err.message,false);}
+    finally{setStockOrdiSaving(false);}
   }
   const resetLabels=['🗑️ Réinitialiser la BDD locale','⚠️ Confirmer (1/2)','🚨 Confirmer définitivement (2/2)'];
   const STATUT_COLOR={'Planifié':'#9683EC','Réalisé':'#70AD47','Annulé':'#FF5050','Non réalisé':'#FFC000','Reporté':'#ED7D31'};
@@ -1219,6 +1237,15 @@ function VueAdminV10({entries,onRefresh,addLog,conseillersList,onSaveColors,anne
           addLog('Vérification cohérence : '+(anomalies.length===0?'OK':anomalies.length+' anomalie'+(anomalies.length>1?'s':'')),anomalies.length===0?'ok':'err');
           alert(msg);
         }},'🔍 Analyser ('+entries.length+' ateliers)')
+      ),
+
+      CE('div',{className:'admin-section'},
+        CE('h3',null,'🖥️ Stock ordinateurs'),
+        CE('p',{style:{fontSize:12,color:'#4a5568',marginBottom:16}},"Nombre d'ordinateurs disponibles pour le prêt aux participants — utilisé par la Frise du parc et les conflits de stock (Anomalies BDD)."),
+        CE('div',{style:{display:'flex',alignItems:'center',gap:10}},
+          CE('input',{type:'number',min:1,value:stockOrdiDraft,onChange:e=>setStockOrdiDraft(e.target.value),style:{width:90,padding:'8px 12px',border:'1.5px solid #e2e8f0',borderRadius:8,fontSize:14,fontWeight:700,textAlign:'center'}}),
+          CE('button',{onClick:handleSaveStockOrdi,disabled:stockOrdiSaving,style:{padding:'8px 16px',background:'#1e3a8a',color:'#fff',border:'none',borderRadius:6,fontSize:12,fontWeight:600,cursor:'pointer'}},stockOrdiSaving?'…':'💾 Enregistrer')
+        )
       ),
 
       CE('div',{className:'admin-section',style:{border:'2px solid '+(maintenanceOn?'#dc2626':'#e2e8f0'),background:maintenanceOn?'#fff5f5':'#fff'}},
