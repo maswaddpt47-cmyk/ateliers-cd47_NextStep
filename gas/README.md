@@ -19,6 +19,17 @@ même commit que le changement frontend correspondant, pour qu'il reflète
 toujours ce qui est censé tourner en production — pas un brouillon en
 cours de test.
 
+## Migrations manuelles ponctuelles
+
+Certaines évolutions ajoutent des colonnes à la feuille `Ateliers_next_step`
+et nécessitent de lancer une fonction une fois, depuis l'éditeur Apps Script
+(menu Exécuter → choisir la fonction → Exécuter), après le déploiement de la
+version qui l'introduit :
+
+- **v10.14.0** — `ajouterColonnesPretMateriel()` : ajoute `nb_ordinateurs`,
+  `date_prelevement_materiel`, `date_retour_materiel` en fin de feuille.
+  Idempotente (relançable sans risque).
+
 À la date du dernier commit touchant ce fichier, l'état exact du
 déploiement réel (confirmé par l'utilisateur ou en attente de test) est
 précisé dans le message de commit.
