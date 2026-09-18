@@ -471,19 +471,26 @@ function App(){
   },[view]);
 
   // ── Handlers ──────────────────────────────────────────────────
-  // skipLog=true juste après un login frais : logLogin (déclenché par
-  // onLoginSuccess) vient déjà de journaliser cet accès dans la même feuille
-  // Logs_Connexion — logAccesIndex y ferait doublon, un appel GAS de plus à
-  // chaque connexion de toute l'équipe. Les autres appelants (restauration
-  // de session, sélecteur de conseiller) n'ont pas ce doublon et gardent le
-  // log.
+  // logAccesIndex supprimé. Il journalisait dans Logs_Connexion, la feuille
+  // qu'alimente déjà logLogin à chaque connexion : sur le chemin du login,
+  // c'était un doublon pur, et il repartait en plus à chaque restauration de
+  // session (donc à chaque rechargement de page) et à chaque changement de
+  // conseiller.
+  //
+  // Son coût a changé de nature avec la file d'attente de gasUnAppel : un
+  // appel « fire-and-forget » ne bloquait rien visuellement tant que tout
+  // partait en parallèle, mais il occupe désormais un créneau de la file et
+  // retarde d'autant les appels dont l'utilisateur attend le résultat.
+  //
+  // La traçabilité des connexions reste assurée par logLogin. Ce qui est
+  // perdu : la trace des changements de conseiller en cours de session, et
+  // celle des restaurations de session. Le paramètre skipLog n'a plus d'objet.
   function handleChoixConseiller(nom, skipLog){
     setFiltreConseiller(nom);
     setShowPicker(false);
     setView(visibility.historique?'historique':visibility.calendrier?'calendrier':visibility.saisie?'saisie':'dashboard');
     if(nom){
       sessionStorage.setItem('gs_conseiller', nom);
-      if(!skipLog) apiFetch('logAccesIndex',{conseiller:nom,userAgent:navigator.userAgent}).catch(()=>{});
     }
   }
   function handleEdit(id){setEditingId(id);setPrefillData(null);setView('saisie');}
