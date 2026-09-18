@@ -203,8 +203,13 @@ function findOrdinateursConflicts(entries, stock = STOCK_ORDINATEURS) {
     if (e.statut === 'Annulé') return;
     if (!e.date) return;
     if (!matIncludes(e.materiel, 'Classe mobile')) return;
-    const qte = parseInt(e.nb_ordinateurs) || 0;
-    if (qte <= 0) return;
+    // Classe mobile cochée sans quantité renseignée (entrées historiques
+    // antérieures au champ obligatoire, ou import) → on suppose 1 ordinateur
+    // plutôt que d'exclure l'entrée : sinon elle disparaît silencieusement
+    // de la frise/Gantt alors qu'elle réserve bien la Classe mobile ce
+    // jour-là (même principe que ATELIERS_NEWGEN, confirmé en prod le
+    // 18/09/2026 — conseillers manquants dans le Gantt malgré des conflits).
+    const qte = parseInt(e.nb_ordinateurs) || 1;
     const { debut, fin } = periodePretMateriel(e);
     // Garde-fou : une date de prélèvement/retour saisie à la main peut être
     // erronée (année oubliée, inversion jour/mois...) — on plafonne à 90
@@ -247,12 +252,11 @@ function findOrdinateursConflicts(entries, stock = STOCK_ORDINATEURS) {
 function getPretsMateriel(entries) {
   return (entries || [])
     .filter(e => e.statut !== 'Annulé' && e.date
-      && matIncludes(e.materiel, 'Classe mobile')
-      && (parseInt(e.nb_ordinateurs) || 0) > 0)
+      && matIncludes(e.materiel, 'Classe mobile'))
     .map(e => {
       const { debut, fin } = periodePretMateriel(e);
       return {
-        _id: e._id, conseiller: e.conseiller, qte: parseInt(e.nb_ordinateurs) || 0,
+        _id: e._id, conseiller: e.conseiller, qte: parseInt(e.nb_ordinateurs) || 1,
         commune: e.commune || '', lieu: e.lieu || '', thematique: e.thematique || '',
         dateAtelier: e.date, debut, fin,
       };

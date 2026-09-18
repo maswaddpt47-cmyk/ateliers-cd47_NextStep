@@ -348,12 +348,23 @@ describe('findOrdinateursConflicts', () => {
     assert.equal(findOrdinateursConflicts(entries).length, 0);
   });
 
-  it('ignore nb_ordinateurs manquant ou à 0', () => {
+  it('nb_ordinateurs manquant ou à 0 → 1 supposé (pas assez pour dépasser le stock par défaut à lui seul)', () => {
     const entries = [
       { statut: 'Planifié', date: '2026-10-01', conseiller: 'Alice', materiel: ['Classe mobile'] },
       { statut: 'Planifié', date: '2026-10-01', conseiller: 'Bob',   materiel: ['Classe mobile'], nb_ordinateurs: 0 },
     ];
     assert.equal(findOrdinateursConflicts(entries).length, 0);
+  });
+
+  it('Classe mobile cochée sans quantité renseignée → comptée quand même (qte 1), peut dépasser un petit stock', () => {
+    // Entrées historiques (antérieures au champ obligatoire) ou import : ne
+    // doivent pas disparaître silencieusement du calcul de conflits — même
+    // principe que ATELIERS_NEWGEN (confirmé en prod le 18/09/2026).
+    const entries = [
+      { statut: 'Planifié', date: '2026-10-01', conseiller: 'Alice', materiel: ['Classe mobile'] },
+      { statut: 'Planifié', date: '2026-10-01', conseiller: 'Bob',   materiel: ['Classe mobile'], nb_ordinateurs: 0 },
+    ];
+    assert.equal(findOrdinateursConflicts(entries, 1).length, 1);
   });
 
   it('accepte un stock personnalisé en 2e argument', () => {
@@ -509,13 +520,21 @@ describe('getPretsMateriel', () => {
     assert.equal(prets.length, 1);
     assert.deepEqual(prets[0], { _id: 'a1', conseiller: 'Alice', qte: 6, commune: 'FUMEL', lieu: 'MFR', thematique: 'Bureautique', dateAtelier: '2026-11-20', debut: '2026-11-17', fin: '2026-11-24' });
   });
-  it('ignore les ateliers Annulés, sans Classe mobile ou sans quantité', () => {
+  it('ignore les ateliers Annulés ou sans Classe mobile', () => {
     const entries = [
       { statut: 'Annulé', date: '2026-11-01', conseiller: 'A', materiel: ['Classe mobile'], nb_ordinateurs: 4 },
       { statut: 'Planifié', date: '2026-11-01', conseiller: 'B', materiel: ['Tablette'], nb_ordinateurs: 4 },
-      { statut: 'Planifié', date: '2026-11-01', conseiller: 'C', materiel: ['Classe mobile'], nb_ordinateurs: 0 },
     ];
     assert.deepEqual(getPretsMateriel(entries), []);
+  });
+
+  it('Classe mobile cochée sans quantité renseignée → figure quand même dans la liste (qte 1 par défaut)', () => {
+    const entries = [
+      { _id: 'c1', statut: 'Planifié', date: '2026-11-01', conseiller: 'C', materiel: ['Classe mobile'], nb_ordinateurs: 0 },
+    ];
+    const prets = getPretsMateriel(entries);
+    assert.equal(prets.length, 1);
+    assert.equal(prets[0].qte, 1);
   });
   it('trie par date de début (prélèvement inclus)', () => {
     const entries = [
