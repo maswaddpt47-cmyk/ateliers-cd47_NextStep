@@ -11,6 +11,7 @@ const {
   filterMaterielsVisibles,
   totalJourParConseiller, periodePretMateriel, findOrdinateursConflicts,
   getPretsMateriel, totauxParJourMateriel, estConflitPasse,
+  estWeekend, veilleOuvree, lendemainOuvre,
 } = require('./logic.js');
 
 // ── STATUTS_VALIDES ───────────────────────────────────────────────────────────
@@ -283,9 +284,12 @@ describe('findOrdinateursConflicts', () => {
   });
 
   it('détecte un conflit si le cumul du même jour dépasse le stock', () => {
+    // Prélèvement/retour pinnés au jour même de l'atelier pour isoler le cas
+    // testé (cumul un jour donné) de la déduction veille/lendemain ouvrés
+    // (testée séparément sur periodePretMateriel/veilleOuvree/lendemainOuvre).
     const entries = [
-      { statut: 'Planifié', date: '2026-10-01', conseiller: 'Alice', materiel: ['Classe mobile'], nb_ordinateurs: 6 },
-      { statut: 'Planifié', date: '2026-10-01', conseiller: 'Bob',   materiel: ['Classe mobile'], nb_ordinateurs: 6 },
+      { statut: 'Planifié', date: '2026-10-01', date_prelevement_materiel: '2026-10-01', date_retour_materiel: '2026-10-01', conseiller: 'Alice', materiel: ['Classe mobile'], nb_ordinateurs: 6 },
+      { statut: 'Planifié', date: '2026-10-01', date_prelevement_materiel: '2026-10-01', date_retour_materiel: '2026-10-01', conseiller: 'Bob',   materiel: ['Classe mobile'], nb_ordinateurs: 6 },
     ];
     const conflits = findOrdinateursConflicts(entries);
     assert.equal(conflits.length, 1);
@@ -295,8 +299,8 @@ describe('findOrdinateursConflicts', () => {
 
   it('détecte un conflit sur une période de prêt qui chevauche (dates différentes)', () => {
     const entries = [
-      { statut: 'Planifié', date: '2026-10-01', date_retour_materiel: '2026-10-05', conseiller: 'Alice', materiel: ['Classe mobile'], nb_ordinateurs: 6 },
-      { statut: 'Planifié', date: '2026-10-03', conseiller: 'Bob', materiel: ['Classe mobile'], nb_ordinateurs: 6 },
+      { statut: 'Planifié', date: '2026-10-01', date_prelevement_materiel: '2026-10-01', date_retour_materiel: '2026-10-05', conseiller: 'Alice', materiel: ['Classe mobile'], nb_ordinateurs: 6 },
+      { statut: 'Planifié', date: '2026-10-03', date_prelevement_materiel: '2026-10-03', date_retour_materiel: '2026-10-03', conseiller: 'Bob', materiel: ['Classe mobile'], nb_ordinateurs: 6 },
     ];
     const conflits = findOrdinateursConflicts(entries);
     assert.equal(conflits.length, 1);
@@ -306,7 +310,7 @@ describe('findOrdinateursConflicts', () => {
   it('la période part du prélèvement, pas de la date de l\'atelier (ex. retrait avant l\'atelier)', () => {
     const entries = [
       { statut: 'Planifié', date: '2026-11-20', date_prelevement_materiel: '2026-11-17', date_retour_materiel: '2026-11-24', conseiller: 'Alice', materiel: ['Classe mobile'], nb_ordinateurs: 6 },
-      { statut: 'Planifié', date: '2026-11-18', conseiller: 'Bob', materiel: ['Classe mobile'], nb_ordinateurs: 6 },
+      { statut: 'Planifié', date: '2026-11-18', date_prelevement_materiel: '2026-11-18', date_retour_materiel: '2026-11-18', conseiller: 'Bob', materiel: ['Classe mobile'], nb_ordinateurs: 6 },
     ];
     const conflits = findOrdinateursConflicts(entries);
     assert.equal(conflits.length, 1);
@@ -323,8 +327,8 @@ describe('findOrdinateursConflicts', () => {
 
   it('pas de conflit si les périodes de prêt ne se chevauchent pas', () => {
     const entries = [
-      { statut: 'Planifié', date: '2026-10-01', date_retour_materiel: '2026-10-02', conseiller: 'Alice', materiel: ['Classe mobile'], nb_ordinateurs: 6 },
-      { statut: 'Planifié', date: '2026-10-03', conseiller: 'Bob', materiel: ['Classe mobile'], nb_ordinateurs: 6 },
+      { statut: 'Planifié', date: '2026-10-01', date_prelevement_materiel: '2026-10-01', date_retour_materiel: '2026-10-02', conseiller: 'Alice', materiel: ['Classe mobile'], nb_ordinateurs: 6 },
+      { statut: 'Planifié', date: '2026-10-03', date_prelevement_materiel: '2026-10-03', date_retour_materiel: '2026-10-03', conseiller: 'Bob', materiel: ['Classe mobile'], nb_ordinateurs: 6 },
     ];
     assert.equal(findOrdinateursConflicts(entries).length, 0);
   });
@@ -363,8 +367,8 @@ describe('findOrdinateursConflicts', () => {
 
   it('date_retour_materiel antérieure ou égale à date n\'étend pas la période', () => {
     const entries = [
-      { statut: 'Planifié', date: '2026-10-01', date_retour_materiel: '2026-09-28', conseiller: 'Alice', materiel: ['Classe mobile'], nb_ordinateurs: 6 },
-      { statut: 'Planifié', date: '2026-10-02', conseiller: 'Bob', materiel: ['Classe mobile'], nb_ordinateurs: 6 },
+      { statut: 'Planifié', date: '2026-10-01', date_prelevement_materiel: '2026-10-01', date_retour_materiel: '2026-09-28', conseiller: 'Alice', materiel: ['Classe mobile'], nb_ordinateurs: 6 },
+      { statut: 'Planifié', date: '2026-10-02', date_prelevement_materiel: '2026-10-02', date_retour_materiel: '2026-10-02', conseiller: 'Bob', materiel: ['Classe mobile'], nb_ordinateurs: 6 },
     ];
     assert.equal(findOrdinateursConflicts(entries).length, 0);
   });
@@ -375,8 +379,8 @@ describe('findOrdinateursConflicts', () => {
 
   it('fusionne les jours consécutifs en conflit en un seul bloc', () => {
     const entries = [
-      { statut: 'Planifié', date: '2026-10-01', date_retour_materiel: '2026-10-04', conseiller: 'Alice', materiel: ['Classe mobile'], nb_ordinateurs: 6 },
-      { statut: 'Planifié', date: '2026-10-01', date_retour_materiel: '2026-10-02', conseiller: 'Bob',   materiel: ['Classe mobile'], nb_ordinateurs: 6 },
+      { statut: 'Planifié', date: '2026-10-01', date_prelevement_materiel: '2026-10-01', date_retour_materiel: '2026-10-04', conseiller: 'Alice', materiel: ['Classe mobile'], nb_ordinateurs: 6 },
+      { statut: 'Planifié', date: '2026-10-01', date_prelevement_materiel: '2026-10-01', date_retour_materiel: '2026-10-02', conseiller: 'Bob',   materiel: ['Classe mobile'], nb_ordinateurs: 6 },
     ];
     const conflits = findOrdinateursConflicts(entries);
     assert.equal(conflits.length, 1);
@@ -387,10 +391,10 @@ describe('findOrdinateursConflicts', () => {
 
   it('ne fusionne pas deux blocs séparés par un jour sans conflit', () => {
     const entries = [
-      { statut: 'Planifié', date: '2026-10-01', conseiller: 'Alice', materiel: ['Classe mobile'], nb_ordinateurs: 6 },
-      { statut: 'Planifié', date: '2026-10-01', conseiller: 'Bob',   materiel: ['Classe mobile'], nb_ordinateurs: 6 },
-      { statut: 'Planifié', date: '2026-10-05', conseiller: 'Cynthia', materiel: ['Classe mobile'], nb_ordinateurs: 6 },
-      { statut: 'Planifié', date: '2026-10-05', conseiller: 'David',   materiel: ['Classe mobile'], nb_ordinateurs: 6 },
+      { statut: 'Planifié', date: '2026-10-01', date_prelevement_materiel: '2026-10-01', date_retour_materiel: '2026-10-01', conseiller: 'Alice', materiel: ['Classe mobile'], nb_ordinateurs: 6 },
+      { statut: 'Planifié', date: '2026-10-01', date_prelevement_materiel: '2026-10-01', date_retour_materiel: '2026-10-01', conseiller: 'Bob',   materiel: ['Classe mobile'], nb_ordinateurs: 6 },
+      { statut: 'Planifié', date: '2026-10-05', date_prelevement_materiel: '2026-10-05', date_retour_materiel: '2026-10-05', conseiller: 'Cynthia', materiel: ['Classe mobile'], nb_ordinateurs: 6 },
+      { statut: 'Planifié', date: '2026-10-05', date_prelevement_materiel: '2026-10-05', date_retour_materiel: '2026-10-05', conseiller: 'David',   materiel: ['Classe mobile'], nb_ordinateurs: 6 },
     ];
     const conflits = findOrdinateursConflicts(entries);
     assert.equal(conflits.length, 2);
@@ -400,8 +404,8 @@ describe('findOrdinateursConflicts', () => {
 
   it('chaque entrée porte commune/lieu/dateDebut/dateFin pour l\'affichage', () => {
     const entries = [
-      { statut: 'Planifié', date: '2026-10-01', date_retour_materiel: '2026-10-03', conseiller: 'Alice', commune: 'AGEN', lieu: 'MFR Agen', materiel: ['Classe mobile'], nb_ordinateurs: 6 },
-      { statut: 'Planifié', date: '2026-10-01', conseiller: 'Bob', commune: 'NERAC', lieu: 'CMS Nérac', materiel: ['Classe mobile'], nb_ordinateurs: 6 },
+      { statut: 'Planifié', date: '2026-10-01', date_prelevement_materiel: '2026-10-01', date_retour_materiel: '2026-10-03', conseiller: 'Alice', commune: 'AGEN', lieu: 'MFR Agen', materiel: ['Classe mobile'], nb_ordinateurs: 6 },
+      { statut: 'Planifié', date: '2026-10-01', date_prelevement_materiel: '2026-10-01', date_retour_materiel: '2026-10-01', conseiller: 'Bob', commune: 'NERAC', lieu: 'CMS Nérac', materiel: ['Classe mobile'], nb_ordinateurs: 6 },
     ];
     const conflits = findOrdinateursConflicts(entries);
     const alice = conflits[0].entries.find(e => e.conseiller === 'Alice');
@@ -413,18 +417,41 @@ describe('findOrdinateursConflicts', () => {
     assert.equal(bob.dateDebut, '2026-10-01');
     assert.equal(bob.dateFin, '2026-10-01');
   });
+
+  it('sans dates renseignées, détecte un conflit à travers un week-end (veille/lendemain ouvrés)', () => {
+    // Alice : atelier vendredi 2026-09-25, pas de dates → prêt du jeudi 09-24
+    // au lundi 09-28 (lendemain ouvré, saute le week-end).
+    // Bob : atelier lundi 2026-09-28, pas de dates → prêt du vendredi 09-25
+    // (veille ouvrée) au mardi 09-29. Les deux périodes se chevauchent sur
+    // le week-end alors qu'aucune date n'a été saisie par les conseillers.
+    const entries = [
+      { statut: 'Planifié', date: '2026-09-25', conseiller: 'Alice', materiel: ['Classe mobile'], nb_ordinateurs: 6 },
+      { statut: 'Planifié', date: '2026-09-28', conseiller: 'Bob',   materiel: ['Classe mobile'], nb_ordinateurs: 6 },
+    ];
+    const conflits = findOrdinateursConflicts(entries);
+    assert.equal(conflits.length, 1);
+    assert.equal(conflits[0].date, '2026-09-25');
+  });
 });
 
 // ── periodePretMateriel ─────────────────────────────────────────────────────
 describe('periodePretMateriel', () => {
-  it('sans prélèvement ni retour, la période est réduite à la date de l\'atelier', () => {
-    const p = periodePretMateriel({ date: '2026-10-01' });
-    assert.deepEqual(p, { debut: '2026-10-01', fin: '2026-10-01' });
+  it('sans prélèvement ni retour, on suppose veille/lendemain ouvrés (ex. atelier un lundi → prélèvement le vendredi)', () => {
+    // 2026-09-21 est un lundi : la veille ouvrée saute dimanche (09-20) et
+    // samedi (09-19) pour retomber sur vendredi (09-18).
+    const p = periodePretMateriel({ date: '2026-09-21' });
+    assert.deepEqual(p, { debut: '2026-09-18', fin: '2026-09-22' });
   });
-  it('prélèvement avant la date de l\'atelier étend le début', () => {
+  it('atelier un mercredi (jour ouvré des deux côtés) → veille/lendemain simples, pas de saut de week-end nécessaire', () => {
+    const p = periodePretMateriel({ date: '2026-09-23' });
+    assert.deepEqual(p, { debut: '2026-09-22', fin: '2026-09-24' });
+  });
+  it('prélèvement avant la date de l\'atelier étend le début ; le retour non renseigné retombe sur le lendemain ouvré', () => {
+    // 2026-11-20 est un vendredi : le lendemain ouvré saute samedi/dimanche
+    // et retombe sur lundi 2026-11-23.
     const p = periodePretMateriel({ date: '2026-11-20', date_prelevement_materiel: '2026-11-17' });
     assert.equal(p.debut, '2026-11-17');
-    assert.equal(p.fin, '2026-11-20');
+    assert.equal(p.fin, '2026-11-23');
   });
   it('un prélèvement après la date de l\'atelier est ignoré (repli sur la date)', () => {
     const p = periodePretMateriel({ date: '2026-11-20', date_prelevement_materiel: '2026-11-25' });
@@ -437,6 +464,38 @@ describe('periodePretMateriel', () => {
   it('prélèvement et retour combinés', () => {
     const p = periodePretMateriel({ date: '2026-11-20', date_prelevement_materiel: '2026-11-17', date_retour_materiel: '2026-11-24' });
     assert.deepEqual(p, { debut: '2026-11-17', fin: '2026-11-24' });
+  });
+});
+
+// ── estWeekend / veilleOuvree / lendemainOuvre ────────────────────────────────
+describe('estWeekend', () => {
+  it('samedi → true',   () => assert.equal(estWeekend('2026-09-19'), true));
+  it('dimanche → true', () => assert.equal(estWeekend('2026-09-20'), true));
+  it('lundi → false',   () => assert.equal(estWeekend('2026-09-21'), false));
+  it('vendredi → false',() => assert.equal(estWeekend('2026-09-25'), false));
+});
+
+describe('veilleOuvree', () => {
+  it('lundi → vendredi précédent (saute samedi/dimanche)', () => {
+    assert.equal(veilleOuvree('2026-09-21'), '2026-09-18');
+  });
+  it('mardi à vendredi → simplement la veille (jour ouvré)', () => {
+    assert.equal(veilleOuvree('2026-09-23'), '2026-09-22'); // mercredi → mardi
+  });
+  it('samedi → vendredi (le jour même, pas -2)', () => {
+    assert.equal(veilleOuvree('2026-09-19'), '2026-09-18');
+  });
+});
+
+describe('lendemainOuvre', () => {
+  it('vendredi → lundi suivant (saute samedi/dimanche)', () => {
+    assert.equal(lendemainOuvre('2026-09-25'), '2026-09-28');
+  });
+  it('lundi à jeudi → simplement le lendemain (jour ouvré)', () => {
+    assert.equal(lendemainOuvre('2026-09-23'), '2026-09-24'); // mercredi → jeudi
+  });
+  it('dimanche → lundi (le jour même, pas +2)', () => {
+    assert.equal(lendemainOuvre('2026-09-20'), '2026-09-21');
   });
 });
 
