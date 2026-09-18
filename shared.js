@@ -1123,6 +1123,18 @@ function getItemColor(tabKey,name){
   if(tabKey==='materiels')return'#0891b2';
   return'#94a3b8';
 }
+// ── Après une écriture réussie : appliquer en local, ne rien redemander ────
+// app.js / admin_app.js exposent ces points d'entrée (voir le bloc
+// « Application locale après écriture »). Ils mettent l'entrée à jour dans la
+// liste déjà chargée et programment une resynchro différée, au lieu du getAll
+// complet qui repartait immédiatement derrière chaque sauvegarde.
+// Le repli sur onRefresh couvre le cas où un appelant n'aurait pas ce
+// mécanisme (rien ne doit pouvoir laisser l'écran désynchronisé).
+function entreeSauvegardee(entry, onRefresh){
+  if(window.__entreeSauvegardee) window.__entreeSauvegardee(entry);
+  else if(onRefresh) onRefresh();
+}
+
 function VueListes({lists,onSave,onClose,emails,onSaveEmails,materielsMasques,onSaveMasques}){
   const TABS=[{key:'statuts',label:'Statuts'},{key:'conseillers',label:'Conseillers'},{key:'publics',label:'Types de public'},{key:'materiels',label:'Matériels'}];
   const[activeTab,setActiveTab]=React.useState('statuts');
@@ -1472,6 +1484,7 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
       showToast(editId?'✅ Atelier modifié':'✅ Atelier enregistré');
       if(onNewEntry&&!editId)onNewEntry(entry);
       if(!editId) window._pendingHighlight=[entry._id];
+      entreeSauvegardee(entry);
       onSaved();reset();
     }catch(err){showToast('❌ '+err.message,false);}
     finally{setSaving(false);}
@@ -1508,7 +1521,7 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
         }catch(_){}
       }
       const succeeded=entries.filter((_,i)=>failedIdx.indexOf(i)===-1);
-      succeeded.forEach(entry=>{ if(onNewEntry)onNewEntry(entry); });
+      succeeded.forEach(entry=>{ if(onNewEntry)onNewEntry(entry); entreeSauvegardee(entry); });
       window._pendingHighlight=succeeded.map(e=>e._id);
       if(!res.ok){
         const failedDates=failedIdx.map(i=>(entries[i]&&entries[i].date)||('#'+(i+1))).join(', ');
@@ -1867,7 +1880,7 @@ function VueHistorique({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
       const updated={...panel,statut:panelStatut,inscrits:panelInscrits===''?'':parseInt(panelInscrits)||0,presents:panelPresents===''?'':parseInt(panelPresents)||0,thematique:panelThematique,remarques:panelNote};
       const res=await apiFetch('saveEntry',{entry:updated});
       if(!res.ok)throw new Error(res.error);
-      showToast('✅ Mis à jour');closePanel();onRefresh();
+      showToast('✅ Mis à jour');closePanel();entreeSauvegardee(updated, onRefresh);
     }catch(err){showToast('❌ '+err.message,false);}
     finally{setSaving(false);}
   }
@@ -2142,7 +2155,7 @@ function VueCalendrier({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
       const updated={...panel,statut:panelStatut,inscrits:panelInscrits===''?'':parseInt(panelInscrits)||0,presents:panelPresents===''?'':parseInt(panelPresents)||0,thematique:panelThematique,remarques:panelNote};
       const res=await apiFetch('saveEntry',{entry:updated});
       if(!res.ok)throw new Error(res.error);
-      showToast('✅ Mis à jour');closePanel();onRefresh();
+      showToast('✅ Mis à jour');closePanel();entreeSauvegardee(updated, onRefresh);
     }catch(err){showToast('❌ '+err.message,false);}
     finally{setSaving(false);}
   }
@@ -3319,7 +3332,7 @@ function VueAnomalies({entries,onEdit,communes:communesProp,apiFetch,showToast,a
     try{
       const updated={...entry,commune:valeur.trim()};
       const res=await apiFetch('saveEntry',{entry:updated});
-      if(res&&res.ok){setSaved(s=>({...s,[entry._id]:true}));if(showToast)showToast('✅ Commune corrigée');if(addLog)addLog('Commune corrigée : '+entry._id,'ok');}
+      if(res&&res.ok){setSaved(s=>({...s,[entry._id]:true}));entreeSauvegardee(updated);if(showToast)showToast('✅ Commune corrigée');if(addLog)addLog('Commune corrigée : '+entry._id,'ok');}
       else{if(showToast)showToast('⚠️ Erreur sauvegarde');}
     }catch(err){if(showToast)showToast('⚠️ Erreur : '+err.message);}
     setSaving(null);

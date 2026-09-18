@@ -313,6 +313,60 @@ function App(){
     return()=>{window.gasLogHook=null;};
   },[]);
 
+
+  // ── Application locale après écriture (au lieu d'un rechargement complet) ──
+  // Chaque saveEntry/delete était suivi d'un getAll complet. Deux appels en
+  // série dont le second tombait systématiquement dans son pire cas : côté
+  // GAS, toute écriture purge le cache de réponse, donc le rechargement qui
+  // suit immédiatement relit forcément tout le classeur.
+  //
+  // Relevé du 18/09/2026 (Journal client) : un cycle d'enregistrement
+  // contenait un « getAll ok en 11,8 s » juste après le saveEntry ; un autre
+  // en contenait quatre (404 en 26,5 s, 33,3 s, 27,3 s, 9,4 s puis ok en
+  // 2,3 s), soit l'essentiel des 3 min 30 observées.
+  //
+  // L'entrée écrite est déjà connue du client : on l'applique en local et on
+  // ne redemande rien. Seul _n (numéro de ligne) est attribué côté serveur —
+  // il est purement cosmétique (colonne N° de l'export, libellé de la modale
+  // de suppression) et le mode lot crée déjà des entrées avec _n:''. La
+  // resynchro différée ci-dessous le récupère, avec les écritures des
+  // collègues.
+  const resyncRef = React.useRef(null);
+  function planifierResync(){
+    if(resyncRef.current) clearTimeout(resyncRef.current);
+    // Différé, et non enchaîné : c'est tout l'intérêt. Repartir tout de suite
+    // remettrait le getAll en concurrence avec le saveEntry qui vient de
+    // finir — exactement la rafale qu'on cherche à supprimer. Le délai est
+    // remis à zéro à chaque écriture, donc une série de saisies ne déclenche
+    // qu'une seule resynchro, une fois l'utilisateur au repos.
+    resyncRef.current = setTimeout(()=>{ resyncRef.current=null; loadData(1,true); }, 30000);
+  }
+  React.useEffect(()=>()=>{ if(resyncRef.current) clearTimeout(resyncRef.current); },[]);
+
+  function appliquerEntreeLocale(entry){
+    if(!entry||!entry._id) return;
+    setEntries(prev=>{
+      const i=prev.findIndex(e=>e._id===entry._id);
+      if(i===-1) return [...prev, entry];
+      const copie=prev.slice();
+      copie[i]={...prev[i], ...entry};
+      return copie;
+    });
+    planifierResync();
+  }
+  function retirerEntreeLocale(id){
+    if(!id) return;
+    setEntries(prev=>prev.filter(e=>e._id!==id));
+    planifierResync();
+  }
+  // shared.js (VueSaisie, panneaux d'Historique et de Calendrier) appelle ces
+  // deux points d'entrée après une écriture réussie.
+  React.useEffect(()=>{
+    window.__entreeSauvegardee = appliquerEntreeLocale;
+    window.__entreeSupprimee   = retirerEntreeLocale;
+    return()=>{ window.__entreeSauvegardee=null; window.__entreeSupprimee=null; };
+  },[]);
+
   const isFirstLoad=React.useRef(true);
   React.useEffect(()=>{loadCommunes47().catch(()=>{});},[]);
   // Attendre l'authentification avant de charger : sur l'écran de login, ces
@@ -339,12 +393,12 @@ function App(){
     return()=>clearInterval(id);
   },[annee,auth]);
   async function handleDelete(id){
-    try{const res=await apiFetch('delete',{_id:id});if(!res.ok)throw new Error(res.error);showToast('✅ Atelier supprimé');addLog('Suppression '+id,'ok');loadData();}
+    try{const res=await apiFetch('delete',{_id:id});if(!res.ok)throw new Error(res.error);showToast('✅ Atelier supprimé');addLog('Suppression '+id,'ok');retirerEntreeLocale(id);}
     catch(err){showToast('❌ '+err.message,false);}
   }
 
   function handleEdit(id){setEditingId(id);setPrefillData(null);setView('saisie');}
-  function handleSaved(){loadData();setView('historique');}
+  function handleSaved(){setView('historique');}
 
   function handleDuplicate(entry){
     const{_id,_n,date,horaire,ampm,inscrits,presents,remarques,...rest}=entry;
