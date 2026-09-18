@@ -508,44 +508,61 @@ const GS_URL = window.GS_URL_OVERRIDE || 'https://script.google.com/macros/s/AKf
 // secondes plus tard, et un getAll de 221 ateliers servi en 2,3 s : quand la
 // réponse arrive, elle arrive vite. Le cache serveur ajouté côté GAS fait son
 // travail, et l'exécution n'est pas le goulot — c'est le phénomène 2, la
-// livraison, qui domine. Le plafond de tentatives passe donc de 2 à 4 (voir
-// GAS_MAX_TENTATIVES) : le bon réflexe face à un raté de livraison est de
-// redemander, pas de renoncer.
+// livraison, qui domine. Le bon réflexe face à un raté de livraison est donc
+// de couper tôt et de redemander, pas de patienter — voir les plafonds
+// ci-dessous.
 const GAS_RETRYABLE_HTTP = [404, 408, 429, 500, 502, 503, 504];
 
-// ── Nombre de tentatives ───────────────────────────────────────────────────
-// Relevé du 18/09/2026 sur un poste mobile : sur 30 appels journalisés, 11 en
-// HTTP 404 et 5 abandonnés à 35 s — soit environ un sur deux qui n'aboutit
-// pas. Avec les 2 tentatives précédentes, il restait ~25 % d'échecs remontés
-// à l'écran ("Erreur : Google a répondu HTTP 404"), ce que le Journal
-// confirme : l'équipe devait relancer l'opération à la main.
+// ── Plafonds et tentatives — politique portée d'ATELIERS_NEWGEN ────────────
+// Mesuré sur NEWGEN le 18/09/2026 (journal Admin, PC et Android, 221 ateliers,
+// même backend Apps Script) : le comportement est BIMODAL, pas « lent ».
 //
-// À 4 tentatives, le même taux unitaire laisse ~6 % d'échecs visibles. Ce
-// n'est pas gratuit — dans le pire cas on attend plus longtemps avant de
-// renoncer — mais les reprises observées aboutissent vite quand elles
-// aboutissent (280 ms, 1,1 s, 2,3 s, 2,7 s, 8,0 s au Journal), donc le délai
-// jusqu'au succès raccourcit en pratique au lieu de s'allonger.
-const GAS_MAX_TENTATIVES = 4;
+//   Livraison réussie          Livraison ratée
+//   getAll ok en 1,1 s         getAll HTTP 404 en 27,3 s
+//   getComptes ok en 1,8 s     getConfig HTTP 404 en 29,8 s
+//   checkPassword ok en 2,7 s  getAll abandonné après 35 s
+//
+// Un 404 authentique revient en ~200 ms. Un 404 au bout de 27 s signifie que
+// la réponse a été PERDUE en chemin, pas qu'elle arrive en retard : au-delà
+// d'une dizaine de secondes, continuer d'attendre ne la fera jamais venir.
+//
+// D'où des plafonds courts. L'ancien plafond de 35 s transformait chaque
+// livraison ratée en 35 s d'écran d'attente : NEWGEN a relevé 84 s pour une
+// connexion, dont 51 d'attente pure sur des appels déjà morts. Couper tôt et
+// redemander est strictement meilleur que patienter.
+const GAS_TIMEOUT_LECTURE_MS      = 12000;
+const GAS_TIMEOUT_ECRITURE_MS     = 12000;
+const GAS_TIMEOUT_ECRITURE_LOT_MS = 25000;  // saveMany : N entrées dans la même exécution
 
-// Première reprise quasi immédiate : un 404 de livraison est un raté ponctuel
-// de la redirection, pas un serveur surchargé qu'il faudrait ménager — le
-// CLAUDE.md relève un succès en 280 ms juste après un 404 à 25,8 s. Les
-// reprises suivantes s'espacent, au cas où le problème serait cette fois
-// global (500/503).
-const GAS_PAUSES_MS = [400, 1500, 4000];
+// Les écritures sont plafonnées aussi court que les lectures : rejouer une
+// écriture est sûr ici. Le client génère toujours _id avant l'envoi et
+// actionSaveEntry retrouve la ligne par cet _id pour la remplacer au lieu
+// d'en créer une seconde (vérifié en production sur NEWGEN le 18/09/2026 :
+// saveEntry #1 abandonné, #2 réussi, aucun doublon dans la feuille).
+const GAS_ACTIONS_ECRITURE = new Set([
+  'saveEntry','saveMany','delete','saveLists','saveConfig','setConfig',
+  'saveVisibility','saveColors','saveEmails','saveCompte',
+  'resetPassword','setPassword','selfSetPassword','logLogin'
+]);
+const GAS_ACTIONS_LOT = new Set(['saveMany']);
 
-// Plafond de temps par appel. Sans lui, un fetch() qui ne se résout jamais
-// (fréquent en 4G mobile : coupure silencieuse, NAT qui abandonne la
-// connexion sans erreur) laisse l'utilisateur bloqué indéfiniment — le
-// compteur continue de tourner (minuteur local, indépendant du réseau) sans
-// qu'aucune reprise ne puisse jamais se déclencher, puisque le catch() qui
-// porte la logique de retry n'est atteint que si fetch() finit par échouer.
-// Observé en production : 73 s d'attente puis obligation de recharger la
-// page à la main. Ce plafond n'est PAS un pari sur "GAS a fini ou pas" — il
-// existe uniquement pour garantir qu'un appel bloqué finit par échouer
-// proprement et laisser la main à un retry ou au bouton Réessayer.
-const GAS_IS_MOBILE  = /Android|iPhone|iPad/i.test(navigator.userAgent);
-const GAS_TIMEOUT_MS = GAS_IS_MOBILE ? 35000 : 25000;
+// Lectures : 3 tentatives, pause courte — ce n'est pas un serveur saturé
+// qu'il faudrait ménager, c'est une livraison à rejouer.
+// Écritures : 2 tentatives, pause plus longue pour laisser retomber un appel
+// encore en vol.
+const GAS_TENTATIVES_LECTURE  = 3;
+const GAS_TENTATIVES_ECRITURE = 2;
+const GAS_PAUSE_LECTURE_MS    = 300;
+const GAS_PAUSE_ECRITURE_MS   = 1000;
+
+// Au-delà, on rend la main plutôt que de laisser l'attente s'allonger : un
+// bouton Réessayer vaut mieux qu'un écran qui tourne.
+const GAS_BUDGET_TOTAL_MS = 45000;
+
+function gasPlafond(action, ecriture){
+  if(!ecriture) return GAS_TIMEOUT_LECTURE_MS;
+  return GAS_ACTIONS_LOT.has(action) ? GAS_TIMEOUT_ECRITURE_LOT_MS : GAS_TIMEOUT_ECRITURE_MS;
+}
 
 // Journal consultable : window.__gasLog, et console pour le suivi en direct.
 window.__gasLog = [];
@@ -576,10 +593,10 @@ window.logGas = function(action, attempt, ms, issue){
 // suppriment plusieurs (rien avant la connexion, plus de rechargement complet
 // après une sauvegarde).
 let _gasQueue = Promise.resolve();
-window.gasUnAppel = function(url, action, numero){
+window.gasUnAppel = function(url, action, numero, plafond){
   const suivant = _gasQueue.then(
-    ()=>_gasUnAppelBrut(url, action, numero),
-    ()=>_gasUnAppelBrut(url, action, numero)
+    ()=>_gasUnAppelBrut(url, action, numero, plafond),
+    ()=>_gasUnAppelBrut(url, action, numero, plafond)
   );
   // La file avance quel que soit le sort de l'appel : un échec ne doit jamais
   // la bloquer. catch() neutralise le rejet POUR LA CHAÎNE seulement — la
@@ -590,16 +607,17 @@ window.gasUnAppel = function(url, action, numero){
 
 // Un seul appel réseau, journalisé. reessayable=true seulement pour un échec
 // de transport (jamais atteint Google) ou un refus immédiat (429/503).
-async function _gasUnAppelBrut(url, action, numero){
+async function _gasUnAppelBrut(url, action, numero, plafond){
+  const limite = plafond || GAS_TIMEOUT_LECTURE_MS;
   const t0 = Date.now();
   const ctrl = new AbortController();
-  const chien = setTimeout(()=>ctrl.abort(), GAS_TIMEOUT_MS);
+  const chien = setTimeout(()=>ctrl.abort(), limite);
   let res;
   try{
     res = await fetch(url, {signal:ctrl.signal});
   }catch(err){
     if(ctrl.signal.aborted){
-      logGas(action, numero, Date.now()-t0, `bloqué — abandonné après ${GAS_TIMEOUT_MS/1000}s`);
+      logGas(action, numero, Date.now()-t0, `bloqué — abandonné après ${limite/1000}s`);
       throw Object.assign(new Error('timeout'), {reessayable:true});
     }
     logGas(action, numero, Date.now()-t0, 'réseau : '+err.message);
@@ -624,6 +642,40 @@ async function _gasUnAppelBrut(url, action, numero){
   logGas(action, numero, Date.now()-t0);
   return data;
 }
+
+// ── Politique de reprise, partagée par apiFetch et fetchAll ────────────────
+// apiFetch et rawGetAll recopiaient la même boucle, avec des plafonds qui
+// divergeaient à chaque retouche. Une seule implémentation, deux régimes.
+window.gasAppel = async function(url, action, opts){
+  const o = opts || {};
+  const ecriture   = GAS_ACTIONS_ECRITURE.has(action);
+  const plafond    = gasPlafond(action, ecriture);
+  const pause      = ecriture ? GAS_PAUSE_ECRITURE_MS   : GAS_PAUSE_LECTURE_MS;
+  const tentatives = ecriture ? GAS_TENTATIVES_ECRITURE : GAS_TENTATIVES_LECTURE;
+  const t0 = Date.now();
+  let derniere = null;
+  for(let n=1; n<=tentatives; n++){
+    try{
+      const data = await gasUnAppel(url, action, n, plafond);
+      if(o.exigeOk && (!data || !data.ok)) throw new Error((data && data.error) || 'Erreur serveur');
+      return data;
+    }catch(err){
+      derniere = err;
+      // Erreur définitive (403, réponse non-JSON, déploiement cassé, erreur
+      // métier renvoyée par GAS) : insister ne changera rien.
+      if(!err.reessayable) break;
+      // Budget épuisé : un bouton Réessayer vaut mieux qu'une attente qui
+      // s'allonge sans fin.
+      if(n < tentatives && Date.now()-t0 + pause >= GAS_BUDGET_TOTAL_MS) break;
+      if(n < tentatives) await new Promise(r=>setTimeout(r, pause));
+    }
+  }
+  if(derniere && derniere.httpStatus)
+    throw new Error(`Google n'a pas livré la réponse (HTTP ${derniere.httpStatus}) après ${tentatives} tentatives — réessaie.`);
+  if(derniere && derniere.message==='timeout')
+    throw new Error(`Aucune réponse de Google après ${tentatives} tentatives — réessaie.`);
+  throw derniere || new Error('Échec inconnu');
+};
 
 // ── Écran d'attente d'un appel GAS ─────────────────────────────────────────
 // Un getAll prend 10 à 30 s en cas de cache froid, redirection /exec → echo
@@ -848,7 +900,7 @@ window.onLogout = function(){
     'getLogs'
   ]);
 
-  window.apiFetch = async function apiFetch(action, body={}, _attempt=1){
+  window.apiFetch = async function apiFetch(action, body={}){
     const params = new URLSearchParams({action});
     // Passe source=admin pour que le GAS ignore le mode maintenance
     if(window.location.pathname.indexOf('admin.html') > -1){
@@ -866,31 +918,7 @@ window.onLogout = function(){
       });
     }
     const url = `${GS_URL}?${params.toString()}`;
-    try{
-      return await gasUnAppel(url, action, _attempt);
-    }catch(err){
-      // Reprise seulement sur un échec dont on sait qu'il peut réussir au
-      // coup suivant : transport qui n'a jamais atteint Google, refus avant
-      // exécution (429/503), ou raté de livraison (404 & co, cf.
-      // GAS_RETRYABLE_HTTP). Jamais sur une réponse arrivée intacte, même
-      // lente : GAS a déjà exécuté, en redemander ajoute une exécution pour
-      // rien.
-      //
-      // Un 404 de livraison sur une ÉCRITURE veut dire que le script a
-      // probablement écrit sa ligne avant que la réponse se perde. Redemander
-      // est sans danger : le client génère _id une seule fois et
-      // actionSaveEntry est idempotent par _id (il met à jour la ligne
-      // existante au lieu d'en créer une seconde).
-      if(err.reessayable && _attempt < GAS_MAX_TENTATIVES){
-        await new Promise(r=>setTimeout(r, GAS_PAUSES_MS[_attempt-1] || 4000));
-        return window.apiFetch(action, body, _attempt + 1);
-      }
-      if(err.httpStatus)
-        throw new Error(`Google a répondu HTTP ${err.httpStatus} — réessaie dans quelques secondes.`);
-      if(err.message==='timeout')
-        throw new Error(`Aucune réponse de Google après ${GAS_TIMEOUT_MS/1000}s — la connexion est peut-être instable, réessaie.`);
-      throw err;
-    }
+    return gasAppel(url, action);
   };
 })();
 
@@ -912,24 +940,12 @@ window.onLogout = function(){
   const TTL_MS = 45000;      // fenêtre pendant laquelle le prefetch reste valable
   const cache  = new Map();  // année → {promise, inflight, ts}
 
-  async function rawGetAll(year, source, _attempt=1){
+  async function rawGetAll(year, source){
     const params = new URLSearchParams({action:'getAll', year:String(year)});
     if(source) params.set('source', source);
-    try{
-      const data = await gasUnAppel(`${GS_URL}?${params.toString()}`, 'getAll', _attempt);
-      if(!data || !data.ok) throw new Error((data && data.error) || 'Erreur serveur');
-      return data;
-    }catch(err){
-      if(err.reessayable && _attempt < GAS_MAX_TENTATIVES){
-        await new Promise(r=>setTimeout(r, GAS_PAUSES_MS[_attempt-1] || 4000));
-        return rawGetAll(year, source, _attempt + 1);
-      }
-      if(err.httpStatus)
-        throw new Error(`Google a répondu HTTP ${err.httpStatus} — réessaie dans quelques secondes.`);
-      if(err.message==='timeout')
-        throw new Error(`Aucune réponse de Google après ${GAS_TIMEOUT_MS/1000}s — la connexion est peut-être instable, réessaie.`);
-      throw err;
-    }
+    // exigeOk : un getAll qui revient avec ok:false (mode maintenance, erreur
+    // serveur) n'est pas un problème de livraison — on ne le rejoue pas.
+    return gasAppel(`${GS_URL}?${params.toString()}`, 'getAll', {exigeOk:true});
   }
 
   // force:true = ignore le cache terminé (après une écriture, un refresh manuel).

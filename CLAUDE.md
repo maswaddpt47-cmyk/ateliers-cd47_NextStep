@@ -110,6 +110,7 @@ Toujours committer et pousser directement sur `main`. Ne pas créer de branche i
 | `utils.js` | Fonctions bas niveau (dates, texte, parsing, ICS) | `node --test utils.test.js` |
 | `logic.js` | Logique métier (KPI, validation, filtres) | `node --test logic.test.js` |
 | (pas de fichier source) | Format données → API GAS | `node --test contract.test.js` |
+| `shared.js` (politique d'appel) | Plafonds, tentatives, budget — garde-fou contre le rallongement des timeouts | `node --test reseau.test.js` |
 
 Ces fichiers sont chargés dans le navigateur ET testés sous Node. Une seule source de vérité.
 
@@ -155,6 +156,30 @@ pas sûr du niveau de risque.
 - `ContentService` n'a pas de `.setHeader()` — CORS automatique
 - Paramètre mot de passe : `password` (pas `pwd`)
 - Dates retournées : `yyyy-MM-dd` pour `date`, `HH:mm` pour `horaire`
+
+### Plafonds d'appel — ne jamais les rallonger
+
+Le comportement de la livraison Apps Script est **bimodal**, pas « lent » :
+une réponse livrée arrive en 1 à 3 s, une réponse perdue part en HTTP 404 ou
+en blocage au bout de 20-35 s. Un 404 authentique revient en ~200 ms — un 404
+au bout de 27 s veut dire que la réponse **ne viendra jamais**.
+
+Conséquence, apprise deux fois (NEWGEN les 18/09/2026, puis NextStep le même
+jour) : **rallonger un plafond côté client ne récupère aucune réponse, il ne
+fait qu'allonger l'écran d'attente.** NEWGEN a relevé 84 s pour une connexion,
+dont 51 d'attente pure sur des appels déjà morts ; NextStep a porté son pire
+cas à ~146 s en passant un plafond de 35 s à 4 tentatives.
+
+Plafonds actuels : **12 s en lecture, 12 s en écriture, 25 s pour `saveMany`**,
+3 tentatives en lecture, 2 en écriture, budget total 45 s.
+Verrouillés par `reseau.test.js` — si un test de ce fichier échoue, c'est
+qu'on est en train de refaire l'erreur.
+
+Rejouer une écriture est sûr : le client génère `_id` avant l'envoi et
+`actionSaveEntry` retrouve la ligne par cet `_id` au lieu d'en créer une
+seconde. En revanche les écritures restent **séquentielles et jamais
+doublées** — deux appels en parallèle pourraient tous deux conclure « ligne
+absente » et faire chacun leur `appendRow`.
 
 ### Limite connue — latence de livraison indépendante du temps d'exécution
 
