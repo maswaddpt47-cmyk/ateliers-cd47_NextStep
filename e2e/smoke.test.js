@@ -249,6 +249,14 @@ test('admin — Classe mobile coché : champs ordinateurs prêtés apparaissent 
   await expect(page.getByText('Date de retour ordi')).toBeVisible();
 });
 
+test('admin — bouton Déconnexion manuel ramène à l\'écran de connexion', async ({ page }) => {
+  await login(page);
+  page.once('dialog', dialog => dialog.accept());
+  await page.getByText('🚪 Déconnexion', { exact: true }).click();
+  await page.waitForSelector('input[type="password"]', { timeout: 10000 });
+  await expect(page.locator('input[type="password"]')).toBeVisible();
+});
+
 test('admin — Classe mobile coché en Cycle : dates par séance, pas de date partagée', async ({ page }) => {
   await login(page);
   await clickTab(page, 'Nouveau');

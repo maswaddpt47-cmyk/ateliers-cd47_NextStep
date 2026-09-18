@@ -238,6 +238,11 @@ function App(){
     showToast('⏱️ Session expirée — reconnecte-toi.',false);
     addLog('Session expirée (30 min inactivité)','info');
   }
+  function handleLogout(){
+    if(!window.confirm('Se déconnecter ?'))return;
+    clearSession();
+    setAuth(false);
+  }
   React.useEffect(()=>{
     if(!auth) return;
     touchSession();
@@ -488,7 +493,12 @@ function App(){
             onClick:()=>{localStorage.removeItem('adm_conseiller');setAdminConseiller('');},
             title:'Changer d\'identité',
             style:{background:'none',border:'1px solid #e2e8f0',borderRadius:6,padding:'3px 8px',fontSize:11,color:'#718096',cursor:'pointer'}
-          },'👤 Changer')
+          },'👤 Changer'),
+          CE('button',{
+            onClick:handleLogout,
+            title:'Déconnexion',
+            style:{background:'none',border:'1px solid #e2e8f0',borderRadius:6,padding:'3px 8px',fontSize:11,color:'#718096',cursor:'pointer'}
+          },'🚪 Déconnexion')
         )
       ),
 
