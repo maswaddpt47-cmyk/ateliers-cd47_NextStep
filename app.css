@@ -160,6 +160,28 @@
 .sidebar:hover .sidebar-accueil-lbl,
 .sidebar.pinned .sidebar-accueil-lbl { max-width:100px; opacity:1; }
 
+/* ── Contrôles mobiles de la topbar ─────────────────────────── */
+/* En mobile la sidebar devient la barre du bas et .sidebar-bottom est masqué,
+   emportant l'année, le retour accueil et la déconnexion. Ces trois contrôles
+   les remplacent — et restent invisibles en desktop, où la sidebar les porte
+   déjà. */
+.topbar-mobile-only { display:none; }
+.topbar-mobile-btn {
+  align-items:center; justify-content:center;
+  width:30px; height:30px; padding:0; flex-shrink:0;
+  border:1px solid #e2e8f0; border-radius:8px; background:#fff;
+  font-size:14px; line-height:1; cursor:pointer; color:#4a5568;
+}
+.topbar-mobile-btn:active { background:#f1f5f9; }
+.topbar-mobile-btn:focus-visible { outline:2px solid #1e3a8a; outline-offset:2px; }
+.topbar-mobile-year {
+  height:30px; flex-shrink:0; padding:0 2px; width:62px;
+  border:1px solid #e2e8f0; border-radius:8px; background:#fff;
+  font-size:12px; font-weight:600; color:#4a5568; cursor:pointer;
+}
+[data-theme="dark"] .topbar-mobile-btn,
+[data-theme="dark"] .topbar-mobile-year { background:#1e293b; border-color:#334155; color:#94a3b8; }
+
 /* ── Contenu principal ──────────────────────────────────────── */
 .app-content { margin-left:72px; flex:1; min-height:100vh; display:flex; flex-direction:column; transition:margin-left .28s cubic-bezier(.4,0,.2,1); }
 .sidebar.pinned ~ .app-content { margin-left:220px; }
@@ -315,6 +337,15 @@
   .sidebar.pinned ~ .app-content { margin-left:0 !important; }
   .app-topbar { padding: 0 12px; }
   .app-topbar-date { display:none !important; }
+  /* Place libérée pour les contrôles rapatriés de .sidebar-bottom */
+  .app-topbar-sub { display:none !important; }
+  .app-topbar-title { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  /* Un <select> en inline-flex déplie toutes ses options en largeur (242 px
+     mesurés à 360 px de viewport) : il lui faut son rendu natif. */
+  button.topbar-mobile-only { display:inline-flex !important; }
+  select.topbar-mobile-only { display:inline-block !important; }
+  /* L'heure de dernière synchro passe après les commandes sur petit écran. */
+  .topbar-sync-info { display:none !important; }
 }
 /* ── Confirm overlay (partagé avec admin) ─────────────────── */
 .confirm-overlay {

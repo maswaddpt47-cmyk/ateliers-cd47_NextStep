@@ -307,3 +307,46 @@ test('admin — Classe mobile coché en Cycle : dates par séance, pas de date p
   await expect(page.getByText('Prélèvement ordi').first()).toBeVisible();
   await expect(page.getByText('Retour ordi').first()).toBeVisible();
 });
+
+// ── Contrôles de la topbar mobile (index.html) ───────────────────────────────
+// En mobile la sidebar devient la barre de navigation du bas et app.css masque
+// .sidebar-bottom, qui portait le sélecteur d'année, le retour accueil ET la
+// déconnexion : les trois étaient inatteignables par tout autre chemin
+// (signalé en production le 18/09/2026, capture d'un Android). Ces tests
+// verrouillent leur présence en mobile et leur absence en desktop, où la
+// sidebar les porte déjà.
+
+test('index mobile — année, accueil et déconnexion accessibles dans la topbar', async ({ page }) => {
+  await page.setViewportSize({ width: 360, height: 740 });
+  await loginIndex(page);
+
+  await expect(page.locator('.topbar-mobile-year')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Retour accueil' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Déconnexion' })).toBeVisible();
+
+  // Le bloc d'origine reste bien masqué : on teste le remplaçant, pas un
+  // retour en arrière sur la mise en page mobile.
+  await expect(page.locator('.sidebar-bottom')).toBeHidden();
+
+  // La topbar ne doit pas déborder à 360 px de large.
+  const debord = await page.evaluate(() => {
+    const tb = document.querySelector('.app-topbar');
+    return tb.scrollWidth - tb.clientWidth;
+  });
+  expect(debord, 'la topbar déborde horizontalement en 360 px').toBeLessThanOrEqual(0);
+});
+
+test('index mobile — la déconnexion ramène à l écran de connexion', async ({ page }) => {
+  await page.setViewportSize({ width: 360, height: 740 });
+  await loginIndex(page);
+  page.once('dialog', d => d.accept());        // window.confirm('Se déconnecter ?')
+  await page.getByRole('button', { name: 'Déconnexion' }).click();
+  await expect(page.locator('input[type="password"]')).toBeVisible({ timeout: 10000 });
+});
+
+test('index desktop — les contrôles mobiles restent masqués', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await loginIndex(page);
+  await expect(page.locator('.topbar-mobile-year')).toBeHidden();
+  await expect(page.locator('.sidebar-bottom')).toBeVisible();
+});

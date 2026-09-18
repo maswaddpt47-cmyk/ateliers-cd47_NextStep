@@ -673,6 +673,34 @@ function App(){
           ),
           loading&&CE('span',{style:{fontSize:11,color:'#9ca3af',display:'flex',alignItems:'center',gap:4}},
             CE('span',{className:'spinner',style:{borderTopColor:'#1e3a8a',borderColor:'#e2e8f0'}}), 'Chargement…'),
+          // Contrôles repris de la sidebar. En mobile (≤640px) la sidebar
+          // devient la barre de navigation du bas et .sidebar-bottom y est
+          // masqué (app.css) : l'année, le retour accueil et la déconnexion
+          // n'étaient atteignables par aucun autre chemin. Ces trois-là ne
+          // s'affichent qu'en mobile, via .topbar-mobile-only — le desktop
+          // garde la sidebar strictement inchangée.
+          CE('select',{
+            className:'topbar-mobile-only topbar-mobile-year',
+            value:annee,
+            onChange:e=>setAnnee(e.target.value),
+            title:'Année chargée',
+            'aria-label':'Année chargée'
+          },
+            [String(new Date().getFullYear()-1),String(new Date().getFullYear()),String(new Date().getFullYear()+1)]
+              .map(y=>CE('option',{key:y,value:y},y))
+          ),
+          CE('button',{
+            className:'topbar-mobile-only topbar-mobile-btn',
+            onClick:()=>{ resetConseiller(); setView('accueil'); },
+            title:'Retour accueil',
+            'aria-label':'Retour accueil'
+          },'↩'),
+          CE('button',{
+            className:'topbar-mobile-only topbar-mobile-btn',
+            onClick:handleLogout,
+            title:'Déconnexion',
+            'aria-label':'Déconnexion'
+          },'🚪'),
           filtreConseiller&&CE('div',{style:{position:'relative'},onMouseDown:e=>e.stopPropagation()},
             CE('button',{
               className:'app-topbar-conseiller',
