@@ -96,6 +96,18 @@ async function login(page) {
   await page.waitForSelector('.sidebar-btn', { timeout: 10000 });
 }
 
+// ── Helper : se connecter sur index.html (login par conum) ───────────────────
+
+async function loginIndex(page) {
+  await page.goto('/index.html');
+  await page.waitForSelector('input[type="password"]', { timeout: 10000 });
+  // 'test' ne correspond au mot de passe par défaut d'aucun conseiller mocké
+  // (defaultPwdIndex → "cd47<prénom>") : évite l'écran de changement forcé.
+  await page.fill('input[type="password"]', 'test');
+  await page.getByText('🔓 Connexion', { exact: true }).click();
+  await page.waitForSelector('.sidebar-btn', { timeout: 10000 });
+}
+
 // ── Helper : clique un onglet et vérifie l'absence de ReferenceError ─────────
 
 async function clickTab(page, label) {
@@ -244,9 +256,33 @@ test('admin — Classe mobile coché : champs ordinateurs prêtés apparaissent 
   await clickTab(page, 'Nouveau');
   await page.getByText('Classe mobile', { exact: true }).click();
   await page.waitForTimeout(200);
-  await expect(page.getByText('Ordinateurs prêtés')).toBeVisible();
+  await expect(page.getByText('Ordinateurs prêtés *')).toBeVisible();
   await expect(page.getByText('Date de prélèvement ordi')).toBeVisible();
   await expect(page.getByText('Date de retour ordi')).toBeVisible();
+});
+
+test('admin — Classe mobile coché sans quantité : validation bloque et signale le champ requis', async ({ page }) => {
+  await login(page);
+  await clickTab(page, 'Nouveau');
+  await page.getByText('Classe mobile', { exact: true }).click();
+  await page.waitForTimeout(200);
+  // Aucun champ obligatoire n'est rempli (date, orienteur, etc.) : le message
+  // groupé doit lister "Ordinateurs prêtés" parmi les champs manquants dès
+  // que Classe mobile est coché sans quantité renseignée.
+  await page.getByText('💾 Enregistrer l\'atelier').click();
+  await page.waitForTimeout(200);
+  await expect(page.getByText(/Champs obligatoires manquants.*Ordinateurs prêtés/)).toBeVisible();
+});
+
+test('index — onglet Gestion ordi visible et sans ReferenceError', async ({ page }) => {
+  await loginIndex(page);
+  await expect(page.locator('.sidebar-btn', { hasText: 'Gestion ordi' })).toBeVisible();
+  const errsBefore = page._jsErrors.length;
+  await page.locator('.sidebar-btn', { hasText: 'Gestion ordi' }).first().click();
+  await page.waitForTimeout(400);
+  const newErrs = page._jsErrors.slice(errsBefore).filter(e => /ReferenceError|TypeError|is not defined/i.test(e));
+  expect(newErrs, `Gestion ordi (Index) : ${newErrs.join(' | ')}`).toHaveLength(0);
+  await expect(page.getByText('Conflits Classe mobile')).toBeVisible();
 });
 
 test('admin — bouton Déconnexion manuel ramène à l\'écran de connexion', async ({ page }) => {

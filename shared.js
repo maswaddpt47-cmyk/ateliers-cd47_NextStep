@@ -1345,7 +1345,7 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
   }
 
   // ── validation mode unique ──
-  const FIELD_LABELS={'statut':'Statut','date':'Date','horaire':'Horaire','ampm':'AM/PM','commune':'Commune','lieu':'Lieu','thematique':'Thématique','conseiller':'Conseiller','orienteur':'Orienteur','public':'Type de public','inscrits':'Inscrits'};
+  const FIELD_LABELS={'statut':'Statut','date':'Date','horaire':'Horaire','ampm':'AM/PM','commune':'Commune','lieu':'Lieu','thematique':'Thématique','conseiller':'Conseiller','orienteur':'Orienteur','public':'Type de public','inscrits':'Inscrits','nb_ordinateurs':'Ordinateurs prêtés'};
   function validate(){
     const e={};
     if(!form.statut)            e.statut='Requis';
@@ -1359,6 +1359,7 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
     if(!form.orienteur.trim())  e.orienteur='Requis';
     if(!form.public)            e.public='Requis';
     if(form.inscrits==='')      e.inscrits='Requis';
+    if(matIncludes(form.materiel,'Classe mobile')&&!(parseInt(form.nb_ordinateurs)>0)) e.nb_ordinateurs='Requis';
     setErrors(e);
     const missing=Object.keys(e).map(k=>FIELD_LABELS[k]||k);
     if(missing.length>0) setFormError('Champs obligatoires manquants : '+missing.join(', '));
@@ -1374,6 +1375,7 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
     if(!lotForm.conseiller)       e.conseiller='Requis';
     if(!lotForm.orienteur.trim()) e.orienteur='Requis';
     if(!lotForm.public)           e.public='Requis';
+    if(matIncludes(lotForm.materiel,'Classe mobile')&&!(parseInt(lotForm.nb_ordinateurs)>0)) e.nb_ordinateurs='Requis';
     setLotErrors(e);
     const re={};
     lotRows.forEach(r=>{
@@ -1567,8 +1569,9 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
     // au calcul de findOrdinateursConflicts (periodePretMateriel).
     matMobileActif&&CE('div',{style:{marginTop:12,display:'grid',gridTemplateColumns:modeLot?'1fr':'1fr 1fr 1fr',gap:12}},
       CE('div',null,
-        LblG({t:'Ordinateurs prêtés'}),
-        CE('input',{type:'number',min:0,max:10,style:iStyle(false),value:frm.nb_ordinateurs,placeholder:'Ex : 4',onChange:e=>setFn('nb_ordinateurs',e.target.value)})),
+        Lbl({t:'Ordinateurs prêtés *',err:!!errs.nb_ordinateurs}),
+        CE('input',{type:'number',min:0,max:10,style:iStyle(errs.nb_ordinateurs),value:frm.nb_ordinateurs,placeholder:'Ex : 4',onChange:e=>setFn('nb_ordinateurs',e.target.value),onBlur:e=>setErrs&&validateOnBlur('nb_ordinateurs',e.target.value,setErrs)}),
+        errs.nb_ordinateurs&&CE('span',{style:{color:'#e53e3e',fontSize:11,fontWeight:600}},errs.nb_ordinateurs)),
       // En mode cycle, les dates de prélèvement/retour se saisissent par
       // séance (tableau ci-dessous) — une seule date partagée pour tout le
       // cycle n'aurait pas de sens (séances étalées sur plusieurs semaines).

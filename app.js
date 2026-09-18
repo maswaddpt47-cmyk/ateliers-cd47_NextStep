@@ -12,6 +12,7 @@ var VIEW_META_F = {
   calendrier: {ico:'📅',  label:'Calendrier',   group:'Voir'},
   carte:      {ico:'🗺️', label:'Carte',        group:'Voir'},
   roadmap:    {ico:'🛣️', label:'Roadmap',      group:'Voir'},
+  gestion_ordi:{ico:'🖥️', label:'Gestion ordi', group:'Voir'},
   graphiques: {ico:'📊',  label:'Statistiques', group:'Stats'},
   bingo:      {ico:'🎯',  label:'Bingo',        group:'Stats'},
 };
@@ -230,7 +231,7 @@ function App(){
   const[editingId,setEditingId]    = React.useState(null);
   const[prefillData,setPrefillData] = React.useState(null);
   const[annee,setAnneeState]       = React.useState(()=>localStorage.getItem('f_annee')||String(new Date().getFullYear()));
-  const[visibility,setVisibility]   = React.useState({saisie:true,historique:true,dashboard:true,carte:true,bingo:true,calendrier:false,agenda:false,roadmap:false});
+  const[visibility,setVisibility]   = React.useState({saisie:true,historique:true,dashboard:true,carte:true,bingo:true,calendrier:false,agenda:false,roadmap:false,gestion_ordi:true});
   const[lists,setLists]            = React.useState({
     statuts:[...STATUTS_DEFAULT],conseillers:[...CONSEILLERS_DEFAULT],
     publics:[...PUBLICS_DEFAULT],materiels:[...MATERIELS_DEFAULT]
@@ -542,6 +543,7 @@ function App(){
       sideBtn('calendrier','📅','Calendrier',visibility.calendrier),
       sideBtn('carte','🗺️','Carte',visibility.carte),
       sideBtn('roadmap','🛣️','Roadmap',visibility.roadmap),
+      sideBtn('gestion_ordi','🖥️','Gestion ordi',visibility.gestion_ordi),
 
       CE('div',{className:'sidebar-sep'}),
       CE('span',{className:'sidebar-group-label'},'Stats'),
@@ -621,6 +623,7 @@ function App(){
           view==='dashboard'&&visibility.dashboard&&CE(VueDashboardTabs,{entries,conseillers:lists.conseillers}),
           view==='carte'&&visibility.carte&&CE(VueCarte,{entries,active:view==='carte'}),
           view==='roadmap'&&visibility.roadmap&&CE(VueRoadmap,{entries,annee,conseillers:lists.conseillers}),
+          view==='gestion_ordi'&&visibility.gestion_ordi&&CE(VueGestionOrdi,{entries,onEdit:handleEdit}),
           view==='bingo'&&visibility.bingo&&CE(VueBingo,{entries})
         )
       )
