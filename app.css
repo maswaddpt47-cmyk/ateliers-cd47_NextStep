@@ -299,11 +299,19 @@
     margin-left: 0 !important;
     margin-bottom: 0;
     padding-bottom: 0;
+    /* 100vh compte la hauteur totale de l'écran, barre d'adresse mobile
+       comprise — sur Chrome/Safari mobile la barre reste visible tant que la
+       page ne défile pas, ce qui masquait le bas du formulaire (bouton
+       Enregistrer) derrière la nav fixe. dvh (hauteur de viewport réelle,
+       barre d'adresse exclue) corrige ça ; vh reste en repli pour les
+       navigateurs qui ne supportent pas dvh — hypothèse non vérifiée sur
+       device réel, à confirmer par l'utilisateur. */
     height: calc(100vh - 56px);
+    height: calc(100dvh - 56px);
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
   }
-  .app-main { padding-bottom: 16px; }
+  .app-main { padding-bottom: 32px; }
   .sidebar.pinned ~ .app-content { margin-left:0 !important; }
   .app-topbar { padding: 0 12px; }
   .app-topbar-date { display:none !important; }
