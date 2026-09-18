@@ -154,6 +154,55 @@ test('admin — onglet Bingo sans ReferenceError', async ({ page }) => {
   expect(errs, `Bingo : ${errs.join(' | ')}`).toHaveLength(0);
 });
 
+test('admin — onglet Admin sans ReferenceError (dont section Stock ordinateurs)', async ({ page }) => {
+  await login(page);
+  const errs = await clickTab(page, 'Admin');
+  expect(errs, `Admin : ${errs.join(' | ')}`).toHaveLength(0);
+  await expect(page.getByText('🖥️ Stock ordinateurs')).toBeVisible();
+});
+
+test('admin — onglet Anomalies sans ReferenceError (champs manquants/communes uniquement)', async ({ page }) => {
+  await login(page);
+  const errs = await clickTab(page, 'Anomalies');
+  expect(errs, `Anomalies : ${errs.join(' | ')}`).toHaveLength(0);
+  // Les conflits Classe mobile/stock ordinateurs ont été déplacés vers leur
+  // propre onglet "Gestion ordi" (split Admin) — ne doivent plus apparaître ici.
+  await expect(page.getByText('Conflits stock ordinateurs')).toHaveCount(0);
+  await expect(page.getByText('Conflits Classe mobile')).toHaveCount(0);
+});
+
+test('admin — onglet Gestion ordi sans ReferenceError', async ({ page }) => {
+  await login(page);
+  const errs = await clickTab(page, 'Gestion ordi');
+  expect(errs, `Gestion ordi : ${errs.join(' | ')}`).toHaveLength(0);
+  await expect(page.getByText('Conflits Classe mobile')).toBeVisible();
+  await expect(page.getByText('Stock ordinateurs dépassé')).toBeVisible();
+});
+
+test('admin — Frise du parc : rendu + bouton Agrandir (panneau plein écran via portail)', async ({ page }) => {
+  await login(page);
+  await clickTab(page, 'Gestion ordi');
+  await page.waitForTimeout(200);
+  await expect(page.getByText(/Frise du parc/).first()).toBeVisible();
+  await expect(page.getByText('Aujourd\'hui')).toBeVisible();
+  // Bouton Agrandir → panneau monté via ReactDOM.createPortal dans document.body,
+  // en dehors du wrapper .view-anim (transform actif en permanence après son
+  // animation d'entrée, qui piégerait un position:fixed classique dans sa largeur).
+  await page.getByText('🔍 Agrandir').click();
+  await page.waitForTimeout(200);
+  const panelInBody = await page.evaluate(() => {
+    const overlay = document.querySelector('.side-panel-overlay');
+    return !!overlay && overlay.parentElement === document.body;
+  });
+  expect(panelInBody, 'Le panneau agrandi doit être un enfant direct de <body> (portail)').toBe(true);
+  await expect(page.getByText('✕ Fermer')).toBeVisible();
+  const errs = page._jsErrors.filter(e => /ReferenceError|TypeError|is not defined/i.test(e));
+  expect(errs, `Panneau agrandi : ${errs.join(' | ')}`).toHaveLength(0);
+  await page.getByText('✕ Fermer').click();
+  await page.waitForTimeout(200);
+  await expect(page.getByText('✕ Fermer')).toHaveCount(0);
+});
+
 test('admin — onglet Saisie sans ReferenceError', async ({ page }) => {
   await login(page);
   const errs = await clickTab(page, 'Nouveau');
@@ -188,4 +237,29 @@ test('admin — Cycle : suggestions thématique au focus', async ({ page }) => {
   // Le dropdown portal est dans le body — cherche un thème connu
   const found = await page.evaluate(() => document.body.innerText.includes('Naviguer sur internet'));
   expect(found, 'Aucune suggestion thématique en mode Cycle (portal non rendu)').toBe(true);
+});
+
+test('admin — Classe mobile coché : champs ordinateurs prêtés apparaissent (One Shot)', async ({ page }) => {
+  await login(page);
+  await clickTab(page, 'Nouveau');
+  await page.getByText('Classe mobile', { exact: true }).click();
+  await page.waitForTimeout(200);
+  await expect(page.getByText('Ordinateurs prêtés')).toBeVisible();
+  await expect(page.getByText('Date de prélèvement ordi')).toBeVisible();
+  await expect(page.getByText('Date de retour ordi')).toBeVisible();
+});
+
+test('admin — Classe mobile coché en Cycle : dates par séance, pas de date partagée', async ({ page }) => {
+  await login(page);
+  await clickTab(page, 'Nouveau');
+  await page.getByText('🔄 Saisie par cycle').click();
+  await page.waitForTimeout(200);
+  await page.getByText('Classe mobile', { exact: true }).click();
+  await page.waitForTimeout(200);
+  await expect(page.getByText('Ordinateurs prêtés')).toBeVisible();
+  // Pas de date de prélèvement/retour partagée en mode cycle (par séance uniquement)
+  await expect(page.getByText('Date de prélèvement ordi')).toHaveCount(0);
+  await expect(page.getByText('Les dates de prélèvement/retour se saisissent par séance')).toBeVisible();
+  await expect(page.getByText('Prélèvement ordi').first()).toBeVisible();
+  await expect(page.getByText('Retour ordi').first()).toBeVisible();
 });

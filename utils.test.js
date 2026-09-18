@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const {
   stripAccents, trunc,
   normCommune, normalizeCommune,
-  normalizeDate, normalizeHoraire, fmtDate, fmtCardDate, todayLocal,
+  normalizeDate, normalizeHoraire, fmtDate, fmtCardDate, todayLocal, addJoursIso,
   normalizeMat, matIncludes,
   escapeICS, foldICSLine, parseHoraireICS, parseDateICS, buildICS,
 } = require('./utils.js');
@@ -58,6 +58,18 @@ describe('normalizeHoraire', () => {
 describe('fmtDate', () => {
   it('retourne jour + date lisible',      () => assert.match(fmtDate('2026-07-09'), /^(Dim|Lun|Mar|Mer|Jeu|Ven|Sam) \d{2}\/\d{2}\/\d{4}$/));
   it('null → chaîne vide',               () => assert.equal(fmtDate(null), ''));
+  it('nettoie un datetime ISO complet (colonne Date GAS non formatée)', () => {
+    assert.equal(fmtDate('2026-10-04T22:00:00.000Z'), 'Dim 04/10/2026');
+  });
+});
+
+// ── addJoursIso ──────────────────────────────────────────────────────────────
+describe('addJoursIso', () => {
+  it('ajoute des jours sans franchir de mois', () => assert.equal(addJoursIso('2026-09-17', 3), '2026-09-20'));
+  it('franchit correctement une fin de mois',  () => assert.equal(addJoursIso('2026-09-29', 3), '2026-10-02'));
+  it('franchit correctement une fin d\'année', () => assert.equal(addJoursIso('2026-12-30', 3), '2027-01-02'));
+  it('n=0 retourne la même date',              () => assert.equal(addJoursIso('2026-09-17', 0), '2026-09-17'));
+  it('retourne chaîne vide sur entrée vide',   () => assert.equal(addJoursIso('', 3), ''));
 });
 
 // ── fmtCardDate ───────────────────────────────────────────────────────────────

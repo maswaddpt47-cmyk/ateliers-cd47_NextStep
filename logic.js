@@ -11,6 +11,7 @@ if (typeof require !== 'undefined') {
   var normalizeCommune = _u.normalizeCommune;
   var normalizeMat     = _u.normalizeMat;
   var matIncludes      = _u.matIncludes;
+  var addJoursIso      = _u.addJoursIso;
 }
 
 // ── Statuts et constantes ─────────────────────────────────────────────────────
@@ -128,6 +129,155 @@ function findMobileClassConflicts(entries) {
     .sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
 }
 
+// ── Conflits stock ordinateurs ──────────────────────────────────────────────
+// Porté depuis ATELIERS_NEWGEN. Contrairement à findMobileClassConflicts
+// (même jour uniquement, matériel considéré comme unique/indivisible), ici
+// la quantité (nb_ordinateurs, saisie manuelle) et la date de retour
+// (date_retour_materiel) forment une période de prêt : deux ateliers à des
+// dates différentes peuvent quand même se disputer le stock si le premier
+// n'a pas rendu le matériel avant que le second en ait besoin. On étale
+// chaque atelier sur les jours qu'il occupe (date → date_retour_materiel
+// inclus, ou juste date si pas de retour renseigné), on cumule les
+// quantités par jour, puis on fusionne les jours consécutifs en conflit en
+// un seul bloc (date de début → date de fin) — pour ne pas répéter les
+// mêmes conseillers sur chaque jour d'un même chevauchement de plusieurs
+// jours. Chaque conseiller d'un bloc est en conflit avec tous les autres
+// conseillers du même bloc.
+// let (pas const) : écrasée par la config GAS (stockOrdinateurs renvoyé par
+// getAll) dans loadData (app.js/admin_app.js), modifiable depuis Admin.
+let STOCK_ORDINATEURS = 10;
+
+// Cumul du jour à partir d'une liste d'items {conseiller, qte} — au max par
+// conseiller, pas en somme : un même conseiller qui enchaîne deux ateliers
+// dos-à-dos (retour du premier = prélèvement du second, sans repasser par
+// le local) n'a physiquement qu'un seul jeu d'ordinateurs en main ce
+// jour-là, jamais deux fois sa quantité. La contention réelle du stock ne
+// vient que de conseillers DIFFÉRENTS qui en ont besoin en même temps.
+function totalJourParConseiller(items) {
+  const parConseiller = {};
+  (items || []).forEach(x => { parConseiller[x.conseiller] = Math.max(parConseiller[x.conseiller] || 0, x.qte); });
+  return Object.values(parConseiller).reduce((s, q) => s + q, 0);
+}
+
+// Jour de semaine ISO (0=dimanche...6=samedi), indépendant du fuseau (parse
+// manuel plutôt que new Date(dateIso) qui interprète 'YYYY-MM-DD' en UTC).
+function estWeekend(dateIso) {
+  const [y, m, j] = dateIso.split('-').map(Number);
+  const jourSemaine = new Date(y, m - 1, j).getDay();
+  return jourSemaine === 0 || jourSemaine === 6;
+}
+// Jour ouvré précédent/suivant le plus proche (saute samedi/dimanche) — sert
+// de valeur par défaut au prélèvement/retour matériel quand le champ n'est
+// pas renseigné : le retrait/dépôt du matériel a lieu un jour ouvré, jamais
+// le week-end. Ex. atelier un lundi → prélèvement par défaut le vendredi.
+function veilleOuvree(dateIso) {
+  let d = addJoursIso(dateIso, -1);
+  while (estWeekend(d)) d = addJoursIso(d, -1);
+  return d;
+}
+function lendemainOuvre(dateIso) {
+  let d = addJoursIso(dateIso, 1);
+  while (estWeekend(d)) d = addJoursIso(d, 1);
+  return d;
+}
+// Période réelle d'indisponibilité du matériel pour un atelier : du
+// prélèvement (peut précéder la date de l'atelier — ex. retrait le mardi
+// pour un atelier le vendredi) au retour. Repli indépendant sur chaque
+// champ quand il n'est pas renseigné : veille/lendemain ouvrés de la date
+// de l'atelier (jamais un jour de week-end), plutôt que la date de
+// l'atelier elle-même — le matériel est concrètement retiré/rendu un jour
+// ouvré, généralement la veille/le lendemain de la séance.
+function periodePretMateriel(e) {
+  const debut = e.date_prelevement_materiel
+    ? ((e.date_prelevement_materiel < e.date) ? e.date_prelevement_materiel : e.date)
+    : veilleOuvree(e.date);
+  const fin = e.date_retour_materiel
+    ? ((e.date_retour_materiel > e.date) ? e.date_retour_materiel : e.date)
+    : lendemainOuvre(e.date);
+  return { debut, fin };
+}
+
+function findOrdinateursConflicts(entries, stock = STOCK_ORDINATEURS) {
+  const parJour = {};
+  (entries || []).forEach(e => {
+    if (e.statut === 'Annulé') return;
+    if (!e.date) return;
+    if (!matIncludes(e.materiel, 'Classe mobile')) return;
+    const qte = parseInt(e.nb_ordinateurs) || 0;
+    if (qte <= 0) return;
+    const { debut, fin } = periodePretMateriel(e);
+    // Garde-fou : une date de prélèvement/retour saisie à la main peut être
+    // erronée (année oubliée, inversion jour/mois...) — on plafonne à 90
+    // jours pour ne jamais boucler indéfiniment sur une période aberrante.
+    let d = debut, garde = 0;
+    while (d <= fin && garde < 90) {
+      (parJour[d] = parJour[d] || []).push({
+        _id: e._id, conseiller: e.conseiller, qte,
+        commune: e.commune || '', lieu: e.lieu || '',
+        dateDebut: debut, dateFin: fin,
+      });
+      d = addJoursIso(d, 1);
+      garde++;
+    }
+  });
+  const joursConflit = Object.keys(parJour)
+    .map(date => ({ date, entries: parJour[date], total: totalJourParConseiller(parJour[date]) }))
+    .filter(g => g.total > stock)
+    .sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
+
+  const blocs = [];
+  joursConflit.forEach(g => {
+    const dernier = blocs[blocs.length - 1];
+    if (dernier && addJoursIso(dernier.dateFin, 1) === g.date) {
+      dernier.dateFin = g.date;
+      dernier.total = Math.max(dernier.total, g.total);
+      g.entries.forEach(e => { if (!dernier._vus.has(e._id)) { dernier._vus.add(e._id); dernier.entries.push(e); } });
+    } else {
+      blocs.push({ date: g.date, dateFin: g.date, total: g.total, entries: [...g.entries], _vus: new Set(g.entries.map(e => e._id)) });
+    }
+  });
+  return blocs.map(({ _vus, ...b }) => b);
+}
+
+// Liste tous les prêts Classe mobile (période prélèvement → retour), pas
+// seulement les jours en conflit (findOrdinateursConflicts ne renvoie que
+// ça) — sert à la frise/Gantt où on veut voir tous les prêts pour repérer
+// les chevauchements visuellement, pas uniquement ceux déjà détectés en
+// dépassement de stock.
+function getPretsMateriel(entries) {
+  return (entries || [])
+    .filter(e => e.statut !== 'Annulé' && e.date
+      && matIncludes(e.materiel, 'Classe mobile')
+      && (parseInt(e.nb_ordinateurs) || 0) > 0)
+    .map(e => {
+      const { debut, fin } = periodePretMateriel(e);
+      return {
+        _id: e._id, conseiller: e.conseiller, qte: parseInt(e.nb_ordinateurs) || 0,
+        commune: e.commune || '', lieu: e.lieu || '', thematique: e.thematique || '',
+        dateAtelier: e.date, debut, fin,
+      };
+    })
+    .sort((a, b) => a.debut < b.debut ? -1 : a.debut > b.debut ? 1 : 0);
+}
+
+// Cumul des ordinateurs réservés pour chaque jour de `jours` (tableau de
+// dates ISO) — sert à teinter la frise là où le cumul dépasse le stock.
+function totauxParJourMateriel(prets, jours) {
+  const totaux = {};
+  (jours || []).forEach(j => {
+    totaux[j] = totalJourParConseiller((prets || []).filter(p => j >= p.debut && j <= p.fin));
+  });
+  return totaux;
+}
+
+// Un conflit (issu de findMobileClassConflicts ou findOrdinateursConflicts)
+// devient "historique" une fois sa période entièrement passée — plus rien à
+// arbitrer une fois que l'atelier a eu lieu. dateFin est absent sur un
+// conflit Classe mobile (toujours un seul jour) : on retombe sur date.
+function estConflitPasse(conflit, today) {
+  return (conflit.dateFin || conflit.date) < today;
+}
+
 // ── Normalisation d'une entrée importée (CSV / XLSX) ─────────────────────────
 
 function normalizeImportRow(raw) {
@@ -163,5 +313,8 @@ if (typeof module !== 'undefined') {
     normalizeImportRow,
     findMobileClassConflicts,
     filterMaterielsVisibles,
+    STOCK_ORDINATEURS, totalJourParConseiller, periodePretMateriel, findOrdinateursConflicts,
+    getPretsMateriel, totauxParJourMateriel, estConflitPasse,
+    estWeekend, veilleOuvree, lendemainOuvre,
   };
 }

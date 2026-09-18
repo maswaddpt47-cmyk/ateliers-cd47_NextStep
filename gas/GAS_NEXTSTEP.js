@@ -1,5 +1,24 @@
 
-// ── GAS Backend v10.11.3 ──────────────────────────────────────
+// ── GAS Backend v10.14.0 ──────────────────────────────────────
+// v10.14.0 : NON DÉPLOYÉ — préparé sur branche feat/port-newgen-gestion-ordi,
+//            en attente d'accès à script.google.com pour déploiement.
+//            Portage depuis ATELIERS_NEWGEN (v11.30-11.34) : suivi du prêt du
+//            stock d'ordinateurs (Classe mobile). Deux champs simples sur
+//            chaque atelier — nb_ordinateurs (quantité prêtée, saisie
+//            manuelle) et date_retour_materiel (date de retour prévue) —
+//            plus date_prelevement_materiel (date de retrait, peut précéder
+//            la date de l'atelier). _getAllFrais formate ces deux dates comme
+//            'date' (_fmtDate) au lieu de tomber dans le else générique
+//            (v.toISOString(), même bug que celui trouvé et corrigé sur
+//            NEWGEN v11.33 — corrigé ici directement, jamais introduit).
+//            Nouvelle config 'stock_ordinateurs' (générique, via setConfig),
+//            renvoyée dans getAll (stockOrdinateurs, défaut 10). Aucun
+//            changement à actionSaveEntry/saveMany : les deux écrivent déjà
+//            n'importe quelle colonne présente dans la feuille dont le nom
+//            correspond à une clé de l'entrée (d[h]) — contrairement à
+//            NEWGEN, pas de FIXED_COLS à mettre à jour ici. Migration
+//            ajouterColonnesPretMateriel() à lancer une fois manuellement
+//            (menu Exécuter) après déploiement — voir gas/README.md.
 // v10.11.3 : FEAT — actionGetLogs renvoie maintenant le champ action (delete,
 //            saveEntry, login, alertesRetard...) au frontend, qui l'affiche dans
 //            une colonne dédiée de l'onglet Connexions. Auparavant impossible de
@@ -284,6 +303,9 @@ function _getAllFrais(p){
       // setConfig pour l'ecriture, aucune nouvelle action GAS necessaire.
       var materiels_masques = [];
       try{ if(cfg['materiels_masques']) materiels_masques = JSON.parse(cfg['materiels_masques']); }catch(_){}
+      // Stock d'ordinateurs prêtés (défaut 10, modifiable depuis Admin →
+      // Config). parseInt sur une valeur absente/invalide retombe sur le défaut.
+      var stockOrdinateurs = parseInt(cfg['stock_ordinateurs'], 10) || 10;
       var entries = [];
       try{
         var sh = ss.getSheetByName('Ateliers_next_step');
@@ -319,7 +341,7 @@ function _getAllFrais(p){
               if(MAT_COLS_SET[h]) return; // redondant avec obj.materiel, exclu de la sortie API uniquement
               var v = row[j];
               if(v instanceof Date){
-                if(h === 'date'){
+                if(h === 'date' || h === 'date_retour_materiel' || h === 'date_prelevement_materiel'){
                   obj[h] = _fmtDate(v);      // etait Utilities.formatDate
                 } else if(h === 'horaire'){
                   obj[h] = _fmtHeure(v);     // etait Utilities.formatDate
@@ -344,7 +366,7 @@ function _getAllFrais(p){
       }catch(err){ Logger.log('entries error: '+err); }
       return {ok:true, entries:entries, lists:lists, visibility:visibility,
               conseiller_colors:conseiller_colors, emails:emails,
-              materiels_masques:materiels_masques};
+              materiels_masques:materiels_masques, stockOrdinateurs:stockOrdinateurs};
     }catch(err){
       return {ok:false, error:String(err)};
     }
@@ -973,6 +995,25 @@ function debugEntries(){
   var d=data[1][data[0].indexOf('date')];
   Logger.log('Type date: '+typeof d+' instanceof Date: '+(d instanceof Date));
   Logger.log('getFullYear: '+(d instanceof Date?d.getFullYear():String(d).substring(0,4)));
+}
+// À lancer une fois manuellement (menu Exécuter) après déploiement de
+// v10.14.0, pour le suivi du prêt du stock d'ordinateurs (Classe mobile) :
+// nb_ordinateurs (quantité prêtée, saisie manuelle), date_prelevement_materiel
+// (date de retrait, peut précéder la date de l'atelier) et
+// date_retour_materiel (date de retour prévue). Sans cette migration les
+// colonnes n'existent pas encore et actionSaveEntry ne peut rien y écrire —
+// elles restent silencieusement vides (d[h] undefined → ''). Idempotente
+// (relançable sans risque : ne recrée pas une colonne déjà présente).
+function ajouterColonnesPretMateriel(){
+  var sh = _ss().getSheetByName('Ateliers_next_step');
+  if(!sh){ Logger.log('Feuille introuvable'); return; }
+  var headers = sh.getRange(1,1,1,sh.getLastColumn()).getValues()[0].map(function(h){return String(h).trim();});
+  ['nb_ordinateurs','date_prelevement_materiel','date_retour_materiel'].forEach(function(col){
+    if(headers.indexOf(col) !== -1){ Logger.log('Colonne '+col+' déjà présente'); return; }
+    sh.getRange(1, sh.getLastColumn()+1).setValue(col);
+    headers.push(col);
+    Logger.log('Colonne '+col+' ajoutée en fin');
+  });
 }
 // ── Keep-alive : remplit reellement le cache getAll pour l'annee en cours ──
 // Historique : une premiere version appelait _getAllFrais pour 2 annees
