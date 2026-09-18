@@ -241,11 +241,25 @@ function App(){
   const[showPicker,setShowPicker]   = React.useState(false);
   const[inactifsSet,setInactifsSet] = React.useState(new Set());
   const[materielsMasques,setMaterielsMasques] = React.useState([]);
-  // Appel indépendant du check maintenance : le faire attendre getConfig (qui
-  // peut prendre plusieurs secondes) retardait Historique pour rien — même
-  // défaut que celui corrigé sur la landing, ici sur les données elles-mêmes.
+  // Liste du menu déroulant de connexion. Elle sortait de lists.conseillers,
+  // donc du getAll complet : c'est ce qui obligeait l'appel le plus lourd de
+  // l'application à partir AVANT la connexion, en concurrence avec
+  // checkPassword. La feuille Comptes porte déjà le nom et l'état actif de
+  // chacun — même correctif que sur admin.html (voir admin_app.js), qui
+  // relevait que « le getAll qui servait à récupérer lists.conseillers
+  // coûtait ~20 s pour la même information ».
+  const[loginConseillers,setLoginConseillers]=React.useState(CONSEILLERS_DEFAULT);
+
+  // SEUL appel lancé avant la connexion. Mesuré à 1,8-2,2 s quand il part
+  // seul (Journal client, 18/09/2026) — contre des HTTP 404 à 15-34 s quand
+  // il partait dans la rafale getComptes + getConfig + getAll.
   React.useEffect(()=>{
-    apiFetch('getComptes').then(res=>{if(res.ok&&res.comptes){setInactifsSet(new Set(res.comptes.filter(c=>c.actif==='NON').map(c=>c.conseiller)));}}).catch(()=>{});
+    apiFetch('getComptes').then(res=>{
+      if(!res.ok||!res.comptes) return;
+      setInactifsSet(new Set(res.comptes.filter(c=>c.actif==='NON').map(c=>c.conseiller)));
+      const actifs=res.comptes.filter(c=>c.actif!=='NON').map(c=>c.conseiller).filter(Boolean);
+      if(actifs.length>0) setLoginConseillers(actifs);
+    }).catch(()=>{});
   },[]);
   const[sidebarPinned,setSidebarPinned] = React.useState(()=>localStorage.getItem('sidebar_pinned')==='1');
 
@@ -298,13 +312,18 @@ function App(){
     return ()=> el.removeEventListener('change', handler);
   }, [view, lists.conseillers]);
 
-  // ── Chargement v10.0 — timeout adaptatif mobile/desktop ─────
-  async function loadData(attempt=1, silent=false){
+  // ── Chargement ──────────────────────────────────────────────
+  // useCache=true : accepte un résultat déjà en cache client (premier
+  // chargement). Sinon on force un appel réseau — après une écriture, un
+  // rafraîchissement manuel ou la synchro auto, les données doivent être
+  // fraîches. Le force:true inconditionnel d'avant annulait le cache de
+  // fetchAll à chaque fois, y compris au tout premier affichage.
+  async function loadData(attempt=1, silent=false, useCache=false){
     if(!silent) setLoading(true);
     setError(null);
     try{
-      // fetchAll porte seul les tentatives (3 essais échelonnés, budget borné).
-      const data=await fetchAll(annee,{force:true});
+      // fetchAll porte seul les tentatives (voir GAS_MAX_TENTATIVES).
+      const data=await fetchAll(annee,{force:!useCache});
       const incoming=data.entries||[];
       setEntries(incoming);
       if(data.lists){
@@ -361,6 +380,7 @@ function App(){
   // s'affiche donc tout de suite ; si getConfig confirme la maintenance,
   // MaintenanceScreen prend le relais quelques secondes plus tard.
   React.useEffect(()=>{
+    if(!authed) return;
     apiFetch('getConfig').then(res=>{
       if(res.ok&&res.config){
         const active=res.config['maintenance']==='true'||res.config['maintenance']===true||res.config['maintenance']==='TRUE';
@@ -368,19 +388,28 @@ function App(){
         setMaintenance(active?{msg}:false);
       } else setMaintenance(false);
     }).catch(()=>setMaintenance(false));
-  },[]);
+  },[authed]);
 
   // Indépendant du check maintenance : voir plus haut. getAll part dès le
   // montage, en parallèle de getConfig — rien ne justifie de les enchaîner.
   React.useEffect(()=>{
-    if(isFirstLoad.current){isFirstLoad.current=false;loadData();}
+    if(!authed) return;
+    if(isFirstLoad.current){isFirstLoad.current=false;loadData(1,false,true);}
     else{setSeenIds(new Set());loadData();}
-  },[annee]);
+  },[annee,authed]);
 
+  // Synchro de fond. Passée de 5 à 10 min et suspendue quand l'onglet n'est
+  // pas visible : plusieurs onglets ouverts en permanence sur les postes de
+  // l'équipe, chacun avec son propre minuteur, c'est autant d'appels qui
+  // partent pendant qu'un collègue enregistre un atelier.
   React.useEffect(()=>{
-    const id=setInterval(()=>loadData(1,true),5*60*1000);
+    if(!authed) return;
+    const id=setInterval(()=>{
+      if(document.hidden) return;
+      loadData(1,true);
+    },10*60*1000);
     return()=>clearInterval(id);
-  },[annee]);
+  },[annee,authed]);
 
   React.useEffect(()=>{
     const label=view==='accueil'?'Accueil':VIEW_META_F[view]?.label||view;
@@ -424,7 +453,7 @@ function App(){
 
   if(!authed){
     return CE(VueLoginIndex,{
-      conseillers:lists.conseillers,
+      conseillers:loginConseillers,
       onSuccess:(nom,res)=>{ window.onLoginSuccess(nom,res); setAuthed(true); handleChoixConseiller(nom, true); }
     });
   }

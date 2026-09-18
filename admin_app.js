@@ -326,9 +326,16 @@ function App(){
     if(isFirstLoad.current){isFirstLoad.current=false;loadData(1,false,true);}
     else{setSeenIds(new Set());loadData();}
   },[annee,auth]);
+  // Synchro de fond : 10 min au lieu de 5, et suspendue quand l'onglet n'est
+  // pas visible. Un onglet Admin laissé ouvert en arrière-plan toute la
+  // journée envoyait un getAll complet toutes les 5 minutes, en concurrence
+  // avec les enregistrements des conseillers.
   React.useEffect(()=>{
     if(!auth) return;
-    const id=setInterval(()=>loadData(1,true),5*60*1000);
+    const id=setInterval(()=>{
+      if(document.hidden) return;
+      loadData(1,true);
+    },10*60*1000);
     return()=>clearInterval(id);
   },[annee,auth]);
   async function handleDelete(id){
