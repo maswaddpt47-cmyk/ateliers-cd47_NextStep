@@ -55,6 +55,7 @@ function reponseGas(action) {
     { conseiller:'Cynthia Pineau', role:'user', actif:'OUI' },
   ]};
   if (action === 'getConfig')      return { ok:true, config:{} };
+  if (action === 'logLogin')       return { ok:true };
   if (action === 'getVisibility')  return { ok:true, visibility:MOCK_GETALL.visibility };
   if (action === 'getLogs')        return { ok:true, logs:[] };
   if (action === 'saveEntry')      return { ok:true, _id:'e1' };
@@ -185,4 +186,47 @@ test('admin — deux onglets écrivent dans le journal sans s\'écraser', async 
   // Et la fusion ne doit pas dupliquer ce qui existait déjà.
   const ids = JSON.parse(stocke).map(e => e.id).filter(Boolean);
   expect(new Set(ids).size, 'des entrées ont été dupliquées par la fusion').toBe(ids.length);
+});
+
+// ── 4. Plus de getConfig dédié sur index ───────────────────────────────────
+// Le drapeau maintenance voyage dans getAll : un appel getConfig séparé était
+// un aller-retour de plus à chaque connexion, et avec la file d'attente de
+// gasUnAppel il retardait le getAll dont l'utilisateur attend le résultat.
+test('index — aucun getConfig, le drapeau maintenance voyage dans getAll', async ({ page }) => {
+  const appels = await instrumenter(page);
+  await page.goto('/index.html');
+  await page.waitForSelector('input[type="password"]', { timeout:10000 });
+  await page.fill('input[type="password"]', 'test');
+  await page.getByText('🔓 Connexion', { exact:true }).click();
+  await page.waitForSelector('.sidebar-btn', { timeout:10000 });
+  await page.waitForTimeout(1500);
+
+  expect(compte(appels,'getConfig'),
+    `getConfig ne doit plus partir depuis index — appels vus : ${appels.join(', ')}`).toBe(0);
+  expect(compte(appels,'getAll'), 'getAll doit bien partir après connexion').toBe(1);
+});
+
+// ── 5. La maintenance reste détectée malgré la suppression de getConfig ────
+// Supprimer un appel ne doit pas supprimer la fonctionnalité qu'il portait :
+// le GAS répond {ok:false, maintenance:true, msg} à tout appelant non-admin.
+test('index — le mode maintenance s\'affiche toujours, via getAll seul', async ({ page }) => {
+  await instrumenter(page);
+  // On réécrit la seule réponse getAll pour simuler la maintenance active.
+  await page.route('**/script.google.com/**', async route => {
+    const action = new URL(route.request().url()).searchParams.get('action') || '';
+    const corps = action === 'getAll'
+      ? { ok:false, maintenance:true, msg:'Mise à jour en cours, merci de revenir plus tard.' }
+      : reponseGas(action);
+    await route.fulfill({ status:200, contentType:'application/json', body:JSON.stringify(corps) });
+  });
+
+  await page.goto('/index.html');
+  await page.waitForSelector('input[type="password"]', { timeout:10000 });
+  await page.fill('input[type="password"]', 'test');
+  await page.getByText('🔓 Connexion', { exact:true }).click();
+
+  await expect(page.getByText('Mise à jour en cours, merci de revenir plus tard.'))
+    .toBeVisible({ timeout:15000 });
+  // Et surtout : pas de message d'erreur générique à la place.
+  await expect(page.getByText(/Impossible de charger/)).toHaveCount(0);
 });

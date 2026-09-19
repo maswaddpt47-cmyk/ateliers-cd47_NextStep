@@ -324,6 +324,14 @@ function App(){
     try{
       // fetchAll porte seul les tentatives (voir GAS_MAX_TENTATIVES).
       const data=await fetchAll(annee,{force:!useCache});
+      // Mode maintenance : le serveur le signale dans cette réponse même,
+      // sans payload d'ateliers. MaintenanceScreen prend alors le relais.
+      if(data.maintenance){
+        setMaintenance({msg:data.msg||''});
+        setLoading(false);
+        return;
+      }
+      setMaintenance(false);
       const incoming=data.entries||[];
       setEntries(incoming);
       if(data.lists){
@@ -428,24 +436,15 @@ function App(){
 
   React.useEffect(()=>{loadCommunes47().catch(()=>{});},[]);
 
-  // Check maintenance : ne bloque plus l'affichage de la landing. Le mode
-  // maintenance est un cas rare, activé à la main par un admin — faire
-  // attendre CHAQUE chargement pour ce cas rare n'a pas de sens. La landing
-  // s'affiche donc tout de suite ; si getConfig confirme la maintenance,
-  // MaintenanceScreen prend le relais quelques secondes plus tard.
-  React.useEffect(()=>{
-    if(!authed) return;
-    apiFetch('getConfig').then(res=>{
-      if(res.ok&&res.config){
-        const active=res.config['maintenance']==='true'||res.config['maintenance']===true||res.config['maintenance']==='TRUE';
-        const msg=res.config['maintenance_msg']||'';
-        setMaintenance(active?{msg}:false);
-      } else setMaintenance(false);
-    }).catch(()=>setMaintenance(false));
-  },[authed]);
-
-  // Indépendant du check maintenance : voir plus haut. getAll part dès le
-  // montage, en parallèle de getConfig — rien ne justifie de les enchaîner.
+  // L'appel getConfig dédié qui vivait ici est supprimé. Il ne servait qu'à
+  // lire le drapeau maintenance, que getAll rapporte déjà : le GAS répond
+  // {ok:false, maintenance:true, msg} à tout appelant non-admin quand le mode
+  // est actif (voir _getAllFrais). C'était donc un aller-retour de plus à
+  // chaque connexion, pour une information qui arrivait de toute façon — et
+  // un appel qui, avec la file d'attente de gasUnAppel, retardait le getAll
+  // dont l'utilisateur attend réellement le résultat.
+  // Correctif porté d'ATELIERS_NEWGEN, qui l'avait supprimé de son côté.
+  // La détection se fait maintenant dans loadData.
   React.useEffect(()=>{
     if(!authed) return;
     if(isFirstLoad.current){isFirstLoad.current=false;loadData(1,false,true);}
@@ -517,9 +516,9 @@ function App(){
   const conseillerActifs = lists.conseillers.filter(c=>!inactifsSet.has(c));
 
   // ── Vue Accueil ───────────────────────────────────────────────
-  // maintenance===null (réponse pas encore arrivée) est traité comme "pas en
-  // maintenance" : on affiche la landing tout de suite, sans attendre. Seule
-  // une confirmation positive de getConfig bascule sur MaintenanceScreen.
+  // maintenance===null (getAll pas encore revenu) est traité comme "pas en
+  // maintenance" : on affiche la landing tout de suite, sans attendre. Seul
+  // un getAll rapportant maintenance:true bascule sur MaintenanceScreen.
   if(maintenance && maintenance!==false) return CE(MaintenanceScreen,{msg:maintenance.msg});
 
   if(!authed){

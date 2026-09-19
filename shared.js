@@ -646,8 +646,7 @@ async function _gasUnAppelBrut(url, action, numero, plafond){
 // ── Politique de reprise, partagée par apiFetch et fetchAll ────────────────
 // apiFetch et rawGetAll recopiaient la même boucle, avec des plafonds qui
 // divergeaient à chaque retouche. Une seule implémentation, deux régimes.
-window.gasAppel = async function(url, action, opts){
-  const o = opts || {};
+window.gasAppel = async function(url, action){
   const ecriture   = GAS_ACTIONS_ECRITURE.has(action);
   const plafond    = gasPlafond(action, ecriture);
   const pause      = ecriture ? GAS_PAUSE_ECRITURE_MS   : GAS_PAUSE_LECTURE_MS;
@@ -656,9 +655,7 @@ window.gasAppel = async function(url, action, opts){
   let derniere = null;
   for(let n=1; n<=tentatives; n++){
     try{
-      const data = await gasUnAppel(url, action, n, plafond);
-      if(o.exigeOk && (!data || !data.ok)) throw new Error((data && data.error) || 'Erreur serveur');
-      return data;
+      return await gasUnAppel(url, action, n, plafond);
     }catch(err){
       derniere = err;
       // Erreur définitive (403, réponse non-JSON, déploiement cassé, erreur
@@ -943,9 +940,18 @@ window.onLogout = function(){
   async function rawGetAll(year, source){
     const params = new URLSearchParams({action:'getAll', year:String(year)});
     if(source) params.set('source', source);
-    // exigeOk : un getAll qui revient avec ok:false (mode maintenance, erreur
-    // serveur) n'est pas un problème de livraison — on ne le rejoue pas.
-    return gasAppel(`${GS_URL}?${params.toString()}`, 'getAll', {exigeOk:true});
+    const data = await gasAppel(`${GS_URL}?${params.toString()}`, 'getAll');
+    // Le mode maintenance n'est pas une erreur, c'est un état que le serveur
+    // rapporte : il sort de _getAllFrais avec {ok:false, maintenance:true,
+    // msg}. Le renvoyer tel quel évite un appel getConfig dédié côté client
+    // — l'information voyage déjà dans cette réponse. (source=admin le
+    // court-circuite côté GAS : l'admin doit pouvoir travailler pendant une
+    // maintenance, c'est lui qui l'a activée.)
+    if(data && data.maintenance) return data;
+    // Toute autre réponse ok:false est une vraie erreur serveur. On ne la
+    // rejoue pas : ce n'est pas un problème de livraison.
+    if(!data || !data.ok) throw new Error((data && data.error) || 'Erreur serveur');
+    return data;
   }
 
   // force:true = ignore le cache terminé (après une écriture, un refresh manuel).
