@@ -823,7 +823,7 @@ function badgePill(statut,retard){
   return CE('span',{className:'badge-pill '+cls},statut);
 }
 const STATUT_COLORS={'Planifié':'#3b82f6','Réalisé':'#22c55e','Annulé':'#ef4444','Reporté':'#f97316','Non réalisé':'#94a3b8'};
-// v10.0 : constante partagée — évite la duplication dans VueHistorique et VueCalendrier
+// constante partagée — évite la duplication dans VueHistorique et VueCalendrier
 const CLOTURE_PRESETS=[
   {label:'✅ Réalisé',    statut:'Réalisé',     bg:'#16a34a',color:'#fff'},
   {label:'❌ Annulé',     statut:'Annulé',      bg:'#dc2626',color:'#fff'},
@@ -885,7 +885,7 @@ window.onLogout = function(){
   window.authToken.clear();
 };
 
-// ── API v18.1 — un seul appel, retry uniquement sur échec de transport ──
+// ── API — reprise sur échec de livraison (voir la politique d'appel GAS) ──
 (function(){
   // Actions admin qui exigent un token vérifié côté GAS. saveEntry/saveMany/
   // delete restent hors de cette liste : Index les utilise sans jamais
@@ -1951,7 +1951,7 @@ function VueHistorique({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
   const BORDER_COLOR={'Planifié':'#3b82f6','Réalisé':'#22c55e','Annulé':'#ef4444','Reporté':'#f59e0b','Non réalisé':'#94a3b8'};
 
   // v9.0 : clôture rapide — preset statuts finaux
-  // CLOTURE_PRESETS — v10.0 : défini globalement dans shared.js
+  // CLOTURE_PRESETS : défini globalement dans shared.js
 
   return CE('div',null,
     // KPIs
@@ -2131,7 +2131,7 @@ function VueCalendrier({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
   const monthStr=`${yr}-${String(mo+1).padStart(2,'0')}`;
   const MOIS_LONG=['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
   const JOURS_COURT=['Lun','Mar','Mer','Jeu','Ven'];
-  // CLOTURE_PRESETS — v10.0 : défini globalement dans shared.js
+  // CLOTURE_PRESETS : défini globalement dans shared.js
 
   // Entrées du mois filtrées par conseiller
   const monthEntries=React.useMemo(()=>{
@@ -2357,7 +2357,7 @@ function mkGrad(c1,c2,dir='v'){
   const[x1,y1,x2,y2]=dir==='v'?[0,0,0,1]:[0,0,1,0];
   return new window.echarts.graphic.LinearGradient(x1,y1,x2,y2,[{offset:0,color:c1},{offset:1,color:c2}]);
 }
-// ── v15.0 : Style graphiques GDIN ────────────────────────────
+// ── Style graphiques GDIN ────────────────────────────
 const EC_TT={backgroundColor:'#111827',borderColor:'#374151',textStyle:{color:'#f1f5f9',fontSize:12},extraCssText:'border-radius:8px;padding:10px 14px;box-shadow:none'};
 const EC_GRID={top:24,right:8,bottom:48,left:28,containLabel:true};
 const EC_AXIS_LABEL={color:'#94a3b8',fontSize:10};
@@ -2613,11 +2613,11 @@ function VueGraphiques({entries}){
   const byMoisPresents={};passes.forEach(e=>{const m=e.date?e.date.slice(0,7):'?';if(m<todayYM)byMoisPresents[m]=(byMoisPresents[m]||0)+(parseInt(e.presents)||0);});
   const dataMoisPresents=Object.keys(byMoisPresents).sort().map(k=>({label:fmtML(k),value:byMoisPresents[k],tip:`${fmtML(k)} : ${byMoisPresents[k]} présent(s)`}));
 
-  // v10.0 : Inscrits vs Présents par mois
+  // Inscrits vs Présents par mois
   const byMoisDual={};passes.forEach(e=>{const m=e.date?e.date.slice(0,7):'?';if(m<todayYM){if(!byMoisDual[m])byMoisDual[m]={inscrits:0,presents:0};byMoisDual[m].inscrits+=(parseInt(e.inscrits)||0);byMoisDual[m].presents+=(parseInt(e.presents)||0);}});
   const dataDual=Object.keys(byMoisDual).sort().map(k=>({label:fmtML(k),...byMoisDual[k]}));
 
-  // v10.0 : Répartition AM / PM (uniquement entrées avec ampm ou horaire renseigné)
+  // Répartition AM / PM (uniquement entrées avec ampm ou horaire renseigné)
   const withAmPm=filtered.filter(e=>e.ampm==='AM'||e.ampm==='PM'||(e.horaire&&!isNaN(parseInt(e.horaire))));
   const amCount=withAmPm.filter(e=>e.ampm==='AM'||(!e.ampm&&parseInt(e.horaire)<12)).length;
   const pmCount=withAmPm.filter(e=>e.ampm==='PM'||(!e.ampm&&parseInt(e.horaire)>=12)).length;
@@ -3327,7 +3327,7 @@ function VueAdmin({entries,onRefresh,addLog,conseillersList,onSaveColors}){
   const VIS_ITEMS=[{key:'saisie',label:'✏️ Saisie',sub:'Formulaire de saisie'},{key:'historique',label:'📋 Historique',sub:'Liste des ateliers'},{key:'calendrier',label:'📅 Calendrier',sub:'Vue calendrier mensuelle'},{key:'graphiques',label:'📊 Graphiques',sub:'Tableaux de bord'},{key:'carte',label:'🗺️ Carte',sub:'Carte des communes'},{key:'bingo',label:'🎯 Bingo',sub:'Vue par commune'}];
 
   React.useEffect(()=>{apiFetch('getVisibility').then(res=>{if(res.ok)setVisibility(res.visibility);}).catch(()=>{});},[]);
-  // v10.0 : getConfig rappels supprimé de VueAdmin (setRappelsActif non défini ici)
+  // getConfig rappels supprimé de VueAdmin (setRappelsActif non défini ici)
 
   // Sync colorDraft quand la liste des conseillers change
   React.useEffect(()=>{
@@ -3639,7 +3639,7 @@ function VuePowerBI({entries, conseillers: conseillersList}){
     );
   }
 
-  // ── v15.0 : Style PBI aligné sur GDIN ────────────────────
+  // ── Style PBI aligné sur GDIN ────────────────────
   const ecTT={backgroundColor:'#111827',borderColor:'#374151',textStyle:{color:'#f1f5f9',fontSize:11},extraCssText:'border-radius:8px;padding:10px 14px;box-shadow:none'};
   const _ecAPN={axisPointer:{type:'none'}};
   // Pas de dégradé — couleurs solides pour fiabilité mobile

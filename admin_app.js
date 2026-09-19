@@ -268,7 +268,7 @@ function App(){
   function clearLogs(){setLogs([]);try{localStorage.removeItem('adm_logs');}catch{}}
   function purgeLogs(){ setLogs(l=>ecrireLogs(l)); }
 
-  // ── v10.0 : Session expirante ──────────────────────────────
+  // ── Session expirante ──────────────────────────────
   // Déconnexion automatique après 30 min d'inactivité.
   // touchSession() appelé sur chaque interaction clavier/souris.
   function doSessionExpire(){
@@ -1077,7 +1077,7 @@ function VueAdminV10({entries,onRefresh,addLog,conseillersList,onSaveColors,anne
   React.useEffect(()=>{apiFetch('getVisibility').then(res=>{if(res.ok)setVisibility(res.visibility);}).catch(()=>{});},[]);
   React.useEffect(()=>{setColorDraft(d=>{const draft={...CONSEILLER_COLORS,...d};(conseillersList||[]).forEach(c=>{if(!draft[c])draft[c]='#6B7280';});return draft;});},[conseillersList]);
 
-  // ── v10.0 : KPIs enrichis ─────────────────────────────────
+  // ── KPIs enrichis ─────────────────────────────────
   const kpis=React.useMemo(()=>{
     const now=new Date();
     const moisActuel=now.getMonth(), anneeActuelle=now.getFullYear();
@@ -1113,7 +1113,7 @@ function VueAdminV10({entries,onRefresh,addLog,conseillersList,onSaveColors,anne
 
   function handleReset(){if(resetStep===0){setResetStep(1);return;}if(resetStep===1){setResetStep(2);return;}addLog('Réinitialisation BDD locale','info');showToast('✅ BDD locale vidée (Google Sheet intact)');setResetStep(0);onRefresh();}
 
-  // ── v10.0 : Export Timeline ────────────────────────────────
+  // ── Export Timeline ────────────────────────────────
   async function handleExport(){
     setTlRunning(true);setTlLogs([]);setLastExport(null);
     try{
@@ -1148,7 +1148,7 @@ function VueAdminV10({entries,onRefresh,addLog,conseillersList,onSaveColors,anne
     finally{setTlRunning(false);}
   }
 
-  // ── v10.0 : Validation pré-import ─────────────────────────
+  // ── Validation pré-import ─────────────────────────
   function detectErrors(rows){
     const errs=[];
     rows.forEach((r,i)=>{
@@ -1277,7 +1277,7 @@ function VueAdminV10({entries,onRefresh,addLog,conseillersList,onSaveColors,anne
     CE(ImportRapportModal,{rapport:importRapport,onClose:()=>setImportRapport(null)}),
     CE('div',{ref:adminRef},
 
-      // ── v10.0 : KPIs enrichis ──
+      // ── KPIs enrichis ──
       CE('div',{className:'card'},
         CE('h2',{style:{marginBottom:14}},'⚙️ Panneau Administrateur'),
         CE('div',{style:{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(130px,1fr))',gap:12,marginBottom:4}},

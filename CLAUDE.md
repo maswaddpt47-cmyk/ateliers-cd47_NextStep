@@ -1,5 +1,10 @@
 # Règles de travail — Ateliers CD47 NextStep
 
+> Avant d'ajouter une règle ici, lire `MD-LIB/hygiene-instructions.md` : une
+> contrainte formulable en test doit devenir un test, pas un paragraphe de
+> plus. Un fichier d'instructions qui grossit est moins bien appliqué, pas
+> mieux.
+
 ## Règles de collaboration avec Claude
 
 Extrait du guide de collaboration multi-projets, adapté pour ce dépôt.
@@ -129,58 +134,40 @@ cache-busting ci-dessus : un service worker est le seul code du projet qui
   en est une copie de référence versionnée, à tenir à jour manuellement après
   chaque déploiement confirmé (voir `gas/README.md`).
 
-## Tests unitaires — règle obligatoire
+## Tests
 
-| Fichier | Ce qu'il teste | Runner |
-|---|---|---|
-| `utils.js` | Fonctions bas niveau (dates, texte, parsing, ICS) | `node --test utils.test.js` |
-| `logic.js` | Logique métier (KPI, validation, filtres) | `node --test logic.test.js` |
-| (pas de fichier source) | Format données → API GAS | `node --test contract.test.js` |
-| `shared.js` (politique d'appel) | Plafonds, tentatives, budget — garde-fou contre le rallongement des timeouts | `node --test reseau.test.js` |
-
-Ces fichiers sont chargés dans le navigateur ET testés sous Node. Une seule source de vérité.
-
-Avant chaque commit touchant `utils.js`, `logic.js` ou le format des données :
-1. Exécuter les trois runners
-2. Corriger le code si un test échoue (jamais supprimer le test)
-3. Commiter source + test ensemble si le test a dû être mis à jour
-
-La CI bloque le déploiement si un test échoue.
-
-### Tests navigateur (Playwright, job `e2e` de la CI)
-
-| Fichier | Ce qu'il vérifie |
+| Runner | Ce qu'il vérifie |
 |---|---|
-| `e2e/smoke.test.js` | `index.html`/`admin.html` se chargent et chaque onglet s'ouvre sans erreur JS (GAS et CDN mockés) |
-| `e2e/appels.test.js` | Compte les appels GAS réellement émis à l'ouverture et après une écriture — échoue si un appel supprimé réapparaît. Vérifie aussi que deux onglets Admin n'écrasent pas le journal des opérations |
+| `node --test utils.test.js` | `utils.js` — dates, texte, parsing, ICS |
+| `node --test logic.test.js` | `logic.js` — KPI, validation, filtres |
+| `node --test contract.test.js` | format des données envoyées à GAS |
+| `node --test reseau.test.js` | plafonds, tentatives, budget — garde-fou contre le rallongement des timeouts |
+| `npx playwright test --reporter=line` | `e2e/smoke.test.js` (les deux pages s'ouvrent, chaque onglet répond) et `e2e/appels.test.js` (nombre d'appels GAS émis, journal Admin multi-onglets) |
 
-Runner commun : `npx playwright test --reporter=line` (exige `npm ci` et un
-Chromium — celui préinstallé en local, sinon `npx playwright install
-chromium`).
+Playwright exige `npm ci` et un Chromium (préinstallé en local, sinon
+`npx playwright install chromium`).
 
-**`appels.test.js` est à relancer dès qu'on touche aux effets de démarrage de
-`app.js`/`admin_app.js`, au chemin d'écriture (`saveEntry` → application
-locale) ou à `addLog`.** Chaque appel GAS rétabli au démarrage se paie
-directement sur le terrain : c'est ce que ce fichier empêche de réintroduire
-sans s'en apercevoir.
+**Quand lancer quoi**
 
-**Pourquoi il est indispensable :** les trois suites Node ne testent que des
-fonctions pures. Elles passent même quand `shared.js` lève une erreur au
-chargement et laisse les deux pages blanches — un point-virgule manquant
-devant une IIFE suffit. Seul `e2e` voit ce genre de casse, et il bloque le
-déploiement avant qu'elle n'atteigne GitHub Pages.
+- `node --check` sur tout fichier touché : **systématique**. C'est lui qui
+  attrape la casse au chargement qui laisse les deux pages blanches alors que
+  les suites Node passent.
+- `utils.js`, `logic.js` ou le format entry modifiés → les suites Node.
+- Effets de démarrage d'`app.js`/`admin_app.js`, chemin d'écriture
+  (`saveEntry` → application locale) ou `addLog` modifiés →
+  **`e2e/appels.test.js`**. Chaque appel GAS rétabli au démarrage se paie sur
+  le terrain : c'est ce fichier qui empêche de le réintroduire sans s'en
+  apercevoir.
+- Changement mineur (texte, style, élément UI sans logique) → la CI relance
+  `e2e` à chaque push, inutile de le faire localement.
 
-**Économie de tokens/quota — pas par défaut sur les changements mineurs :**
-`node --check` (syntaxe) reste systématique dans tous les cas — c'est lui qui
-attrape la classe de bug (point-virgule manquant, IIFE cassée) qui justifiait
-`e2e` à l'origine. Mais `e2e` n'est **pas** à relancer par défaut pour un
-changement mineur (texte, style, ajout d'un élément UI sans nouvelle logique)
-— l'utilisateur vérifie lui-même en direct, et la CI relance `e2e` à chaque
-push de toute façon (bloque le déploiement si ça casse). À exécuter
-localement avant de commiter dès que le changement touche à un comportement :
-nouveau flux d'authentification, nouvelle action GAS, changement d'état/de
-flux, ou en cas de doute — demander à l'utilisateur si l'un des deux n'est
-pas sûr du niveau de risque.
+**Règles de décision**
+
+- Test qui échoue après une correction de bug → corriger le code, pas le test.
+- Test qui échoue après un changement intentionnel → mettre à jour test et
+  code dans le même commit.
+- Ne jamais supprimer ni désactiver un test pour faire passer un commit.
+- **La CI bloque le déploiement si un test échoue.**
 
 ## GAS — règles critiques
 
