@@ -632,6 +632,11 @@ function App(){
           view==='logs'&&CE('div',{className:'card'},
             CE('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14,flexWrap:'wrap',gap:8}},
               CE('h2',{style:{margin:0}},'📜 Journal des opérations'),
+              // Les deux applis sont visuellement identiques (même nav, même
+              // sidebar) : sans cette étiquette, impossible de savoir de
+              // laquelle vient une capture d'écran du journal — ce qui a
+              // déjà fait attribuer des mesures au mauvais projet.
+              CE('span',{style:{fontSize:11,fontWeight:700,letterSpacing:'.08em',textTransform:'uppercase',color:'#fff',background:'#7c3aed',borderRadius:6,padding:'3px 8px',marginLeft:10,verticalAlign:'middle'}},'NEXTSTEP'),
               CE('div',{style:{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}},
                 CE('div',{style:{display:'flex',gap:4}},
                   ['all','ok','err','info'].map(f=>CE('button',{key:f,
