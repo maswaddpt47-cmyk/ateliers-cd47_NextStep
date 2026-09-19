@@ -212,22 +212,61 @@ function App(){
     localStorage.setItem('adm_dark',darkMode?'1':'0');
   },[darkMode]);
   const LOGS_PURGE_MS=30*24*60*60*1000;
-  const[logs,setLogs]=React.useState(()=>{
+  const LOGS_MAX=200;
+
+  // ── Journal des opérations, partagé entre onglets ─────────────────────────
+  // localStorage['adm_logs'] est commun à tous les onglets Admin du même
+  // navigateur. La version précédente y recopiait son seul état React en
+  // mémoire : deux onglets ouverts, et le dernier à journaliser effaçait les
+  // lignes écrites par l'autre. Le journal étant l'outil qui sert à mesurer
+  // les appels GAS, des lignes manquantes faussent le diagnostic lui-même.
+  //
+  // On relit donc le stockage à froid avant chaque écriture, et on fusionne.
+  // Chaque entrée porte un id : c'est lui qui permet de dédupliquer sans se
+  // fier à l'horodatage, deux lignes pouvant tomber sur la même milliseconde.
+  function logId(){ return Date.now()+'_'+Math.random().toString(36).slice(2,8); }
+
+  function lireLogsStockes(){
     try{
       const raw=JSON.parse(localStorage.getItem('adm_logs')||'[]');
-      const cutoff=Date.now()-30*24*60*60*1000;
-      return raw.filter(e=>!e.ts||e.ts>=cutoff);
-    }catch{return[];}
+      return Array.isArray(raw)?raw:[];
+    }catch{ return []; }
+  }
+
+  // liste = l'état React courant, éventuellement précédé de la nouvelle
+  // entrée. On y ajoute ce que les autres onglets ont écrit entre-temps, on
+  // déduplique, on purge au-delà de 30 jours, on plafonne, on réécrit.
+  // Le repli ts+'|'+msg couvre les entrées écrites avant l'ajout des id.
+  function ecrireLogs(liste){
+    const cutoff=Date.now()-LOGS_PURGE_MS;
+    const vus=new Set();
+    const fusion=[...liste, ...lireLogsStockes()]
+      .filter(e=>e&&(!e.ts||e.ts>=cutoff))
+      .filter(e=>{
+        const cle=e.id||((e.ts||0)+'|'+e.msg);
+        if(vus.has(cle)) return false;
+        vus.add(cle);
+        return true;
+      })
+      .sort((a,b)=>(b.ts||0)-(a.ts||0))
+      .slice(0,LOGS_MAX);
+    try{ localStorage.setItem('adm_logs',JSON.stringify(fusion)); }catch{}
+    return fusion;
+  }
+
+  const[logs,setLogs]=React.useState(()=>{
+    const cutoff=Date.now()-LOGS_PURGE_MS;
+    return lireLogsStockes().filter(e=>!e.ts||e.ts>=cutoff);
   });
   function addLog(msg,type='info'){
-    const entry={msg,type,t:new Date().toLocaleTimeString('fr-FR'),ts:Date.now()};
-    setLogs(l=>{const nl=[entry,...l].slice(0,200);try{localStorage.setItem('adm_logs',JSON.stringify(nl));}catch{}return nl;});
+    const entry={id:logId(),msg,type,t:new Date().toLocaleTimeString('fr-FR'),ts:Date.now()};
+    setLogs(l=>ecrireLogs([entry,...l]));
   }
+  // « Tout effacer » vide réellement le stockage partagé. Limite assumée : un
+  // autre onglet gardant ses lignes en mémoire les réécrira à sa prochaine
+  // journalisation. Le rafraîchir repart d'un journal vide.
   function clearLogs(){setLogs([]);try{localStorage.removeItem('adm_logs');}catch{}}
-  function purgeLogs(){
-    const cutoff=Date.now()-LOGS_PURGE_MS;
-    setLogs(l=>{const nl=l.filter(e=>!e.ts||e.ts>=cutoff);try{localStorage.setItem('adm_logs',JSON.stringify(nl));}catch{}return nl;});
-  }
+  function purgeLogs(){ setLogs(l=>ecrireLogs(l)); }
 
   // ── v10.0 : Session expirante ──────────────────────────────
   // Déconnexion automatique après 30 min d'inactivité.

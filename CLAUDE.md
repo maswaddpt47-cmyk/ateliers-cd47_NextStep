@@ -123,10 +123,20 @@ La CI bloque le déploiement si un test échoue.
 
 ### Tests navigateur (Playwright, job `e2e` de la CI)
 
-`e2e/smoke.test.js` — `index.html`/`admin.html` se chargent et chaque onglet
-s'ouvre sans erreur JS (GAS et CDN mockés). Runner : `npx playwright test
---reporter=line` (exige `npm ci` et un Chromium — celui préinstallé en local,
-sinon `npx playwright install chromium`).
+| Fichier | Ce qu'il vérifie |
+|---|---|
+| `e2e/smoke.test.js` | `index.html`/`admin.html` se chargent et chaque onglet s'ouvre sans erreur JS (GAS et CDN mockés) |
+| `e2e/appels.test.js` | Compte les appels GAS réellement émis à l'ouverture et après une écriture — échoue si un appel supprimé réapparaît. Vérifie aussi que deux onglets Admin n'écrasent pas le journal des opérations |
+
+Runner commun : `npx playwright test --reporter=line` (exige `npm ci` et un
+Chromium — celui préinstallé en local, sinon `npx playwright install
+chromium`).
+
+**`appels.test.js` est à relancer dès qu'on touche aux effets de démarrage de
+`app.js`/`admin_app.js`, au chemin d'écriture (`saveEntry` → application
+locale) ou à `addLog`.** Chaque appel GAS rétabli au démarrage se paie
+directement sur le terrain : c'est ce que ce fichier empêche de réintroduire
+sans s'en apercevoir.
 
 **Pourquoi il est indispensable :** les trois suites Node ne testent que des
 fonctions pures. Elles passent même quand `shared.js` lève une erreur au
