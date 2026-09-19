@@ -452,6 +452,15 @@ function App(){
     else{setSeenIds(new Set());loadData();}
   },[annee,authed]);
 
+  // Une erreur affichée signifie que la lecture précédente n'a pas abouti —
+  // très probablement parce que la livraison Apps Script traverse une de ses
+  // fenêtres de panne. Relancer dedans toutes les 10 min ne fait qu'ajouter
+  // des appels morts pendant que l'utilisateur a déjà le bouton Réessayer
+  // sous les yeux. Lu via une ref : la fonction passée à setInterval est
+  // créée une fois et ne verrait jamais la valeur à jour de `error`.
+  const errorRef = React.useRef(null);
+  React.useEffect(()=>{ errorRef.current = error; },[error]);
+
   // Synchro de fond. Passée de 5 à 10 min et suspendue quand l'onglet n'est
   // pas visible : plusieurs onglets ouverts en permanence sur les postes de
   // l'équipe, chacun avec son propre minuteur, c'est autant d'appels qui
@@ -460,6 +469,7 @@ function App(){
     if(!authed) return;
     const id=setInterval(()=>{
       if(document.hidden) return;
+      if(errorRef.current) return;
       loadData(1,true);
     },10*60*1000);
     return()=>clearInterval(id);

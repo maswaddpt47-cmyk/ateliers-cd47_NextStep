@@ -380,6 +380,15 @@ function App(){
     if(isFirstLoad.current){isFirstLoad.current=false;loadData(1,false,true);}
     else{setSeenIds(new Set());loadData();}
   },[annee,auth]);
+  // Une erreur affichée signifie que la lecture précédente n'a pas abouti —
+  // très probablement parce que la livraison Apps Script traverse une de ses
+  // fenêtres de panne. Relancer dedans toutes les 10 min ne fait qu'ajouter
+  // des appels morts pendant que l'utilisateur a déjà le bouton Réessayer
+  // sous les yeux. Lu via une ref : la fonction passée à setInterval est
+  // créée une fois et ne verrait jamais la valeur à jour de `error`.
+  const errorRef = React.useRef(null);
+  React.useEffect(()=>{ errorRef.current = error; },[error]);
+
   // Synchro de fond : 10 min au lieu de 5, et suspendue quand l'onglet n'est
   // pas visible. Un onglet Admin laissé ouvert en arrière-plan toute la
   // journée envoyait un getAll complet toutes les 5 minutes, en concurrence
@@ -388,6 +397,7 @@ function App(){
     if(!auth) return;
     const id=setInterval(()=>{
       if(document.hidden) return;
+      if(errorRef.current) return;
       loadData(1,true);
     },10*60*1000);
     return()=>clearInterval(id);
