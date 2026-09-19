@@ -3043,10 +3043,17 @@ function FriseMateriel({entries,onEdit}){
         pretsVisibles.map(p=>{
           const debutIdx=colIdx(p.debut),finIdx=colIdx(p.fin),atelierIdx=colIdx(p.dateAtelier);
           const conflit=(jours.slice(debutIdx,finIdx+1)).some(d=>(totaux[d]||0)>STOCK_ORDINATEURS);
+          // Barre teintée dans la couleur du conum (même couleur que le
+          // libellé à gauche et que partout ailleurs dans l'appli), plutôt
+          // qu'un bleu/rouge générique — identifier qui réserve quoi d'un
+          // coup d'œil sur la frise. Le conflit reste visible (bordure rouge
+          // épaissie + ⚠️ + texte rouge) : la couleur ne doit pas faire
+          // disparaître le signal que ce composant existe pour donner.
+          const cCol=conseillerColor(p.conseiller);
           return CE('div',{key:p._id,style:{display:'grid',gridTemplateColumns:gridTemplate,gap:1,alignItems:'center'}},
-            CE('div',{style:{fontSize:tailleTexte+2,fontWeight:600,color:conseillerColor(p.conseiller),whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',paddingRight:4}},p.conseiller||'—'),
-            CE('div',{style:{gridColumn:(debutIdx+2)+' / '+(finIdx+3),gridRow:'1',background:conflit?'#fecaca':'#bfdbfe',border:'1px solid '+(conflit?'#dc2626':'#3b82f6'),borderRadius:6,padding:'2px 6px',fontSize:tailleTexte+1,color:conflit?'#7f1d1d':'#1e3a8a',fontWeight:600,cursor:onEdit?'pointer':'default',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'},onClick:()=>onEdit&&onEdit(p._id),title:(p.commune||'')+' · '+p.qte+' ordinateur(s) · '+fmtPeriode(p.debut,p.fin)},
-              p.qte+' 🖥️ '+(p.commune||'')),
+            CE('div',{style:{fontSize:tailleTexte+2,fontWeight:600,color:cCol,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',paddingRight:4}},p.conseiller||'—'),
+            CE('div',{style:{gridColumn:(debutIdx+2)+' / '+(finIdx+3),gridRow:'1',background:cCol+'22',border:(conflit?'2px solid #dc2626':'1px solid '+cCol),borderRadius:6,padding:'2px 6px',fontSize:tailleTexte+1,color:conflit?'#7f1d1d':cCol,fontWeight:600,cursor:onEdit?'pointer':'default',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'},onClick:()=>onEdit&&onEdit(p._id),title:(p.commune||'')+' · '+p.qte+' ordinateur(s) · '+fmtPeriode(p.debut,p.fin)},
+              (conflit?'⚠️ ':'')+p.qte+' 🖥️ '+(p.commune||'')),
             // Repère du jour de l'atelier (distinct du prélèvement/retour qui
             // entourent la barre) — un triangle superposé, sans bloquer le
             // clic sur la barre en dessous.
