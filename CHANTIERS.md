@@ -149,6 +149,19 @@ copies divergent. La divergence s'est déjà payée deux fois le 18/09/2026 — 
 correctif réinventé d'un côté, une erreur déjà apprise réintroduite de
 l'autre. Pas de build, pas de package.
 
+## 7. Autres vérifications terrain PWA en attente (19/09/2026)
+
+En complément du §4 (cache HTML) — deux points encore jamais vérifiés en
+dehors des tests automatisés, qui ne peuvent pas les couvrir :
+
+- **Installabilité** : confirmer sur un Android réel que "Installer
+  l'application" apparaît bien pour `index.html` et `admin.html`, pas
+  seulement "Créer un raccourci".
+- **Lisibilité des couleurs de la Frise du parc** : les barres de
+  `FriseMateriel` (`shared.js`) sont colorées par conum depuis le 19/09 —
+  pas de vérification visuelle du contraste texte/fond pour chaque
+  conseiller existant.
+
 ---
 
 ## Points à ne pas défaire
