@@ -462,20 +462,7 @@ window.addEventListener('beforeprint',()=>{
 });
 window.addEventListener('afterprint',()=>{
   document.body.removeAttribute('data-print-date');
-  const paysage=document.getElementById('print-landscape-tmp');
-  if(paysage)paysage.remove();
 });
-// Impression au format paysage : @page ne peut pas être conditionné par une
-// classe (ce n'est pas un sélecteur descendant), donc on injecte/retire une
-// feuille de style dédiée le temps de l'impression plutôt que de forcer le
-// paysage pour toute l'appli (Historique, KPI... restent mieux en portrait).
-function imprimerPaysage(){
-  const s=document.createElement('style');
-  s.id='print-landscape-tmp';
-  s.textContent='@page{size:A4 landscape}';
-  document.head.appendChild(s);
-  window.print();
-}
 
 if(!window.React||!window.ReactDOM){throw new Error('React/ReactDOM non chargé — vérifiez les CDN dans le HTML');}
 const CE = React.createElement;
@@ -696,6 +683,65 @@ window.gasAppel = async function(url, action){
     throw new Error(`Aucune réponse de Google après ${tentatives} tentatives — réessaie.`);
   throw derniere || new Error('Échec inconnu');
 };
+
+// Chargement d'un script à la demande, une seule fois même si plusieurs
+// actions le réclament en même temps. Sert aux grosses librairies qui ne
+// servent qu'à un clic (export PDF, xlsx...) et qui n'ont donc rien à faire
+// dans le <head>, où elles retardent l'affichage de la page pour tout le
+// monde, y compris ceux qui n'exporteront jamais rien. Porté depuis
+// ATELIERS_NEWGEN le 20/09/2026.
+window.__scriptsCharges = window.__scriptsCharges || {};
+window.chargerScriptUneFois = function(src){
+  if(window.__scriptsCharges[src]) return window.__scriptsCharges[src];
+  window.__scriptsCharges[src] = new Promise((resolve,reject)=>{
+    const s=document.createElement('script');
+    s.src=src;
+    s.onload=()=>resolve();
+    s.onerror=()=>{ delete window.__scriptsCharges[src]; reject(new Error('Chargement impossible : '+src)); };
+    document.head.appendChild(s);
+  });
+  return window.__scriptsCharges[src];
+};
+
+// Export PDF (paysage A4) d'un élément du DOM — capture vectorisée via
+// html2canvas puis insérée dans un PDF via jsPDF, chargés à la demande
+// (chargerScriptUneFois : ces deux libs ne servent qu'à l'export). Remplace
+// une tentative précédente basée sur window.print() + @page{size:landscape}
+// injecté dynamiquement : constaté le 20/09/2026 en production, Chrome
+// mémorise l'orientation choisie dans sa boîte de dialogue Imprimer par
+// origine et l'impose à la prévisualisation, sans effet du CSS de la page —
+// aucune API ne permet de la court-circuiter. Générer le PDF nous-mêmes
+// contourne le problème entièrement, sans dépendre de ce que la boîte de
+// dialogue du navigateur décide de faire.
+async function exporterElementPDF(selector, titre, nomFichier){
+  await window.chargerScriptUneFois('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
+  await window.chargerScriptUneFois('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+  const el = document.querySelector(selector);
+  if(!el) throw new Error('Rien à exporter pour le moment.');
+  const canvas = await window.html2canvas(el, { scale: 3, backgroundColor: '#ffffff' });
+  const { jsPDF } = window.jspdf;
+  const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+  const pageW = pdf.internal.pageSize.getWidth();
+  const pageH = pdf.internal.pageSize.getHeight();
+  const marge = 10;
+  pdf.setFontSize(11);
+  pdf.setFont(undefined, 'bold');
+  // La police par défaut de jsPDF (Helvetica, encodage WinAnsi) ne rend pas
+  // le « → » utilisé par fmtPeriode (rendu garbled, constaté le 20/09/2026) —
+  // remplacé par un tiret dans le PDF uniquement, l'app garde la flèche.
+  pdf.text(titre.replace(/→/g, '-'), marge, marge);
+  pdf.setFont(undefined, 'normal');
+  pdf.setFontSize(8);
+  pdf.setTextColor(140);
+  const dateStr = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
+  pdf.text('Ateliers Inclusion Numérique — Imprimé le ' + dateStr, pageW - marge, marge, { align: 'right' });
+  const zoneY = marge + 6, zoneW = pageW - marge * 2, zoneH = pageH - marge - zoneY;
+  const ratio = canvas.width / canvas.height;
+  let imgW = zoneW, imgH = imgW / ratio;
+  if (imgH > zoneH) { imgH = zoneH; imgW = imgH * ratio; }
+  pdf.addImage(canvas.toDataURL('image/png'), 'PNG', marge + (zoneW - imgW) / 2, zoneY, imgW, imgH);
+  pdf.save(nomFichier);
+}
 
 // ── Écran d'attente d'un appel GAS ─────────────────────────────────────────
 // Un getAll prend 10 à 30 s en cas de cache froid, redirection /exec → echo
@@ -3024,6 +3070,7 @@ const FRISE_NB_JOURS=28;
 function FriseMateriel({entries,onEdit}){
   const[offset,setOffset]=React.useState(0);
   const[agrandi,setAgrandi]=React.useState(false);
+  const[exportEnCours,setExportEnCours]=React.useState(false);
   const today=todayLocal();
   const jourDebut=addJoursIso(today,offset);
   const jours=React.useMemo(()=>Array.from({length:FRISE_NB_JOURS},(_,i)=>addJoursIso(jourDebut,i)),[jourDebut]);
@@ -3103,7 +3150,16 @@ function FriseMateriel({entries,onEdit}){
         CE('div',{className:'no-print',style:{display:'flex',gap:6,alignItems:'center'}},
           navBoutons,
           CE('button',{onClick:()=>setAgrandi(true),title:'Agrandir la frise',style:{padding:'4px 10px',border:'1px solid #3b82f6',borderRadius:6,background:'#eff6ff',color:'#1d4ed8',cursor:'pointer',fontSize:12,fontWeight:600}},'🔍 Agrandir'),
-          CE('button',{className:'btn btn-print btn-sm',onClick:imprimerPaysage,title:'Imprimer la frise (format paysage)'},'🖨️ Imprimer')
+          pretsVisibles.length>0&&CE('button',{className:'btn btn-print btn-sm',disabled:exportEnCours,onClick:async()=>{
+            setExportEnCours(true);
+            try{
+              await exporterElementPDF('.frise-grid-wrap','Frise du parc — '+fmtPeriode(jourDebut,jourFin),'frise-du-parc-'+jourDebut+'.pdf');
+            }catch(e){
+              alert('Export PDF impossible : '+e.message);
+            }finally{
+              setExportEnCours(false);
+            }
+          },title:'Exporter la frise en PDF (paysage A4)'},exportEnCours?'⏳ Export…':'📄 Export PDF')
         )
       ),
       legende,
