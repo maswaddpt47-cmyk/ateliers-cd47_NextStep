@@ -161,7 +161,8 @@ tr:hover td{background:#f7fafc}
   input[type="text"],
   input[type="search"],
   select,
-  .view-anim>div:not(:first-child)
+  .view-anim>div:not(:first-child),
+  .no-print
   {display:none!important}
 
   /* ── Layout ── */
@@ -193,6 +194,15 @@ tr:hover td{background:#f7fafc}
 
   /* ── Roadmap / Gantt ── */
   .gantt-bar{-webkit-print-color-adjust:exact!important}
+
+  /* ── Frise du parc (Gestion ordi) ── */
+  /* Le repli sur minmax(colWidth,1fr) sert à l'écran (colonne jamais trop
+     étroite pour rester cliquable) mais empêche la grille de rétrécir pour
+     tenir sur une page — on la remplace par des 1fr sans plancher.
+     28 = FRISE_NB_JOURS (constante ci-dessous), à garder synchronisé si
+     elle change. */
+  .frise-grid-wrap{min-width:0!important;width:100%!important;overflow:visible!important}
+  .frise-grid-row{grid-template-columns:140px repeat(28,1fr)!important}
 
   /* ── Bingo ── */
   .bingo-grid{grid-template-columns:repeat(4,1fr)!important;gap:6px!important}
@@ -452,7 +462,20 @@ window.addEventListener('beforeprint',()=>{
 });
 window.addEventListener('afterprint',()=>{
   document.body.removeAttribute('data-print-date');
+  const paysage=document.getElementById('print-landscape-tmp');
+  if(paysage)paysage.remove();
 });
+// Impression au format paysage : @page ne peut pas être conditionné par une
+// classe (ce n'est pas un sélecteur descendant), donc on injecte/retire une
+// feuille de style dédiée le temps de l'impression plutôt que de forcer le
+// paysage pour toute l'appli (Historique, KPI... restent mieux en portrait).
+function imprimerPaysage(){
+  const s=document.createElement('style');
+  s.id='print-landscape-tmp';
+  s.textContent='@page{size:A4 landscape}';
+  document.head.appendChild(s);
+  window.print();
+}
 
 if(!window.React||!window.ReactDOM){throw new Error('React/ReactDOM non chargé — vérifiez les CDN dans le HTML');}
 const CE = React.createElement;
@@ -3020,19 +3043,25 @@ function FriseMateriel({entries,onEdit}){
   );
   // colWidth/tailleTexte paramétrables : version compacte dans la carte,
   // version agrandie dans le panneau plein écran (au clic sur 🔍 Agrandir).
-  function renderGrille(colWidth,tailleTexte){
+  // printable=true uniquement sur l'appel compact : c'est lui la cible de
+  // l'impression (position:fixed est peu fiable à l'impression selon les
+  // navigateurs, le panneau plein écran est donc explicitement masqué en
+  // print — voir plus bas — et ne doit pas recevoir les mêmes classes, sinon
+  // les deux grilles se superposeraient sur le papier si les deux étaient
+  // montées en même temps).
+  function renderGrille(colWidth,tailleTexte,printable){
     const gridTemplate='140px repeat('+jours.length+',minmax('+colWidth+'px,1fr))';
     if(pretsVisibles.length===0)return CE('div',{style:{textAlign:'center',padding:'24px 0',color:'#16a34a',fontSize:13}},'✅ Aucun prêt Classe mobile sur cette période');
-    return CE('div',{style:{minWidth:jours.length*colWidth+140}},
+    return CE('div',{className:printable?'frise-grid-wrap':undefined,style:{minWidth:jours.length*colWidth+140}},
       // En-tête jours
-      CE('div',{style:{display:'grid',gridTemplateColumns:gridTemplate,gap:1}},
+      CE('div',{className:printable?'frise-grid-row':undefined,style:{display:'grid',gridTemplateColumns:gridTemplate,gap:1}},
         CE('div',null),
         jours.map(d=>{const l=jourLabel(d);const estAujourdhui=d===today;
           return CE('div',{key:d,style:{textAlign:'center',fontSize:tailleTexte,color:estAujourdhui?'#1d4ed8':l.weekend?'#cbd5e0':'#9ca3af',fontWeight:estAujourdhui?700:400,padding:'2px 0',borderBottom:estAujourdhui?'2px solid #1d4ed8':'2px solid transparent'}},l.num+' '+l.mois);
         })
       ),
       // Ligne stock cumulé
-      CE('div',{style:{display:'grid',gridTemplateColumns:gridTemplate,gap:1,marginBottom:6}},
+      CE('div',{className:printable?'frise-grid-row':undefined,style:{display:'grid',gridTemplateColumns:gridTemplate,gap:1,marginBottom:6}},
         CE('div',{style:{fontSize:tailleTexte+1,fontWeight:700,color:'#718096',alignSelf:'center'}},'Stock ('+STOCK_ORDINATEURS+')'),
         jours.map(d=>{const t=totaux[d]||0;const depasse=t>STOCK_ORDINATEURS;
           return CE('div',{key:d,title:t+' ordinateur(s) réservé(s)',style:{height:colWidth<32?14:22,background:t===0?'#f1f5f9':depasse?'#dc2626':'#86efac',borderRadius:2,fontSize:tailleTexte,color:depasse?'#fff':'#166534',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:700}},t>0?t:'');
@@ -3050,7 +3079,7 @@ function FriseMateriel({entries,onEdit}){
           // épaissie + ⚠️ + texte rouge) : la couleur ne doit pas faire
           // disparaître le signal que ce composant existe pour donner.
           const cCol=conseillerColor(p.conseiller);
-          return CE('div',{key:p._id,style:{display:'grid',gridTemplateColumns:gridTemplate,gap:1,alignItems:'center'}},
+          return CE('div',{key:p._id,className:printable?'frise-grid-row':undefined,style:{display:'grid',gridTemplateColumns:gridTemplate,gap:1,alignItems:'center'}},
             CE('div',{style:{fontSize:tailleTexte+2,fontWeight:600,color:cCol,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',paddingRight:4}},p.conseiller||'—'),
             CE('div',{style:{gridColumn:(debutIdx+2)+' / '+(finIdx+3),gridRow:'1',background:cCol+'22',border:(conflit?'2px solid #dc2626':'1px solid '+cCol),borderRadius:6,padding:'2px 6px',fontSize:tailleTexte+1,color:conflit?'#7f1d1d':cCol,fontWeight:600,cursor:onEdit?'pointer':'default',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'},onClick:()=>onEdit&&onEdit(p._id),title:(p.commune||'')+' · '+p.qte+' ordinateur(s) · '+fmtPeriode(p.debut,p.fin)},
               (conflit?'⚠️ ':'')+p.qte+' 🖥️ '+(p.commune||'')),
@@ -3071,13 +3100,14 @@ function FriseMateriel({entries,onEdit}){
           CE('span',{style:{fontSize:18}},'📊'),
           CE('h3',{style:{margin:0,fontSize:14,fontWeight:700}},'Frise du parc — '+fmtPeriode(jourDebut,jourFin))
         ),
-        CE('div',{style:{display:'flex',gap:6,alignItems:'center'}},
+        CE('div',{className:'no-print',style:{display:'flex',gap:6,alignItems:'center'}},
           navBoutons,
-          CE('button',{onClick:()=>setAgrandi(true),title:'Agrandir la frise',style:{padding:'4px 10px',border:'1px solid #3b82f6',borderRadius:6,background:'#eff6ff',color:'#1d4ed8',cursor:'pointer',fontSize:12,fontWeight:600}},'🔍 Agrandir')
+          CE('button',{onClick:()=>setAgrandi(true),title:'Agrandir la frise',style:{padding:'4px 10px',border:'1px solid #3b82f6',borderRadius:6,background:'#eff6ff',color:'#1d4ed8',cursor:'pointer',fontSize:12,fontWeight:600}},'🔍 Agrandir'),
+          CE('button',{className:'btn btn-print btn-sm',onClick:imprimerPaysage,title:'Imprimer la frise (format paysage)'},'🖨️ Imprimer')
         )
       ),
       legende,
-      renderGrille(22,9)
+      renderGrille(22,9,true)
     ),
     // Panneau plein écran monté via portail dans document.body : le wrapper
     // .view-anim (animation d'entrée d'onglet) laisse un
@@ -3088,10 +3118,13 @@ function FriseMateriel({entries,onEdit}){
     // du sous-arbre .view-anim et échappe au problème (même bug/correctif
     // que sur ATELIERS_NEWGEN, 8964b53 — vérifié : NextStep a la même
     // définition CSS .view-anim/fadeSlideIn).
+    // Masqué à l'impression (no-print) plutôt qu'adapté : position:fixed
+    // imprime de façon peu fiable selon les navigateurs. La cible
+    // d'impression est la grille compacte ci-dessus (printable=true).
     agrandi&&ReactDOM.createPortal(
       CE(React.Fragment,null,
-        CE('div',{className:'side-panel-overlay',onClick:()=>setAgrandi(false)}),
-        CE('div',{style:{position:'fixed',top:'4%',left:'4%',right:'4%',bottom:'4%',background:'#fff',borderRadius:14,padding:'20px 24px',zIndex:1000,overflow:'auto',boxShadow:'0 10px 40px rgba(0,0,0,.35)'}},
+        CE('div',{className:'side-panel-overlay no-print',onClick:()=>setAgrandi(false)}),
+        CE('div',{className:'no-print',style:{position:'fixed',top:'4%',left:'4%',right:'4%',bottom:'4%',background:'#fff',borderRadius:14,padding:'20px 24px',zIndex:1000,overflow:'auto',boxShadow:'0 10px 40px rgba(0,0,0,.35)'}},
           CE('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:16,flexWrap:'wrap',gap:8}},
             CE('h3',{style:{margin:0,fontSize:18,fontWeight:700}},'📊 Frise du parc — '+fmtPeriode(jourDebut,jourFin)),
             CE('div',{style:{display:'flex',gap:8,alignItems:'center'}},
@@ -3100,7 +3133,7 @@ function FriseMateriel({entries,onEdit}){
             )
           ),
           legende,
-          renderGrille(48,12)
+          renderGrille(48,12,false)
         )
       ),
       document.body
