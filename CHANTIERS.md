@@ -68,6 +68,19 @@ Même situation que sur NEWGEN, à vérifier ici dans `gas/GAS_NEXTSTEP.js` :
 `/exec` en clair dans `shared.js` d'un dépôt public. Chantier séparé,
 impliquant un redéploiement GAS manuel.
 
+## 4. Vérifications terrain en attente (PWA, 19/09/2026)
+
+Deux points livrés le 19/09 mais jamais vérifiés en dehors des tests
+automatisés (qui ne peuvent pas les couvrir) :
+
+- **Installabilité PWA** : confirmer sur un Android réel que "Installer
+  l'application" apparaît bien pour `index.html` et `admin.html` (manifest +
+  icônes + service worker déployés — voir `MD-LIB/pwa-service-worker.md`).
+- **Lisibilité des couleurs de la Frise du parc** : les barres de
+  `FriseMateriel` (`shared.js`) sont colorées par conum depuis le 19/09 —
+  pas de vérification visuelle du contraste texte/fond pour chaque
+  conseiller existant.
+
 ---
 
 ## Points à ne pas défaire
