@@ -2,7 +2,9 @@
 
 > **Travaux en cours, décisions en attente et mesures à faire :
 > [`CHANTIERS.md`](CHANTIERS.md).** À lire en début de session — une session
-> ne transmet rien à la suivante, seul ce qui est commité survit.
+> ne transmet rien à la suivante, seul ce qui est commité survit. À
+> réactualiser **à chaque avancée**, pas en fin de session : une session peut
+> s'interrompre sans préavis.
 >
 > Avant d'ajouter une règle ici, lire `MD-LIB/hygiene-instructions.md` : une
 > contrainte formulable en test doit devenir un test, pas un paragraphe de
