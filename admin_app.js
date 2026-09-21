@@ -660,6 +660,17 @@ function App(){
                   },'🕐 +30j ('+old30+')');
                 })(),
                 logs.length>0&&CE('button',{
+                  onClick:()=>{
+                    const txt=window.resumeLogsTexte(logs,'NEXTSTEP');
+                    const fini=(ok)=>{ if(!ok) console.log(txt); alert(ok?'Résumé copié — colle-le dans la conversation.':'Copie refusée par le navigateur : le résumé est dans la console (F12).'); };
+                    if(navigator.clipboard&&navigator.clipboard.writeText){
+                      navigator.clipboard.writeText(txt).then(()=>fini(true),()=>fini(false));
+                    } else fini(false);
+                  },
+                  title:'Copier un résumé exploitable du journal (taux de perte, durées, répartition horaire)',
+                  style:{fontSize:11,padding:'3px 10px',border:'1px solid #c4b5fd',borderRadius:6,background:'#f5f3ff',cursor:'pointer',color:'#6d28d9',fontWeight:600}
+                },'📋 Copier pour Claude'),
+                logs.length>0&&CE('button',{
                   onClick:()=>{clearLogs();setLogFilter('all');},
                   style:{fontSize:11,padding:'3px 10px',border:'1px solid #e2e8f0',borderRadius:6,background:'#f8fafc',cursor:'pointer',color:'#718096'}
                 },'🗑️ Tout effacer')
