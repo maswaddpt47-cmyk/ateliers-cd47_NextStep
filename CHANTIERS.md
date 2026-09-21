@@ -77,20 +77,6 @@ confirme ce profil, la stratégie d'appel devient secondaire : ce serait la
 charge de l'infrastructure Apps Script aux heures ouvrées, et le proxy
 deviendrait le seul vrai levier.
 
-_Méthode précédente, conservée pour mémoire :_ console (F12) sur l'Admin,
-après quelques jours d'usage. Le Journal porte désormais une pastille NEXTSTEP / NEWGEN : les
-deux applis sont visuellement identiques et des mesures ont déjà été
-attribuées au mauvais projet le 19/09.
-
-```js
-(() => {
-  const L = JSON.parse(localStorage.getItem('adm_logs')||'[]').map(e=>e.msg).filter(m=>m&&m.startsWith('GAS '));
-  const ko = L.filter(m=>/404|bloqué|réseau/.test(m)).length;
-  const ok = L.filter(m=>/— ok en/.test(m)).map(m=>parseFloat(m.match(/ok en ([\d.]+)/)[1])).sort((a,b)=>a-b);
-  console.log(`${location.pathname} | appels ${L.length} | échecs ${ko} (${Math.round(ko/L.length*100)}%) | médiane ${ok[Math.floor(ok.length/2)]}s`);
-})()
-```
-
 ⚠️ **Incompatibilité à connaître** : on ne peut pas porter le doublage de
 NEWGEN sans retirer la file. Un doublon mis en file derrière son propre jumeau
 ne partirait qu'après l'abandon de celui-ci — le mécanisme serait inopérant.
