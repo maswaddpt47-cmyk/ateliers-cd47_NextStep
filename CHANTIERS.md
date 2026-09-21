@@ -1,6 +1,6 @@
 # Chantiers en cours — Ateliers CD47 NextStep
 
-État au **20/09/2026**, commit de référence `c45e7f8`.
+État au **21/09/2026**, commit de référence `368a041`.
 Fichier transitoire : à mettre à jour à chaque avancée, à supprimer quand tout
 est soldé. Ce n'est pas de la documentation permanente (cf.
 `MD-LIB/hygiene-instructions.md`).
@@ -142,6 +142,11 @@ que bloquant dans le `<head>` ; `sandbox.test.js`.
 **NextStep → NEWGEN** : ne rien lancer de lourd avant la connexion (NEWGEN
 émet encore `getComptes` + `getAll(force:true)` au montage) ; premier
 chargement sans `force:true`.
+
+⚠️ **Vu sur NEWGEN le 21/09/2026** : là-bas, la logique du stock matériel
+est dupliquée entre `logic.js` (testé) et `shared.js` (servi aux pages).
+NextStep n'a pas ce défaut — `shared.js` consomme `logic.js` — mais c'est
+l'illustration concrète du risque que la piste ci-dessous vise à supprimer.
 
 **Piste de fond** : extraire la couche d'appel GAS dans un `gas-client.js`
 copié à l'identique dans les deux dépôts, avec un test qui échoue si les
