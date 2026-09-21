@@ -230,7 +230,7 @@ function App(){
   const[filtreConseiller,setFiltreConseiller] = React.useState(null);
   const[editingId,setEditingId]    = React.useState(null);
   const[prefillData,setPrefillData] = React.useState(null);
-  const[annee,setAnneeState]       = React.useState(()=>localStorage.getItem('f_annee')||String(new Date().getFullYear()));
+  const[annee,setAnneeState]       = React.useState(()=>localStorage.getItem(lsKey('f_annee'))||String(new Date().getFullYear()));
   const[visibility,setVisibility]   = React.useState({saisie:true,historique:true,dashboard:true,carte:true,bingo:true,calendrier:false,agenda:false,roadmap:false,gestion_ordi:true});
   const[lists,setLists]            = React.useState({
     statuts:[...STATUTS_DEFAULT],conseillers:[...CONSEILLERS_DEFAULT],
@@ -261,7 +261,7 @@ function App(){
       if(actifs.length>0) setLoginConseillers(actifs);
     }).catch(()=>{});
   },[]);
-  const[sidebarPinned,setSidebarPinned] = React.useState(()=>localStorage.getItem('sidebar_pinned')==='1');
+  const[sidebarPinned,setSidebarPinned] = React.useState(()=>localStorage.getItem(lsKey('sidebar_pinned'))==='1');
 
   // Un token peut déjà être présent en sessionStorage au chargement (login
   // précédent dans cet onglet) — sessionStorage survit à un simple
@@ -279,9 +279,9 @@ function App(){
   const viewRef = React.useRef(null);
 
   // ── Helpers ───────────────────────────────────────────────────
-  function setAnnee(v){ localStorage.setItem('f_annee',v); setAnneeState(v); }
+  function setAnnee(v){ localStorage.setItem(lsKey('f_annee'),v); setAnneeState(v); }
   function resetConseiller(){ setFiltreConseiller(null); }
-  function togglePin(){ setSidebarPinned(p=>{ const n=!p; localStorage.setItem('sidebar_pinned',n?'1':'0'); return n; }); }
+  function togglePin(){ setSidebarPinned(p=>{ const n=!p; localStorage.setItem(lsKey('sidebar_pinned'),n?'1':'0'); return n; }); }
   function handleLogout(){
     if(!window.confirm('Se déconnecter ?'))return;
     window.authToken.clear();

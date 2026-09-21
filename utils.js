@@ -214,6 +214,48 @@ function resumeLogsTexte(logs, appli){
 // admin_app.js l'appelle via window ; les tests Node via module.exports.
 if (typeof window !== 'undefined') window.resumeLogsTexte = resumeLogsTexte;
 
+// ── Cloisonnement du stockage local ─────────────────────────────────────────
+// Les deux applis (ateliers-cd47_NextStep et ATELIERS_NEWGEN) sont servies
+// depuis la MÊME origine GitHub Pages — maswaddpt47-cmyk.github.io — et
+// localStorage est cloisonné par origine, PAS par chemin. Des clés identiques
+// des deux côtés les font donc écrire l'une sur l'autre.
+// Constaté le 21/09/2026 sur le journal des opérations : les lignes des deux
+// projets n'en formaient qu'une seule série, ce qui rendait toute mesure de
+// latence inattribuable. Mêmes collisions sur le conseiller connecté, le
+// thème, l'année filtrée, le minuteur d'inactivité et le cache d'ateliers.
+// Toute clé de stockage passe désormais par lsKey().
+const APP_NS = 'nextstep';
+function lsKey(k) { return APP_NS + ':' + k; }
+
+// Migration unique depuis les clés d'avant le cloisonnement, pour ne pas
+// réinitialiser les préférences des conseillers. On ne copie que si la clé
+// cloisonnée est absente : rejouer la migration ne doit jamais écraser un
+// réglage déjà fait. Les anciennes clés sont laissées en place — un onglet
+// resté sur la version précédente les écrit encore, et les supprimer ici lui
+// ferait perdre ses réglages en cours de session.
+// 'adm_logs' est volontairement exclu : ses lignes mélangent les deux projets,
+// elles ne sont attribuables à aucun des deux, donc pas exploitables.
+const LS_A_MIGRER = [
+  'adm_conseiller', 'adm_dark', 'adm_sidebar_pinned', 'adm_last_activity',
+  'cal_moisDeb', 'cal_moisFin', 'f_annee', 'f_dark', 'sidebar_pinned',
+];
+function migrerLocalStorage(store) {
+  if (!store) return 0;
+  var n = 0;
+  LS_A_MIGRER.forEach(function (k) {
+    try {
+      if (store.getItem(lsKey(k)) === null && store.getItem(k) !== null) {
+        store.setItem(lsKey(k), store.getItem(k));
+        n++;
+      }
+    } catch (e) {}
+  });
+  return n;
+}
+if (typeof window !== 'undefined') {
+  try { migrerLocalStorage(window.localStorage); } catch (e) {}
+}
+
 if (typeof module !== 'undefined') {
   module.exports = {
     stripAccents, trunc,
@@ -222,5 +264,6 @@ if (typeof module !== 'undefined') {
     normalizeMat, matIncludes,
     escapeICS, foldICSLine, parseHoraireICS, parseDateICS, buildICS,
     resumeLogsTexte,
+  lsKey, migrerLocalStorage, LS_A_MIGRER,
   };
 }

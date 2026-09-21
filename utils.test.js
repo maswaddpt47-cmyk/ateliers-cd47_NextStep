@@ -7,6 +7,7 @@ const {
   normalizeMat, matIncludes,
   escapeICS, foldICSLine, parseHoraireICS, parseDateICS, buildICS,
   resumeLogsTexte,
+  lsKey, migrerLocalStorage,
 } = require('./utils.js');
 
 // ── stripAccents ──────────────────────────────────────────────────────────────
@@ -190,5 +191,40 @@ describe('resumeLogsTexte', () => {
     const melange = [...JOURNAL, { t: '12:00:00', msg: '221 ateliers chargés (2026)', type: 'ok', ts: Date.now() }];
     assert.match(resumeLogsTexte(melange, 'NEXTSTEP'), /— 5 appels GAS/);
     assert.equal(resumeLogsTexte([], 'NEWGEN'), 'JOURNAL NEWGEN : aucun appel GAS enregistré.');
+  });
+});
+
+// ── Cloisonnement du stockage local ──────────────────────────────────────────
+// Les deux applis partagent une origine GitHub Pages, donc un localStorage.
+// Ces deux cas verrouillent ce qui a coûté cher le 21/09/2026 : des clés
+// identiques faisaient écrire chaque appli dans les données de l'autre.
+describe('lsKey / migrerLocalStorage', () => {
+  // Faux localStorage : même contrat (getItem rend null si absent).
+  const faire = (init) => {
+    const d = Object.assign({}, init);
+    return {
+      getItem: (k) => (k in d ? d[k] : null),
+      setItem: (k, v) => { d[k] = String(v); },
+      removeItem: (k) => { delete d[k]; },
+      _d: d,
+    };
+  };
+
+  it('préfixe chaque clé par l\'appli, sans jamais rendre la clé nue', () => {
+    assert.match(lsKey('adm_dark'), /^(nextstep|newgen):adm_dark$/);
+    assert.notEqual(lsKey('adm_dark'), 'adm_dark');
+  });
+
+  it('migre les anciennes préférences sans écraser un réglage déjà cloisonné', () => {
+    const s = faire({ adm_dark: '1', f_annee: '2025', [lsKey('f_annee')]: '2026' });
+    const n = migrerLocalStorage(s);
+    assert.equal(s.getItem(lsKey('adm_dark')), '1');   // repris
+    assert.equal(s.getItem(lsKey('f_annee')), '2026'); // NON écrasé
+    assert.equal(n, 1);
+    // L'ancienne clé survit : un onglet resté sur la version précédente
+    // l'utilise encore, la supprimer lui ferait perdre ses réglages.
+    assert.equal(s.getItem('adm_dark'), '1');
+    // Rejouer la migration ne change plus rien.
+    assert.equal(migrerLocalStorage(s), 0);
   });
 });

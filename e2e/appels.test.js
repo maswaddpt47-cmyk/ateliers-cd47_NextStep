@@ -176,7 +176,7 @@ test('admin — deux onglets écrivent dans le journal sans s\'écraser', async 
   await journaliser(ongletA, 'A2_', 2);
   await ongletA.waitForTimeout(500);
 
-  const stocke = await ongletA.evaluate(() => localStorage.getItem('adm_logs_nextstep') || '[]');
+  const stocke = await ongletA.evaluate(() => localStorage.getItem('nextstep:adm_logs') || '[]');
   const lignes = JSON.parse(stocke).map(e => e.msg).join('\n');
 
   for (const attendu of ['A_0','A_1','A_2','B_0','B_1','B_2','A2_0','A2_1']) {

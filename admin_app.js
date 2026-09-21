@@ -3,7 +3,7 @@
 // Vérifié à chaque reprise du focus + toutes les minutes.
 // Sur expiration : déconnexion propre + toast informatif.
 // ════════════════════════════════════════════════════════════
-const SESSION_KEY        = 'adm_last_activity';
+const SESSION_KEY        = lsKey('adm_last_activity');
 const SESSION_TIMEOUT_MS = 30 * 60 * 1000; // 30 min
 
 function touchSession(){
@@ -169,7 +169,7 @@ var VIEW_META = {
 // ── App Admin ──────────────────────────────────────────────
 function App(){
   const[auth,setAuth]           = React.useState(false);
-  const[adminConseiller,setAdminConseiller]= React.useState(()=>localStorage.getItem('adm_conseiller')||'');
+  const[adminConseiller,setAdminConseiller]= React.useState(()=>localStorage.getItem(lsKey('adm_conseiller'))||'');
   const[view,setView]           = React.useState('historique');
   const[entries,setEntries]= React.useState([]);
   const[loading,setLoading]= React.useState(true);
@@ -205,11 +205,11 @@ function App(){
   const[lastSync,setLastSync]= React.useState(null);
   const[syncing,setSyncing]= React.useState(false);
   const[logFilter,setLogFilter]= React.useState('all');
-  const[pinned,setPinned]= React.useState(()=>localStorage.getItem('adm_sidebar_pinned')==='1'); // épingle sidebar
-  const[darkMode,setDarkMode]=React.useState(()=>localStorage.getItem('adm_dark')==='1');
+  const[pinned,setPinned]= React.useState(()=>localStorage.getItem(lsKey('adm_sidebar_pinned'))==='1'); // épingle sidebar
+  const[darkMode,setDarkMode]=React.useState(()=>localStorage.getItem(lsKey('adm_dark'))==='1');
   React.useEffect(()=>{
     document.documentElement.setAttribute('data-theme',darkMode?'dark':'light');
-    localStorage.setItem('adm_dark',darkMode?'1':'0');
+    localStorage.setItem(lsKey('adm_dark'),darkMode?'1':'0');
   },[darkMode]);
   const LOGS_PURGE_MS=30*24*60*60*1000;
   const LOGS_MAX=200;
@@ -224,7 +224,7 @@ function App(){
 // émis l'appel, d'où des mesures attribuées au mauvais projet.
 // Les préférences (adm_conseiller, adm_dark, f_annee, sidebar…) restent
 // partagées à ce jour : même cause, chantier séparé.
-const LOGS_KEY = 'adm_logs_nextstep';
+const LOGS_KEY = lsKey('adm_logs');
   // ── Journal des opérations, partagé entre onglets ─────────────────────────
   // LOGS_KEY est commun à tous les onglets Admin du même
   // navigateur. La version précédente y recopiait son seul état React en
@@ -480,7 +480,7 @@ const LOGS_KEY = 'adm_logs_nextstep';
   },[entries]);
 
   const[role,setRole]=React.useState('');
-  if(!auth)return CE(AdminLogin,{onLogin:(r,nom)=>{setAuth(true);setRole(r||'user');const key=r==='superviseur'?'admin':nom;if(nom){localStorage.setItem('adm_conseiller',key);setAdminConseiller(key);}},savedName:adminConseiller,onResetProfil:()=>{localStorage.removeItem('adm_conseiller');setAdminConseiller('');},conseillers:loginConseillers})
+  if(!auth)return CE(AdminLogin,{onLogin:(r,nom)=>{setAuth(true);setRole(r||'user');const key=r==='superviseur'?'admin':nom;if(nom){localStorage.setItem(lsKey('adm_conseiller'),key);setAdminConseiller(key);}},savedName:adminConseiller,onResetProfil:()=>{localStorage.removeItem(lsKey('adm_conseiller'));setAdminConseiller('');},conseillers:loginConseillers})
 
   if(!adminConseiller)return CE('div',{className:'login-wrap'},
     CE('div',{className:'login-card'},
@@ -490,11 +490,11 @@ const LOGS_KEY = 'adm_logs_nextstep';
         : CE(React.Fragment,null,
             CE('p',{style:{fontSize:13,color:'#718096',margin:'8px 0 20px'}},'Pour personnaliser votre interface'),
             (lists.conseillers||CONSEILLERS_DEFAULT).map(c=>
-              CE('button',{key:c,onClick:()=>{localStorage.setItem('adm_conseiller',c);setAdminConseiller(c);},
+              CE('button',{key:c,onClick:()=>{localStorage.setItem(lsKey('adm_conseiller'),c);setAdminConseiller(c);},
                 style:{display:'block',width:'100%',marginBottom:10,padding:'11px 16px',border:`2px solid ${conseillerColor(c)}22`,borderRadius:10,background:`${conseillerColor(c)}11`,color:conseillerColor(c),fontSize:14,fontWeight:700,cursor:'pointer',textAlign:'left',transition:'all .15s'}},
                 CE('span',{style:{display:'inline-block',width:10,height:10,borderRadius:'50%',background:conseillerColor(c),marginRight:8}}),c)
             ),
-            CE('button',{onClick:()=>{localStorage.setItem('adm_conseiller','admin');setAdminConseiller('admin');},style:{display:'block',width:'100%',padding:'11px 16px',border:'2px solid #e2e8f0',borderRadius:10,background:'#f8fafc',color:'#718096',fontSize:13,cursor:'pointer',marginTop:4}},'Continuer sans personnalisation')
+            CE('button',{onClick:()=>{localStorage.setItem(lsKey('adm_conseiller'),'admin');setAdminConseiller('admin');},style:{display:'block',width:'100%',padding:'11px 16px',border:'2px solid #e2e8f0',borderRadius:10,background:'#f8fafc',color:'#718096',fontSize:13,cursor:'pointer',marginTop:4}},'Continuer sans personnalisation')
           )
     )
   );
@@ -519,7 +519,7 @@ const LOGS_KEY = 'adm_logs_nextstep';
       CE('button',{
         className:'sidebar-pin-btn'+(pinned?' pinned':''),
         title:pinned?'Désépingler le menu':'Épingler le menu',
-        onClick:()=>setPinned(p=>{const n=!p;localStorage.setItem('adm_sidebar_pinned',n?'1':'0');return n;})
+        onClick:()=>setPinned(p=>{const n=!p;localStorage.setItem(lsKey('adm_sidebar_pinned'),n?'1':'0');return n;})
       },pinned?'📌':'📍'),
 
       CE('div',{className:'sidebar-logo'},'🖥️'),
@@ -611,7 +611,7 @@ const LOGS_KEY = 'adm_logs_nextstep';
             style:{background:accentColor}
           },adminConseiller),
           CE('button',{
-            onClick:()=>{localStorage.removeItem('adm_conseiller');setAdminConseiller('');},
+            onClick:()=>{localStorage.removeItem(lsKey('adm_conseiller'));setAdminConseiller('');},
             title:'Changer d\'identité',
             style:{background:'none',border:'1px solid #e2e8f0',borderRadius:6,padding:'3px 8px',fontSize:11,color:'#718096',cursor:'pointer'}
           },'👤 Changer'),
@@ -628,9 +628,9 @@ const LOGS_KEY = 'adm_logs_nextstep';
         error&&CE('div',{className:'error-box'},CE('strong',null,'❌ Impossible de charger'),CE('span',null,error),CE('button',{className:'btn btn-primary',onClick:()=>loadData()},'🔄 Réessayer')),
         !loading&&!error&&CE('div',{key:view,className:'view-anim'},
           view==='saisie'&&CE(VueSaisie,{entries,onSaved:handleSaved,onNewEntry:e=>{setNewEntries(n=>[e,...n]);setSeenIds(s=>{const ns=new Set(s);ns.add(e._id);return ns;});},lists,editingId,onClearEdit:()=>setEditingId(null),prefillData,onClearPrefill:()=>setPrefillData(null),accentColor:conseillerColor(adminConseiller),materielsMasques}),
-          view==='historique'&&CE(VueHistorique,{key:'hist_'+adminConseiller,entries,onEdit:handleEdit,onDelete:handleDelete,onRefresh:()=>loadData(),onDuplicate:handleDuplicate,canDelete:true,initConseiller:adminConseiller&&adminConseiller!=='admin'?adminConseiller:null,onResetConseiller:()=>{},onChangeConseiller:(c)=>{const nom=c==='Tous'?'admin':c;localStorage.setItem('adm_conseiller',nom);setAdminConseiller(nom);}}),
+          view==='historique'&&CE(VueHistorique,{key:'hist_'+adminConseiller,entries,onEdit:handleEdit,onDelete:handleDelete,onRefresh:()=>loadData(),onDuplicate:handleDuplicate,canDelete:true,initConseiller:adminConseiller&&adminConseiller!=='admin'?adminConseiller:null,onResetConseiller:()=>{},onChangeConseiller:(c)=>{const nom=c==='Tous'?'admin':c;localStorage.setItem(lsKey('adm_conseiller'),nom);setAdminConseiller(nom);}}),
           view==='agenda'&&CE(VueAgendaSemaine,{key:'agenda_'+adminConseiller,entries,onEdit:handleEdit,onDelete:handleDelete,onDuplicate:handleDuplicate,canDelete:true,initConseiller:adminConseiller&&adminConseiller!=='admin'?adminConseiller:null,accentColor}),
-          view==='calendrier'&&CE(VueCalendrier,{key:'cal_'+adminConseiller,entries,onEdit:handleEdit,onDelete:handleDelete,onRefresh:()=>loadData(),onDuplicate:handleDuplicate,canDelete:true,initConseiller:adminConseiller&&adminConseiller!=='admin'?adminConseiller:null,onResetConseiller:()=>{},onChangeConseiller:(c)=>{const nom=c==='Tous'?'admin':c;localStorage.setItem('adm_conseiller',nom);setAdminConseiller(nom);}}),
+          view==='calendrier'&&CE(VueCalendrier,{key:'cal_'+adminConseiller,entries,onEdit:handleEdit,onDelete:handleDelete,onRefresh:()=>loadData(),onDuplicate:handleDuplicate,canDelete:true,initConseiller:adminConseiller&&adminConseiller!=='admin'?adminConseiller:null,onResetConseiller:()=>{},onChangeConseiller:(c)=>{const nom=c==='Tous'?'admin':c;localStorage.setItem(lsKey('adm_conseiller'),nom);setAdminConseiller(nom);}}),
           view==='dashboard'&&CE(VueDashboardTabs,{entries,conseillers:lists.conseillers}),
           view==='carte'&&CE(VueCarte,{entries,active:view==='carte'}),
           view==='roadmap'&&CE(VueRoadmap,{entries,annee,conseillers:lists.conseillers}),
@@ -1091,14 +1091,14 @@ function VueAdminV10({entries,onRefresh,addLog,conseillersList,onSaveColors,anne
   const preErrorCountRef=React.useRef(0);
   const MOIS_CAL=['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
   const MOIS_SHORT_CAL=['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
-  const[moisDeb,setMoisDeb]=React.useState(()=>parseInt(localStorage.getItem('cal_moisDeb')||'1'));
-  const[moisFin,setMoisFin]=React.useState(()=>parseInt(localStorage.getItem('cal_moisFin')||'12'));
+  const[moisDeb,setMoisDeb]=React.useState(()=>parseInt(localStorage.getItem(lsKey('cal_moisDeb'))||'1'));
+  const[moisFin,setMoisFin]=React.useState(()=>parseInt(localStorage.getItem(lsKey('cal_moisFin'))||'12'));
   const[tlRunning,setTlRunning]=React.useState(false);
   const[tlLogs,setTlLogs]=React.useState([]);
   const[lastExport,setLastExport]=React.useState(null);
   function addTlLog(msg,type='info'){setTlLogs(l=>[...l,{msg,type,t:new Date().toLocaleTimeString('fr-FR')}]);}
-  function changeMoisDeb(v){localStorage.setItem('cal_moisDeb',v);setMoisDeb(v);setLastExport(null);}
-  function changeMoisFin(v){localStorage.setItem('cal_moisFin',v);setMoisFin(v);setLastExport(null);}
+  function changeMoisDeb(v){localStorage.setItem(lsKey('cal_moisDeb'),v);setMoisDeb(v);setLastExport(null);}
+  function changeMoisFin(v){localStorage.setItem(lsKey('cal_moisFin'),v);setMoisFin(v);setLastExport(null);}
   const VIS_ITEMS=[{key:'saisie',label:'✏️ Saisie',sub:'Formulaire de saisie'},{key:'historique',label:'📋 Historique',sub:'Liste des ateliers'},{key:'agenda',label:'🗓️ Agenda',sub:'Planning hebdo AM/PM'},{key:'calendrier',label:'📅 Calendrier',sub:'Vue calendrier mensuelle'},{key:'dashboard',label:'📊 Dashboard',sub:'Synthèse · Graphiques · Territoire'},{key:'carte',label:'🗺️ Carte',sub:'Carte des communes'},{key:'bingo',label:'🎯 Bingo',sub:'Vue par commune'},{key:'roadmap',label:'🛣️ Roadmap',sub:'Timeline & densité'},{key:'anomalies',label:'⚠️ Anomalies',sub:'Champs manquants & communes invalides'}];
 
   React.useEffect(()=>{apiFetch('getVisibility').then(res=>{if(res.ok)setVisibility(res.visibility);}).catch(()=>{});},[]);
