@@ -214,8 +214,19 @@ function App(){
   const LOGS_PURGE_MS=30*24*60*60*1000;
   const LOGS_MAX=200;
 
+// ⚠️ Les deux applis (NextStep et NEWGEN) sont servies depuis la MÊME origine
+// GitHub Pages — maswaddpt47-cmyk.github.io — et localStorage est cloisonné
+// par origine, pas par chemin. Une clé identique des deux côtés les fait donc
+// écrire l'une sur l'autre. Constaté le 21/09/2026 : « Tout effacer » depuis
+// un journal faisait remonter les lignes de l'autre appli, et les deux
+// journaux n'en formaient qu'un seul. La pastille NEXTSTEP/NEWGEN ne pouvait
+// pas le révéler — elle nomme l'appli qui AFFICHE la liste, pas celle qui a
+// émis l'appel, d'où des mesures attribuées au mauvais projet.
+// Les préférences (adm_conseiller, adm_dark, f_annee, sidebar…) restent
+// partagées à ce jour : même cause, chantier séparé.
+const LOGS_KEY = 'adm_logs_nextstep';
   // ── Journal des opérations, partagé entre onglets ─────────────────────────
-  // localStorage['adm_logs'] est commun à tous les onglets Admin du même
+  // LOGS_KEY est commun à tous les onglets Admin du même
   // navigateur. La version précédente y recopiait son seul état React en
   // mémoire : deux onglets ouverts, et le dernier à journaliser effaçait les
   // lignes écrites par l'autre. Le journal étant l'outil qui sert à mesurer
@@ -228,7 +239,7 @@ function App(){
 
   function lireLogsStockes(){
     try{
-      const raw=JSON.parse(localStorage.getItem('adm_logs')||'[]');
+      const raw=JSON.parse(localStorage.getItem(LOGS_KEY)||'[]');
       return Array.isArray(raw)?raw:[];
     }catch{ return []; }
   }
@@ -250,7 +261,7 @@ function App(){
       })
       .sort((a,b)=>(b.ts||0)-(a.ts||0))
       .slice(0,LOGS_MAX);
-    try{ localStorage.setItem('adm_logs',JSON.stringify(fusion)); }catch{}
+    try{ localStorage.setItem(LOGS_KEY,JSON.stringify(fusion)); }catch{}
     return fusion;
   }
 
@@ -265,7 +276,7 @@ function App(){
   // « Tout effacer » vide réellement le stockage partagé. Limite assumée : un
   // autre onglet gardant ses lignes en mémoire les réécrira à sa prochaine
   // journalisation. Le rafraîchir repart d'un journal vide.
-  function clearLogs(){setLogs([]);try{localStorage.removeItem('adm_logs');}catch{}}
+  function clearLogs(){setLogs([]);try{localStorage.removeItem(LOGS_KEY);}catch{}}
   function purgeLogs(){ setLogs(l=>ecrireLogs(l)); }
 
   // ── Session expirante ──────────────────────────────

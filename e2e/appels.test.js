@@ -145,7 +145,7 @@ test('index — modifier un atelier émet saveEntry seul, sans getAll derrière'
 });
 
 // ── 3. Deux onglets Admin ne s'effacent pas mutuellement le journal ─────────
-// adm_logs est partagé par tous les onglets du navigateur. addLog y recopiait
+// adm_logs_nextstep est partagé par tous les onglets du navigateur. addLog y recopiait
 // son seul état React : le dernier à journaliser effaçait les lignes de
 // l'autre. Le journal servant à mesurer les appels GAS, des lignes manquantes
 // faussent le diagnostic lui-même.
@@ -176,7 +176,7 @@ test('admin — deux onglets écrivent dans le journal sans s\'écraser', async 
   await journaliser(ongletA, 'A2_', 2);
   await ongletA.waitForTimeout(500);
 
-  const stocke = await ongletA.evaluate(() => localStorage.getItem('adm_logs') || '[]');
+  const stocke = await ongletA.evaluate(() => localStorage.getItem('adm_logs_nextstep') || '[]');
   const lignes = JSON.parse(stocke).map(e => e.msg).join('\n');
 
   for (const attendu of ['A_0','A_1','A_2','B_0','B_1','B_2','A2_0','A2_1']) {
