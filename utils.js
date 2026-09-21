@@ -156,6 +156,64 @@ function buildICS(evts) {
 
 // ── Compatible Node (tests) ET navigateur (script tag) ────────────────────────
 
+// Sortie compacte du Journal, à coller dans une conversation avec Claude.
+// Coller 200 lignes brutes coûte cher et noie l'information : ce qui sert au
+// diagnostic, c'est le taux de perte, le temps réellement passé à attendre
+// des réponses mortes, et SURTOUT la répartition dans le temps — la panne de
+// livraison Apps Script frappe par fenêtres (mesuré le 18/09/2026), pas par
+// appel. L'appli est nommée dans l'en-tête : les deux journaux sont
+// identiques à l'écran, et des mesures ont déjà été attribuées au mauvais
+// projet le 19/09/2026.
+function resumeLogsTexte(logs, appli){
+  var gas = (logs||[]).filter(function(l){ return l && typeof l.msg === 'string' && l.msg.indexOf('GAS ') === 0; });
+  if(!gas.length) return 'JOURNAL ' + appli + ' : aucun appel GAS enregistré.';
+  var lus = [];
+  gas.forEach(function(l){
+    var m = l.msg.match(/^GAS (\S+) #(\S+) — (.+) en ([\d.]+) s$/);
+    if(!m) return;
+    var d = l.ts ? new Date(l.ts) : null;
+    lus.push({
+      action: m[1], essai: m[2], motif: m[3], sec: parseFloat(m[4]),
+      ko: m[3].indexOf('ok') !== 0,
+      heure: l.t || (d ? d.toLocaleTimeString('fr-FR') : '?'),
+      h: d ? ('0' + d.getHours()).slice(-2) : '??',
+      jour: d ? d.toLocaleDateString('fr-FR', {day:'2-digit', month:'2-digit'}) : ''
+    });
+  });
+  if(!lus.length) return 'JOURNAL ' + appli + ' : ' + gas.length + ' lignes GAS, aucune au format attendu.';
+  var ko = lus.filter(function(x){ return x.ko; });
+  var okSec = lus.filter(function(x){ return !x.ko; }).map(function(x){ return x.sec; }).sort(function(a,b){ return a-b; });
+  var med = okSec.length ? okSec[Math.floor(okSec.length/2)] : 0;
+  var p90 = okSec.length ? okSec[Math.min(okSec.length-1, Math.floor(okSec.length*0.9))] : 0;
+  var perdu = ko.reduce(function(a,x){ return a + x.sec; }, 0);
+  var grouper = function(cle){
+    var g = {};
+    lus.forEach(function(x){ g[x[cle]] = g[x[cle]] || {ko:0, n:0}; g[x[cle]].n++; if(x.ko) g[x[cle]].ko++; });
+    return Object.keys(g).sort().map(function(k){ return k + ': ' + g[k].ko + '/' + g[k].n; }).join('  ');
+  };
+  var prem = lus[lus.length-1], der = lus[0];
+  var l = [];
+  l.push('JOURNAL ' + appli + ' — ' + lus.length + ' appels GAS');
+  l.push('periode (heure locale) : ' + prem.jour + ' ' + prem.heure + ' -> ' + der.jour + ' ' + der.heure);
+  l.push('perdus : ' + ko.length + '/' + lus.length + ' (' + Math.round(ko.length/lus.length*100) + '%)');
+  l.push('durees livrees : mediane ' + med.toFixed(1) + 's | p90 ' + p90.toFixed(1) + 's');
+  l.push('temps passe a attendre des reponses mortes : ' + Math.round(perdu) + 's');
+  l.push('');
+  l.push('par action (perdus/total) : ' + grouper('action'));
+  l.push('par heure  (perdus/total) : ' + grouper('h'));
+  if(ko.length){
+    l.push('');
+    l.push('echecs' + (ko.length > 25 ? ' (25 derniers sur ' + ko.length + ')' : '') + ' :');
+    ko.slice(0, 25).forEach(function(x){
+      l.push('  ' + x.jour + ' ' + x.heure + '  ' + x.action + ' #' + x.essai + '  ' + x.motif + '  ' + x.sec.toFixed(1) + 's');
+    });
+  }
+  return l.join('\n');
+}
+
+// admin_app.js l'appelle via window ; les tests Node via module.exports.
+if (typeof window !== 'undefined') window.resumeLogsTexte = resumeLogsTexte;
+
 if (typeof module !== 'undefined') {
   module.exports = {
     stripAccents, trunc,
@@ -163,5 +221,6 @@ if (typeof module !== 'undefined') {
     normalizeDate, normalizeHoraire, fmtDate, fmtCardDate, todayLocal, addJoursIso,
     normalizeMat, matIncludes,
     escapeICS, foldICSLine, parseHoraireICS, parseDateICS, buildICS,
+    resumeLogsTexte,
   };
 }

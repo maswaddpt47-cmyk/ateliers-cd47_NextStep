@@ -6,6 +6,7 @@ const {
   normalizeDate, normalizeHoraire, fmtDate, fmtCardDate, todayLocal, addJoursIso,
   normalizeMat, matIncludes,
   escapeICS, foldICSLine, parseHoraireICS, parseDateICS, buildICS,
+  resumeLogsTexte,
 } = require('./utils.js');
 
 // ── stripAccents ──────────────────────────────────────────────────────────────
@@ -155,5 +156,39 @@ describe('buildICS', () => {
   it('tableau vide → pas de VEVENT',    () => {
     const ics = buildICS([]);
     assert.ok(!ics.includes('BEGIN:VEVENT'));
+  });
+});
+
+// ── resumeLogsTexte ──────────────────────────────────────────────────────────
+// Parsing du format écrit par logGas. Il cassera silencieusement le jour où ce
+// format changera : c'est précisément ce que ces deux cas verrouillent.
+describe('resumeLogsTexte', () => {
+  // Lignes réelles du Journal Admin NextStep, 21/09/2026 — 3 connexions.
+  const JOURNAL = [
+    ['12:06:52', 'GAS getAll #2 — ok en 1.2 s'],
+    ['12:06:50', 'GAS getAll #1 — HTTP 404 en 8.1 s'],
+    ['12:06:36', 'GAS checkPassword #2 — ok en 2.1 s'],
+    ['12:06:33', 'GAS checkPassword #1 — bloqué — abandonné après 12s en 12.0 s'],
+    ['11:51:52', 'GAS logLogin #1 — bloqué — abandonné après 12s en 12.0 s'],
+  ].map(([t, msg]) => {
+    const [h, m, s] = t.split(':').map(Number);
+    return { t, msg, type: 'info', ts: new Date(2026, 8, 21, h, m, s).getTime() };
+  });
+
+  it('compte les pertes et le temps passé à attendre des réponses mortes', () => {
+    const txt = resumeLogsTexte(JOURNAL, 'NEXTSTEP');
+    assert.match(txt, /^JOURNAL NEXTSTEP — 5 appels GAS/);
+    assert.match(txt, /perdus : 3\/5 \(60%\)/);
+    // 8.1 + 12.0 + 12.0 arrondi
+    assert.match(txt, /reponses mortes : 32s/);
+    // Un échec dont l'heure locale diffère de l'heure UTC ne doit pas changer
+    // de tranche : le journal affiche l'heure locale, le résumé aussi.
+    assert.match(txt, /par heure  \(perdus\/total\) : .*11: 1\/1/);
+  });
+
+  it('ignore les lignes qui ne sont pas des appels GAS, et le journal vide', () => {
+    const melange = [...JOURNAL, { t: '12:00:00', msg: '221 ateliers chargés (2026)', type: 'ok', ts: Date.now() }];
+    assert.match(resumeLogsTexte(melange, 'NEXTSTEP'), /— 5 appels GAS/);
+    assert.equal(resumeLogsTexte([], 'NEWGEN'), 'JOURNAL NEWGEN : aucun appel GAS enregistré.');
   });
 });
