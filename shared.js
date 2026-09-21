@@ -3118,7 +3118,10 @@ function FriseMateriel({entries,onEdit}){
       CE('div',{style:{display:'flex',flexDirection:'column',gap:colWidth<32?3:6}},
         pretsVisibles.map(p=>{
           const debutIdx=colIdx(p.debut),finIdx=colIdx(p.fin),atelierIdx=colIdx(p.dateAtelier);
-          const conflit=(jours.slice(debutIdx,finIdx+1)).some(d=>(totaux[d]||0)>STOCK_ORDINATEURS);
+          // Le marquage ⚠️ suit l'occupation réelle, pas la barre dessinée : le
+          // jour du retour est affiché mais ne réserve plus le stock, il ne doit
+          // donc pas faire passer ce prêt en conflit.
+          const conflit=jours.filter(d=>occupeLeJourMateriel(p,d)).some(d=>(totaux[d]||0)>STOCK_ORDINATEURS);
           // Barre teintée dans la couleur du conum (même couleur que le
           // libellé à gauche et que partout ailleurs dans l'appli), plutôt
           // qu'un bleu/rouge générique — identifier qui réserve quoi d'un
@@ -3139,7 +3142,7 @@ function FriseMateriel({entries,onEdit}){
       )
     );
   }
-  const legende=CE('div',{style:{fontSize:10,color:'#94a3b8',marginBottom:8}},'▼ = jour de l\'atelier (entre le prélèvement et le retour de la barre)');
+  const legende=CE('div',{style:{fontSize:10,color:'#94a3b8',marginBottom:8}},'▼ = jour de l\'atelier (entre le prélèvement et le retour de la barre) · le jour du retour ne réserve plus le stock (retour le matin)');
   return CE(React.Fragment,null,
     CE('div',{className:'card',style:{maxWidth:'100%',margin:'0 auto 16px',overflowX:'auto'}},
       CE('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:4,flexWrap:'wrap',gap:8}},

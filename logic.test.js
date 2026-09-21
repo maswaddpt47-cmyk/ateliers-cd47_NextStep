@@ -396,7 +396,9 @@ describe('findOrdinateursConflicts', () => {
     const conflits = findOrdinateursConflicts(entries);
     assert.equal(conflits.length, 1);
     assert.equal(conflits[0].date, '2026-10-01');
-    assert.equal(conflits[0].dateFin, '2026-10-02');
+    // Le 02/10 est un jour de retour, et le retour a lieu le matin : il ne
+    // réserve plus le stock. Le bloc de conflit s'arrête donc au 01/10.
+    assert.equal(conflits[0].dateFin, '2026-10-01');
     assert.equal(conflits[0].entries.length, 2);
   });
 
@@ -591,5 +593,39 @@ describe('estConflitPasse', () => {
   });
   it('un bloc stock ordinateurs entièrement passé (dateFin < today)', () => {
     assert.equal(estConflitPasse({ date: '2026-08-01', dateFin: '2026-08-05' }, '2026-09-17'), true);
+  });
+});
+
+// ── Passage de relais : retour et prélèvement le même jour ───────────────────
+// Défaut trouvé le 21/09/2026 en regardant la Frise du parc, pas par un test :
+// le jour du retour, le stock restait réservé alors que le retour a lieu le
+// matin et que les machines repartent le jour même chez un autre conseiller.
+// Avec un stock de 10, un retour de 6 et un prélèvement de 5 le même jour
+// affichaient 11 → alerte rouge sur un enchaînement pourtant parfaitement
+// réalisable.
+describe('occupation du stock le jour du retour', () => {
+  const pret = (id, conseiller, qte, date, prel, ret) => ({
+    _id: id, statut: 'Planifié', conseiller, commune: 'AGEN',
+    materiel: ['Classe mobile'], nb_ordinateurs: qte,
+    date, date_prelevement_materiel: prel, date_retour_materiel: ret,
+  });
+
+  it('un retour et un prélèvement le même jour ne se cumulent pas (le matériel change de mains)', () => {
+    const entries = [
+      pret('a', 'Corentin', 6, '2026-09-25', '2026-09-24', '2026-09-29'),
+      pret('b', 'Michel',   5, '2026-09-30', '2026-09-29', '2026-10-02'),
+    ];
+    const totaux = totauxParJourMateriel(getPretsMateriel(entries), ['2026-09-28', '2026-09-29', '2026-09-30']);
+    assert.equal(totaux['2026-09-28'], 6);  // Corentin seul
+    assert.equal(totaux['2026-09-29'], 5);  // Corentin a rendu le matin, Michel prélève
+    assert.equal(totaux['2026-09-30'], 5);
+    assert.deepEqual(findOrdinateursConflicts(entries), []);
+  });
+
+  it('un prêt d\'une seule journée occupe bien ce jour-là (il ne disparaît pas du cumul)', () => {
+    const entries = [pret('a', 'Eva', 12, '2026-09-29', '2026-09-29', '2026-09-29')];
+    const totaux = totauxParJourMateriel(getPretsMateriel(entries), ['2026-09-29']);
+    assert.equal(totaux['2026-09-29'], 12);
+    assert.equal(findOrdinateursConflicts(entries).length, 1);
   });
 });
