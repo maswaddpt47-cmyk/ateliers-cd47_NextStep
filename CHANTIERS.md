@@ -76,7 +76,16 @@ touché.** C'est l'indice qui manquait au bloc AG-003 (« rien ne prouve que le
 déploiement NextStep se comporte pareil ») — un indice, pas une mesure
 appariée.
 
-**La file d'attente est visible dans le journal.** Le timestamp de `logGas`
+**La file d'attente : un seul indice, pas une preuve** (amendé par AG-005).
+⚠️ `t0` est pris **dans** `_gasUnAppelBrut` (`shared.js:623`), donc **après**
+la sortie de file : `fin - durée` donne le départ du `fetch`, pas le moment où
+l'appelant a demandé l'appel. **Le temps passé en file n'est journalisé nulle
+part** — les 221 s d'attente sont un minimum, pas le total subi. Le meilleur
+indice reste le `getAll` de 12:19:31 : rien ne le relance après un `saveEntry`
+raté (`shared.js:1574-1581`), il vient de la synchro de fond, et il démarre
+pile à la fin de `saveEntry#2`. Les autres enchaînements s'expliquent sans la
+file (boucle de reprise de `gasAppel`, `logLogin` après succès).
+Reconstruction du journal : Le timestamp de `logGas`
 (`shared.js:580`) est l'heure de **fin** ; en reconstruisant `fin - durée`,
 chaque appel démarre pile quand le précédent s'arrête. Connexion de 20:27 :
 getComptes#1 (12 s mort) -> checkPassword#1 (404 à 9,8 s) -> checkPassword#2
@@ -84,7 +93,11 @@ getComptes#1 (12 s mort) -> checkPassword#1 (404 à 9,8 s) -> checkPassword#2
 **Plus d'une minute pour se connecter, en file indienne.** Séquence de
 11:49:43 -> 11:51:23 : 100 s, dont 48 d'attente pure.
 
-⚠️ **Le portage ne touchera que 13 des 20 pertes.** Vérifié dans
+⚠️ **13 des 20 pertes sont *exposées* au doublage — exposées, pas sauvées.**
+Un doublon ne rattrape une perte que s'il part hors de la panne. Si la panne
+dure plus que l'écart de doublage (7 s), le jumeau meurt aussi. Combien sont
+réellement sauvées : inconnu, ça dépend de la durée des pannes, justement ce
+qu'on ne sait pas trancher. Vérifié dans
 `ATELIERS_NEWGEN/shared.js:880-886` : `doubler = !ecriture &&
 !GAS_SANS_DOUBLON.has(action)`.
 
@@ -104,8 +117,12 @@ s'achève. Gain non chiffré.
 `#2` morts à 12 s chacun, les deux tentatives d'écriture épuisées, erreur
 rendue à l'usager. Or un `saveEntry` dont la réponse est perdue **a quand même
 écrit sa ligne** (documenté vérifié en prod le 18/09). L'atelier est donc très
-probablement dans le classeur malgré l'échec affiché. **À vérifier : atelier
-en double ou re-saisi autour du 22/09 12:19 ?**
+probablement dans le classeur malgré l'échec affiché. **À vérifier, reformulé par AG-005** : l'`_id` est généré une seule fois avant
+la boucle de reprise (`shared.js:1573`), donc #1 et #2 portent le même et
+`actionSaveEntry` remplace — **pas de doublon d'`_id` possible**. Le vrai risque
+c'est l'usager qui voit « ❌ » et **re-saisit** : nouveau formulaire, nouvel
+`_id`. Chercher deux ateliers identiques (date, lieu, conseiller) avec deux
+`_id` différents autour du 22/09 12:19.
 
 ⚠️ **Retiré le 22/09/2026 (AG-005)** : cette note affirmait d'abord que les
 six créneaux d'échec « tuent tout ce qu'ils contiennent et rien en dehors ».
