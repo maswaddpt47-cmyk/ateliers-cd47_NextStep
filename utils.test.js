@@ -227,4 +227,16 @@ describe('lsKey / migrerLocalStorage', () => {
     // Rejouer la migration ne change plus rien.
     assert.equal(migrerLocalStorage(s), 0);
   });
+
+  it('ne ressuscite pas une clé que l\'utilisateur vient de supprimer', () => {
+    // Régression du 22/09/2026 : « 👤 Changer » vide la clé cloisonnée, mais
+    // l'ancienne clé partagée subsiste. La migration, rejouée à chaque
+    // chargement de page, la recopiait et faisait revenir l'identité quittée.
+    const s = faire({ adm_conseiller: 'Michel Aswad' });
+    assert.equal(migrerLocalStorage(s), 1);
+    assert.equal(s.getItem(lsKey('adm_conseiller')), 'Michel Aswad');
+    s.removeItem(lsKey('adm_conseiller'));        // l'utilisateur change d'identité
+    assert.equal(migrerLocalStorage(s), 0);        // rechargement de page
+    assert.equal(s.getItem(lsKey('adm_conseiller')), null);
+  });
 });

@@ -239,8 +239,16 @@ const LS_A_MIGRER = [
   'adm_conseiller', 'adm_dark', 'adm_sidebar_pinned', 'adm_last_activity',
   'cal_moisDeb', 'cal_moisFin', 'f_annee', 'f_dark', 'sidebar_pinned',
 ];
+// Nom du drapeau, cloisonné comme le reste.
+const LS_MIGRATION_FAITE = '_migration_faite';
 function migrerLocalStorage(store) {
   if (!store) return 0;
+  // UNE SEULE FOIS par navigateur. Rejouée à chaque chargement, la migration
+  // ressuscitait une clé que l'utilisateur venait de supprimer : « 👤 Changer »
+  // vide la clé cloisonnée, l'ancienne clé partagée existe toujours, et le
+  // rechargement suivant la recopiait — l'identité quittée revenait
+  // (constaté le 22/09/2026).
+  try { if (store.getItem(lsKey(LS_MIGRATION_FAITE))) return 0; } catch (e) { return 0; }
   var n = 0;
   LS_A_MIGRER.forEach(function (k) {
     try {
@@ -250,6 +258,7 @@ function migrerLocalStorage(store) {
       }
     } catch (e) {}
   });
+  try { store.setItem(lsKey(LS_MIGRATION_FAITE), String(Date.now())); } catch (e) {}
   return n;
 }
 if (typeof window !== 'undefined') {
