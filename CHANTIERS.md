@@ -94,7 +94,13 @@ Un bandeau ⚠️ en tête de chaque copie GAS signale la divergence avec la
 production. **Le retirer seulement quand l'utilisateur confirme « déployé ».**
 
 ⚖️ Le verrou lui-même fait l'objet d'**AG-004** (contention avec `keepAlive`,
-délai de 20 s) — ouvert pour surveillance, pas bloquant.
+délai de 20 s). **À trancher AVANT le déploiement** (réponse du 22/09/2026,
+verdict amendé) : les mails « Summary of failures » montrent 3 `keepAlive`
+bloqués **8 min** chacun, les 19 et 20/09. Or `keepAlive` tient le verrou de
+script pendant sa lecture. Une fois le verrou d'écriture déployé, un tel
+blocage refuserait toutes les écritures pendant 8 min. Proposé : retirer le
+verrou de `keepAlive` et le remplacer par un drapeau `CacheService`.
+Détail et `fichier:ligne` : `ATELIERS_NEWGEN/AGORA.md`, AG-004.
 
 ### Relevé NextStep du 22/09/2026 — l'angle mort n° 1 d'AG-003 se referme
 
