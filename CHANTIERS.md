@@ -51,6 +51,35 @@ l'appui, et qu'il ne faut pas réapprendre :
 
 **Décision de l'utilisateur** : option recommandée — verrou d'abord.
 
+### 🐞 Bug silencieux en production jusqu'au déploiement — champ « Stock ordinateurs »
+
+Constaté le 22/09/2026, en répondant à « le stock fonctionne déjà sans
+déploiement, non ? ». **Il en a toutes les apparences, et c'est le piège.**
+
+L'écriture des trois champs (`nb_ordinateurs`, `date_prelevement_materiel`,
+`date_retour_materiel`) marche sans déploiement : `actionSaveEntry` de
+NextStep écrit **n'importe quelle colonne** dont le nom correspond à une clé
+de l'entrée (`d[h]`), sans liste fermée — contrairement à NEWGEN.
+
+**En revanche le champ Admin « Stock ordinateurs » est décoratif :**
+
+| Action | Réalité |
+|---|---|
+| Saisir 14 et enregistrer | sauvé dans Config, et la **session en cours** utilise 14 (`admin_app.js:1294`) |
+| Recharger | le champ **réaffiche 14** (`admin_app.js:1272`, lecture de la config) |
+| Calcul des conflits / Frise | **utilise 10** (`logic.js:168`) |
+
+La bascule ne se fait que par `data.stockOrdinateurs` (`app.js:350`,
+`admin_app.js:343`), que **seule v10.14.0 produit** (`gas/GAS_NEXTSTEP.js:351`,
+`:412`) — non déployée. Le champ affiche donc la bonne valeur pendant que tout
+le calcul tourne sur 10.
+
+C'est le cas typique de la règle « les tests ne trouvent pas les défauts de
+sens » : tout calcule juste, sur la mauvaise valeur. Aucune suite ne pouvait
+le voir. **Résolu par le déploiement du 23/09/2026 — ne pas clore avant de
+l'avoir vérifié en ligne** (changer le stock, recharger, vérifier qu'une
+alerte de conflit mentionne bien le nouveau nombre).
+
 ### 🔴 À FAIRE EN PREMIER — déployer le verrou GAS (préparé le 22/09/2026)
 
 Le code est **écrit et poussé, pas déployé** : Apps Script n'a pas d'API de
