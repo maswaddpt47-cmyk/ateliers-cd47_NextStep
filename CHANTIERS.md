@@ -208,6 +208,30 @@ dehors des tests automatisés, qui ne peuvent pas les couvrir :
 
 ---
 
+## À faire après la série du banc (22/09/2026)
+
+Reporté à la demande de l'utilisateur : ne rien pousser d'inutile pendant la
+mesure. Aucun de ces points n'a d'effet en production aujourd'hui.
+
+**Déplacer le champ « Stock ordinateurs » du panneau Admin vers l'onglet
+Gestion ordi.** Il est aujourd'hui la 8ᵉ section du panneau Admin, entre
+« Vérification cohérence » et « Mode Maintenance » — introuvable en pratique,
+constaté le 22/09. Sa place logique est à côté de la Frise et des conflits
+qu'il pilote.
+
+⚠️ **Ne pas le déplacer tel quel.** `VueGestionOrdi` vit dans `shared.js` et
+est servi **aussi par `index.html`**, qui n'a aucune notion de rôle admin.
+Le champ doit arriver par une prop fournie **uniquement par `admin_app.js`
+quand le rôle est admin** ; `app.js` ne la passe jamais. Sans cette garde,
+n'importe quel conseiller modifierait le stock de toute l'équipe depuis le
+frontend conseillers.
+
+Le retirer du panneau Admin plutôt que de le dupliquer : deux champs qui
+écrivent la même clé de config finiront par afficher deux valeurs
+différentes.
+
+---
+
 ## Points à ne pas défaire
 
 - **Plafonds : 12 s lecture, 12 s écriture, 25 s `saveMany`.** Les rallonger
