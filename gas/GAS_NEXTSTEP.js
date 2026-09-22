@@ -1,5 +1,5 @@
 
-// ── GAS Backend v10.16.0 ──────────────────────────────────────
+// ── GAS Backend v10.17.0 ──────────────────────────────────────
 // v10.16.0 : PERF — keepAlive relisait la feuille ENTIÈRE toutes les 5 min,
 //            24 h/24, sans regarder si le cache était déjà chaud : ~288
 //            lectures complètes par jour, la quasi-totalité pour rien.
@@ -1137,12 +1137,19 @@ function ajouterColonnesPretMateriel(){
 // A recouper dans les Executions Apps Script : lignes keepAlive presentes
 // toutes les 5 min et sous 3 s = il fait son travail.
 function keepAlive() {
-  // tryLock(0) : si une execution tourne deja — un vrai appel, ou un keepAlive
-  // precedent qui traine — on abandonne TOUT DE SUITE plutot que d'attendre.
-  // Jamais deux executions empilees dans la file Apps Script.
-  var lock = LockService.getScriptLock();
-  if (!lock.tryLock(0)) { Logger.log('keepAlive : execution deja en cours, passage saute.'); return; }
+  // TOUT est dans le try, y compris la prise du verrou. Raison concrete :
+  // le 21/09/2026 a 21:47:34, un keepAlive a echoue apres 36 s sur
+  // « server error occurred while reading from storage, Error code INTERNAL »
+  // et Apps Script en a envoye un mail « Summary of failures ». Une tache de
+  // fond dont personne n'attend le resultat ne doit jamais remonter d'erreur :
+  // elle genere du bruit, et le prochain passage repassera dans 5 min.
+  var lock = null;
   try {
+    // tryLock(0) : si une execution tourne deja — un vrai appel, ou un
+    // keepAlive precedent qui traine — on abandonne TOUT DE SUITE plutot que
+    // d'attendre. Jamais deux executions empilees dans la file Apps Script.
+    lock = LockService.getScriptLock();
+    if (!lock.tryLock(0)) { Logger.log('keepAlive : execution deja en cours, passage saute.'); lock = null; return; }
     var an = String(new Date().getFullYear());
     // Cache deja chaud : rien a faire. A 5 min de declencheur contre 10 min de
     // TTL, un passage sur deux tombe ici et ne coute qu'un cache.get().
@@ -1154,7 +1161,7 @@ function keepAlive() {
   } catch(err) {
     Logger.log('keepAlive erreur : ' + err);
   } finally {
-    lock.releaseLock();
+    if (lock) { try { lock.releaseLock(); } catch(_) {} }
   }
 }
 // ── Test manuel de la vérification de token/rôle (v10.10.0) ────────────────

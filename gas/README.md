@@ -2,7 +2,7 @@
 
 ## ⏳ EN ATTENTE DE DÉPLOIEMENT — préparé le 22/09/2026
 
-**Ce fichier est en avance sur la production.** Trois versions non déployées
+**Ce fichier est en avance sur la production.** Quatre versions non déployées
 s'y trouvent : **v10.14.0** (prêt du stock d'ordinateurs), **v10.15.0**
 (verrou d'écriture serveur) et **v10.16.0** (`keepAlive` allégé). Le frontend ne dépend d'aucune des deux pour
 fonctionner, mais le verrou est un correctif de **sécurité des données**, pas
