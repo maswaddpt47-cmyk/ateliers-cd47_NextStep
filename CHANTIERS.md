@@ -110,6 +110,35 @@ des conseillers.
 
 ## 2. Chantier conditionnel — proxy pour supprimer la perte
 
+**Recoupement client/serveur du 22/09/2026, 13h46-13h52** — le premier sur
+NextStep depuis le 16/09, et le premier avec un journal cloisonné, donc
+attribuable sans doute possible.
+
+| Journal client | Exécution Apps Script |
+|---|---|
+| 13:51:44 `getAll #1` — bloqué à 13,0 s | 13:51:45 `doGet` — **0,577 s**, Terminée |
+| 13:51:58 `getAll #2` — bloqué à 13,0 s | 13:51:59 `doGet` — **0,567 s**, Terminée |
+| 13:52:28 `getAll #1` — bloqué à 12,8 s | 13:52:29 `doGet` — **0,797 s**, Terminée |
+
+Les 18 exécutions du créneau aboutissent toutes en moins de 3 s. **Le script
+fait son travail, la réponse ne parvient jamais au navigateur.** Relevé
+d'ensemble : 13 pertes sur 33 appels (39 %), 161 s d'attente sur des réponses
+mortes, 55 % de pertes sur la tranche de 13h.
+
+Ce créneau élimine trois causes envisagées sur le moment, à ne pas réexaminer
+sans élément nouveau :
+- **une édition manuelle du classeur** faite juste avant (un recalcul ou une
+  contention allongerait l'exécution, or elle reste sous 3 s) ;
+- **le quota Apps Script**, que le banc consommait au même moment sur l'autre
+  backend — un quota épuisé ferait échouer les exécutions, elles aboutissent
+  toutes ;
+- **le changement de conseiller dans Historique**, qui n'émet aucun appel
+  réseau (aucun `useEffect` ne dépend de `adminConseiller`).
+
+C'est l'argument le plus net dont on dispose pour le proxy : rien côté client
+ni côté script ne peut récupérer une réponse perdue après exécution.
+
+
 Si la mesure confirme un taux de pertes élevé des deux côtés, la couche de
 reprise a atteint sa limite et le sujet devient : appeler GAS **côté serveur**
 pour que la redirection `/exec → googleusercontent` soit suivie depuis un
@@ -169,9 +198,6 @@ Aucun n'est bloquant, tous supposent un accès à l'éditeur Apps Script.
 - **`actionSaveMany` en un seul passage.** Aujourd'hui N × (lecture des
   en-têtes + `getLastRow` + `appendRow` + log + purge de cache). Lourd sur une
   saisie en lot de 8-10 séances, et aucun correctif frontend ne l'atteint.
-- **`keepAlive` toutes les 5 min** au lieu d'horaire : le cache `getAll` vit
-  600 s mais n'est réchauffé qu'une fois par heure, donc le premier accès de
-  chaque matinée est froid par construction.
 
 ## 6. Portages restants entre les deux projets
 
