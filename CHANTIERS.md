@@ -27,12 +27,55 @@ seule la file échoue contre 5 où seul le doublage échoue. Différence de dur�
 appariée : **+11,8 s pour la file**, IC95 [+7,8 ; +15,9], la file perdant dans
 73 % des paires.
 
-⚖️ **Portage en attente d'AG-003** (`AGORA.md`). Rien n'est implémenté : le
-retrait de `_gasQueue` supprimerait aussi la sérialisation des **écritures** de
-NextStep, et rien ne prouve que NEWGEN respecte l'invariant « écritures
-séquentielles ET jamais doublées » inscrit dans les deux `CLAUDE.md`. Ce point
-doit être tranché avant, sous peine d'échanger une latence mesurée contre un
-risque de doublon en base non mesuré.
+### ⚖️ AG-003 tranché le 22/09/2026 — le verrou GAS d'abord, le portage après
+
+Verdict de la session contradictrice : **amendé**. Ce qu'elle a établi, code à
+l'appui, et qu'il ne faut pas réapprendre :
+
+- **`_gasQueue` n'a jamais protégé les écritures.** Son commentaire la présente
+  comme le test d'une hypothèse de *latence* (commit `f44f239`, « perf:
+  sérialiser les appels GAS »). La retirer ne retire aucune garantie voulue.
+- **Elle ne sérialise que le client, et seulement jusqu'à l'abandon** : elle
+  repart à l'abandon du navigateur, pas à la fin du script — or un `saveEntry`
+  parti en 404 a bien écrit sa ligne. Et elle ne voit ni un second onglet, ni
+  un second conseiller.
+- **Côté serveur, aucun verrou n'existait**, dans aucun des deux scripts.
+  L'invariant « écritures séquentielles » des deux `CLAUDE.md` **n'est
+  garantissable que côté GAS**, jamais côté client — à reformuler dans les
+  deux fichiers au prochain passage.
+- **Risque le plus grave, absent du bloc initial** : un `delete` concurrent
+  d'une autre écriture décale les lignes du classeur → l'autre exécution
+  **supprime ou écrase l'atelier voisin**. Présent aujourd'hui en production
+  dans les deux projets, file ou pas. C'est ce qui justifie le verrou, pas la
+  latence.
+
+**Décision de l'utilisateur** : option recommandée — verrou d'abord.
+
+### 🔴 À FAIRE EN PREMIER — déployer le verrou GAS (préparé le 22/09/2026)
+
+Le code est **écrit et poussé, pas déployé** : Apps Script n'a pas d'API de
+push, le déploiement est manuel. `actionSaveEntry`, `actionSaveMany` et
+`actionDelete` des deux copies sont enveloppés dans
+`LockService.getScriptLock().waitLock(20 s)` / `releaseLock()` en `finally`
+(`_avecVerrouEcriture`). Marche à suivre pas à pas : **`gas/README.md`**,
+section « EN ATTENTE DE DÉPLOIEMENT ».
+
+Un bandeau ⚠️ en tête de chaque copie GAS signale la divergence avec la
+production. **Le retirer seulement quand l'utilisateur confirme « déployé ».**
+
+⚖️ Le verrou lui-même fait l'objet d'**AG-004** (contention avec `keepAlive`,
+délai de 20 s) — ouvert pour surveillance, pas bloquant.
+
+### Puis seulement : porter le doublage
+
+**Ne pas porter tant que le déploiement du verrou n'est pas confirmé en
+ligne.** Ensuite : porter `gasLectureDoublee` sur NextStep, retirer
+`_gasQueue`, mettre à jour `reseau.test.js` dans le même commit.
+
+⚠️ **Le verrou n'accélère rien** — c'est de la sécurité des données. Le gain de
+latence attendu (26 s → 12 s en médiane) vient du portage, et reste une
+**inférence** : le banc a mesuré le backend NEWGEN, pas celui de NextStep. À
+confirmer sur le terrain après le portage.
 
 ⚠️ **Incompatibilité à ne pas oublier au moment du portage** : on ne peut pas
 porter le doublage sans retirer la file. Un doublon mis en file derrière son

@@ -1,5 +1,37 @@
 
-// ── GAS Backend v10.14.0 ──────────────────────────────────────
+// ── GAS Backend v10.15.0 ──────────────────────────────────────
+// ⚠️ CETTE COPIE EST EN AVANCE SUR LA PRODUCTION (22/09/2026).
+//    v10.15.0 et v10.14.0 ne sont PAS déployées. Le déploiement se fait à la
+//    main (script.google.com → coller ce fichier → publier une version), voir
+//    gas/README.md. Tant que ce bandeau est là, le verrou d'écriture décrit
+//    ci-dessous n'existe pas en ligne. Le retirer une fois le déploiement
+//    confirmé, pas avant.
+//
+// v10.15.0 : SÉCURITÉ DONNÉES — verrou serveur sur les trois actions qui
+//            modifient la feuille Ateliers (saveEntry, saveMany, delete), via
+//            LockService.getScriptLock().waitLock(20 s) et releaseLock() en
+//            finally. Jusqu'ici RIEN ne les protégeait côté serveur : la
+//            sérialisation vivait dans la file d'attente du client (_gasQueue),
+//            qui ne voit qu'un seul onglet — ni les autres onglets du même
+//            poste, ni les autres postes de l'équipe. Deux risques réels,
+//            présents aujourd'hui en production :
+//              - deux saveEntry simultanés sur le même _id peuvent tous deux
+//                conclure « ligne absente » et faire chacun leur appendRow
+//                (atelier en double) ;
+//              - deux delete simultanés : le second a lu son index AVANT la
+//                suppression du premier, toutes les lignes suivantes ont
+//                décalé d'un rang → il supprime ou écrase l'atelier voisin.
+//            Constaté dans l'analyse AG-003 (AGORA.md, ATELIERS_NEWGEN),
+//            verdict « amendé » : ce verrou est le préalable au retrait de
+//            _gasQueue et au portage du doublage de lecture.
+//            saveMany prend UN seul verrou pour tout le lot (pas un par
+//            entrée) et renvoie l'erreur du verrou si elle survient — sans
+//            cela il aurait renvoyé {ok:true} sans avoir rien écrit.
+//            keepAlive de ce fichier ne prend aucun verrou : pas de
+//            contention lecture/écriture ici (contrairement à NEWGEN).
+//            Rejouer une écriture reste sûr : le client génère l'_id avant
+//            l'envoi, actionSaveEntry retrouve la ligne au lieu d'en créer
+//            une seconde.
 // v10.14.0 : NON DÉPLOYÉ — préparé sur branche feat/port-newgen-gestion-ordi,
 //            en attente d'accès à script.google.com pour déploiement.
 //            Portage depuis ATELIERS_NEWGEN (v11.30-11.34) : suivi du prêt du
@@ -436,7 +468,41 @@ function actionSelfSetPassword(p){
   sh.getRange(row.rowIndex, headers.indexOf('Hash')+1).setValue(_sha256(pwd));
   return {ok:true};
 }
-function actionSaveEntry(p){
+// ── Verrou d'écriture ─────────────────────────────────────────
+// Sérialise côté SERVEUR les trois actions qui modifient la feuille
+// Ateliers (saveEntry, saveMany, delete). Jusqu'ici rien ne les protégeait :
+// la sérialisation vivait côté client (file d'attente d'un seul onglet), donc
+// elle ne voyait pas les autres onglets ni les autres postes. Deux exécutions
+// simultanées peuvent :
+//   - conclure toutes les deux « ligne absente » pour le même _id et faire
+//     chacune leur appendRow → atelier en double ;
+//   - se croiser sur un deleteRow : la seconde a lu son index AVANT la
+//     suppression de la première, toutes les lignes suivantes ont décalé
+//     d'un rang, elle supprime ou écrase l'atelier voisin.
+// waitLock (et non tryLock) : une écriture doit attendre son tour, pas être
+// abandonnée. Au-delà du délai on renvoie une erreur explicite — le client
+// rejoue sans risque, il génère l'_id avant l'envoi.
+// 20 s : volontairement au-delà du plafond client en écriture (12 s), pour
+// couvrir un saveMany en cours (plafond client 25 s) qui tiendrait le verrou.
+// Ce n'est PAS un rallongement de plafond au sens de CLAUDE.md : aucun écran
+// d'attente ne s'allonge côté usager, le client abandonne toujours à 12 s. Si
+// le serveur finit après cet abandon, l'écriture est bien appliquée et le
+// rejeu du client la retrouve par son _id au lieu d'en créer une seconde.
+var ECRITURE_LOCK_MS = 20000;
+function _avecVerrouEcriture(fn) {
+  var lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(ECRITURE_LOCK_MS);
+  } catch (e) {
+    return {ok:false, error:'Écriture concurrente en cours, réessayez'};
+  }
+  try {
+    return fn();
+  } finally {
+    try { lock.releaseLock(); } catch (_) {}
+  }
+}
+function _saveEntryInterne(p){
   var d = p;
   if(p.entry){
     try{ d = typeof p.entry === 'string' ? JSON.parse(p.entry) : p.entry; }catch(_){ d = p; }
@@ -492,6 +558,9 @@ function actionSaveEntry(p){
   _viderCache();  // CORRECTION 4
   return {ok:true, _id:id};
 }
+function actionSaveEntry(p) {
+  return _avecVerrouEcriture(function() { return _saveEntryInterne(p); });
+}
 function actionSaveMany(p){
   var entries = p.entries;
   if(typeof entries === 'string'){
@@ -499,14 +568,20 @@ function actionSaveMany(p){
   }
   if(!Array.isArray(entries)) return {ok:false,error:'entries doit être un tableau'};
   var errors = [];
-  entries.forEach(function(entry, idx){
-    try{ actionSaveEntry({entry: entry}); }
-    catch(e){ errors.push({idx:idx, error:String(e)}); }
+  // Un seul verrou pour tout le lot (et non un par entrée) : moins d'attente,
+  // et le lot ne peut pas s'entrelacer avec une autre écriture.
+  var verrou = _avecVerrouEcriture(function() {
+    entries.forEach(function(entry, idx){
+      try{ _saveEntryInterne({entry: entry}); }
+      catch(e){ errors.push({idx:idx, error:String(e)}); }
+    });
+    return {ok:true};
   });
+  if(!verrou.ok) return verrou;  // verrou non obtenu : rien n'a été écrit
   if(errors.length > 0) return {ok:false, error:'Erreurs batch: '+JSON.stringify(errors)};
   return {ok:true, count:entries.length};
 }
-function actionDelete(p){
+function _deleteInterne(p){
   var ss = _ss();
   var sh = ss.getSheetByName('Ateliers_next_step');
   if(!sh) return {ok:false,error:'Feuille introuvable'};
@@ -528,6 +603,9 @@ function actionDelete(p){
     }
   }
   return {ok:false,error:'Entrée introuvable'};
+}
+function actionDelete(p) {
+  return _avecVerrouEcriture(function() { return _deleteInterne(p); });
 }
 function actionSaveLists(p){
   var lists = p.lists ? (typeof p.lists==='string'?JSON.parse(p.lists):p.lists) : {};
