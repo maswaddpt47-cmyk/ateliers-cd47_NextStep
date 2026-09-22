@@ -153,11 +153,28 @@ est une **réussite tombant en plein dans la fenêtre** que je déclarais morte.
 La perte semble se décider **par appel**, pas par créneau. Pourquoi 6 doublons
 sur 8 sont morts reste donc **inexpliqué**.
 
-**Conséquence pour le portage : le gain annoncé (26 s -> 12 s en médiane)
-suppose des pertes isolées. Sur une fenêtre de 40 secondes, le portage ne
-changera rien.** Échantillon minuscule (8 doublons contre 249 salves pour le
-banc) — à rassembler sur plusieurs jours, et à soumettre à l'AGORA au moment
-de décider, pas avant. Détail complet : `CHANTIERS.md` de ATELIERS_NEWGEN.
+**AG-006 tranché le 22/09/2026 — deux sessions, même conclusion : le portage
+n'est PAS remis en cause.**
+- 25 % et 42 % n'avaient pas le même dénominateur (le banc comptait les
+  doublons annulés, la production ne les journalisait pas). Corrigé côté
+  NEWGEN.
+- Le taux de sauvetage suit ≈ 1 − pertes ambiantes : 75 % de pertes donnent
+  25 % de sauvetages sans que la stratégie ait changé.
+- 2/8 ne contredit pas 42 % (Wilson 95 % = [7 % ; 59 %]).
+- **La décision du portage repose sur le McNemar apparié (χ² = 10,32), pas sur
+  le 42 %.** Ce relevé observe une seule stratégie, il ne peut rien trancher.
+
+⚠️ **Ce qui était faux, c'est la promesse chiffrée, pas le portage.**
+« 26 s -> 12 s en médiane » vaut **au régime du banc (30-38 % de pertes)**. À
+75 %, aucune stratégie côté client ne tient 12 s — le levier est le proxy
+(§2). Ne pas réannoncer ce chiffre à l'équipe sans le conditionner au régime.
+
+✅ **Et ce relevé plaide POUR le retrait de `_gasQueue`** : plus le taux de
+pertes monte, plus la file coûte cher, chaque appel mort bloquant les suivants
+12 s. Mesure à suivre après portage : le **taux de connexions ressenties en
+échec** (seuil 15 %, §2), pas le taux de sauvetage.
+
+Détail complet : `CHANTIERS.md` de ATELIERS_NEWGEN.
 
 ### Puis seulement : porter le doublage
 
