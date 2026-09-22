@@ -213,6 +213,19 @@ dehors des tests automatisés, qui ne peuvent pas les couvrir :
 Reporté à la demande de l'utilisateur : ne rien pousser d'inutile pendant la
 mesure. Aucun de ces points n'a d'effet en production aujourd'hui.
 
+⚠️ **Le 22/09, tant que la série du banc tourne, les changements se font sur
+NextStep UNIQUEMENT** — le banc est hébergé par le dépôt NEWGEN, et chaque
+push y déclenche un déploiement. Conséquence : les deux applis jumelles
+divergent volontairement le temps de la mesure. **Tenir ci-dessous la liste
+de ce qui reste à porter sur NEWGEN**, au fil de l'eau et non en fin de
+session : la divergence non consignée s'est déjà payée deux fois le
+18/09/2026 (§6). Cette consigne est notée ici plutôt que dans le CHANTIERS.md
+de NEWGEN, justement parce qu'on n'y touche plus.
+
+**À porter sur NEWGEN :** rien pour l'instant — tout le travail du 22/09
+(demi-journées AM/PM, repli « jour même », affichage de la frise) a été livré
+dans les deux dépôts avant cette consigne.
+
 **Déplacer le champ « Stock ordinateurs » du panneau Admin vers l'onglet
 Gestion ordi.** Il est aujourd'hui la 8ᵉ section du panneau Admin, entre
 « Vérification cohérence » et « Mode Maintenance » — introuvable en pratique,
