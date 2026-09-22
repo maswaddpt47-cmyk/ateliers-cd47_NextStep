@@ -142,6 +142,20 @@ entamé.
 Les deux `Failed to fetch` de 11:40:56 (6,6 s puis 0,1 s) ne sont **pas** des
 pertes GAS : coupure réseau côté poste, à ne pas compter avec le reste.
 
+### ⚠️ 22/09/2026 au soir — le doublage sauve moins que prévu
+
+Premier relevé NEWGEN avec le compteur de sauvetages : **8 doublons partis,
+2 seulement ont sauvé la lecture (25 %)**, contre 42 % annoncés par le banc du
+matin. Raison lisible dans les départs reconstruits : les deux fenêtres de
+panne du relevé durent **39 s et 50 s en continu**. Un doublon lancé à +7 s
+tombe en plein dedans et meurt avec son jumeau.
+
+**Conséquence pour le portage : le gain annoncé (26 s -> 12 s en médiane)
+suppose des pertes isolées. Sur une fenêtre de 40 secondes, le portage ne
+changera rien.** Échantillon minuscule (8 doublons contre 249 salves pour le
+banc) — à rassembler sur plusieurs jours, et à soumettre à l'AGORA au moment
+de décider, pas avant. Détail complet : `CHANTIERS.md` de ATELIERS_NEWGEN.
+
 ### Puis seulement : porter le doublage
 
 **Ne pas porter tant que le déploiement du verrou n'est pas confirmé en
