@@ -1,13 +1,16 @@
 
-// ── GAS Backend v10.17.0 ──────────────────────────────────────
+// ── GAS Backend v10.18.0 ──────────────────────────────────────
+// v10.18.0 : keepAlive ne prend plus le verrou de script (AG-004 tranché le
+//            22/09/2026) : un keepAlive bloqué 8 min par la plateforme aurait
+//            refusé toutes les écritures pendant 8 min. Anti-empilement par
+//            drapeau CacheService. Voir le commentaire au-dessus de keepAlive.
 // v10.16.0 : PERF — keepAlive relisait la feuille ENTIÈRE toutes les 5 min,
 //            24 h/24, sans regarder si le cache était déjà chaud : ~288
 //            lectures complètes par jour, la quasi-totalité pour rien.
 //            ATELIERS_NEWGEN portait déjà les deux garde-fous qui manquaient
 //            ici — `tryLock(0)` (jamais deux exécutions empilées) et le saut
 //            immédiat quand `_lireCacheGetAll` répond. Alignement.
-//            ⚠️ Effet de bord à connaître : keepAlive prend maintenant le même
-//            verrou de script que les écritures (v10.15.0). Voir AG-004.
+//            (Le tryLock(0) de cette version est retiré en v10.18.0.)
 // ⚠️ CETTE COPIE EST EN AVANCE SUR LA PRODUCTION (22/09/2026).
 //    v10.15.0 et v10.14.0 ne sont PAS déployées. Le déploiement se fait à la
 //    main (script.google.com → coller ce fichier → publier une version), voir
@@ -35,11 +38,7 @@
 //            saveMany prend UN seul verrou pour tout le lot (pas un par
 //            entrée) et renvoie l'erreur du verrou si elle survient — sans
 //            cela il aurait renvoyé {ok:true} sans avoir rien écrit.
-//            ⚠️ Corrigé en v10.16.0 : keepAlive prend désormais le MÊME
-//            verrou de script (tryLock(0)), comme NEWGEN. La contention
-//            décrite dans AG-004 vaut donc aussi ici — sens keepAlive vers
-//            écriture sans gravité (abandon immédiat), sens inverse une
-//            écriture peut attendre la fin d'un keepAlive en cours.
+//            keepAlive ne partage PAS ce verrou (v10.18.0, AG-004).
 //            Rejouer une écriture reste sûr : le client génère l'_id avant
 //            l'envoi, actionSaveEntry retrouve la ligne au lieu d'en créer
 //            une seconde.
@@ -1136,24 +1135,29 @@ function ajouterColonnesPretMateriel(){
 // son propre cout (moitie moins de lectures completes), pas sur ce symptome.
 // A recouper dans les Executions Apps Script : lignes keepAlive presentes
 // toutes les 5 min et sous 3 s = il fait son travail.
+// v10.18.0 (22/09/2026, AG-004 tranché) — keepAlive NE PREND PLUS le verrou
+// de script. Les mails « Summary of failures » des 19-21/09 montrent trois
+// keepAlive bloqués 8 min 00 s chacun, arrêtés par la plateforme (le code
+// déployé avait déjà tout dans un try/catch : ce n'est pas une erreur JS).
+// Avec tryLock pris AVANT la lecture, un tel blocage aurait tenu le verrou
+// des écritures (v10.15.0) pendant 8 min : chaque saveEntry/delete refusé.
+// L'anti-empilement passe par un drapeau CacheService. Pas atomique : sa pire
+// défaillance est deux lectures simultanées, jamais une écriture refusée.
+// TTL 360 s : si la plateforme tue l'exécution, le finally ne s'exécute pas ;
+// le drapeau expire alors avant le 2e passage suivant (grille de 5 min).
+var KEEPALIVE_DRAPEAU = 'keepalive_en_cours';
+var KEEPALIVE_DRAPEAU_S = 360;
 function keepAlive() {
-  // TOUT est dans le try, y compris la prise du verrou. Raison concrete :
-  // le 21/09/2026 a 21:47:34, un keepAlive a echoue apres 36 s sur
-  // « server error occurred while reading from storage, Error code INTERNAL »
-  // et Apps Script en a envoye un mail « Summary of failures ». Une tache de
-  // fond dont personne n'attend le resultat ne doit jamais remonter d'erreur :
-  // elle genere du bruit, et le prochain passage repassera dans 5 min.
-  var lock = null;
+  var cache = null, pose = false;
   try {
-    // tryLock(0) : si une execution tourne deja — un vrai appel, ou un
-    // keepAlive precedent qui traine — on abandonne TOUT DE SUITE plutot que
-    // d'attendre. Jamais deux executions empilees dans la file Apps Script.
-    lock = LockService.getScriptLock();
-    if (!lock.tryLock(0)) { Logger.log('keepAlive : execution deja en cours, passage saute.'); lock = null; return; }
     var an = String(new Date().getFullYear());
     // Cache deja chaud : rien a faire. A 5 min de declencheur contre 10 min de
     // TTL, un passage sur deux tombe ici et ne coute qu'un cache.get().
     if (_lireCacheGetAll(an)) { Logger.log('keepAlive : cache ' + an + ' deja chaud.'); return; }
+    cache = CacheService.getScriptCache();
+    if (cache.get(KEEPALIVE_DRAPEAU)) { Logger.log('keepAlive : passage precedent encore en cours, saute.'); return; }
+    cache.put(KEEPALIVE_DRAPEAU, '1', KEEPALIVE_DRAPEAU_S);
+    pose = true;
     var t0 = new Date().getTime();
     var frais = _getAllFrais({year:an});
     _cacherGetAll(an, frais);
@@ -1161,7 +1165,7 @@ function keepAlive() {
   } catch(err) {
     Logger.log('keepAlive erreur : ' + err);
   } finally {
-    if (lock) { try { lock.releaseLock(); } catch(_) {} }
+    if (pose) { try { cache.remove(KEEPALIVE_DRAPEAU); } catch(_) {} }
   }
 }
 // ── Test manuel de la vérification de token/rôle (v10.10.0) ────────────────
