@@ -577,11 +577,21 @@ function gasPlafond(action, ecriture){
 // Journal consultable : window.__gasLog, et console pour le suivi en direct.
 window.__gasLog = [];
 
-window.logGas = function(action, attempt, ms, issue){
-  const e = {t:new Date().toLocaleTimeString('fr-FR'), action, attempt, ms:Math.round(ms), issue:issue||'ok'};
+// `file` : millisecondes passees en file d'attente AVANT le depart du fetch.
+// Jusqu'au 22/09/2026 ce temps n'etait journalise nulle part : t0 est pris
+// dans _gasUnAppelBrut, donc apres la sortie de file, et `ms` ne mesurait que
+// l'aller-retour reseau. Consequence relevee par AG-005 — les totaux d'attente
+// du Journal etaient un plancher, pas le temps reellement subi par l'usager.
+// C'est le chiffre qui manque pour savoir ce que le retrait de la file
+// rapporterait avant de la retirer.
+window.logGas = function(action, attempt, ms, issue, file){
+  const e = {t:new Date().toLocaleTimeString('fr-FR'), action, attempt, ms:Math.round(ms), issue:issue||'ok', file:Math.round(file||0)};
   window.__gasLog.push(e);
   if(window.__gasLog.length > 200) window.__gasLog.shift();
-  const txt = `[GAS] ${action} #${attempt} — ${e.issue} en ${(ms/1000).toFixed(1)} s`;
+  // Seuil 100 ms : sous cette valeur la file n'a rien retenu, l'afficher
+  // ajouterait « (file 0.0 s) » sur chaque ligne sans rien apprendre.
+  const suffixe = e.file >= 100 ? ` (file ${(e.file/1000).toFixed(1)} s)` : '';
+  const txt = `[GAS] ${action} #${attempt} — ${e.issue} en ${(ms/1000).toFixed(1)} s${suffixe}`;
   if(issue) console.warn(txt); else console.info(txt);
   if(window.gasLogHook){ try{ window.gasLogHook(e); }catch(_){} }
 };
@@ -605,9 +615,12 @@ window.logGas = function(action, attempt, ms, issue){
 // après une sauvegarde).
 let _gasQueue = Promise.resolve();
 window.gasUnAppel = function(url, action, numero, plafond){
+  // Pris AVANT la mise en file : c'est l'ecart entre cet instant et le depart
+  // du fetch qui mesure ce que la file coute.
+  const tDemande = Date.now();
   const suivant = _gasQueue.then(
-    ()=>_gasUnAppelBrut(url, action, numero, plafond),
-    ()=>_gasUnAppelBrut(url, action, numero, plafond)
+    ()=>_gasUnAppelBrut(url, action, numero, plafond, tDemande),
+    ()=>_gasUnAppelBrut(url, action, numero, plafond, tDemande)
   );
   // La file avance quel que soit le sort de l'appel : un échec ne doit jamais
   // la bloquer. catch() neutralise le rejet POUR LA CHAÎNE seulement — la
@@ -618,9 +631,10 @@ window.gasUnAppel = function(url, action, numero, plafond){
 
 // Un seul appel réseau, journalisé. reessayable=true seulement pour un échec
 // de transport (jamais atteint Google) ou un refus immédiat (429/503).
-async function _gasUnAppelBrut(url, action, numero, plafond){
+async function _gasUnAppelBrut(url, action, numero, plafond, tDemande){
   const limite = plafond || GAS_TIMEOUT_LECTURE_MS;
   const t0 = Date.now();
+  const file = tDemande ? t0 - tDemande : 0;
   const ctrl = new AbortController();
   const chien = setTimeout(()=>ctrl.abort(), limite);
   let res;
@@ -628,16 +642,16 @@ async function _gasUnAppelBrut(url, action, numero, plafond){
     res = await fetch(url, {signal:ctrl.signal});
   }catch(err){
     if(ctrl.signal.aborted){
-      logGas(action, numero, Date.now()-t0, `bloqué — abandonné après ${limite/1000}s`);
+      logGas(action, numero, Date.now()-t0, `bloqué — abandonné après ${limite/1000}s`, file);
       throw Object.assign(new Error('timeout'), {reessayable:true});
     }
-    logGas(action, numero, Date.now()-t0, 'réseau : '+err.message);
+    logGas(action, numero, Date.now()-t0, 'réseau : '+err.message, file);
     throw Object.assign(new Error(err.message), {reessayable:true});
   }finally{
     clearTimeout(chien);
   }
   if(!res.ok){
-    logGas(action, numero, Date.now()-t0, 'HTTP '+res.status);
+    logGas(action, numero, Date.now()-t0, 'HTTP '+res.status, file);
     throw Object.assign(new Error(`HTTP ${res.status}`), {
       httpStatus:res.status,
       reessayable:GAS_RETRYABLE_HTTP.indexOf(res.status) > -1
@@ -647,10 +661,10 @@ async function _gasUnAppelBrut(url, action, numero, plafond){
   let data;
   try{ data = JSON.parse(text); }
   catch(_){
-    logGas(action, numero, Date.now()-t0, 'réponse non-JSON');
+    logGas(action, numero, Date.now()-t0, 'réponse non-JSON', file);
     throw new Error('Réponse invalide du serveur — déploiement GAS à vérifier.');
   }
-  logGas(action, numero, Date.now()-t0);
+  logGas(action, numero, Date.now()-t0, undefined, file);
   return data;
 }
 

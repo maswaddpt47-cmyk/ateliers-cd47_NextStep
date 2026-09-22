@@ -169,11 +169,14 @@ function resumeLogsTexte(logs, appli){
   if(!gas.length) return 'JOURNAL ' + appli + ' : aucun appel GAS enregistré.';
   var lus = [];
   gas.forEach(function(l){
-    var m = l.msg.match(/^GAS (\S+) #(\S+) — (.+) en ([\d.]+) s$/);
+    // Le suffixe « (file N s) » est optionnel : les lignes journalisees avant
+    // le 22/09/2026 ne l'ont pas, et elles doivent rester lisibles.
+    var m = l.msg.match(/^GAS (\S+) #(\S+) — (.+) en ([\d.]+) s(?: \(file ([\d.]+) s\))?$/);
     if(!m) return;
     var d = l.ts ? new Date(l.ts) : null;
     lus.push({
       action: m[1], essai: m[2], motif: m[3], sec: parseFloat(m[4]),
+      file: m[5] ? parseFloat(m[5]) : 0, fileConnue: !!m[5],
       ko: m[3].indexOf('ok') !== 0,
       heure: l.t || (d ? d.toLocaleTimeString('fr-FR') : '?'),
       h: d ? ('0' + d.getHours()).slice(-2) : '??',
@@ -198,6 +201,18 @@ function resumeLogsTexte(logs, appli){
   l.push('perdus : ' + ko.length + '/' + lus.length + ' (' + Math.round(ko.length/lus.length*100) + '%)');
   l.push('durees livrees : mediane ' + med.toFixed(1) + 's | p90 ' + p90.toFixed(1) + 's');
   l.push('temps passe a attendre des reponses mortes : ' + Math.round(perdu) + 's');
+  // Attente en file : mesuree depuis le 22/09/2026 seulement. Sans ce chiffre
+  // le total ci-dessus est un plancher — il ignore le temps passe a attendre
+  // son tour avant meme que l'appel parte (AG-005).
+  var avecFile = lus.filter(function(x){ return x.fileConnue; });
+  if(avecFile.length){
+    var fileTot = avecFile.reduce(function(a,x){ return a + x.file; }, 0);
+    var fileMax = avecFile.reduce(function(a,x){ return Math.max(a, x.file); }, 0);
+    l.push('temps passe en file avant de partir : ' + Math.round(fileTot) + 's'
+      + ' (pire cas ' + fileMax.toFixed(1) + 's, sur ' + avecFile.length + '/' + lus.length + ' appels mesures)');
+  }else{
+    l.push('temps passe en file : non mesure (journal anterieur au 22/09/2026)');
+  }
   l.push('');
   l.push('par action (perdus/total) : ' + grouper('action'));
   l.push('par heure  (perdus/total) : ' + grouper('h'));
@@ -205,7 +220,8 @@ function resumeLogsTexte(logs, appli){
     l.push('');
     l.push('echecs' + (ko.length > 25 ? ' (25 derniers sur ' + ko.length + ')' : '') + ' :');
     ko.slice(0, 25).forEach(function(x){
-      l.push('  ' + x.jour + ' ' + x.heure + '  ' + x.action + ' #' + x.essai + '  ' + x.motif + '  ' + x.sec.toFixed(1) + 's');
+      l.push('  ' + x.jour + ' ' + x.heure + '  ' + x.action + ' #' + x.essai + '  ' + x.motif + '  ' + x.sec.toFixed(1) + 's'
+        + (x.file ? '  + ' + x.file.toFixed(1) + 's de file' : ''));
     });
   }
   return l.join('\n');

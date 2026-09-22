@@ -187,6 +187,33 @@ describe('resumeLogsTexte', () => {
     assert.match(txt, /par heure  \(perdus\/total\) : .*11: 1\/1/);
   });
 
+  // Le suffixe « (file N s) » mesure l'attente AVANT le depart du fetch,
+  // ajoutee le 22/09/2026 (AG-005). Deux pieges verrouilles ici :
+  //  - le motif d'echec contient lui-meme « apres 12s », donc la regex doit
+  //    trouver le BON « en N s » et ne pas se laisser prendre par le suffixe ;
+  //  - les lignes deja dans le localStorage des conseillers n'ont pas ce
+  //    suffixe, et doivent rester lisibles.
+  it('lit l attente en file, sans casser les lignes anterieures', () => {
+    const ts = (h, m, sec) => new Date(2026, 8, 22, h, m, sec).getTime();
+    const avecFile = [
+      { t: '12:19:43', ts: ts(12,19,43), type: 'err',
+        msg: 'GAS getAll #1 — bloqué — abandonné après 12s en 12.0 s (file 24.3 s)' },
+      { t: '12:19:31', ts: ts(12,19,31), type: 'ok',
+        msg: 'GAS saveEntry #2 — ok en 1.4 s (file 12.1 s)' },
+    ];
+    const txt = resumeLogsTexte(avecFile, 'NEXTSTEP');
+    assert.match(txt, /temps passe en file avant de partir : 36s/);
+    assert.match(txt, /pire cas 24\.3s, sur 2\/2 appels mesures/);
+    // Le motif n'a pas ete ampute par le suffixe.
+    assert.match(txt, /bloqué — abandonné après 12s  12\.0s  \+ 24\.3s de file/);
+
+    // Format d'avant : aucune attente connue, et on le dit plutot que
+    // d'afficher 0 s, qui se lirait comme « la file ne coute rien ».
+    const txtAncien = resumeLogsTexte(JOURNAL, 'NEXTSTEP');
+    assert.match(txtAncien, /temps passe en file : non mesure/);
+    assert.doesNotMatch(txtAncien, /avant de partir/);
+  });
+
   it('ignore les lignes qui ne sont pas des appels GAS, et le journal vide', () => {
     const melange = [...JOURNAL, { t: '12:00:00', msg: '221 ateliers chargés (2026)', type: 'ok', ts: Date.now() }];
     assert.match(resumeLogsTexte(melange, 'NEXTSTEP'), /— 5 appels GAS/);
