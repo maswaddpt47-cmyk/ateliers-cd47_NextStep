@@ -78,6 +78,9 @@ async function instrumenter(page) {
   for (const p of ['**/vendor/leaflet-*/leaflet.js', '**/echarts.min.js', '**/xlsx.full.min.js']) {
     await page.route(p, r => r.fulfill({ status:200, contentType:'application/javascript', body:STUBS }));
   }
+  // geo.api.gouv.fr : coordonnees (fetchGPSCommune) et contours de communes.
+  // Jamais intercepte jusqu'ici — un vrai appel sortait pendant les suites.
+  await page.route('**/geo.api.gouv.fr/**', route => route.abort());
   await page.route('**/script.google.com/**', async route => {
     const action = new URL(route.request().url()).searchParams.get('action') || '';
     appels.push(action);

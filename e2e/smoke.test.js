@@ -63,6 +63,9 @@ test.beforeEach(async ({ page }) => {
   await page.route('**/xlsx.full.min.js', route =>
     route.fulfill({ status: 200, contentType: 'application/javascript', body: XLSX_STUB }));
   // Intercepte script.google.com (GAS)
+  // geo.api.gouv.fr : coordonnees (fetchGPSCommune) et contours de communes.
+  // Jamais intercepte jusqu'ici — un vrai appel sortait pendant les suites.
+  await page.route('**/geo.api.gouv.fr/**', route => route.abort());
   await page.route('**/script.google.com/**', async route => {
     const url = new URL(route.request().url());
     const action = url.searchParams.get('action') || '';

@@ -2882,6 +2882,66 @@ async function fetchGPSCommune(communeRaw){
   GPS_DYN_CACHE[norm]=null;return null;
 }
 
+// ── Contours des communes (geo.api.gouv.fr) ────────────────────────────────
+// Couche de repère géographique dessinée SOUS les pastilles : elle situe les
+// communes sans rien coûter à la lecture des données, les pastilles gardant
+// l'encodage volume (rayon) et réalisation (couleur).
+// Trois précautions, parce que la charge utile est de l'ordre du Mo :
+//  1. chargée au premier affichage de l'onglet Carte, jamais au démarrage ;
+//  2. mémorisée pour la session (CONTOURS_CACHE) et partagée entre index et
+//     admin — pas de localStorage : la taille dépasserait le quota de 5 Mo sur
+//     certains navigateurs, et le cache HTTP de geo.api.gouv.fr fait déjà le
+//     travail d'une visite à l'autre ;
+//  3. purement décorative — si l'appel échoue, la carte reste celle
+//     d'aujourd'hui, sans message d'erreur.
+// ⚠️ NON VÉRIFIÉ : l'API n'était pas joignable depuis l'environnement de
+// développement (proxy). La forme exacte de la réponse n'a donc pas pu être
+// constatée — le code accepte les deux que geo.api.gouv.fr peut renvoyer
+// (FeatureCollection, ou tableau de communes portant chacune un `contour`).
+// À confirmer au premier affichage réel.
+let CONTOURS_CACHE = null;
+let CONTOURS_PROMISE = null;
+function chargerContoursCommunes(){
+  if(CONTOURS_CACHE) return Promise.resolve(CONTOURS_CACHE);
+  if(CONTOURS_PROMISE) return CONTOURS_PROMISE;
+  const url='https://geo.api.gouv.fr/departements/47/communes'
+           +'?fields=nom,code,contour&format=geojson&geometry=contour';
+  CONTOURS_PROMISE=fetch(url).then(r=>r.ok?r.json():null).then(data=>{
+    let fc=null;
+    if(data&&data.type==='FeatureCollection'&&Array.isArray(data.features)){
+      fc=data;
+    }else if(Array.isArray(data)){
+      // Forme JSON simple : chaque commune porte son `contour` en GeoJSON.
+      fc={type:'FeatureCollection',features:data.filter(c=>c&&c.contour).map(c=>(
+        {type:'Feature',properties:{nom:c.nom,code:c.code},geometry:c.contour}))};
+    }
+    if(!fc||!fc.features.length) return null;
+    CONTOURS_CACHE=fc;return fc;
+  }).catch(()=>null);
+  return CONTOURS_PROMISE;
+}
+// Dessine les contours dans un panneau dédié placé entre les tuiles (200) et
+// les pastilles (400). Sans ce panneau, l'ordre dépendrait de l'ordre d'ajout
+// dans le SVG : buildMarkers réinsère les pastilles à chaque changement de
+// filtre, et un jour l'une d'elles passerait dessous.
+// pointerEvents none + interactive false : les clics traversent les polygones
+// et atteignent les pastilles, y compris dans les zones sans pastille.
+function ajouterContours(map){
+  // typeof createPane : les stubs Leaflet des suites navigateur n'implémentent
+  // qu'une poignée de méthodes. Une couche décorative ne doit pas faire tomber
+  // une page parce qu'elle manque — elle s'efface.
+  if(!map||typeof map.createPane!=='function'||map.getPane('contours')) return;
+  const pane=map.createPane('contours');
+  pane.style.zIndex='350';
+  pane.style.pointerEvents='none';
+  chargerContoursCommunes().then(fc=>{
+    if(!fc||!map||!map.getPane('contours')||typeof L.geoJSON!=='function') return;
+    L.geoJSON(fc,{pane:'contours',interactive:false,style:{
+      color:'#64748b',weight:1,opacity:.55,fill:true,fillColor:'#94a3b8',fillOpacity:.06
+    }}).addTo(map);
+  });
+}
+
 function VueCarte({entries,active}){
   const CE=React.createElement;
   const mapRef=React.useRef(null);
@@ -2963,6 +3023,7 @@ function VueCarte({entries,active}){
       attribution:'© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> — tuiles <a href="https://openstreetmap.fr">OSM France</a>',
       subdomains:'abc',maxZoom:20
     }).addTo(mapRef.current);
+    ajouterContours(mapRef.current);
     buildMarkers(entries,modeAffichage);
   },[active]);
 
