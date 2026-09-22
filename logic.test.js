@@ -11,6 +11,7 @@ const {
   filterMaterielsVisibles,
   totalJourParConseiller, periodePretMateriel, findOrdinateursConflicts,
   getPretsMateriel, totauxParJourMateriel, estConflitPasse,
+  demiJourneeAtelier, totauxParDemiJourneeMateriel, occupeCreneauMateriel,
   estWeekend, veilleOuvree, lendemainOuvre,
 } = require('./logic.js');
 
@@ -431,40 +432,34 @@ describe('findOrdinateursConflicts', () => {
     assert.equal(bob.dateFin, '2026-10-01');
   });
 
-  it('sans dates renseignées, détecte un conflit à travers un week-end (veille/lendemain ouvrés)', () => {
-    // Alice : atelier vendredi 2026-09-25, pas de dates → prêt du jeudi 09-24
-    // au lundi 09-28 (lendemain ouvré, saute le week-end).
-    // Bob : atelier lundi 2026-09-28, pas de dates → prêt du vendredi 09-25
-    // (veille ouvrée) au mardi 09-29. Les deux périodes se chevauchent sur
-    // le week-end alors qu'aucune date n'a été saisie par les conseillers.
+  it('sans dates renseignées, deux ateliers à des jours différents ne se chevauchent plus', () => {
+    // Alice vendredi 25/09, Bob lundi 28/09, aucune date saisie : chacun
+    // prend et rend le jour même (22/09/2026). L'ancien repli veille/lendemain
+    // ouvrés les faisait se chevaucher sur le week-end et fabriquait un
+    // conflit que personne n'avait sur le terrain.
     const entries = [
       { statut: 'Planifié', date: '2026-09-25', conseiller: 'Alice', materiel: ['Classe mobile'], nb_ordinateurs: 6 },
       { statut: 'Planifié', date: '2026-09-28', conseiller: 'Bob',   materiel: ['Classe mobile'], nb_ordinateurs: 6 },
     ];
-    const conflits = findOrdinateursConflicts(entries);
-    assert.equal(conflits.length, 1);
-    assert.equal(conflits[0].date, '2026-09-25');
+    assert.deepEqual(findOrdinateursConflicts(entries), []);
   });
 });
 
 // ── periodePretMateriel ─────────────────────────────────────────────────────
 describe('periodePretMateriel', () => {
-  it('sans prélèvement ni retour, on suppose veille/lendemain ouvrés (ex. atelier un lundi → prélèvement le vendredi)', () => {
-    // 2026-09-21 est un lundi : la veille ouvrée saute dimanche (09-20) et
-    // samedi (09-19) pour retomber sur vendredi (09-18).
-    const p = periodePretMateriel({ date: '2026-09-21' });
-    assert.deepEqual(p, { debut: '2026-09-18', fin: '2026-09-22' });
+  it('sans prélèvement ni retour, le prêt tient sur la seule journée de l\'atelier', () => {
+    // Confirmé par l'utilisateur le 22/09/2026 : sans date saisie, le
+    // matériel est pris et rendu le jour même. Remplace le repli
+    // veille/lendemain ouvrés du 19/09, qui étendait chaque atelier à trois
+    // jours et fabriquait des chevauchements inexistants.
+    assert.deepEqual(periodePretMateriel({ date: '2026-09-21' }), { debut: '2026-09-21', fin: '2026-09-21' });
+    // Un vendredi : plus aucun saut de week-end à prévoir.
+    assert.deepEqual(periodePretMateriel({ date: '2026-11-20' }), { debut: '2026-11-20', fin: '2026-11-20' });
   });
-  it('atelier un mercredi (jour ouvré des deux côtés) → veille/lendemain simples, pas de saut de week-end nécessaire', () => {
-    const p = periodePretMateriel({ date: '2026-09-23' });
-    assert.deepEqual(p, { debut: '2026-09-22', fin: '2026-09-24' });
-  });
-  it('prélèvement avant la date de l\'atelier étend le début ; le retour non renseigné retombe sur le lendemain ouvré', () => {
-    // 2026-11-20 est un vendredi : le lendemain ouvré saute samedi/dimanche
-    // et retombe sur lundi 2026-11-23.
+  it('prélèvement avant la date de l\'atelier étend le début ; le retour non renseigné reste la date', () => {
     const p = periodePretMateriel({ date: '2026-11-20', date_prelevement_materiel: '2026-11-17' });
     assert.equal(p.debut, '2026-11-17');
-    assert.equal(p.fin, '2026-11-23');
+    assert.equal(p.fin, '2026-11-20');
   });
   it('un prélèvement après la date de l\'atelier est ignoré (repli sur la date)', () => {
     const p = periodePretMateriel({ date: '2026-11-20', date_prelevement_materiel: '2026-11-25' });
@@ -520,7 +515,7 @@ describe('getPretsMateriel', () => {
     ];
     const prets = getPretsMateriel(entries);
     assert.equal(prets.length, 1);
-    assert.deepEqual(prets[0], { _id: 'a1', conseiller: 'Alice', qte: 6, commune: 'FUMEL', lieu: 'MFR', thematique: 'Bureautique', dateAtelier: '2026-11-20', debut: '2026-11-17', fin: '2026-11-24' });
+    assert.deepEqual(prets[0], { _id: 'a1', conseiller: 'Alice', qte: 6, commune: 'FUMEL', lieu: 'MFR', thematique: 'Bureautique', dateAtelier: '2026-11-20', debut: '2026-11-17', fin: '2026-11-24', demi: null });
   });
   it('ignore les ateliers Annulés ou sans Classe mobile', () => {
     const entries = [
@@ -627,5 +622,55 @@ describe('occupation du stock le jour du retour', () => {
     const totaux = totauxParJourMateriel(getPretsMateriel(entries), ['2026-09-29']);
     assert.equal(totaux['2026-09-29'], 12);
     assert.equal(findOrdinateursConflicts(entries).length, 1);
+  });
+});
+
+// ── Demi-journées (AM/PM) ────────────────────────────────────────────────────
+// Confirmé par l'utilisateur le 22/09/2026 : deux ateliers le même jour, l'un
+// le matin l'autre l'après-midi, ne se disputent pas le matériel — le premier
+// rend à midi. Ces trois cas verrouillent la finesse ET ses deux limites.
+describe('occupation à la demi-journée', () => {
+  const A = (cons, qte, date, ampm, prel, ret) => ({
+    _id: cons, statut: 'Planifié', conseiller: cons, commune: 'AGEN',
+    materiel: ['Classe mobile'], nb_ordinateurs: qte, date, ampm,
+    date_prelevement_materiel: prel || '', date_retour_materiel: ret || '',
+  });
+
+  it('matin et après-midi ne se cumulent pas, deux fois le matin si', () => {
+    const separes = [A('Alice', 6, '2026-10-01', 'AM'), A('Bob', 6, '2026-10-01', 'PM')];
+    const t = totauxParDemiJourneeMateriel(getPretsMateriel(separes), ['2026-10-01']);
+    assert.deepEqual(t['2026-10-01'], { AM: 6, PM: 6 });
+    assert.deepEqual(findOrdinateursConflicts(separes), []);
+    assert.deepEqual(findMobileClassConflicts(separes), []);
+
+    const memeCreneau = [A('Alice', 6, '2026-10-01', 'AM'), A('Bob', 6, '2026-10-01', 'AM')];
+    const c = findOrdinateursConflicts(memeCreneau);
+    assert.equal(c.length, 1);
+    assert.equal(c[0].total, 12);
+    assert.equal(c[0].demi, 'AM');   // le créneau à corriger, pas la journée
+  });
+
+  it('dès que le prêt dure plus d\'un jour, la journée entière est réservée', () => {
+    // Alice garde le matériel du 30/09 au 02/10 : il ne revient pas à midi,
+    // donc l'après-midi de Bob se cumule bien avec son matin.
+    const entries = [A('Alice', 6, '2026-10-01', 'AM', '2026-09-30', '2026-10-02'), A('Bob', 6, '2026-10-01', 'PM')];
+    const t = totauxParDemiJourneeMateriel(getPretsMateriel(entries), ['2026-10-01']);
+    assert.deepEqual(t['2026-10-01'], { AM: 6, PM: 12 });
+    assert.equal(findOrdinateursConflicts(entries)[0].demi, 'PM');
+  });
+
+  it('ampm absent : repli sur l\'horaire, sinon la journée entière', () => {
+    assert.equal(demiJourneeAtelier({ ampm: 'PM' }), 'PM');
+    assert.equal(demiJourneeAtelier({ horaire: '09H00' }), 'AM');
+    assert.equal(demiJourneeAtelier({ horaire: '14H00' }), 'PM');
+    assert.equal(demiJourneeAtelier({}), null);
+    // null réserve les deux demi-journées : mieux vaut une alerte de trop
+    // qu'un conflit matériel passé sous silence.
+    const entries = [
+      { _id: 'x', statut: 'Planifié', conseiller: 'Alice', date: '2026-10-01', materiel: ['Classe mobile'], nb_ordinateurs: 6 },
+      A('Bob', 6, '2026-10-01', 'PM'),
+    ];
+    const t = totauxParDemiJourneeMateriel(getPretsMateriel(entries), ['2026-10-01']);
+    assert.deepEqual(t['2026-10-01'], { AM: 6, PM: 12 });
   });
 });

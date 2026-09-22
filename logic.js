@@ -115,18 +115,38 @@ function filterMaterielsVisibles(materiels, masques, selectionnes) {
 // matériel physique partagé, ne peut être utilisé qu'à un seul endroit à la
 // fois. Alerte informative uniquement (jamais bloquante à la saisie) : les
 // Annulés sont exclus, un atelier annulé n'immobilise plus le matériel.
+// Groupé par date ET demi-journée (22/09/2026) : deux conseillers le même
+// jour, l'un le matin l'autre l'après-midi, ne se disputent pas la Classe
+// mobile. Un atelier dont la demi-journée est inconnue tombe dans les deux,
+// donc entre en conflit avec l'un comme avec l'autre.
 function findMobileClassConflicts(entries) {
-  const parDate = {};
+  const parCreneau = {};
   entries.forEach(e => {
     if (e.statut === 'Annulé') return;
     if (!e.date) return;
     if (!matIncludes(e.materiel, 'Classe mobile')) return;
-    (parDate[e.date] = parDate[e.date] || []).push(e);
+    const demi = demiJourneeAtelier(e);
+    (demi ? [demi] : ['AM', 'PM']).forEach(d => {
+      const k = e.date + '|' + d;
+      (parCreneau[k] = parCreneau[k] || []).push(e);
+    });
   });
-  return Object.keys(parDate)
-    .map(date => ({ date, entries: parDate[date] }))
-    .filter(g => new Set(g.entries.map(e => e.conseiller)).size >= 2)
-    .sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
+  // Un seul groupe par DATE, portant la ou les demi-journées en conflit.
+  // Sans ce regroupement, un atelier sans ampm — qui compte dans les deux
+  // demi-journées — produirait deux fois le même conflit à l'écran.
+  const parDate = {};
+  Object.keys(parCreneau).sort().forEach(k => {
+    const items = parCreneau[k];
+    if (new Set(items.map(e => e.conseiller)).size < 2) return;
+    const date = k.split('|')[0];
+    (parDate[date] = parDate[date] || []).push({ demi: k.split('|')[1], items });
+  });
+  return Object.keys(parDate).sort().map(date => {
+    const parts = parDate[date];
+    const vus = new Set(), entriesBloc = [];
+    parts.forEach(p => p.items.forEach(e => { if (!vus.has(e)) { vus.add(e); entriesBloc.push(e); } }));
+    return { date, demi: parts.map(p => p.demi).join('+'), entries: entriesBloc };
+  });
 }
 
 // ── Conflits stock ordinateurs ──────────────────────────────────────────────
@@ -180,45 +200,62 @@ function lendemainOuvre(dateIso) {
   while (estWeekend(d)) d = addJoursIso(d, 1);
   return d;
 }
+// Demi-journée d'un atelier : 'AM', 'PM', ou null quand on ne peut pas
+// trancher. Le champ ampm est obligatoire à la saisie depuis longtemps, mais
+// les entrées importées ou antérieures peuvent ne pas l'avoir : on retombe
+// alors sur l'horaire (même repli que le dashboard, shared.js), puis sur null
+// — et null réserve la journée entière, jamais l'inverse : mieux vaut une
+// alerte de trop qu'un conflit matériel non signalé.
+function demiJourneeAtelier(e) {
+  const v = String((e && e.ampm) || '').trim().toUpperCase();
+  if (v === 'AM' || v === 'PM') return v;
+  const h = parseInt((e && e.horaire) || '', 10);
+  if (!isNaN(h) && h >= 0 && h <= 23) return h < 12 ? 'AM' : 'PM';
+  return null;
+}
+
 // Période réelle d'indisponibilité du matériel pour un atelier : du
 // prélèvement (peut précéder la date de l'atelier — ex. retrait le mardi
-// pour un atelier le vendredi) au retour. Repli indépendant sur chaque
-// champ quand il n'est pas renseigné : veille/lendemain ouvrés de la date
-// de l'atelier (jamais un jour de week-end), plutôt que la date de
-// l'atelier elle-même — le matériel est concrètement retiré/rendu un jour
-// ouvré, généralement la veille/le lendemain de la séance.
+// pour un atelier le vendredi) au retour.
+// Repli quand un champ n'est pas renseigné : **la date de l'atelier**, des
+// deux côtés. Le matériel est alors pris et rendu le jour même — c'est le
+// fonctionnement réel confirmé par l'utilisateur le 22/09/2026. Ce repli
+// remplace celui de la veille/lendemain ouvrés (19/09/2026), qui était une
+// hypothèse : il étendait chaque atelier sans dates saisies à trois jours et
+// fabriquait des chevauchements qui n'existent pas sur le terrain.
 function periodePretMateriel(e) {
   const debut = e.date_prelevement_materiel
     ? ((e.date_prelevement_materiel < e.date) ? e.date_prelevement_materiel : e.date)
-    : veilleOuvree(e.date);
+    : e.date;
   const fin = e.date_retour_materiel
     ? ((e.date_retour_materiel > e.date) ? e.date_retour_materiel : e.date)
-    : lendemainOuvre(e.date);
+    : e.date;
   return { debut, fin };
 }
 
-// Le retour du matériel a lieu le matin (règle métier confirmée par
-// l'utilisateur le 21/09/2026) : le jour du retour, les machines sont de
-// nouveau disponibles pour un autre conseiller qui les prélève le même jour.
-// Un retour le 29 et un prélèvement le 29 se passent les mêmes ordinateurs,
-// ils ne mobilisent pas deux fois le stock. L'occupation du stock va donc de
-// `debut` INCLUS à `fin` EXCLU — alors que la barre de la frise, elle, reste
-// dessinée jusqu'au jour du retour inclus : c'est bien ce jour-là qu'on
-// rapporte le matériel, même s'il ne le réserve plus.
-// Exception : un prêt d'une seule journée (debut === fin, prélèvement et
-// retour saisis le jour de l'atelier) occupe bien ce jour-là, sinon il
-// disparaîtrait purement et simplement du cumul.
-// Le cas d'un MÊME conseiller qui enchaîne deux ateliers dos-à-dos est traité
-// séparément, par le max de totalJourParConseiller.
+// Le retour du matériel a lieu le matin (confirmé le 21/09/2026) : le jour du
+// retour, les machines sont de nouveau disponibles pour un autre conseiller
+// qui les prélève le même jour. L'occupation va donc de `debut` INCLUS à
+// `fin` EXCLU — sauf pour un prêt d'une seule journée, qui occupe bien ce
+// jour-là, sinon il disparaîtrait du cumul.
 function finOccupationMateriel(debut, fin) {
   return fin > debut ? addJoursIso(fin, -1) : fin;
 }
-function occupeLeJourMateriel(p, jour) {
-  return jour >= p.debut && jour <= finOccupationMateriel(p.debut, p.fin);
+
+// Occupation à la DEMI-JOURNÉE (confirmé le 22/09/2026) : deux ateliers le
+// même jour, l'un le matin l'autre l'après-midi, ne se disputent pas le
+// matériel — le premier rend à midi, le second prend l'après-midi.
+// Cette finesse ne vaut que pour un prêt d'une seule journée : dès que le
+// matériel dort ailleurs une nuit, il est immobilisé en continu, y compris
+// les demi-journées intermédiaires.
+function occupeCreneauMateriel(p, jour, demi) {
+  if (jour < p.debut || jour > finOccupationMateriel(p.debut, p.fin)) return false;
+  if (p.debut === p.fin && p.demi) return demi === p.demi;
+  return true;
 }
 
 function findOrdinateursConflicts(entries, stock = STOCK_ORDINATEURS) {
-  const parJour = {};
+  const parCreneau = {};
   (entries || []).forEach(e => {
     if (e.statut === 'Annulé') return;
     if (!e.date) return;
@@ -231,35 +268,63 @@ function findOrdinateursConflicts(entries, stock = STOCK_ORDINATEURS) {
     // 18/09/2026 — conseillers manquants dans le Gantt malgré des conflits).
     const qte = parseInt(e.nb_ordinateurs) || 1;
     const { debut, fin } = periodePretMateriel(e);
+    const pret = { _id: e._id, conseiller: e.conseiller, qte,
+      commune: e.commune || '', lieu: e.lieu || '',
+      dateDebut: debut, dateFin: fin, demi: demiJourneeAtelier(e), debut, fin };
     // Garde-fou : une date de prélèvement/retour saisie à la main peut être
     // erronée (année oubliée, inversion jour/mois...) — on plafonne à 90
     // jours pour ne jamais boucler indéfiniment sur une période aberrante.
     const finOcc = finOccupationMateriel(debut, fin);
     let d = debut, garde = 0;
     while (d <= finOcc && garde < 90) {
-      (parJour[d] = parJour[d] || []).push({
-        _id: e._id, conseiller: e.conseiller, qte,
-        commune: e.commune || '', lieu: e.lieu || '',
-        dateDebut: debut, dateFin: fin,
+      ['AM', 'PM'].forEach(demi => {
+        if (occupeCreneauMateriel(pret, d, demi)) {
+          (parCreneau[d + '|' + demi] = parCreneau[d + '|' + demi] || []).push(pret);
+        }
       });
       d = addJoursIso(d, 1);
       garde++;
     }
   });
-  const joursConflit = Object.keys(parJour)
-    .map(date => ({ date, entries: parJour[date], total: totalJourParConseiller(parJour[date]) }))
-    .filter(g => g.total > stock)
-    .sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
+
+  // Un JOUR est en conflit dès qu'une de ses deux demi-journées dépasse le
+  // stock. Le bloc porte le total le plus élevé et nomme la ou les
+  // demi-journées concernées : « 11 demandés (après-midi) » se corrige
+  // autrement que « 11 demandés toute la journée ».
+  const joursConflit = [];
+  const datesVues = {};
+  Object.keys(parCreneau).forEach(k => { datesVues[k.split('|')[0]] = true; });
+  Object.keys(datesVues).sort().forEach(date => {
+    const parts = ['AM', 'PM'].map(demi => {
+      const items = parCreneau[date + '|' + demi] || [];
+      return { demi, items, total: totalJourParConseiller(items) };
+    }).filter(p => p.total > stock);
+    if (!parts.length) return;
+    // Déduplication par RÉFÉRENCE et non par _id : le même prêt est poussé
+    // dans les deux demi-journées, et toutes les entrées n'ont pas d'_id
+    // (import, saisie en lot avant attribution).
+    const vus = new Set();
+    const entriesBloc = [];
+    parts.forEach(p => p.items.forEach(it => {
+      if (!vus.has(it)) { vus.add(it); entriesBloc.push(it); }
+    }));
+    joursConflit.push({
+      date,
+      entries: entriesBloc,
+      total: Math.max.apply(null, parts.map(p => p.total)),
+      demi: parts.map(p => p.demi).join('+'),
+    });
+  });
 
   const blocs = [];
   joursConflit.forEach(g => {
     const dernier = blocs[blocs.length - 1];
-    if (dernier && addJoursIso(dernier.dateFin, 1) === g.date) {
+    if (dernier && addJoursIso(dernier.dateFin, 1) === g.date && dernier.demi === g.demi) {
       dernier.dateFin = g.date;
       dernier.total = Math.max(dernier.total, g.total);
-      g.entries.forEach(e => { if (!dernier._vus.has(e._id)) { dernier._vus.add(e._id); dernier.entries.push(e); } });
+      g.entries.forEach(e => { if (!dernier._vus.has(e)) { dernier._vus.add(e); dernier.entries.push(e); } });
     } else {
-      blocs.push({ date: g.date, dateFin: g.date, total: g.total, entries: [...g.entries], _vus: new Set(g.entries.map(e => e._id)) });
+      blocs.push({ date: g.date, dateFin: g.date, total: g.total, demi: g.demi, entries: [...g.entries], _vus: new Set(g.entries) });
     }
   });
   return blocs.map(({ _vus, ...b }) => b);
@@ -279,19 +344,33 @@ function getPretsMateriel(entries) {
       return {
         _id: e._id, conseiller: e.conseiller, qte: parseInt(e.nb_ordinateurs) || 1,
         commune: e.commune || '', lieu: e.lieu || '', thematique: e.thematique || '',
-        dateAtelier: e.date, debut, fin,
+        dateAtelier: e.date, debut, fin, demi: demiJourneeAtelier(e),
       };
     })
     .sort((a, b) => a.debut < b.debut ? -1 : a.debut > b.debut ? 1 : 0);
 }
 
-// Cumul des ordinateurs réservés pour chaque jour de `jours` (tableau de
-// dates ISO) — sert à teinter la frise là où le cumul dépasse le stock.
-function totauxParJourMateriel(prets, jours) {
+// Cumul des ordinateurs réservés pour chaque DEMI-JOURNÉE de `jours` :
+// { '2026-09-30': { AM: 10, PM: 11 } }. C'est le détail que la frise montre
+// en infobulle et sur lequel se décide la couleur de la case.
+function totauxParDemiJourneeMateriel(prets, jours) {
   const totaux = {};
   (jours || []).forEach(j => {
-    totaux[j] = totalJourParConseiller((prets || []).filter(p => occupeLeJourMateriel(p, j)));
+    totaux[j] = {
+      AM: totalJourParConseiller((prets || []).filter(p => occupeCreneauMateriel(p, j, 'AM'))),
+      PM: totalJourParConseiller((prets || []).filter(p => occupeCreneauMateriel(p, j, 'PM'))),
+    };
   });
+  return totaux;
+}
+
+// Cumul par jour = le maximum des deux demi-journées. C'est ce que la case de
+// la frise affiche : la pointe de la journée, celle qui décide du dépassement.
+// Sommer les deux compterait deux fois un prêt qui court toute la journée.
+function totauxParJourMateriel(prets, jours) {
+  const detail = totauxParDemiJourneeMateriel(prets, jours);
+  const totaux = {};
+  Object.keys(detail).forEach(j => { totaux[j] = Math.max(detail[j].AM, detail[j].PM); });
   return totaux;
 }
 
@@ -338,7 +417,8 @@ if (typeof module !== 'undefined') {
     normalizeImportRow,
     findMobileClassConflicts,
     filterMaterielsVisibles,
-    finOccupationMateriel, occupeLeJourMateriel,
+    demiJourneeAtelier, finOccupationMateriel, occupeCreneauMateriel,
+    totauxParDemiJourneeMateriel,
     STOCK_ORDINATEURS, totalJourParConseiller, periodePretMateriel, findOrdinateursConflicts,
     getPretsMateriel, totauxParJourMateriel, estConflitPasse,
     estWeekend, veilleOuvree, lendemainOuvre,

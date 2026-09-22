@@ -3010,7 +3010,11 @@ function VueCarte({entries,active}){
 // Portés depuis ATELIERS_NEWGEN. estConflitPasse/periodePretMateriel/
 // getPretsMateriel/totauxParJourMateriel/findOrdinateursConflicts vivent
 // dans logic.js (chargé avant, en global navigateur).
-function titreConflitOrdi(g){return '📅 '+fmtPeriode(g.date,g.dateFin)+' — jusqu\'à '+g.total+' ordinateurs demandés sur '+STOCK_ORDINATEURS+' en stock';}
+// 'AM' | 'PM' | 'AM+PM' → libellé lisible. Le créneau change la correction à
+// apporter : un dépassement l'après-midi seulement se règle en déplaçant un
+// atelier le matin, pas en renonçant à du matériel.
+function libelleDemi(d){return d==='AM'?'le matin':d==='PM'?'l\'après-midi':'toute la journée';}
+function titreConflitOrdi(g){return '📅 '+fmtPeriode(g.date,g.dateFin)+' '+libelleDemi(g.demi)+' — jusqu\'à '+g.total+' ordinateurs demandés sur '+STOCK_ORDINATEURS+' en stock';}
 // findMobileClassConflicts pousse l'entry brute dans chaque groupe : nb_
 // ordinateurs/date_retour_materiel sont déjà là, pas besoin de les recalculer.
 function itemConflitMobile(onEdit){
@@ -3078,7 +3082,10 @@ function FriseMateriel({entries,onEdit}){
   const jourFin=jours[jours.length-1];
   const prets=React.useMemo(()=>getPretsMateriel(entries),[entries]);
   const pretsVisibles=React.useMemo(()=>prets.filter(p=>p.fin>=jourDebut&&p.debut<=jourFin).sort((a,b)=>a.debut<b.debut?-1:a.debut>b.debut?1:0),[prets,jourDebut,jourFin]);
-  const totaux=React.useMemo(()=>totauxParJourMateriel(prets,jours),[prets,jours]);
+  // Détail par demi-journée : c'est lui qui décide du dépassement, la case
+  // n'affichant que la pointe de la journée (le max des deux).
+  const detail=React.useMemo(()=>totauxParDemiJourneeMateriel(prets,jours),[prets,jours]);
+  const totaux=React.useMemo(()=>{const t={};Object.keys(detail).forEach(j=>{t[j]=Math.max(detail[j].AM,detail[j].PM);});return t;},[detail]);
   // Index (0-based) d'un jour dans la fenêtre visible, clampé aux bornes —
   // une barre qui déborde de la fenêtre est simplement tronquée à l'affichage.
   const colIdx=d=>d<jourDebut?0:d>jourFin?jours.length-1:jours.indexOf(d);
@@ -3111,8 +3118,10 @@ function FriseMateriel({entries,onEdit}){
       // Ligne stock cumulé
       CE('div',{className:printable?'frise-grid-row':undefined,style:{display:'grid',gridTemplateColumns:gridTemplate,gap:1,marginBottom:6}},
         CE('div',{style:{fontSize:tailleTexte+1,fontWeight:700,color:'#718096',alignSelf:'center'}},'Stock ('+STOCK_ORDINATEURS+')'),
-        jours.map(d=>{const t=totaux[d]||0;const depasse=t>STOCK_ORDINATEURS;
-          return CE('div',{key:d,title:t+' ordinateur(s) réservé(s)',style:{height:colWidth<32?14:22,background:t===0?'#f1f5f9':depasse?'#dc2626':'#86efac',borderRadius:2,fontSize:tailleTexte,color:depasse?'#fff':'#166534',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:700}},t>0?t:'');
+        jours.map(d=>{const dt=detail[d]||{AM:0,PM:0};const t=Math.max(dt.AM,dt.PM);
+          const depasse=t>STOCK_ORDINATEURS;
+          const quand=dt.AM===dt.PM?'':' (matin '+dt.AM+' · après-midi '+dt.PM+')';
+          return CE('div',{key:d,title:t+' ordinateur(s) réservé(s)'+quand,style:{height:colWidth<32?14:22,background:t===0?'#f1f5f9':depasse?'#dc2626':'#86efac',borderRadius:2,fontSize:tailleTexte,color:depasse?'#fff':'#166534',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:700}},t>0?t:'');
         })
       ),
       // Une ligne par prêt
@@ -3122,7 +3131,8 @@ function FriseMateriel({entries,onEdit}){
           // Le marquage ⚠️ suit l'occupation réelle, pas la barre dessinée : le
           // jour du retour est affiché mais ne réserve plus le stock, il ne doit
           // donc pas faire passer ce prêt en conflit.
-          const conflit=jours.filter(d=>occupeLeJourMateriel(p,d)).some(d=>(totaux[d]||0)>STOCK_ORDINATEURS);
+          const conflit=jours.some(d=>['AM','PM'].some(dm=>
+            occupeCreneauMateriel(p,d,dm)&&((detail[d]&&detail[d][dm])||0)>STOCK_ORDINATEURS));
           // Barre teintée dans la couleur du conum (même couleur que le
           // libellé à gauche et que partout ailleurs dans l'appli), plutôt
           // qu'un bleu/rouge générique — identifier qui réserve quoi d'un
@@ -3143,7 +3153,7 @@ function FriseMateriel({entries,onEdit}){
       )
     );
   }
-  const legende=CE('div',{style:{fontSize:10,color:'#94a3b8',marginBottom:8}},'▼ = jour de l\'atelier (entre le prélèvement et le retour de la barre) · le jour du retour ne réserve plus le stock (retour le matin)');
+  const legende=CE('div',{style:{fontSize:10,color:'#94a3b8',marginBottom:8}},'▼ = jour de l\'atelier (entre le prélèvement et le retour de la barre) · le jour du retour ne réserve plus le stock (retour le matin) · un prêt d\'une seule journée ne réserve que sa demi-journée (AM/PM)');
   return CE(React.Fragment,null,
     CE('div',{className:'card',style:{maxWidth:'100%',margin:'0 auto 16px',overflowX:'auto'}},
       CE('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:4,flexWrap:'wrap',gap:8}},
@@ -3239,7 +3249,7 @@ function VueGestionOrdi({entries,onEdit}){
       CE(BlocConflits,{
         groupes:conflitsMobile, vide:'Aucun conflit Classe mobile',
         bg:'#fff7ed', border:'#fed7aa', titreColor:'#9a3412',
-        renderTitre:g=>'📅 '+fmtDate(g.date)+' — Classe mobile réservée par '+g.entries.length+' conseillers',
+        renderTitre:g=>'📅 '+fmtDate(g.date)+' '+libelleDemi(g.demi)+' — Classe mobile réservée par '+g.entries.length+' conseillers',
         renderItem:itemConflitMobile(onEdit)
       }),
       CE('div',{style:{margin:'20px 0 8px',fontSize:12,fontWeight:700,color:'#991b1b'}},'Stock ordinateurs'),
