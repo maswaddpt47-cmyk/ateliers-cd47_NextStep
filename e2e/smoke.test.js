@@ -56,7 +56,7 @@ test.beforeEach(async ({ page }) => {
   await page.route('**/react-dom.production.min.js', route =>
     route.fulfill({ status: 200, contentType: 'application/javascript', body: REACT_DOM_JS }));
   // Stubs pour Leaflet, ECharts, XLSX CDN
-  await page.route('**/leaflet.min.js', route =>
+  await page.route('**/vendor/leaflet-*/leaflet.js', route =>
     route.fulfill({ status: 200, contentType: 'application/javascript', body: LEAFLET_STUB }));
   await page.route('**/echarts.min.js', route =>
     route.fulfill({ status: 200, contentType: 'application/javascript', body: ECHARTS_STUB }));

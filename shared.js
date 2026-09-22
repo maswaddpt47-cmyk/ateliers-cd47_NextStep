@@ -2953,7 +2953,16 @@ function VueCarte({entries,active}){
     if(!active||mapRef.current)return;
     if(!window.L){console.error('Leaflet non chargé');return;}
     mapRef.current=L.map('map-container').setView([44.35,0.52],9);
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',{attribution:'© OpenStreetMap contributors © CARTO',maxZoom:18}).addTo(mapRef.current);
+    // Fond de carte : OpenStreetMap France (tile.openstreetmap.fr/osmfr).
+    // Remplace basemaps.cartocdn.com, dont l'offre gratuite a fermé. Pas de
+    // {r} : le style osmfr n'a pas de variante retina, le garder demanderait
+    // des tuiles @2x qui n'existent pas (404 sur chaque tuile en écran HiDPI).
+    // Service associatif : l'attribution ci-dessous n'est pas décorative, elle
+    // fait partie des conditions d'usage — ne pas la retirer.
+    L.tileLayer('https://{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png',{
+      attribution:'© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> — tuiles <a href="https://openstreetmap.fr">OSM France</a>',
+      subdomains:'abc',maxZoom:20
+    }).addTo(mapRef.current);
     buildMarkers(entries,modeAffichage);
   },[active]);
 

@@ -75,7 +75,7 @@ async function instrumenter(page) {
     r.fulfill({ status:200, contentType:'application/javascript', body:REACT_JS }));
   await page.route('**/react-dom.production.min.js', r =>
     r.fulfill({ status:200, contentType:'application/javascript', body:REACT_DOM_JS }));
-  for (const p of ['**/leaflet.min.js', '**/echarts.min.js', '**/xlsx.full.min.js']) {
+  for (const p of ['**/vendor/leaflet-*/leaflet.js', '**/echarts.min.js', '**/xlsx.full.min.js']) {
     await page.route(p, r => r.fulfill({ status:200, contentType:'application/javascript', body:STUBS }));
   }
   await page.route('**/script.google.com/**', async route => {
