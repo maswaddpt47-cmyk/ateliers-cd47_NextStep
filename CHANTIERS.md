@@ -66,6 +66,50 @@ production. **Le retirer seulement quand l'utilisateur confirme « déployé ».
 ⚖️ Le verrou lui-même fait l'objet d'**AG-004** (contention avec `keepAlive`,
 délai de 20 s) — ouvert pour surveillance, pas bloquant.
 
+### Relevé NextStep du 22/09/2026 — l'angle mort n° 1 d'AG-003 se referme
+
+44 appels, 11:31 -> 20:27, usage réel (pas d'alternance contrôlée) :
+**20 perdus, 45 %**, médiane des réponses livrées 3,5 s, p90 9,0 s, **221 s
+passées à attendre des réponses mortes**. Le banc relevait 30-38 % sur le
+backend NEWGEN : **NextStep n'est pas meilleur, il est au moins aussi
+touché.** C'est l'indice qui manquait au bloc AG-003 (« rien ne prouve que le
+déploiement NextStep se comporte pareil ») — un indice, pas une mesure
+appariée.
+
+**La file d'attente est visible dans le journal.** Le timestamp de `logGas`
+(`shared.js:580`) est l'heure de **fin** ; en reconstruisant `fin - durée`,
+chaque appel démarre pile quand le précédent s'arrête. Connexion de 20:27 :
+getComptes#1 (12 s mort) -> checkPassword#1 (404 à 9,8 s) -> checkPassword#2
+(12 s mort) -> checkPassword#3 (passé) -> logLogin#1 (12 s mort) -> logLogin#2.
+**Plus d'une minute pour se connecter, en file indienne.** Séquence de
+11:49:43 -> 11:51:23 : 100 s, dont 48 d'attente pure.
+
+⚠️ **Le portage ne touchera que 13 des 20 pertes.** Vérifié dans
+`ATELIERS_NEWGEN/shared.js:880-886` : `doubler = !ecriture &&
+!GAS_SANS_DOUBLON.has(action)`.
+
+| Doublées après portage | Jamais doublées, par conception |
+|---|---|
+| getAll 5, getComptes 3, getConfig 4, getVisibility 1 — **13** | saveEntry 3, checkPassword 2, setConfig 1, logLogin 1 — **7** |
+
+**Conséquence à annoncer avant le portage, pas après : enregistrer un atelier
+ne sera pas plus rapide.** Le gain porte sur l'ouverture et la navigation. Le
+second gain vient du retrait de la file (les appels courent en parallèle au
+lieu de s'enfiler), pas du doublage.
+
+⚠️ **12:19 — un enregistrement a abandonné pour de bon** : `saveEntry #1` et
+`#2` morts à 12 s chacun, les deux tentatives d'écriture épuisées, erreur
+rendue à l'usager. Or un `saveEntry` dont la réponse est perdue **a quand même
+écrit sa ligne** (documenté vérifié en prod le 18/09). L'atelier est donc très
+probablement dans le classeur malgré l'échec affiché. **À vérifier : atelier
+en double ou re-saisi autour du 22/09 12:19 ?**
+
+Deux détails : les six fenêtres de panne (11:31, 11:38, 11:40, 11:49, 12:18,
+20:27) tuent **tout** ce qu'elles contiennent et rien en dehors — la panne
+frappe par créneau, pas par appel, comme sur NEWGEN. Et les deux
+`Failed to fetch` de 11:40:56 (6,6 s puis 0,1 s) ne sont **pas** des pertes
+GAS : coupure réseau côté poste, à ne pas compter avec le reste.
+
 ### Puis seulement : porter le doublage
 
 **Ne pas porter tant que le déploiement du verrou n'est pas confirmé en
