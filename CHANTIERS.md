@@ -92,10 +92,13 @@ getComptes#1 (12 s mort) -> checkPassword#1 (404 à 9,8 s) -> checkPassword#2
 |---|---|
 | getAll 5, getComptes 3, getConfig 4, getVisibility 1 — **13** | saveEntry 3, checkPassword 2, setConfig 1, logLogin 1 — **7** |
 
-**Conséquence à annoncer avant le portage, pas après : enregistrer un atelier
-ne sera pas plus rapide.** Le gain porte sur l'ouverture et la navigation. Le
-second gain vient du retrait de la file (les appels courent en parallèle au
-lieu de s'enfiler), pas du doublage.
+**Nuance, corrigée le 22/09/2026 (AG-005) — la première version de cette note
+disait « enregistrer un atelier ne sera pas plus rapide », c'était faux.**
+L'écriture ne gagne pas le *doublage*, mais elle gagne le *retrait de la
+file* : `_gasQueue` sérialise **tous** les appels, donc une écriture mise en
+file derrière une lecture morte attend 12 s avant même de partir. Visible dans
+le relevé : `getAll#1` de 12:19:31 démarre exactement quand `saveEntry#2`
+s'achève. Gain non chiffré.
 
 ⚠️ **12:19 — un enregistrement a abandonné pour de bon** : `saveEntry #1` et
 `#2` morts à 12 s chacun, les deux tentatives d'écriture épuisées, erreur
@@ -104,11 +107,23 @@ rendue à l'usager. Or un `saveEntry` dont la réponse est perdue **a quand mêm
 probablement dans le classeur malgré l'échec affiché. **À vérifier : atelier
 en double ou re-saisi autour du 22/09 12:19 ?**
 
-Deux détails : les six fenêtres de panne (11:31, 11:38, 11:40, 11:49, 12:18,
-20:27) tuent **tout** ce qu'elles contiennent et rien en dehors — la panne
-frappe par créneau, pas par appel, comme sur NEWGEN. Et les deux
-`Failed to fetch` de 11:40:56 (6,6 s puis 0,1 s) ne sont **pas** des pertes
-GAS : coupure réseau côté poste, à ne pas compter avec le reste.
+⚠️ **Retiré le 22/09/2026 (AG-005)** : cette note affirmait d'abord que les
+six créneaux d'échec « tuent tout ce qu'ils contiennent et rien en dehors ».
+**Non soutenu** — le résumé ne donnait que les 20 échecs, pas les 24 réussites
+avec leurs horodatages. Et la reconstruction fournit un contre-exemple : entre
+`getComptes#1` (fin 11:38:17) et `getComptes#2` (départ 11:38:29), 12 s que
+rien n'explique sinon un appel **réussi à l'intérieur du créneau**. La forme
+« par fenêtres » vient du relevé NEWGEN du 18/09, elle a été plaquée ici.
+
+⚠️ **Base de comparaison non commune** (AG-005) : les 45 % ci-dessus sont par
+**appel, reprises comprises** — un appel qui meurt puis réussit au rejeu
+compte une perte *et* une réussite. Les 18,4 %/4,0 % du banc sont par
+**salve**, en alternance contrôlée. **Ne pas les mettre côte à côte pour
+décider.** L'angle mort n° 1 d'AG-003 n'est donc pas refermé, seulement
+entamé.
+
+Les deux `Failed to fetch` de 11:40:56 (6,6 s puis 0,1 s) ne sont **pas** des
+pertes GAS : coupure réseau côté poste, à ne pas compter avec le reste.
 
 ### Puis seulement : porter le doublage
 
