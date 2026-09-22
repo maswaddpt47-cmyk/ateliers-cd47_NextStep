@@ -2,9 +2,11 @@
 
 ## ⏳ EN ATTENTE DE DÉPLOIEMENT — préparé le 22/09/2026
 
-**Ce fichier est en avance sur la production.** Quatre versions non déployées
-s'y trouvent : **v10.14.0** (prêt du stock d'ordinateurs), **v10.15.0**
-(verrou d'écriture serveur) et **v10.16.0** (`keepAlive` allégé). Le frontend ne dépend d'aucune des deux pour
+**Ce fichier est en avance sur la production.** Version à déployer :
+**v10.18.0**. Elle contient v10.14.0 (prêt du stock d'ordinateurs), v10.15.0
+(verrou d'écriture serveur), v10.16.0 (`keepAlive` allégé), v10.17.0 et
+v10.18.0 (`keepAlive` ne prend plus le verrou, AG-004). Toute copie plus
+ancienne récupérée plus tôt est périmée. Le frontend ne dépend d'aucune d'elles pour
 fonctionner, mais le verrou est un correctif de **sécurité des données**, pas
 un confort.
 
@@ -19,6 +21,16 @@ un confort.
 Le verrou **n'accélère rien**. Le gain de latence viendra du chantier
 suivant (portage du doublage de lecture), qui ne doit **pas** être fait tant
 que ce déploiement n'est pas confirmé en ligne.
+
+### v10.18.0 — `keepAlive` sans verrou de script
+
+Les mails « Summary of failures » des 19, 20 et 21/09/2026 montrent trois
+`keepAlive` bloqués **8 min 00 s** chacun, arrêtés par la plateforme. Avec
+le verrou pris avant la lecture (v10.16.0), un tel blocage aurait refusé
+toutes les écritures pendant 8 min une fois le verrou d'écriture en ligne.
+L'anti-empilement passe désormais par un drapeau `CacheService` (360 s).
+Ces mails continueront peut-être d'arriver : ils viennent de la plateforme,
+pas du code.
 
 ### v10.16.0 — `keepAlive` allégé
 
@@ -48,7 +60,12 @@ travail, chercher ailleurs.
    **Journal d'exécution** : vérifier que tout est en ✅.
 6. Test réel : enregistrer un atelier depuis l'appli, puis en supprimer un.
    Les deux doivent répondre normalement.
-7. Me dire « déployé » — je retire alors les bandeaux ⚠️ en tête du fichier
+7. Les jours suivants, dans **Exécutions** : une exécution `doGet`
+   d'écriture qui dure **≈ 20 s** est un `waitLock` épuisé, donc une
+   écriture refusée pour cause de verrou. C'est le seul compteur fiable de
+   la contention (AG-004). Côté journal Admin, un refus serveur apparaît
+   désormais avec le motif `serveur : …`.
+8. Me dire « déployé » — je retire alors les bandeaux ⚠️ en tête du fichier
    et j'enchaîne sur le portage du doublage.
 
 ### Si ça se passe mal

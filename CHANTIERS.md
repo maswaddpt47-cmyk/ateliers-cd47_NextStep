@@ -93,14 +93,15 @@ section « EN ATTENTE DE DÉPLOIEMENT ».
 Un bandeau ⚠️ en tête de chaque copie GAS signale la divergence avec la
 production. **Le retirer seulement quand l'utilisateur confirme « déployé ».**
 
-⚖️ Le verrou lui-même fait l'objet d'**AG-004** (contention avec `keepAlive`,
-délai de 20 s). **À trancher AVANT le déploiement** (réponse du 22/09/2026,
-verdict amendé) : les mails « Summary of failures » montrent 3 `keepAlive`
-bloqués **8 min** chacun, les 19 et 20/09. Or `keepAlive` tient le verrou de
-script pendant sa lecture. Une fois le verrou d'écriture déployé, un tel
-blocage refuserait toutes les écritures pendant 8 min. Proposé : retirer le
-verrou de `keepAlive` et le remplacer par un drapeau `CacheService`.
-Détail et `fichier:ligne` : `ATELIERS_NEWGEN/AGORA.md`, AG-004.
+⚖️ **AG-004 tranché le 22/09/2026 — version à déployer : v10.18.0** (toute
+copie plus ancienne est périmée). Les mails « Summary of failures » montraient
+3 `keepAlive` bloqués **8 min** les 19 et 20/09. `keepAlive` tenait le verrou
+de script pendant sa lecture : une fois le verrou d'écriture en ligne, un tel
+blocage aurait refusé toutes les écritures pendant 8 min. Il n'y touche plus
+(drapeau `CacheService`). Les refus serveur apparaissent désormais dans le
+journal Admin avec le motif `serveur : …`. **Après déploiement, surveiller
+les `doGet` d'écriture d'environ 20 s dans les Exécutions** : ce sont des
+écritures refusées faute de verrou. Détail : `ATELIERS_NEWGEN/AGORA.md`, AG-004.
 
 ### Relevé NextStep du 22/09/2026 — l'angle mort n° 1 d'AG-003 se referme
 
@@ -389,6 +390,18 @@ dehors des tests automatisés, qui ne peuvent pas les couvrir :
 ---
 
 ## Points à ne pas défaire
+
+- **`keepAlive` ne prend jamais le verrou de script** (AG-004, 22/09/2026).
+  La plateforme peut le bloquer 8 min (mails des 19-20/09). S'il tenait le
+  verrou, les écritures seraient refusées pendant tout ce temps. Le drapeau
+  `CacheService` qui le remplace n'est pas atomique, et c'est voulu : au pire,
+  deux lectures en double.
+- ⚠️ **Hypothèse non vérifiée, antérieure à AG-004** : une lecture complète
+  (`keepAlive` ou `getAll` sur cache froid) qui se termine juste après une
+  écriture remet en cache des données d'avant l'écriture, pour 10 min au
+  plus. Le verrou de `keepAlive` ne fermait ce cas qu'en partie : `doGet`
+  n'en a jamais pris pour lire. À surveiller si un atelier enregistré
+  « disparaît » puis revient.
 
 - **Les lectures sont doublées, pas sérialisées** (tranché le 22/09/2026,
   mesure de 249 salves, McNemar χ² = 10,32). La file d'attente laissait 18 %

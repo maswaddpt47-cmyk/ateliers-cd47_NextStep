@@ -214,6 +214,17 @@ describe('resumeLogsTexte', () => {
     assert.doesNotMatch(txtAncien, /avant de partir/);
   });
 
+  // Un refus serveur (ok:false) a ete LIVRE : le compter comme perte ferait
+  // monter le taux de pertes a chaque mot de passe errone (AG-004).
+  it('compte les refus serveur a part, ni pertes ni durees livrees', () => {
+    const avecRefus = [...JOURNAL, { t: '12:07:10', ts: new Date(2026, 8, 21, 12, 7, 10).getTime(), type: 'err',
+      msg: 'GAS saveMany #1 — serveur : Écriture concurrente en cours, réessayez en 20.1 s' }];
+    const txt = resumeLogsTexte(avecRefus, 'NEXTSTEP');
+    assert.match(txt, /perdus : 3\/6/);
+    assert.match(txt, /refus serveur \(livres, hors pertes\) : 1 — 12:07:10 saveMany serveur : Écriture concurrente/);
+    assert.match(txt, /mediane 2\.1s/);
+  });
+
   it('ignore les lignes qui ne sont pas des appels GAS, et le journal vide', () => {
     const melange = [...JOURNAL, { t: '12:00:00', msg: '221 ateliers chargés (2026)', type: 'ok', ts: Date.now() }];
     assert.match(resumeLogsTexte(melange, 'NEXTSTEP'), /— 5 appels GAS/);
