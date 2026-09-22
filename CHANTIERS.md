@@ -1,6 +1,6 @@
 # Chantiers en cours — Ateliers CD47 NextStep
 
-État au **21/09/2026**, commit de référence `368a041`.
+État au **22/09/2026**, commit de référence `13c0acb`.
 Fichier transitoire : à mettre à jour à chaque avancée, à supprimer quand tout
 est soldé. Ce n'est pas de la documentation permanente (cf.
 `MD-LIB/hygiene-instructions.md`).
@@ -76,9 +76,10 @@ le calcul tourne sur 10.
 
 C'est le cas typique de la règle « les tests ne trouvent pas les défauts de
 sens » : tout calcule juste, sur la mauvaise valeur. Aucune suite ne pouvait
-le voir. **Résolu par le déploiement du 23/09/2026 — ne pas clore avant de
-l'avoir vérifié en ligne** (changer le stock, recharger, vérifier qu'une
-alerte de conflit mentionne bien le nouveau nombre).
+le voir. **Résolu par le déploiement de v10.14.0 — pas encore fait au
+22/09/2026. Ne pas clore avant de l'avoir vérifié en ligne** (changer le
+stock, recharger, vérifier qu'une alerte de conflit mentionne bien le nouveau
+nombre).
 
 ### 🔴 À FAIRE EN PREMIER — déployer le verrou GAS (préparé le 22/09/2026)
 
