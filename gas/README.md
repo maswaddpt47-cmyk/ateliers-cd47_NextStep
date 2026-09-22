@@ -2,9 +2,9 @@
 
 ## ⏳ EN ATTENTE DE DÉPLOIEMENT — préparé le 22/09/2026
 
-**Ce fichier est en avance sur la production.** Deux versions non déployées
-s'y trouvent : **v10.14.0** (prêt du stock d'ordinateurs) et **v10.15.0**
-(verrou d'écriture serveur). Le frontend ne dépend d'aucune des deux pour
+**Ce fichier est en avance sur la production.** Trois versions non déployées
+s'y trouvent : **v10.14.0** (prêt du stock d'ordinateurs), **v10.15.0**
+(verrou d'écriture serveur) et **v10.16.0** (`keepAlive` allégé). Le frontend ne dépend d'aucune des deux pour
 fonctionner, mais le verrou est un correctif de **sécurité des données**, pas
 un confort.
 
@@ -19,6 +19,20 @@ un confort.
 Le verrou **n'accélère rien**. Le gain de latence viendra du chantier
 suivant (portage du doublage de lecture), qui ne doit **pas** être fait tant
 que ce déploiement n'est pas confirmé en ligne.
+
+### v10.16.0 — `keepAlive` allégé
+
+Il relisait la feuille **entière toutes les 5 minutes, 24 h/24**, sans jamais
+regarder si le cache était déjà chaud : ~288 lectures complètes par jour, la
+quasi-totalité pour rien. NEWGEN portait déjà les deux garde-fous qui
+manquaient ici. Après : ~144 au plus, et aucune quand une autre exécution
+tourne.
+
+⚠️ **Ce n'est pas un correctif prouvé des démarrages laborieux** signalés le
+22/09/2026 — c'est une hypothèse. Il se justifie sur son propre coût. Pour
+savoir s'il y était pour quelque chose : **Exécutions Apps Script**, lignes
+`keepAlive`. Présentes toutes les 5 min et sous 3 s = il faisait déjà son
+travail, chercher ailleurs.
 
 ### Marche à suivre (≈ 5 min)
 

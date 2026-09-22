@@ -1,5 +1,13 @@
 
-// ── GAS Backend v10.15.0 ──────────────────────────────────────
+// ── GAS Backend v10.16.0 ──────────────────────────────────────
+// v10.16.0 : PERF — keepAlive relisait la feuille ENTIÈRE toutes les 5 min,
+//            24 h/24, sans regarder si le cache était déjà chaud : ~288
+//            lectures complètes par jour, la quasi-totalité pour rien.
+//            ATELIERS_NEWGEN portait déjà les deux garde-fous qui manquaient
+//            ici — `tryLock(0)` (jamais deux exécutions empilées) et le saut
+//            immédiat quand `_lireCacheGetAll` répond. Alignement.
+//            ⚠️ Effet de bord à connaître : keepAlive prend maintenant le même
+//            verrou de script que les écritures (v10.15.0). Voir AG-004.
 // ⚠️ CETTE COPIE EST EN AVANCE SUR LA PRODUCTION (22/09/2026).
 //    v10.15.0 et v10.14.0 ne sont PAS déployées. Le déploiement se fait à la
 //    main (script.google.com → coller ce fichier → publier une version), voir
@@ -27,8 +35,11 @@
 //            saveMany prend UN seul verrou pour tout le lot (pas un par
 //            entrée) et renvoie l'erreur du verrou si elle survient — sans
 //            cela il aurait renvoyé {ok:true} sans avoir rien écrit.
-//            keepAlive de ce fichier ne prend aucun verrou : pas de
-//            contention lecture/écriture ici (contrairement à NEWGEN).
+//            ⚠️ Corrigé en v10.16.0 : keepAlive prend désormais le MÊME
+//            verrou de script (tryLock(0)), comme NEWGEN. La contention
+//            décrite dans AG-004 vaut donc aussi ici — sens keepAlive vers
+//            écriture sans gravité (abandon immédiat), sens inverse une
+//            écriture peut attendre la fin d'un keepAlive en cours.
 //            Rejouer une écriture reste sûr : le client génère l'_id avant
 //            l'envoi, actionSaveEntry retrouve la ligne au lieu d'en créer
 //            une seconde.
@@ -1113,13 +1124,37 @@ function ajouterColonnesPretMateriel(){
 // marge, y compris si une execution est legerement retardee par Google.
 // Ne PAS regler ce trigger sur 10 min : l'ecriture suivante tomberait alors
 // quasiment pile sur l'expiration, avec un risque de fenetre a cache froid.
+// v10.16.0 (22/09/2026) — alignement sur ATELIERS_NEWGEN, qui portait deja ces
+// deux garde-fous. Cette version relisait la feuille ENTIERE toutes les 5 min,
+// 24 h/24, sans jamais regarder si le cache etait deja chaud : ~288 lectures
+// completes par jour, dont la quasi-totalite pour rien. Le commentaire
+// ci-dessus rappelle qu'une version trop lourde avait deja ete bloquee de
+// force par Google en boucle, et que ces blocages coincidaient avec les
+// 404/blocages de 30-35 s cote utilisateurs.
+// ⚠️ HYPOTHESE NON VERIFIEE : rien ne prouve que ce soit la cause des
+// demarrages laborieux signales le 22/09/2026. Ce correctif se justifie sur
+// son propre cout (moitie moins de lectures completes), pas sur ce symptome.
+// A recouper dans les Executions Apps Script : lignes keepAlive presentes
+// toutes les 5 min et sous 3 s = il fait son travail.
 function keepAlive() {
+  // tryLock(0) : si une execution tourne deja — un vrai appel, ou un keepAlive
+  // precedent qui traine — on abandonne TOUT DE SUITE plutot que d'attendre.
+  // Jamais deux executions empilees dans la file Apps Script.
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(0)) { Logger.log('keepAlive : execution deja en cours, passage saute.'); return; }
   try {
     var an = String(new Date().getFullYear());
+    // Cache deja chaud : rien a faire. A 5 min de declencheur contre 10 min de
+    // TTL, un passage sur deux tombe ici et ne coute qu'un cache.get().
+    if (_lireCacheGetAll(an)) { Logger.log('keepAlive : cache ' + an + ' deja chaud.'); return; }
+    var t0 = new Date().getTime();
     var frais = _getAllFrais({year:an});
     _cacherGetAll(an, frais);
+    Logger.log('keepAlive : cache ' + an + ' rechauffe en ' + (new Date().getTime()-t0) + ' ms');
   } catch(err) {
     Logger.log('keepAlive erreur : ' + err);
+  } finally {
+    lock.releaseLock();
   }
 }
 // ── Test manuel de la vérification de token/rôle (v10.10.0) ────────────────
