@@ -664,7 +664,12 @@ async function _gasUnAppelBrut(url, action, numero, plafond, tDemande){
     logGas(action, numero, Date.now()-t0, 'réponse non-JSON', file);
     throw new Error('Réponse invalide du serveur — déploiement GAS à vérifier.');
   }
-  logGas(action, numero, Date.now()-t0, undefined, file);
+  // Refus explicite du serveur (ok:false) : journalise avec son motif. Sans
+  // cela un waitLock epuise sur saveMany apparaissait comme une reussite
+  // (AG-004, 22/09/2026). Motif « serveur : » — pas une perte reseau, et
+  // resumeLogsTexte le compte a part.
+  const refus = data && data.ok === false ? 'serveur : ' + (data.error || 'refus') : undefined;
+  logGas(action, numero, Date.now()-t0, refus, file);
   return data;
 }
 

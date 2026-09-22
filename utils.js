@@ -177,7 +177,10 @@ function resumeLogsTexte(logs, appli){
     lus.push({
       action: m[1], essai: m[2], motif: m[3], sec: parseFloat(m[4]),
       file: m[5] ? parseFloat(m[5]) : 0, fileConnue: !!m[5],
-      ko: m[3].indexOf('ok') !== 0,
+      // Un refus serveur (ok:false, motif « serveur : ») a bien ete livre :
+      // ni une perte ni un succes, compte a part (AG-004, 22/09/2026).
+      refus: m[3].indexOf('serveur') === 0,
+      ko: m[3].indexOf('ok') !== 0 && m[3].indexOf('serveur') !== 0,
       heure: l.t || (d ? d.toLocaleTimeString('fr-FR') : '?'),
       h: d ? ('0' + d.getHours()).slice(-2) : '??',
       jour: d ? d.toLocaleDateString('fr-FR', {day:'2-digit', month:'2-digit'}) : ''
@@ -185,7 +188,8 @@ function resumeLogsTexte(logs, appli){
   });
   if(!lus.length) return 'JOURNAL ' + appli + ' : ' + gas.length + ' lignes GAS, aucune au format attendu.';
   var ko = lus.filter(function(x){ return x.ko; });
-  var okSec = lus.filter(function(x){ return !x.ko; }).map(function(x){ return x.sec; }).sort(function(a,b){ return a-b; });
+  var refus = lus.filter(function(x){ return x.refus; });
+  var okSec = lus.filter(function(x){ return !x.ko && !x.refus; }).map(function(x){ return x.sec; }).sort(function(a,b){ return a-b; });
   var med = okSec.length ? okSec[Math.floor(okSec.length/2)] : 0;
   var p90 = okSec.length ? okSec[Math.min(okSec.length-1, Math.floor(okSec.length*0.9))] : 0;
   var perdu = ko.reduce(function(a,x){ return a + x.sec; }, 0);
@@ -199,6 +203,8 @@ function resumeLogsTexte(logs, appli){
   l.push('JOURNAL ' + appli + ' — ' + lus.length + ' appels GAS');
   l.push('periode (heure locale) : ' + prem.jour + ' ' + prem.heure + ' -> ' + der.jour + ' ' + der.heure);
   l.push('perdus : ' + ko.length + '/' + lus.length + ' (' + Math.round(ko.length/lus.length*100) + '%)');
+  if(refus.length) l.push('refus serveur (livres, hors pertes) : ' + refus.length + ' — '
+    + refus.slice(0, 5).map(function(x){ return x.heure + ' ' + x.action + ' ' + x.motif; }).join(' | '));
   l.push('durees livrees : mediane ' + med.toFixed(1) + 's | p90 ' + p90.toFixed(1) + 's');
   l.push('temps passe a attendre des reponses mortes : ' + Math.round(perdu) + 's');
   // Attente en file : mesuree depuis le 22/09/2026 seulement. Sans ce chiffre
