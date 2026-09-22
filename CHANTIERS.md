@@ -146,9 +146,12 @@ pertes GAS : coupure réseau côté poste, à ne pas compter avec le reste.
 
 Premier relevé NEWGEN avec le compteur de sauvetages : **8 doublons partis,
 2 seulement ont sauvé la lecture (25 %)**, contre 42 % annoncés par le banc du
-matin. Raison lisible dans les départs reconstruits : les deux fenêtres de
-panne du relevé durent **39 s et 50 s en continu**. Un doublon lancé à +7 s
-tombe en plein dedans et meurt avec son jumeau.
+matin. ⚠️ **La raison que j'avais donnée est retirée (AG-006)** : j'avais écrit que
+les deux fenêtres de panne duraient « 39 s et 50 s en continu ». Non soutenu —
+le résumé ne donne que les échecs, et la première ligne du journal (11:36:53)
+est une **réussite tombant en plein dans la fenêtre** que je déclarais morte.
+La perte semble se décider **par appel**, pas par créneau. Pourquoi 6 doublons
+sur 8 sont morts reste donc **inexpliqué**.
 
 **Conséquence pour le portage : le gain annoncé (26 s -> 12 s en médiane)
 suppose des pertes isolées. Sur une fenêtre de 40 secondes, le portage ne
