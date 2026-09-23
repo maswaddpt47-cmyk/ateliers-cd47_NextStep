@@ -85,9 +85,10 @@ nombre).
 
 `testerSecuriteDoGet` tout ✅. Bandeau ⚠️ retiré de `gas/GAS_NEXTSTEP.js`.
 **Reste à confirmer avant le portage du doublage** : le test réel (enregistrer
-un atelier puis en supprimer un depuis l'appli), la migration
-`ajouterColonnesPretMateriel`, et la vérification du champ « Stock
-ordinateurs » (section ci-dessus).
+un atelier puis en supprimer un depuis l'appli) et la vérification du champ
+« Stock ordinateurs » (section ci-dessus). Migration
+`ajouterColonnesPretMateriel` sans objet : les colonnes existaient déjà
+(confirmé par l'utilisateur le 23/09/2026).
 
 ⚖️ **AG-004 tranché le 22/09/2026 — version à déployer : v10.18.0** (toute
 copie plus ancienne est périmée). Les mails « Summary of failures » montraient
