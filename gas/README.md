@@ -1,6 +1,6 @@
 # GAS_NEXTSTEP.js — copie de référence
 
-### ⏳ v10.21.0 à déployer (préparée le 23/09/2026)
+### ✅ v10.21.0 déployée le 23/09/2026
 
 - **Plusieurs années en un appel** (`getAll` accepte `years=2026,2027`) :
   sans ce déploiement, cocher deux années ne charge que l'année en cours.
