@@ -234,9 +234,10 @@ supprimés à la main par l'utilisateur.
 
 **Divergence** : l'appli a continué d'afficher les doublons supprimés, parce
 que NextStep n'avait **jamais reçu** l'`onEdit` ajouté à NEWGEN en v11.29. Et
-`onEdit` ne voit de toute façon pas une suppression de lignes. **Préparé, à
-déployer** : NextStep v10.19.0, NEWGEN v11.38 (`gas/README.md`, étape
-`installerTriggerChangement`).
+`onEdit` ne voit de toute façon pas une suppression de lignes. **Déployé le
+23/09/2026** : NextStep v10.19.0, NEWGEN v11.38. **Reste à confirmer** : que
+`installerTriggerChangement` a été lancé dans les deux projets, et qu'une
+ligne supprimée à la main disparaît de l'appli après un Sync.
 
 **Inventaire GAS du 23/09/2026** (fonctions présentes d'un seul côté) : hors
 simples différences de nom, seuls `onEdit` et `invaliderCacheGetAll`
