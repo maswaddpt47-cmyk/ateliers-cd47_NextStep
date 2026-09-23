@@ -266,6 +266,42 @@ function resumeLogsTexte(logs, appli){
 // admin_app.js l'appelle via window ; les tests Node via module.exports.
 if (typeof window !== 'undefined') window.resumeLogsTexte = resumeLogsTexte;
 
+// ── Années chargées (AG-007, 23/09/2026) ────────────────────────────────────
+// La valeur d'année est une chaîne « 2026 » ou « 2026,2027 » (plusieurs années
+// chargées en un seul appel getAll?years=). Stockée telle quelle dans f_annee :
+// une ancienne valeur « 2026 » se relit sans migration.
+function anneesListe(s) {
+  var vues = {}, l = [];
+  String(s || '').split(',').forEach(function (x) {
+    x = String(x).trim();
+    if (/^\d{4}$/.test(x) && !vues[x]) { vues[x] = true; l.push(x); }
+  });
+  l.sort();
+  return l.length ? l : [String(new Date().getFullYear())];
+}
+// Année de référence des vues qui n'en gèrent qu'une (Roadmap, Admin) : la
+// plus récente des années chargées.
+function anneeReference(s) { var l = anneesListe(s); return l[l.length - 1]; }
+function anneeIncluse(s, date) { return anneesListe(s).indexOf(String(date || '').slice(0, 4)) >= 0; }
+// Choix proposés : chaque année seule, les paires consécutives, les trois.
+// Une valeur stockée hors de ces choix (année ancienne) reste proposée en tête.
+function optionsAnnees(courante, valeur) {
+  var a = parseInt(courante, 10), p = String(a - 1), c = String(a), s = String(a + 1);
+  var o = [
+    { value: p, label: p }, { value: c, label: c }, { value: s, label: s },
+    { value: p + ',' + c, label: p + ' + ' + c },
+    { value: c + ',' + s, label: c + ' + ' + s },
+    { value: p + ',' + c + ',' + s, label: p + ' → ' + s },
+  ];
+  var v = anneesListe(valeur).join(',');
+  if (valeur && !o.some(function (x) { return x.value === v; })) o.unshift({ value: v, label: anneesListe(v).join(' + ') });
+  return o;
+}
+if (typeof window !== 'undefined') {
+  window.anneesListe = anneesListe; window.anneeReference = anneeReference;
+  window.anneeIncluse = anneeIncluse; window.optionsAnnees = optionsAnnees;
+}
+
 // Une suppression dont la réponse s'est perdue a quand même été faite : son
 // renvoi automatique reçoit alors « Entrée introuvable » (constaté le
 // 23/09/2026 : delete #1 perdu à 12 s, #2 refusé, ❌ affiché alors que
@@ -337,6 +373,10 @@ if (typeof module !== 'undefined') {
     escapeICS, foldICSLine, parseHoraireICS, parseDateICS, buildICS,
     resumeLogsTexte,
     suppressionAboutie,
+    anneesListe,
+    anneeReference,
+    anneeIncluse,
+    optionsAnnees,
   lsKey, migrerLocalStorage, LS_A_MIGRER,
   };
 }
