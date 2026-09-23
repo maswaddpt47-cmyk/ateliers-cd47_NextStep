@@ -208,21 +208,20 @@ pertes monte, plus la file coûte cher, chaque appel mort bloquant les suivants
 
 Détail complet : `CHANTIERS.md` de ATELIERS_NEWGEN.
 
-### Puis seulement : porter le doublage
+### ✅ Doublage porté le 23/09/2026 — `_gasQueue` retirée
 
-**Ne pas porter tant que le déploiement du verrou n'est pas confirmé en
-ligne.** Ensuite : porter `gasLectureDoublee` sur NextStep, retirer
-`_gasQueue`, mettre à jour `reseau.test.js` dans le même commit.
+`gasLectureDoublee` portée de NEWGEN : une lecture muette au bout de
+`GAS_HEDGE_MS` (7 s) est doublée, la première réponse gagne, l'autre est
+annulée (journalisée « annulé », hors pertes). `checkPassword` et toutes les
+écritures ne sont jamais doublés. Verrouillé par `reseau.test.js` (source)
+et `e2e/appels.test.js` (navigateur : lecture muette sauvée en < 10 s par
+`#1b`, écriture muette jamais doublée). Le résumé « Copier pour Claude »
+compte désormais les doublons annulés et les lectures sauvées.
 
-⚠️ **Le verrou n'accélère rien** — c'est de la sécurité des données. Le gain de
-latence attendu (26 s → 12 s en médiane) vient du portage, et reste une
-**inférence** : le banc a mesuré le backend NEWGEN, pas celui de NextStep. À
-confirmer sur le terrain après le portage.
-
-⚠️ **Incompatibilité à ne pas oublier au moment du portage** : on ne peut pas
-porter le doublage sans retirer la file. Un doublon mis en file derrière son
-propre jumeau ne partirait qu'après l'abandon de celui-ci — le mécanisme
-serait inopérant.
+**À mesurer sur le terrain** : le **taux de connexions ressenties en échec**
+(seuil 15 %, §2), pas le taux de sauvetage. Le gain 26 s → 12 s en médiane
+reste une **inférence** (banc mesuré sur le backend NEWGEN, régime 30-38 %
+de pertes) — ne pas l'annoncer à l'équipe sans ce conditionnement.
 
 ## 🐞 23/09/2026 — « Ordinateurs prêtés » vidé au premier enregistrement : non reproduit
 
@@ -427,8 +426,9 @@ dehors des tests automatisés, qui ne peuvent pas les couvrir :
   `reseau.test.js`.
 - **Aucun appel GAS superflu au démarrage ni après une écriture.** Verrouillé
   par `e2e/appels.test.js`.
-- **Les écritures restent séquentielles et jamais doublées** (deux `appendRow`
-  concurrents = atelier en double).
+- **Les écritures ne sont jamais doublées** (deux `appendRow` concurrents =
+  atelier en double). Leur sérialisation est assurée côté serveur par le
+  verrou GAS, plus par le client (file retirée le 23/09/2026).
 - **`sw.js` ne met rien en cache et n'intercepte rien.** Voir la section PWA
   du `CLAUDE.md`.
 - **Pas de `getConfig` sur index** : le drapeau maintenance voyage dans
