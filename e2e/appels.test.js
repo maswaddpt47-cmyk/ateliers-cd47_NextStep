@@ -286,3 +286,58 @@ test('écriture muette — jamais doublée pendant qu\'elle est en vol', async (
   expect(vus.n,
     'deux saveEntry en vol en même temps peuvent créer deux lignes').toBe(1);
 });
+
+// ── 7. Recliquer après un échec ne duplique pas un cycle ───────────────────
+// Incident du 23/09/2026 : cycle de 8 ateliers, réponse de saveMany perdue,
+// toast rouge, second clic = 16 lignes dans le classeur. Chaque clic tirait de
+// nouveaux _id ; le serveur remplace une ligne dont l'_id existe déjà, donc
+// garder les mêmes _id d'un clic à l'autre suffit à rendre le reclic sûr.
+test('cycle — un second clic après échec renvoie les mêmes _id', async ({ page }) => {
+  await instrumenter(page);
+  const lots = [];
+  await page.route('**/script.google.com/**', async route => {
+    const u = new URL(route.request().url());
+    if (u.searchParams.get('action') !== 'saveMany') return route.fallback();
+    lots.push(JSON.parse(u.searchParams.get('entries')).map(e => e._id));
+    // Premier envoi : échec définitif immédiat (pas de reprise automatique),
+    // l'usager voit l'erreur et reclique.
+    if (lots.length === 1) return route.fulfill({ status:403, body:'' });
+    return route.fulfill({ status:200, contentType:'application/json', body:JSON.stringify({ ok:true }) });
+  });
+
+  await page.goto('/index.html');
+  const selectConseiller = page.locator('select').first();
+  await expect(selectConseiller.locator('option', { hasText:'Michel Aswad' })).toHaveCount(1, { timeout:10000 });
+  await selectConseiller.selectOption('Michel Aswad');
+  await page.fill('input[type="password"]', 'test');
+  await page.getByText('🔓 Connexion', { exact:true }).click();
+  await page.waitForSelector('.sidebar-btn', { timeout:10000 });
+  await page.locator('.sidebar-btn', { hasText:'Nouveau' }).first().click();
+  await page.mouse.move(1000, 400);
+  await page.getByText('🔄 Saisie par cycle').click();
+
+  const F = '[data-saisie] ';
+  // Le tableau démarre avec deux lignes ; la seconde reste VIDE exprès :
+  // elle ne doit ni bloquer l'envoi, ni partir dans le lot.
+  await page.locator("input[placeholder^='Nom de l']").fill('CAF');
+  await page.locator('input[placeholder="Code postal ou commune…"]').click();
+  await page.keyboard.type('Agen');
+  await page.locator('.combo-item').first().dispatchEvent('mousedown');
+  await page.locator('input[placeholder^="Salle"]').fill('CMS');
+  const sels = page.locator(F + 'select');
+  await sels.nth(0).selectOption('Michel Aswad');
+  await sels.nth(2).selectOption({ index:1 });
+  await page.locator(F + 'input[type="date"]').first().fill('2026-11-02');
+  await page.locator(F + 'input[type="time"]').first().fill('14:00');
+  await sels.nth(3).selectOption('AM');
+  await page.locator('input[placeholder="Thème de la séance"]').first().fill('TBD');
+
+  const creer = page.getByText(/💾 Créer \d+ atelier/);
+  await creer.click();
+  await expect(page.getByText(/recliquez sur Enregistrer/)).toBeVisible({ timeout:10000 });
+  await creer.click();
+  await expect(page.getByText(/atelier\(s\) créé\(s\)/)).toBeVisible({ timeout:10000 });
+
+  expect(lots.length, 'deux envois attendus').toBe(2);
+  expect(lots[1], 'le second clic doit renvoyer les mêmes ateliers, pas de nouveaux').toEqual(lots[0]);
+});
