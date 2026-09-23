@@ -317,7 +317,10 @@ describe('années chargées', () => {
     assert.deepEqual(anneesListe('2026'), ['2026']);
     assert.deepEqual(anneesListe('2027, 2026,2026,x'), ['2026', '2027']);
     assert.deepEqual(anneesListe(''), [String(new Date().getFullYear())]);
-    assert.equal(anneeReference('2025,2027,2026'), '2027');
+    const c = new Date().getFullYear();
+    // L'année en cours si elle est chargée, sinon la plus récente (AG-007).
+    assert.equal(anneeReference(`${c+1},${c},${c-1}`), String(c));
+    assert.equal(anneeReference(`${c-2},${c-1}`), String(c-1));
     assert.equal(anneeIncluse('2026,2027', '2027-03-15'), true);
     assert.equal(anneeIncluse('2026', '2027-03-15'), false);
   });
