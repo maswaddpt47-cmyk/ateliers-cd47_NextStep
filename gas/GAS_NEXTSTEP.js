@@ -1,5 +1,7 @@
 
-// ── GAS Backend v10.19.0 ──────────────────────────────────────
+// ── GAS Backend v10.20.0 ──────────────────────────────────────
+// ⚠️ v10.20.0 PAS ENCORE DÉPLOYÉE (préparée le 23/09/2026). En ligne : v10.19.0.
+// v10.20.0 : getAll accepte years=2026,2027 (sélecteur multi-années, AG-007).
 // ✅ v10.19.0 DÉPLOYÉE le 23/09/2026 (confirmé par l'utilisateur).
 // v10.19.0 : modifications faites à la main dans le classeur — onEdit et
 //            invaliderCacheGetAll portés de NEWGEN (jamais recopiés), plus
@@ -323,9 +325,51 @@ function json(obj){
   return ContentService.createTextOutput(JSON.stringify(obj))
     .setMimeType(ContentService.MimeType.JSON);
 }
+// Plusieurs années en un seul appel (v10.20.0, 23/09/2026, AG-007) : le
+// sélecteur de l'appli permet d'en cocher plusieurs. « years=2026,2027 »,
+// 3 au plus, années à 4 chiffres. Chaque année passe par son cache habituel ;
+// les ateliers sont concaténés, le reste (listes, config, visibilité) vient
+// de la dernière année. « year » seul garde exactement le chemin d'avant.
+function _anneesDemandees(s){
+  var vues = {}, liste = [];
+  String(s || '').split(',').forEach(function(x){
+    x = String(x).trim();
+    if(/^\d{4}$/.test(x) && !vues[x]){ vues[x] = true; liste.push(x); }
+  });
+  liste.sort();
+  return (liste.length >= 1 && liste.length <= 3) ? liste : null;
+}
+function _getAllPlusieursAnnees(p, liste){
+  var fusion = null, entries = [];
+  for(var i=0; i<liste.length; i++){
+    var an = liste[i], payload = null, enCache = null;
+    try{ enCache = _lireCacheGetAll(an); }catch(_){}
+    if(enCache){
+      payload = JSON.parse(enCache);
+    }else{
+      var q = {};
+      for(var k in p){ if(k !== 'years') q[k] = p[k]; }
+      q.year = an;
+      payload = _getAllFrais(q);
+      _cacherGetAll(an, payload);
+    }
+    // Maintenance ou erreur : rendue telle quelle, comme pour une seule année.
+    if(!payload || !payload.ok) return payload;
+    entries = entries.concat(payload.entries || []);
+    fusion = payload;
+  }
+  fusion.entries = entries;
+  fusion.years = liste;
+  return fusion;
+}
 function doGet(e){
   var p = e.parameter || {};
   var action = p.action || 'getAll';
+  if(action === 'getAll' && p.years){
+    var liste = _anneesDemandees(p.years);
+    if(!liste) return json({ok:false, error:'Paramètre years invalide'});
+    return json(_getAllPlusieursAnnees(p, liste));
+  }
   if(action === 'getAll'){
     // Cache lu avant tout travail : une reponse servie ici coute ~200 ms.
     var an = p.year || String(new Date().getFullYear());
