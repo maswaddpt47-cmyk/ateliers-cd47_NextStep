@@ -569,14 +569,7 @@ const LOGS_KEY = lsKey('adm_logs');
 
       // Bas : sélecteur année + notifs
       CE('div',{className:'sidebar-bottom'},
-        CE('select',{
-          className:'sidebar-year',
-          value:annee,
-          onChange:e=>setAnnee(e.target.value),
-          title:'Année chargée'
-        },
-          optionsAnnees(new Date().getFullYear(),annee).map(o=>CE('option',{key:o.value,value:o.value},o.label))
-        ),
+        CE(ChoixAnnees,{className:'sidebar-year',value:annee,onChange:setAnnee,title:'Années chargées'}),
         CE('button',{
           className:'sidebar-btn',
           title:darkMode?'Mode clair':'Mode sombre',

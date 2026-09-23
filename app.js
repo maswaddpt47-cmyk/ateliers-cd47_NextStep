@@ -650,9 +650,7 @@ function App(){
       sideBtn('bingo','🎯','Bingo',visibility.bingo),
 
       CE('div',{className:'sidebar-bottom'},
-        CE('select',{className:'sidebar-year',value:annee,onChange:e=>setAnnee(e.target.value),title:'Année chargée'},
-          optionsAnnees(new Date().getFullYear(),annee).map(o=>CE('option',{key:o.value,value:o.value},o.label))
-        ),
+        CE(ChoixAnnees,{className:'sidebar-year',value:annee,onChange:setAnnee,title:'Années chargées'}),
         newEntries.length>0&&CE('button',{
           className:'sidebar-notif-btn',
           title:`${newEntries.length} nouveaux ateliers`,
@@ -688,15 +686,7 @@ function App(){
           // n'étaient atteignables par aucun autre chemin. Ces trois-là ne
           // s'affichent qu'en mobile, via .topbar-mobile-only — le desktop
           // garde la sidebar strictement inchangée.
-          CE('select',{
-            className:'topbar-mobile-only topbar-mobile-year',
-            value:annee,
-            onChange:e=>setAnnee(e.target.value),
-            title:'Année chargée',
-            'aria-label':'Année chargée'
-          },
-            optionsAnnees(new Date().getFullYear(),annee).map(o=>CE('option',{key:o.value,value:o.value},o.label))
-          ),
+          CE(ChoixAnnees,{className:'topbar-mobile-only topbar-mobile-year',value:annee,onChange:setAnnee,title:'Années chargées'}),
           CE('button',{
             className:'topbar-mobile-only topbar-mobile-btn',
             onClick:()=>{ resetConseiller(); setView('accueil'); },

@@ -283,23 +283,9 @@ function anneesListe(s) {
 // plus récente des années chargées.
 function anneeReference(s) { var l = anneesListe(s); return l[l.length - 1]; }
 function anneeIncluse(s, date) { return anneesListe(s).indexOf(String(date || '').slice(0, 4)) >= 0; }
-// Choix proposés : chaque année seule, les paires consécutives, les trois.
-// Une valeur stockée hors de ces choix (année ancienne) reste proposée en tête.
-function optionsAnnees(courante, valeur) {
-  var a = parseInt(courante, 10), p = String(a - 1), c = String(a), s = String(a + 1);
-  var o = [
-    { value: p, label: p }, { value: c, label: c }, { value: s, label: s },
-    { value: p + ',' + c, label: p + ' + ' + c },
-    { value: c + ',' + s, label: c + ' + ' + s },
-    { value: p + ',' + c + ',' + s, label: p + ' → ' + s },
-  ];
-  var v = anneesListe(valeur).join(',');
-  if (valeur && !o.some(function (x) { return x.value === v; })) o.unshift({ value: v, label: anneesListe(v).join(' + ') });
-  return o;
-}
 if (typeof window !== 'undefined') {
   window.anneesListe = anneesListe; window.anneeReference = anneeReference;
-  window.anneeIncluse = anneeIncluse; window.optionsAnnees = optionsAnnees;
+  window.anneeIncluse = anneeIncluse;
 }
 
 // Une suppression dont la réponse s'est perdue a quand même été faite : son
@@ -376,7 +362,6 @@ if (typeof module !== 'undefined') {
     anneesListe,
     anneeReference,
     anneeIncluse,
-    optionsAnnees,
   lsKey, migrerLocalStorage, LS_A_MIGRER,
   };
 }
