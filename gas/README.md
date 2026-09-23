@@ -1,14 +1,11 @@
 # GAS_NEXTSTEP.js — copie de référence
 
-## ⏳ EN ATTENTE DE DÉPLOIEMENT — préparé le 22/09/2026
+## ✅ v10.18.0 déployée le 23/09/2026 (08:40)
 
-**Ce fichier est en avance sur la production.** Version à déployer :
-**v10.18.0**. Elle contient v10.14.0 (prêt du stock d'ordinateurs), v10.15.0
-(verrou d'écriture serveur), v10.16.0 (`keepAlive` allégé), v10.17.0 et
-v10.18.0 (`keepAlive` ne prend plus le verrou, AG-004). Toute copie plus
-ancienne récupérée plus tôt est périmée. Le frontend ne dépend d'aucune d'elles pour
-fonctionner, mais le verrou est un correctif de **sécurité des données**, pas
-un confort.
+`testerSecuriteDoGet` tout en ✅. Contient v10.14.0 (prêt du stock
+d'ordinateurs), v10.15.0 (verrou d'écriture serveur), v10.16.0 (`keepAlive`
+allégé), v10.17.0 et v10.18.0 (`keepAlive` sans verrou, AG-004). Les sections
+ci-dessous restent comme référence de ce que contient ce déploiement.
 
 ### Ce que le verrou corrige (et ce qu'il ne corrige pas)
 

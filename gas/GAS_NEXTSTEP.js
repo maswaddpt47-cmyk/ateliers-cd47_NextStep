@@ -11,12 +11,8 @@
 //            ici — `tryLock(0)` (jamais deux exécutions empilées) et le saut
 //            immédiat quand `_lireCacheGetAll` répond. Alignement.
 //            (Le tryLock(0) de cette version est retiré en v10.18.0.)
-// ⚠️ CETTE COPIE EST EN AVANCE SUR LA PRODUCTION (22/09/2026).
-//    v10.15.0 et v10.14.0 ne sont PAS déployées. Le déploiement se fait à la
-//    main (script.google.com → coller ce fichier → publier une version), voir
-//    gas/README.md. Tant que ce bandeau est là, le verrou d'écriture décrit
-//    ci-dessous n'existe pas en ligne. Le retirer une fois le déploiement
-//    confirmé, pas avant.
+// ✅ DÉPLOYÉE le 23/09/2026 à 08:40 (testerSecuriteDoGet tout ✅, confirmé
+//    par l'utilisateur). Cette copie reflète la production.
 //
 // v10.15.0 : SÉCURITÉ DONNÉES — verrou serveur sur les trois actions qui
 //            modifient la feuille Ateliers (saveEntry, saveMany, delete), via
