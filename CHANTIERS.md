@@ -471,6 +471,32 @@ Exécutions journalise déjà la durée de chaque préparation
 ⚠️ **Piste écartée** : « les grosses réponses se perdent davantage ». Aucun
 gradient au 22/09 — `getAll` (~110 Ko) 42 %, `getConfig` 67 %, `logLogin` 33 %.
 
+## 🔒 AG-002 tranché le 23/09/2026 — la journée entière reste la règle sur un prêt multi-jours
+
+**Décision de l'utilisateur : laisser tel quel**, aucune fausse alerte
+constatée sur le terrain.
+
+**Comportement à ne pas « corriger » sans raison** (`logic.js` et `shared.js`,
+`occupeCreneauMateriel`) :
+- prêt d'**un seul jour** → seule la demi-journée de l'atelier est réservée
+  (Cynthia le matin et Eva l'après-midi ne se gênent pas) ;
+- prêt sur **plusieurs jours** → journées entières, du prélèvement à la veille
+  du retour (le retour se fait le matin, il ne réserve rien).
+
+**La raison est une donnée qui n'existe pas, pas un choix de design.**
+`date_prelevement_materiel` et `date_retour_materiel` sont des **dates sans
+heure** ; le champ `ampm` appartient à l'atelier, pas au prélèvement. Sur un
+prêt multi-jours, **rien dans la saisie ne dit si le matériel part le matin ou
+l'après-midi**. Affiner supposerait d'ajouter deux champs au formulaire, pour
+toute l'équipe — chantier réel, non justifié à ce jour.
+
+**Le sens du compromis est volontaire** : on sur-réserve plutôt que de
+sous-réserver. Une alerte de trop coûte une vérification ; une alerte
+manquante coûte un conseiller qui arrive sans matériel.
+
+**Quand rouvrir** : si une alerte de conflit se déclenche sur un créneau où le
+matériel était en réalité libre. Pas avant.
+
 ## Points à ne pas défaire
 
 - **`keepAlive` ne prend jamais le verrou de script** (AG-004, 22/09/2026).
