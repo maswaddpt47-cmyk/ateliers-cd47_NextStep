@@ -1,5 +1,19 @@
 # GAS_NEXTSTEP.js — copie de référence
 
+### ⏳ v10.19.0 à déployer (préparée le 23/09/2026)
+
+Vide le cache de l'appli quand on modifie le classeur **à la main**, y
+compris quand on **supprime des lignes** (incident du 23/09/2026 : doublons
+supprimés dans le classeur, encore affichés 10 min dans l'appli).
+
+1. Coller `gas/GAS_NEXTSTEP.js` dans l'éditeur, **Déployer → Gérer les
+   déploiements → ✏️ → Nouvelle version**.
+2. Menu **Exécuter** → `installerTriggerChangement` → Exécuter (une seule
+   fois ; Google demande d'autoriser l'accès au classeur, accepter).
+3. Vérifier : supprimer une ligne de test dans le classeur, puis cliquer sur
+   Sync dans l'appli — la ligne doit disparaître tout de suite.
+4. Me dire « déployé ».
+
 ## ✅ v10.18.0 déployée le 23/09/2026 (08:40)
 
 `testerSecuriteDoGet` tout en ✅. Contient v10.14.0 (prêt du stock
