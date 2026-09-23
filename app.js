@@ -651,7 +651,7 @@ function App(){
 
       CE('div',{className:'sidebar-bottom'},
         CE('select',{className:'sidebar-year',value:annee,onChange:e=>setAnnee(e.target.value),title:'Année chargée'},
-          [String(new Date().getFullYear()-1),String(new Date().getFullYear()),String(new Date().getFullYear()+1)].map(y=>CE('option',{key:y,value:y},y))
+          optionsAnnees(new Date().getFullYear(),annee).map(o=>CE('option',{key:o.value,value:o.value},o.label))
         ),
         newEntries.length>0&&CE('button',{
           className:'sidebar-notif-btn',
@@ -695,8 +695,7 @@ function App(){
             title:'Année chargée',
             'aria-label':'Année chargée'
           },
-            [String(new Date().getFullYear()-1),String(new Date().getFullYear()),String(new Date().getFullYear()+1)]
-              .map(y=>CE('option',{key:y,value:y},y))
+            optionsAnnees(new Date().getFullYear(),annee).map(o=>CE('option',{key:o.value,value:o.value},o.label))
           ),
           CE('button',{
             className:'topbar-mobile-only topbar-mobile-btn',
@@ -749,7 +748,7 @@ function App(){
           view==='calendrier'&&visibility.calendrier&&CE(VueCalendrier,{entries,onEdit:handleEdit,onDelete:handleDelete,onRefresh:()=>loadData(),onDuplicate:handleDuplicate,initConseiller:filtreConseiller,onResetConseiller:()=>{},canDelete:true}),
           view==='dashboard'&&visibility.dashboard&&CE(VueDashboardTabs,{entries,conseillers:lists.conseillers}),
           view==='carte'&&visibility.carte&&CE(VueCarte,{entries,active:view==='carte'}),
-          view==='roadmap'&&visibility.roadmap&&CE(VueRoadmap,{entries,annee,conseillers:lists.conseillers}),
+          view==='roadmap'&&visibility.roadmap&&CE(VueRoadmap,{entries,annee:anneeReference(annee),conseillers:lists.conseillers}),
           view==='gestion_ordi'&&visibility.gestion_ordi&&CE(VueGestionOrdi,{entries,onEdit:handleEdit}),
           view==='bingo'&&visibility.bingo&&CE(VueBingo,{entries})
         )

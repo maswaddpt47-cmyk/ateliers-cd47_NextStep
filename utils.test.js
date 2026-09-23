@@ -8,6 +8,10 @@ const {
   escapeICS, foldICSLine, parseHoraireICS, parseDateICS, buildICS,
   resumeLogsTexte,
   suppressionAboutie,
+  anneesListe,
+  anneeReference,
+  anneeIncluse,
+  optionsAnnees,
   lsKey, migrerLocalStorage,
 } = require('./utils.js');
 
@@ -305,5 +309,22 @@ describe('suppressionAboutie', () => {
     assert.equal(suppressionAboutie({ ok: false, error: 'Feuille introuvable' }), false);
     assert.equal(suppressionAboutie({ ok: false, error: 'Écriture concurrente en cours, réessayez' }), false);
     assert.equal(suppressionAboutie(undefined), false);
+  });
+});
+
+// ── Années chargées (AG-007) ──────────────────────────────────────────────
+describe('années chargées', () => {
+  it('relit l ancien format et le nouveau, normalise et choisit la plus récente', () => {
+    assert.deepEqual(anneesListe('2026'), ['2026']);
+    assert.deepEqual(anneesListe('2027, 2026,2026,x'), ['2026', '2027']);
+    assert.deepEqual(anneesListe(''), [String(new Date().getFullYear())]);
+    assert.equal(anneeReference('2025,2027,2026'), '2027');
+    assert.equal(anneeIncluse('2026,2027', '2027-03-15'), true);
+    assert.equal(anneeIncluse('2026', '2027-03-15'), false);
+  });
+  it('propose années seules, paires et les trois, sans perdre une valeur ancienne', () => {
+    const v = optionsAnnees(2026, '2026').map(o => o.value);
+    assert.deepEqual(v, ['2025', '2026', '2027', '2025,2026', '2026,2027', '2025,2026,2027']);
+    assert.equal(optionsAnnees(2026, '2023')[0].value, '2023');
   });
 });
