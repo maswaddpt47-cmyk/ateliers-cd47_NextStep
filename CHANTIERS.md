@@ -7,6 +7,16 @@ est soldé. Ce n'est pas de la documentation permanente (cf.
 
 ---
 
+## 🧭 23/09/2026 — Refonte d'architecture en réflexion : NextStep à geler
+
+Réflexion en cours, rien n'est décidé. **Détail complet et questions
+ouvertes : `ATELIERS_NEWGEN/CHANTIERS.md`, section « Refonte
+d'architecture ».** Piste proposée : NEWGEN reprend la relève (c'était son
+rôle), NextStep gelé puis redirigé ; GAS remplacé par PHP+MySQL chez un
+hébergeur français déployé par push GitHub.
+
+---
+
 ## 1. Tranché le 22/09/2026 — les lectures doublées l'emportent
 
 **La question ouverte depuis le 18/09 est close.** Série du banc : 249 salves,
