@@ -748,6 +748,20 @@ window.gasAppel = async function(url, action){
   throw derniere || new Error('Échec inconnu');
 };
 
+// Après un enregistrement dont la réponse s'est perdue, demande au serveur si
+// les ateliers sont bien dans la feuille (idée de l'utilisateur, 23/09/2026 :
+// « pourquoi afficher un échec au lieu de vérifier dans le sheet ? »).
+// true = tous présents, false = au moins un absent, null = on ne sait pas
+// (vérification perdue elle aussi, ou GAS sans l'action verifierIds).
+window.verifierEnregistres = async function(ids){
+  try{
+    const r = await apiFetch('verifierIds', {ids:ids.join(',')});
+    if(!r || !r.ok || !Array.isArray(r.presents)) return null;
+    const presents = new Set(r.presents);
+    return ids.every(id=>presents.has(id));
+  }catch(_){ return null; }
+};
+
 // Chargement d'un script à la demande, une seule fois même si plusieurs
 // actions le réclament en même temps. Sert aux grosses librairies qui ne
 // servent qu'à un clic (export PDF, xlsx...) et qui n'ont donc rien à faire
@@ -1649,20 +1663,30 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
   async function handleSubmit(){
     if(!validate())return;
     setSaving(true);
-    try{
-      const entry={...form,_id:form._id||idNouveauRef.current||(idNouveauRef.current=genId()),inscrits:form.inscrits===''?'':parseInt(form.inscrits)||0,presents:form.presents===''?'':parseInt(form.presents)||0,nb_ordinateurs:form.nb_ordinateurs===''?'':parseInt(form.nb_ordinateurs)||0};
-      const res=await apiFetch('saveEntry',{entry});
-      if(!res.ok)throw Object.assign(new Error(res.error),{refus:true});
+    const entry={...form,_id:form._id||idNouveauRef.current||(idNouveauRef.current=genId()),inscrits:form.inscrits===''?'':parseInt(form.inscrits)||0,presents:form.presents===''?'':parseInt(form.presents)||0,nb_ordinateurs:form.nb_ordinateurs===''?'':parseInt(form.nb_ordinateurs)||0};
+    const reussir=()=>{
       showToast(editId?'✅ Atelier modifié':'✅ Atelier enregistré');
       if(onNewEntry&&!editId)onNewEntry(entry);
       if(!editId) window._pendingHighlight=[entry._id];
       entreeSauvegardee(entry);
       onSaved();reset();
-    }catch(err){showToast('❌ '+err.message+(err.refus?'':' — il a peut-être été enregistré quand même : recliquez sur Enregistrer, cela ne créera pas de doublon.'),false);}
+    };
+    try{
+      const res=await apiFetch('saveEntry',{entry});
+      if(!res.ok)throw Object.assign(new Error(res.error),{refus:true});
+      reussir();
+    }catch(err){
+      // Réponse perdue : on vérifie dans la feuille avant d'annoncer un échec.
+      // Une modification (editId) existait déjà : sa présence ne prouve rien.
+      if(!err.refus&&!editId&&await verifierEnregistres([entry._id])){reussir();return;}
+      showToast('❌ '+err.message+(err.refus?'':' — il a peut-être été enregistré quand même : recliquez sur Enregistrer, cela ne créera pas de doublon.'),false);
+    }
     finally{setSaving(false);}
   }
 
   // ── submit mode lot ──
+  // Une ligne du tableau devenue atelier (sans _id, attribué par l'appelant).
+  const lotEntree=row=>({_n:'',statut:'Planifié',date:row.date,horaire:row.horaire,ampm:row.ampm,thematique:row.thematique,orienteur:lotForm.orienteur,commune:lotForm.commune,lieu:lotForm.lieu,conseiller:lotForm.conseiller,co_animateur:lotForm.co_animateur||'',public:lotForm.public,materiel:lotForm.materiel,residence:lotForm.residence,remarques:lotForm.remarques,inscrits:4,presents:'',nb_ordinateurs:lotForm.nb_ordinateurs===''?'':parseInt(lotForm.nb_ordinateurs)||0,date_prelevement_materiel:row.date_prelevement_materiel||'',date_retour_materiel:row.date_retour_materiel||''});
   async function handleSubmitLot(){
     setLotSubmitted(true);
     // Purger les lignes totalement vides avant validation
@@ -1672,7 +1696,7 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
     if(!validateLot(rowsFilled))return;
     setSaving(true);
     try{
-      const entries=rowsFilled.map(row=>({_id:idsLotRef.current[row.id]||(idsLotRef.current[row.id]=genId()),_n:'',statut:'Planifié',date:row.date,horaire:row.horaire,ampm:row.ampm,thematique:row.thematique,orienteur:lotForm.orienteur,commune:lotForm.commune,lieu:lotForm.lieu,conseiller:lotForm.conseiller,co_animateur:lotForm.co_animateur||'',public:lotForm.public,materiel:lotForm.materiel,residence:lotForm.residence,remarques:lotForm.remarques,inscrits:4,presents:'',nb_ordinateurs:lotForm.nb_ordinateurs===''?'':parseInt(lotForm.nb_ordinateurs)||0,date_prelevement_materiel:row.date_prelevement_materiel||'',date_retour_materiel:row.date_retour_materiel||''}));
+      const entries=rowsFilled.map(row=>({...lotEntree(row),_id:idsLotRef.current[row.id]||(idsLotRef.current[row.id]=genId())}));
       // Un seul appel réseau pour tout le cycle (au lieu d'un saveEntry par date
       // en boucle séquentielle) : actionSaveMany traite chaque entrée côté
       // serveur, dans la même exécution GAS — un aléa réseau n'a plus qu'un
@@ -1702,7 +1726,18 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
         showToast(`✅ ${entries.length} atelier(s) créé(s)`);
       }
       onSaved();resetLot();
-    }catch(err){showToast('❌ '+err.message+(err.refus?'':' — les dates ont peut-être été enregistrées quand même : recliquez sur Enregistrer, cela ne créera pas de doublon.'),false);}
+    }catch(err){
+      // Réponse perdue : on vérifie dans la feuille avant d'annoncer un échec.
+      const entries=rowsFilled.map(row=>({...lotEntree(row),_id:idsLotRef.current[row.id]}));
+      if(!err.refus&&entries.every(e=>e._id)&&await verifierEnregistres(entries.map(e=>e._id))){
+        entries.forEach(entry=>{ if(onNewEntry)onNewEntry(entry); entreeSauvegardee(entry); });
+        window._pendingHighlight=entries.map(e=>e._id);
+        showToast(`✅ ${entries.length} atelier(s) créé(s) — confirmé dans le classeur`);
+        onSaved();resetLot();
+        return;
+      }
+      showToast('❌ '+err.message+(err.refus?'':' — les dates ont peut-être été enregistrées quand même : recliquez sur Enregistrer, cela ne créera pas de doublon.'),false);
+    }
     finally{setSaving(false);}
   }
 

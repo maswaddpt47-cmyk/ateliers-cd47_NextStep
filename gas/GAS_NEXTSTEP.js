@@ -1,7 +1,9 @@
 
 // ── GAS Backend v10.20.0 ──────────────────────────────────────
 // ⚠️ v10.20.0 PAS ENCORE DÉPLOYÉE (préparée le 23/09/2026). En ligne : v10.19.0.
-// v10.20.0 : getAll accepte years=2026,2027 (sélecteur multi-années, AG-007).
+// v10.20.0 : getAll accepte years=2026,2027 (sélecteur multi-années, AG-007),
+//            et verifierIds (l'appli vérifie un enregistrement dont la réponse
+//            s'est perdue avant d'annoncer un échec).
 // ✅ v10.19.0 DÉPLOYÉE le 23/09/2026 (confirmé par l'utilisateur).
 // v10.19.0 : modifications faites à la main dans le classeur — onEdit et
 //            invaliderCacheGetAll portés de NEWGEN (jamais recopiés), plus
@@ -516,9 +518,24 @@ function doPost(e){
   if(!strictCheck.ok) return json(strictCheck);
   return json(handleAction(p));
 }
+// v10.20.0 (23/09/2026) : lecture seule, pour l'appli qui a perdu la réponse d'un
+// enregistrement — « ces ateliers sont-ils dans la feuille ? ». Ne lit que la
+// colonne _id. 50 identifiants au plus par appel.
+function actionVerifierIds(p){
+  var ids = String(p.ids || '').split(',').map(function(x){ return String(x).trim(); })
+              .filter(function(x){ return x; }).slice(0, 50);
+  var sh = _ss().getSheetByName('Ateliers_next_step');
+  if(!sh) return {ok:false, error:'Feuille introuvable'};
+  var n = sh.getLastRow();
+  var col = n > 1 ? sh.getRange(2, 1, n - 1, 1).getValues() : [];
+  var existe = {};
+  col.forEach(function(r){ if(r[0]) existe[String(r[0])] = true; });
+  return {ok:true, presents: ids.filter(function(id){ return existe[id]; })};
+}
 function handleAction(p){
   var action = p.action||'';
   if(action==='checkPassword')   return actionCheckPassword(p);
+  if(action==='verifierIds')     return actionVerifierIds(p);
   if(action==='saveEntry')       return actionSaveEntry(p);
   if(action==='delete')          return actionDelete(p);
   if(action==='saveLists')       return actionSaveLists(p);
