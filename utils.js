@@ -236,6 +236,17 @@ function resumeLogsTexte(logs, appli){
 // admin_app.js l'appelle via window ; les tests Node via module.exports.
 if (typeof window !== 'undefined') window.resumeLogsTexte = resumeLogsTexte;
 
+// Une suppression dont la réponse s'est perdue a quand même été faite : son
+// renvoi automatique reçoit alors « Entrée introuvable » (constaté le
+// 23/09/2026 : delete #1 perdu à 12 s, #2 refusé, ❌ affiché alors que
+// l'atelier avait bien disparu du classeur). L'atelier n'existe plus, c'est le
+// résultat voulu. SEUL ce message compte comme réussite : « Feuille
+// introuvable » reste une vraie panne.
+function suppressionAboutie(res) {
+  return !!res && (res.ok === true || res.error === 'Entrée introuvable');
+}
+if (typeof window !== 'undefined') window.suppressionAboutie = suppressionAboutie;
+
 // ── Cloisonnement du stockage local ─────────────────────────────────────────
 // Les deux applis (ateliers-cd47_NextStep et ATELIERS_NEWGEN) sont servies
 // depuis la MÊME origine GitHub Pages — maswaddpt47-cmyk.github.io — et
@@ -295,6 +306,7 @@ if (typeof module !== 'undefined') {
     normalizeMat, matIncludes,
     escapeICS, foldICSLine, parseHoraireICS, parseDateICS, buildICS,
     resumeLogsTexte,
+    suppressionAboutie,
   lsKey, migrerLocalStorage, LS_A_MIGRER,
   };
 }

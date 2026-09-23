@@ -454,7 +454,7 @@ const LOGS_KEY = lsKey('adm_logs');
     return()=>clearInterval(id);
   },[annee,auth]);
   async function handleDelete(id){
-    try{const res=await apiFetch('delete',{_id:id});if(!res.ok)throw new Error(res.error);showToast('✅ Atelier supprimé');addLog('Suppression '+id,'ok');retirerEntreeLocale(id);}
+    try{const res=await apiFetch('delete',{_id:id});if(!suppressionAboutie(res))throw new Error(res.error);showToast('✅ Atelier supprimé');addLog('Suppression '+id,'ok');retirerEntreeLocale(id);}
     catch(err){showToast('❌ '+err.message,false);}
   }
 

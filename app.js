@@ -505,7 +505,7 @@ function App(){
   function handleEdit(id){setEditingId(id);setPrefillData(null);setView('saisie');}
   function handleSaved(){setView('historique');}
   async function handleDelete(id){
-    try{const res=await apiFetch('delete',{_id:id});if(!res.ok)throw new Error(res.error);showToast('✅ Atelier supprimé');retirerEntreeLocale(id);}
+    try{const res=await apiFetch('delete',{_id:id});if(!suppressionAboutie(res))throw new Error(res.error);showToast('✅ Atelier supprimé');retirerEntreeLocale(id);}
     catch(err){showToast('❌ '+err.message,false);}
   }
   function handleDuplicate(entry){
