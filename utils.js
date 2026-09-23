@@ -279,9 +279,14 @@ function anneesListe(s) {
   l.sort();
   return l.length ? l : [String(new Date().getFullYear())];
 }
-// Année de référence des vues qui n'en gèrent qu'une (Roadmap, Admin) : la
-// plus récente des années chargées.
-function anneeReference(s) { var l = anneesListe(s); return l[l.length - 1]; }
+// Année de référence des vues qui n'en gèrent qu'une (Roadmap, Admin) :
+// l'année EN COURS si elle est chargée, sinon la plus récente. « La plus
+// récente » seule ouvrait Roadmap sur 2027 en septembre 2026, activité réelle
+// hors plage (AG-007, amendement de la session B, point 3).
+function anneeReference(s) {
+  var l = anneesListe(s), c = String(new Date().getFullYear());
+  return l.indexOf(c) >= 0 ? c : l[l.length - 1];
+}
 function anneeIncluse(s, date) { return anneesListe(s).indexOf(String(date || '').slice(0, 4)) >= 0; }
 if (typeof window !== 'undefined') {
   window.anneesListe = anneesListe; window.anneeReference = anneeReference;
