@@ -439,27 +439,34 @@ dehors des tests automatisés, qui ne peuvent pas les couvrir :
 
 ---
 
-## ⚖️ AG-008 ouvert le 23/09/2026 — keepAlive alourdi le jour où on le sait fragile
+## ⚖️ AG-008 répondu le 23/09/2026 — mon mécanisme ne tenait pas, le gaspillage si
 
-AG-004 et AG-007 ont été tranchés le **même jour** sans se citer. Le premier
-établit que `keepAlive` est arrêté par la plateforme à **8 min 00 s** (3 fois
-en 3 jours). Le second lui fait réchauffer **N+1 en plus** à partir de
-septembre — deux lectures complètes par passage froid au lieu d'une. Bloc
-complet dans `AGORA.md` de ATELIERS_NEWGEN.
+J'avais contesté l'amendement 2 d'AG-007 (`keepAlive` prépare N+1 dès
+septembre) au motif qu'il double le travail d'une fonction qu'AG-004 sait
+arrêtée par la plateforme à 8 min. **Réfuté, et vérifié par moi-même :**
+`keepAlive` v10.11.3 — celui qui tournait pendant les trois incidents —
+relisait la feuille à **chaque** passage sans jamais sauter (`git show
+a942c75`, l. 1038-1046) : 288 lectures/jour. Aujourd'hui, déclencheur 300 s
+contre TTL 600 s (`gas/GAS_NEXTSTEP.js:305`), une passe sur deux relit et
+N + N+1 expirent ensemble : 144 × 2 = **288. Le même chiffre.** Et depuis
+AG-004, `keepAlive` ne prend plus le verrou : un passage bloqué coûte un cache
+froid, **plus aucune écriture refusée**.
 
-**Déjà déployé** (v10.21.0). Rien à défaire : la question est « surveiller
-suffit-il, ou faut-il alléger ? ».
+**Ce qui restait vrai, corrigé en v10.22.0 (NON DÉPLOYÉ)** : N+1 était
+préparée tout le temps dès septembre, **même si personne ne la cochait**. Elle
+ne l'est plus que si un `getAll?years=` l'a demandée dans les 6 h (drapeau
+`CacheService`). Pire défaillance : un poste paie une lecture froide — le
+comportement d'avant v10.20.0. Jamais pire.
 
-⚠️ **Piste écartée, ne pas la rouvrir** : « les grosses réponses se perdent
-davantage ». **Les relevés du 22/09 ne le soutiennent pas** — aucun gradient
-entre taille et pertes : `getAll` (~110 Ko) 5/12 = 42 %, `getComptes` 3/5 =
-60 %, `getConfig` 4/6 = 67 %, `logLogin` 1/3 = 33 %. Le multi-années ne pose
-pas de problème de **livraison** ; seul le **coût d'exécution** de `keepAlive`
-est en cause.
+**Bloc laissé ouvert** : l'utilisateur tranche, pas le contradicteur.
 
-**30 secondes pour avancer** : Exécutions Apps Script depuis le 23/09 au matin
-— durée des `keepAlive` depuis que N+1 est réchauffée, et nouveaux échecs à
-8 min ?
+**30 secondes pour avancer** : un `keepAlive` du 23/09 après-midi dans les
+Exécutions journalise déjà la durée de chaque préparation
+(`gas/GAS_NEXTSTEP.js:1284`). Un nouveau mail « Summary of failures » après le
+23/09 serait l'indice attendu.
+
+⚠️ **Piste écartée** : « les grosses réponses se perdent davantage ». Aucun
+gradient au 22/09 — `getAll` (~110 Ko) 42 %, `getConfig` 67 %, `logLogin` 33 %.
 
 ## Points à ne pas défaire
 
