@@ -1985,6 +1985,7 @@ function VueHistorique({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
   const[panelNote,setPanelNote]=React.useState('');
   const[saving,setSaving]=React.useState(false);
   const[confirmDel,setConfirmDel]=React.useState(null);
+  const[suppressionEnCours,setSuppressionEnCours]=React.useState(false);
 
   React.useEffect(()=>{if(initConseiller)setFiltConseiller(initConseiller);},[initConseiller]);
   React.useEffect(()=>{const t=setTimeout(()=>setDSearch(search),300);return()=>clearTimeout(t);},[search]);
@@ -2237,9 +2238,16 @@ function VueHistorique({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
         CE('p',{style:{margin:'12px 0',fontSize:13}},`Supprimer l'atelier #${confirmDel._n} — ${confirmDel.thematique} ?`),
         CE('p',{style:{fontSize:12,color:'#718096',marginBottom:16}},'Cette action est irréversible.'),
         CE('div',{style:{display:'flex',gap:10}},
-          CE('button',{className:'btn btn-danger',onClick:()=>{onDelete(confirmDel._id);setConfirmDel(null);}},'🗑️ Supprimer'),
-          CE('button',{className:'btn btn-secondary',onClick:()=>setConfirmDel(null)},'Annuler')
-        )
+          CE('button',{className:'btn btn-danger',disabled:suppressionEnCours,onClick:async()=>{
+            // La fenêtre reste ouverte jusqu'à la réponse : sans ça, 3 à 25 s
+            // sans aucun signe que la suppression est partie (23/09/2026).
+            setSuppressionEnCours(true);
+            try{ await onDelete(confirmDel._id); }
+            finally{ setSuppressionEnCours(false); setConfirmDel(null); }
+          }},suppressionEnCours?CE('span',null,CE('span',{className:'spinner'}),'Suppression en cours…'):'🗑️ Supprimer'),
+          CE('button',{className:'btn btn-secondary',disabled:suppressionEnCours,onClick:()=>setConfirmDel(null)},'Annuler')
+        ),
+        suppressionEnCours&&CE('p',{style:{fontSize:11,color:'#718096',marginTop:10,marginBottom:0}},'Google peut mettre jusqu\'à 30 s à répondre. Ne fermez pas la page.')
       )
     )
   );
@@ -2261,6 +2269,7 @@ function VueCalendrier({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
   const[panelNote,setPanelNote]=React.useState('');
   const[saving,setSaving]=React.useState(false);
   const[confirmDel,setConfirmDel]=React.useState(null);
+  const[suppressionEnCours,setSuppressionEnCours]=React.useState(false);
   const[expandDay,setExpandDay]=React.useState(null);
 
   React.useEffect(()=>{if(initConseiller)setFiltConseiller(initConseiller);},[initConseiller]);
@@ -2451,9 +2460,16 @@ function VueCalendrier({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
         CE('p',{style:{margin:'12px 0',fontSize:13}},`Supprimer l'atelier #${confirmDel._n} — ${confirmDel.thematique} ?`),
         CE('p',{style:{fontSize:12,color:'#718096',marginBottom:16}},'Cette action est irréversible.'),
         CE('div',{style:{display:'flex',gap:10}},
-          CE('button',{className:'btn btn-danger',onClick:()=>{onDelete(confirmDel._id);setConfirmDel(null);}},'🗑️ Supprimer'),
-          CE('button',{className:'btn btn-secondary',onClick:()=>setConfirmDel(null)},'Annuler')
-        )
+          CE('button',{className:'btn btn-danger',disabled:suppressionEnCours,onClick:async()=>{
+            // La fenêtre reste ouverte jusqu'à la réponse : sans ça, 3 à 25 s
+            // sans aucun signe que la suppression est partie (23/09/2026).
+            setSuppressionEnCours(true);
+            try{ await onDelete(confirmDel._id); }
+            finally{ setSuppressionEnCours(false); setConfirmDel(null); }
+          }},suppressionEnCours?CE('span',null,CE('span',{className:'spinner'}),'Suppression en cours…'):'🗑️ Supprimer'),
+          CE('button',{className:'btn btn-secondary',disabled:suppressionEnCours,onClick:()=>setConfirmDel(null)},'Annuler')
+        ),
+        suppressionEnCours&&CE('p',{style:{fontSize:11,color:'#718096',marginTop:10,marginBottom:0}},'Google peut mettre jusqu\'à 30 s à répondre. Ne fermez pas la page.')
       )
     )
   );
@@ -4169,24 +4185,31 @@ function VuePowerBI({entries, conseillers: conseillersList}){
 // ════════════════════════════════════════════════════════════
 function ConfirmModal({item,onConfirm,onCancel}){
   if(!item)return null;
+  // La fenêtre reste ouverte jusqu'à la réponse de onConfirm : sans ça, 3 à
+  // 25 s sans aucun signe que la suppression est partie (23/09/2026).
+  const[enCours,setEnCours]=React.useState(false);
+  const confirmer=async()=>{ if(enCours)return; setEnCours(true); try{ await onConfirm(); }finally{ setEnCours(false); } };
+  const annuler=()=>{ if(!enCours)onCancel(); };
+  const refs=React.useRef({});refs.current={confirmer,annuler};
   React.useEffect(()=>{
-    function onKey(e){if(e.key==='Escape')onCancel();if(e.key==='Enter')onConfirm();}
+    function onKey(e){if(e.key==='Escape')refs.current.annuler();if(e.key==='Enter')refs.current.confirmer();}
     window.addEventListener('keydown',onKey);return()=>window.removeEventListener('keydown',onKey);
   },[]);
-  return CE('div',{className:'confirm-overlay',onClick:onCancel},
+  return CE('div',{className:'confirm-overlay',onClick:annuler},
     CE('div',{className:'confirm-card',onClick:e=>e.stopPropagation()},
       CE('h3',null,'🗑️ Supprimer cet atelier ?'),
       CE('p',null,item.label),
       CE('div',{className:'confirm-actions'},
         CE('button',{
-          onClick:onCancel,
-          style:{padding:'8px 18px',border:'1px solid #e2e8f0',borderRadius:8,background:'#f8fafc',cursor:'pointer',fontSize:13,fontWeight:600,color:'#4a5568'}
+          onClick:annuler,disabled:enCours,
+          style:{padding:'8px 18px',border:'1px solid #e2e8f0',borderRadius:8,background:'#f8fafc',cursor:enCours?'not-allowed':'pointer',fontSize:13,fontWeight:600,color:'#4a5568',opacity:enCours?.5:1}
         },'Annuler'),
         CE('button',{
-          onClick:onConfirm,autoFocus:true,
-          style:{padding:'8px 18px',border:'none',borderRadius:8,background:'#dc2626',cursor:'pointer',fontSize:13,fontWeight:700,color:'#fff',boxShadow:'0 2px 8px rgba(220,38,38,.3)'}
-        },'Supprimer')
-      )
+          onClick:confirmer,autoFocus:true,disabled:enCours,
+          style:{padding:'8px 18px',border:'none',borderRadius:8,background:'#dc2626',cursor:enCours?'wait':'pointer',fontSize:13,fontWeight:700,color:'#fff',boxShadow:'0 2px 8px rgba(220,38,38,.3)'}
+        },enCours?CE('span',null,CE('span',{className:'spinner'}),'Suppression en cours…'):'Supprimer')
+      ),
+      enCours&&CE('p',{style:{fontSize:11,color:'#718096',marginTop:10,marginBottom:0}},'Google peut mettre jusqu\'à 30 s à répondre. Ne fermez pas la page.')
     )
   );
 }
