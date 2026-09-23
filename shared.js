@@ -1975,7 +1975,13 @@ function VueHistorique({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
     if(dateFrom)r=r.filter(e=>e.date>=dateFrom);
     if(dateTo)r=r.filter(e=>e.date<=dateTo);
     if(dSearch){const q=stripAccents(dSearch);r=r.filter(e=>[e.lieu,e.thematique,e.orienteur,e.commune,e.public,e.remarques].some(v=>stripAccents(String(v||'')).includes(q)));}
-    if(window._newIdsFilter&&window._newIdsFilter.size>0)r=r.filter(e=>window._newIdsFilter.has(e._id));
+    // Filtre de mise en évidence post-enregistrement. Si aucun des ateliers
+    // mis en évidence n'existe plus (supprimé juste après), il ne montrerait
+    // que « 0 sur N » : on l'abandonne (constaté le 23/09/2026).
+    if(window._newIdsFilter&&window._newIdsFilter.size>0){
+      if(entries.some(e=>window._newIdsFilter.has(e._id)))r=r.filter(e=>window._newIdsFilter.has(e._id));
+      else window._newIdsFilter=null;
+    }
     return[...r].sort((a,b)=>{const va=a.date||'',vb=b.date||'';return va<vb?-sortDir:va>vb?sortDir:0;});
   },[entries,filtStatut,filtMois,filtCommune,filtConseiller,filtPublic,dSearch,sortDir,dateFrom,dateTo]);
 
