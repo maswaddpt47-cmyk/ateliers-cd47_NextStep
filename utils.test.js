@@ -7,6 +7,7 @@ const {
   normalizeMat, matIncludes,
   escapeICS, foldICSLine, parseHoraireICS, parseDateICS, buildICS,
   resumeLogsTexte,
+  suppressionAboutie,
   lsKey, migrerLocalStorage,
 } = require('./utils.js');
 
@@ -276,5 +277,18 @@ describe('lsKey / migrerLocalStorage', () => {
     s.removeItem(lsKey('adm_conseiller'));        // l'utilisateur change d'identité
     assert.equal(migrerLocalStorage(s), 0);        // rechargement de page
     assert.equal(s.getItem(lsKey('adm_conseiller')), null);
+  });
+});
+
+// ── suppressionAboutie ──────────────────────────────────────────────────────
+// Le piège : « Feuille introuvable » contient aussi « introuvable », et c'est
+// une vraie panne. Un test sur le mot seul la ferait passer pour un succès.
+describe('suppressionAboutie', () => {
+  it('compte « Entrée introuvable » comme une suppression faite, pas les autres refus', () => {
+    assert.equal(suppressionAboutie({ ok: true }), true);
+    assert.equal(suppressionAboutie({ ok: false, error: 'Entrée introuvable' }), true);
+    assert.equal(suppressionAboutie({ ok: false, error: 'Feuille introuvable' }), false);
+    assert.equal(suppressionAboutie({ ok: false, error: 'Écriture concurrente en cours, réessayez' }), false);
+    assert.equal(suppressionAboutie(undefined), false);
   });
 });
