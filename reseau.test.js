@@ -80,6 +80,28 @@ test('politique d\'appel GAS', async (t) => {
       assert.ok(m[1].includes(`'${a}'`), `${a} doit être déclarée comme écriture`);
   });
 
+  // ── Doublage des lectures (porté de NEWGEN le 23/09/2026) ──────────────
+  await t.test('la file d\'attente a disparu : un appel mort ne bloque plus les suivants', () => {
+    // Tranché le 22/09/2026 (banc, 249 salves, McNemar χ² = 10,32) : la file
+    // laissait 18 % des connexions échouer, le doublage 4 %.
+    assert.ok(!/let _gasQueue/.test(SRC), '_gasQueue ne doit pas revenir sans une mesure au moins équivalente');
+  });
+
+  await t.test('le doublon part avant l\'abandon du premier appel', () => {
+    const hedge = constante('GAS_HEDGE_MS');
+    assert.ok(hedge >= 3000, `GAS_HEDGE_MS=${hedge} : une réponse saine prend 1-3 s, doubler plus tôt double tout`);
+    assert.ok(hedge < constante('GAS_TIMEOUT_LECTURE_MS'), 'un doublon lancé après le plafond ne sert à rien');
+  });
+
+  await t.test('jamais de doublage d\'une écriture ni de checkPassword', () => {
+    // Deux appendRow concurrents = atelier en double ; checkPassword doublé =
+    // mot de passe mal tapé compté deux fois (blocage à 5).
+    assert.ok(/const doubler\s*=\s*!ecriture && !GAS_SANS_DOUBLON\.has\(action\)/.test(SRC),
+      'la décision de doubler doit exclure les écritures et GAS_SANS_DOUBLON');
+    const m = /const GAS_SANS_DOUBLON = new Set\(\[([^\]]*)\]\)/.exec(SRC);
+    assert.ok(m && m[1].includes("'checkPassword'"), 'checkPassword doit figurer dans GAS_SANS_DOUBLON');
+  });
+
   await t.test('aucun plafond de 25 s ou 35 s ne subsiste', () => {
     assert.ok(!/GAS_TIMEOUT_MS/.test(SRC), 'GAS_TIMEOUT_MS (35 s/25 s) doit avoir disparu');
   });

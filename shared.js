@@ -577,13 +577,9 @@ function gasPlafond(action, ecriture){
 // Journal consultable : window.__gasLog, et console pour le suivi en direct.
 window.__gasLog = [];
 
-// `file` : millisecondes passees en file d'attente AVANT le depart du fetch.
-// Jusqu'au 22/09/2026 ce temps n'etait journalise nulle part : t0 est pris
-// dans _gasUnAppelBrut, donc apres la sortie de file, et `ms` ne mesurait que
-// l'aller-retour reseau. Consequence relevee par AG-005 — les totaux d'attente
-// du Journal etaient un plancher, pas le temps reellement subi par l'usager.
-// C'est le chiffre qui manque pour savoir ce que le retrait de la file
-// rapporterait avant de la retirer.
+// `file` : attente en file d'attente avant le départ du fetch. La file a été
+// retirée le 23/09/2026 ; le paramètre reste pour ne pas casser la lecture
+// des journaux anciens, il n'est plus jamais renseigné.
 window.logGas = function(action, attempt, ms, issue, file){
   const e = {t:new Date().toLocaleTimeString('fr-FR'), action, attempt, ms:Math.round(ms), issue:issue||'ok', file:Math.round(file||0)};
   window.__gasLog.push(e);
@@ -596,62 +592,51 @@ window.logGas = function(action, attempt, ms, issue, file){
   if(window.gasLogHook){ try{ window.gasLogHook(e); }catch(_){} }
 };
 
-// ── File d'attente : un seul appel GAS en vol à la fois ────────────────────
-// Mesure du 18/09/2026 (Journal client, poste mobile) : la même action réussit
-// en 1,8-2,2 s quand elle part seule (getComptes ×3) et retourne un HTTP 404
-// après 15 à 34 s quand elle part dans une rafale de 3-4 appels simultanés.
-// Les 404 ne sont pas des refus : ils tombent sur la redirection /exec → echo,
-// APRÈS que le script a tourné (un saveEntry en 404 a bien écrit sa ligne).
-//
-// HYPOTHÈSE NON VÉRIFIÉE : le nombre d'appels simultanés depuis un même
-// navigateur est ce qui fait rater cette redirection. Ce n'est qu'une
-// corrélation relevée sur trois captures — pas une preuve causale. La file
-// ci-dessous la teste en supprimant le parallélisme ; le Journal des
-// opérations tranchera (ratio 404+bloqué / total avant vs après).
-//
-// Sérialiser n'allonge rien ici : les appels concurrents qu'on met en file
-// visaient la même seconde de toute façon, et les correctifs du même lot en
-// suppriment plusieurs (rien avant la connexion, plus de rechargement complet
-// après une sauvegarde).
-let _gasQueue = Promise.resolve();
-window.gasUnAppel = function(url, action, numero, plafond){
-  // Pris AVANT la mise en file : c'est l'ecart entre cet instant et le depart
-  // du fetch qui mesure ce que la file coute.
-  const tDemande = Date.now();
-  const suivant = _gasQueue.then(
-    ()=>_gasUnAppelBrut(url, action, numero, plafond, tDemande),
-    ()=>_gasUnAppelBrut(url, action, numero, plafond, tDemande)
-  );
-  // La file avance quel que soit le sort de l'appel : un échec ne doit jamais
-  // la bloquer. catch() neutralise le rejet POUR LA CHAÎNE seulement — la
-  // promesse rendue à l'appelant, elle, rejette normalement.
-  _gasQueue = suivant.catch(()=>{});
-  return suivant;
-};
+// ── Plus de file d'attente : lectures doublées (porté de NEWGEN le 23/09/2026)
+// La file (_gasQueue, un seul appel en vol) testait l'hypothèse « le
+// parallélisme fait perdre les réponses ». Tranché le 22/09/2026 par le banc
+// (249 salves en alternance, McNemar χ² = 10,32) : la file laissait 18 % des
+// connexions échouer et 10 % dépasser 60 s, les lectures doublées 4 % et
+// aucune. Le parallélisme coûte bien quelques points de pertes, mais un appel
+// mort en tête de file bloquait tous les suivants 12 s (relevé du 23/09 à
+// 08:55 : checkPassword parti après 11,8 s de file). La file ne protégeait
+// pas non plus les écritures : c'est le verrou GAS (v10.15.0) qui le fait.
+// Détail : CHANTIERS.md §1, AGORA d'ATELIERS_NEWGEN (AG-003, AG-006).
 
 // Un seul appel réseau, journalisé. reessayable=true seulement pour un échec
 // de transport (jamais atteint Google) ou un refus immédiat (429/503).
-async function _gasUnAppelBrut(url, action, numero, plafond, tDemande){
+// ctrlFourni : AbortController de l'appelant quand il veut pouvoir annuler
+// l'appel (doublage : dès que l'un des deux répond, l'autre n'a plus lieu
+// d'être). ctrl.inutile marqué avant l'annulation évite de journaliser en
+// rouge un appel qu'on a sciemment arrêté.
+window.gasUnAppel = async function(url, action, numero, plafond, ctrlFourni){
   const limite = plafond || GAS_TIMEOUT_LECTURE_MS;
   const t0 = Date.now();
-  const file = tDemande ? t0 - tDemande : 0;
-  const ctrl = new AbortController();
+  const ctrl = ctrlFourni || new AbortController();
   const chien = setTimeout(()=>ctrl.abort(), limite);
   let res;
   try{
     res = await fetch(url, {signal:ctrl.signal});
   }catch(err){
+    if(ctrl.inutile){
+      // Le jumeau a répondu : ce n'est PAS un échec. Journalisé sous un motif
+      // distinct, que resumeLogsTexte sort des deux comptes et que le journal
+      // Admin affiche en neutre (AG-006 : sans cette ligne, le taux de
+      // sauvetage n'avait pas le même dénominateur que celui du banc).
+      logGas(action, numero, Date.now()-t0, 'annulé — le jumeau a répondu');
+      throw Object.assign(new Error('doublon inutile'), {reessayable:false, inutile:true});
+    }
     if(ctrl.signal.aborted){
-      logGas(action, numero, Date.now()-t0, `bloqué — abandonné après ${limite/1000}s`, file);
+      logGas(action, numero, Date.now()-t0, `bloqué — abandonné après ${limite/1000}s`);
       throw Object.assign(new Error('timeout'), {reessayable:true});
     }
-    logGas(action, numero, Date.now()-t0, 'réseau : '+err.message, file);
+    logGas(action, numero, Date.now()-t0, 'réseau : '+err.message);
     throw Object.assign(new Error(err.message), {reessayable:true});
   }finally{
     clearTimeout(chien);
   }
   if(!res.ok){
-    logGas(action, numero, Date.now()-t0, 'HTTP '+res.status, file);
+    logGas(action, numero, Date.now()-t0, 'HTTP '+res.status);
     throw Object.assign(new Error(`HTTP ${res.status}`), {
       httpStatus:res.status,
       reessayable:GAS_RETRYABLE_HTTP.indexOf(res.status) > -1
@@ -661,7 +646,7 @@ async function _gasUnAppelBrut(url, action, numero, plafond, tDemande){
   let data;
   try{ data = JSON.parse(text); }
   catch(_){
-    logGas(action, numero, Date.now()-t0, 'réponse non-JSON', file);
+    logGas(action, numero, Date.now()-t0, 'réponse non-JSON');
     throw new Error('Réponse invalide du serveur — déploiement GAS à vérifier.');
   }
   // Refus explicite du serveur (ok:false) : journalise avec son motif. Sans
@@ -669,9 +654,62 @@ async function _gasUnAppelBrut(url, action, numero, plafond, tDemande){
   // (AG-004, 22/09/2026). Motif « serveur : » — pas une perte reseau, et
   // resumeLogsTexte le compte a part.
   const refus = data && data.ok === false ? 'serveur : ' + (data.error || 'refus') : undefined;
-  logGas(action, numero, Date.now()-t0, refus, file);
+  logGas(action, numero, Date.now()-t0, refus);
   return data;
+};
+
+// Délai avant de doubler une lecture. Une réponse saine arrive en 1-3 s : un
+// appel muet à 7 s n'est pas en train de calculer, sa réponse est perdue en
+// chemin. Valeur mesurée par le banc de NEWGEN, même backend Apps Script.
+const GAS_HEDGE_MS = 7000;
+
+// Lecture doublée : lance l'appel, et s'il n'a toujours rien renvoyé au bout
+// de GAS_HEDGE_MS, en lance un second en parallèle sans attendre l'échec du
+// premier. Le premier qui répond gagne, l'autre est annulé. On ne rejette que
+// si TOUS les appels partis ont échoué (sinon on abandonnerait sur un 404
+// rapide pendant qu'un doublon est encore en route).
+function gasLectureDoublee(url, action, numero, plafond){
+  return new Promise((resolve, reject)=>{
+    let termine=false, partis=1, echecs=0, derniere=null;
+    let minuteurDoublon=null;
+    const ctrls=[];
+    // Dès qu'un des deux aboutit, l'autre est annulé au lieu de courir jusqu'à
+    // son plafond (sinon : une ligne rouge « bloqué » pour un appel réussi, et
+    // une exécution GAS consommée pour rien — NEWGEN, 18/09/2026).
+    const arreterLesAutres=(sauf)=>{
+      ctrls.forEach(c=>{ if(c!==sauf && !c.signal.aborted){ c.inutile=true; c.abort(); } });
+    };
+    const gagner=(data, ctrlGagnant)=>{
+      if(termine)return;
+      termine=true; clearTimeout(minuteurDoublon); arreterLesAutres(ctrlGagnant); resolve(data);
+    };
+    const perdre=(err)=>{
+      if(termine||(err&&err.inutile))return;
+      echecs++; derniere=err;
+      if(echecs>=partis){ termine=true; clearTimeout(minuteurDoublon); reject(derniere); }
+    };
+    const lancer=(num)=>{
+      const ctrl=new AbortController();
+      ctrls.push(ctrl);
+      gasUnAppel(url, action, num, plafond, ctrl).then(d=>gagner(d, ctrl), perdre);
+    };
+    lancer(numero);
+    // Le doublon porte le numéro de son jumeau suivi de « b » : c'est ce que
+    // resumeLogsTexte lit pour compter les lectures sauvées.
+    minuteurDoublon=setTimeout(()=>{
+      if(termine)return;
+      partis=2;
+      lancer(numero+'b');
+    }, GAS_HEDGE_MS);
+  });
 }
+
+// Lectures qu'on ne double JAMAIS : checkPassword incrémente un compteur
+// d'échecs côté GAS (5 = blocage 15 min). Deux appels espacés de 7 s le
+// verraient l'un après l'autre : un mot de passe mal tapé compterait double,
+// précisément les jours où le réseau va mal. Les écritures (dont logLogin)
+// ne sont jamais doublées non plus : elles sont dans GAS_ACTIONS_ECRITURE.
+const GAS_SANS_DOUBLON = new Set(['checkPassword']);
 
 // ── Politique de reprise, partagée par apiFetch et fetchAll ────────────────
 // apiFetch et rawGetAll recopiaient la même boucle, avec des plafonds qui
@@ -681,11 +719,17 @@ window.gasAppel = async function(url, action){
   const plafond    = gasPlafond(action, ecriture);
   const pause      = ecriture ? GAS_PAUSE_ECRITURE_MS   : GAS_PAUSE_LECTURE_MS;
   const tentatives = ecriture ? GAS_TENTATIVES_ECRITURE : GAS_TENTATIVES_LECTURE;
+  // Le régime se déduit de l'action : l'appelant n'a rien à déclarer, donc
+  // rien à oublier. Une écriture n'est JAMAIS doublée (deux appendRow
+  // concurrents = atelier en double).
+  const doubler    = !ecriture && !GAS_SANS_DOUBLON.has(action);
   const t0 = Date.now();
   let derniere = null;
   for(let n=1; n<=tentatives; n++){
     try{
-      return await gasUnAppel(url, action, n, plafond);
+      return doubler
+        ? await gasLectureDoublee(url, action, n, plafond)
+        : await gasUnAppel(url, action, n, plafond);
     }catch(err){
       derniere = err;
       // Erreur définitive (403, réponse non-JSON, déploiement cassé, erreur

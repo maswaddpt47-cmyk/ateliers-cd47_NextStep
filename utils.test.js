@@ -226,6 +226,21 @@ describe('resumeLogsTexte', () => {
     assert.match(txt, /mediane 2\.1s/);
   });
 
+  // Doublage porté le 23/09/2026. Un doublon annulé (le jumeau a répondu)
+  // n'est ni une perte ni une réussite ; un « #Nb ok » est une lecture sauvée.
+  it('compte les doublons : annulés hors compte, sauvetages à part', () => {
+    const at = (sec) => new Date(2026, 8, 23, 10, 0, sec).getTime();
+    const j = [
+      { t: '10:00:30', ts: at(30), type: 'info', msg: 'GAS getComptes #1b — annulé — le jumeau a répondu en 2.0 s' },
+      { t: '10:00:28', ts: at(28), type: 'ok',   msg: 'GAS getComptes #1 — ok en 9.0 s' },
+      { t: '10:00:09', ts: at(9),  type: 'info', msg: 'GAS getAll #1 — annulé — le jumeau a répondu en 9.0 s' },
+      { t: '10:00:09', ts: at(9),  type: 'ok',   msg: 'GAS getAll #1b — ok en 1.9 s' },
+    ];
+    const txt = resumeLogsTexte(j, 'NEXTSTEP');
+    assert.match(txt, /perdus : 0\/2 \(0%\)  \[\+2 doublons annules, hors compte\]/);
+    assert.match(txt, /doublons non annules : 1 — 1 ont sauve la lecture, 0 en echec  \(\+1 annules/);
+  });
+
   it('ignore les lignes qui ne sont pas des appels GAS, et le journal vide', () => {
     const melange = [...JOURNAL, { t: '12:00:00', msg: '221 ateliers chargés (2026)', type: 'ok', ts: Date.now() }];
     assert.match(resumeLogsTexte(melange, 'NEXTSTEP'), /— 5 appels GAS/);
