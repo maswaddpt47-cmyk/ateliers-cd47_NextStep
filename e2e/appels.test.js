@@ -233,3 +233,56 @@ test('index — le mode maintenance s\'affiche toujours, via getAll seul', async
   // Et surtout : pas de message d'erreur générique à la place.
   await expect(page.getByText(/Impossible de charger/)).toHaveCount(0);
 });
+
+// ── 5-6. Lectures doublées, écritures jamais (porté de NEWGEN le 23/09/2026) ─
+// La panne réelle : la réponse n'arrive JAMAIS (livraison perdue après
+// exécution). On la simule en ne répondant pas au premier appel d'une action.
+// Route enregistrée après instrumenter : Playwright essaie d'abord la plus
+// récente, fallback() rend la main au mock général pour le reste.
+// Renvoie le nombre d'appels vus pour cette action (le premier, muet, ne
+// passe jamais par le compteur d'instrumenter).
+async function premierAppelMuet(page, actionVisee) {
+  const vus = { n:0 };
+  await page.route('**/script.google.com/**', async route => {
+    const action = new URL(route.request().url()).searchParams.get('action') || '';
+    if (action !== actionVisee) return route.fallback();
+    vus.n++;
+    if (vus.n === 1) return;  // jamais de réponse : le client doit s'en passer
+    return route.fallback();
+  });
+  return vus;
+}
+
+test('lecture muette — le doublon part à 7 s et rapporte la réponse', async ({ page }) => {
+  await instrumenter(page);
+  const vus = await premierAppelMuet(page, 'getVisibility');
+  await page.goto('/index.html');
+  await page.waitForSelector('input[type="password"]', { timeout:10000 });
+
+  const r = await page.evaluate(async () => {
+    const t0 = Date.now();
+    const data = await window.gasAppel(`${GS_URL}?action=getVisibility`, 'getVisibility');
+    return { ok:data.ok, ms:Date.now()-t0, journal:window.__gasLog.map(e => `${e.action} #${e.attempt} ${e.issue}`) };
+  });
+
+  expect(r.ok).toBe(true);
+  // Sans doublage, il fallait attendre l'abandon à 12 s puis une reprise.
+  expect(r.ms, `réponse obtenue en ${r.ms} ms`).toBeLessThan(10000);
+  expect(r.journal, r.journal.join(' | ')).toContain('getVisibility #1b ok');
+  expect(vus.n, 'l\'original et son doublon, pas plus').toBe(2);
+});
+
+test('écriture muette — jamais doublée pendant qu\'elle est en vol', async ({ page }) => {
+  await instrumenter(page);
+  const vus = await premierAppelMuet(page, 'saveEntry');
+  await page.goto('/index.html');
+  await page.waitForSelector('input[type="password"]', { timeout:10000 });
+
+  await page.evaluate(() => {
+    window.gasAppel(`${GS_URL}?action=saveEntry`, 'saveEntry').catch(() => {});
+  });
+  // Au-delà de GAS_HEDGE_MS : une lecture aurait déjà son doublon.
+  await page.waitForTimeout(8500);
+  expect(vus.n,
+    'deux saveEntry en vol en même temps peuvent créer deux lignes').toBe(1);
+});

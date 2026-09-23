@@ -212,9 +212,12 @@ qu'on est en train de refaire l'erreur.
 
 Rejouer une écriture est sûr : le client génère `_id` avant l'envoi et
 `actionSaveEntry` retrouve la ligne par cet `_id` au lieu d'en créer une
-seconde. En revanche les écritures restent **séquentielles et jamais
-doublées** — deux appels en parallèle pourraient tous deux conclure « ligne
-absente » et faire chacun leur `appendRow`.
+seconde. En revanche une écriture n'est **jamais doublée**
+(`GAS_ACTIONS_ECRITURE`, verrouillé par `reseau.test.js` et
+`e2e/appels.test.js`). La sérialisation des écritures n'est garantissable
+que **côté serveur** : c'est le verrou GAS (`_avecVerrouEcriture`, v10.15.0),
+pas le client — la file d'attente client a été retirée le 23/09/2026, et elle
+ne voyait de toute façon ni un second onglet ni un second conseiller.
 
 ### Limite connue — latence de livraison indépendante du temps d'exécution
 
