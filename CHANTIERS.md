@@ -223,9 +223,11 @@ compte désormais les doublons annulés et les lectures sauvées.
 reste une **inférence** (banc mesuré sur le backend NEWGEN, régime 30-38 %
 de pertes) — ne pas l'annoncer à l'équipe sans ce conditionnement.
 
-## ⏳ 23/09/2026 — années multiples et vérification après réponse perdue
+## ✅ 23/09/2026 — années multiples et vérification après réponse perdue
 
-Livré côté appli (les deux projets), **GAS v10.21.0 à déployer** (`gas/README.md`).
+Livré côté appli (les deux projets), **GAS v10.21.0 déployé le 23/09/2026**.
+**À confirmer à l'usage** : cocher deux années affiche bien les deux ; un
+enregistrement dont la réponse se perd affiche « confirmé dans le classeur ».
 - **Sélecteur d'années à cases à cocher** (`ChoixAnnees`, `shared.js`) :
   plusieurs années chargées en **un seul** `getAll?years=` (AG-007,
   `ATELIERS_NEWGEN/AGORA.md`). `f_annee` stocke « 2026,2027 », l'ancien

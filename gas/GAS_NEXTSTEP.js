@@ -1,6 +1,6 @@
 
 // ── GAS Backend v10.21.0 ──────────────────────────────────────
-// ⚠️ v10.21.0 PAS ENCORE DÉPLOYÉE (préparée le 23/09/2026). En ligne : v10.19.0.
+// ✅ v10.21.0 DÉPLOYÉE le 23/09/2026 (confirmé par l'utilisateur).
 // v10.21.0 : keepAlive réchauffe aussi N+1 à partir de septembre (AG-007,
 //            amendement de la session B, point 2).
 // v10.20.0 : getAll accepte years=2026,2027 (sélecteur multi-années, AG-007),
