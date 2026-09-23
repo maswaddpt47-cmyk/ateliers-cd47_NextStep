@@ -76,19 +76,17 @@ le calcul tourne sur 10.
 
 C'est le cas typique de la règle « les tests ne trouvent pas les défauts de
 sens » : tout calcule juste, sur la mauvaise valeur. Aucune suite ne pouvait
-le voir. **Résolu en principe par le déploiement du 23/09/2026 (v10.18.0,
-qui contient v10.14.0). Ne pas clore avant de l'avoir vérifié en ligne** (changer le
+le voir. **Résolu par le déploiement du 23/09/2026, vérifié en ligne par
+l'utilisateur. Section à retirer au prochain passage.** Vérification faite (changer le
 stock, recharger, vérifier qu'une alerte de conflit mentionne bien le nouveau
 nombre).
 
 ### ✅ Verrou GAS déployé le 23/09/2026 à 08:40 — v10.18.0
 
-`testerSecuriteDoGet` tout ✅. Bandeau ⚠️ retiré de `gas/GAS_NEXTSTEP.js`.
-**Reste à confirmer avant le portage du doublage** : le test réel (enregistrer
-un atelier puis en supprimer un depuis l'appli) et la vérification du champ
-« Stock ordinateurs » (section ci-dessus). Migration
-`ajouterColonnesPretMateriel` sans objet : les colonnes existaient déjà
-(confirmé par l'utilisateur le 23/09/2026).
+Confirmé par l'utilisateur : tests de sécurité, enregistrement et suppression
+ok, champ « Stock ordinateurs » ok. Migration `ajouterColonnesPretMateriel`
+sans objet (colonnes déjà présentes). **Le portage du doublage est
+débloqué.**
 
 ⚖️ **AG-004 tranché le 22/09/2026 — version à déployer : v10.18.0** (toute
 copie plus ancienne est périmée). Les mails « Summary of failures » montraient
@@ -225,6 +223,18 @@ confirmer sur le terrain après le portage.
 porter le doublage sans retirer la file. Un doublon mis en file derrière son
 propre jumeau ne partirait qu'après l'abandon de celui-ci — le mécanisme
 serait inopérant.
+
+## 🐞 Ouvert le 23/09/2026 — « Ordinateurs prêtés » remis à vide au premier enregistrement
+
+Signalé par l'utilisateur, **sur les deux projets** : en enregistrant un
+atelier avec Classe mobile, le champ « Ordinateurs prêtés » se vide et
+« champs obligatoires » s'affiche. Le deuxième enregistrement passe.
+**Non reproduit** en navigateur automatisé (Chromium de bureau et émulation
+Pixel 7, saisie complète d'un nouvel atelier : enregistré du premier coup).
+Lecture du code : rien ne remet `nb_ordinateurs` à vide hors `reset()`.
+En attente du scénario exact (appareil, nouveau/modification/duplication/
+cycle, ordre de saisie). Harnais de reproduction :
+`ateliers-cd47_NextStep/e2e/zz_repro.test.js` (non commité, à réutiliser).
 
 ## ⚠️ Origine commune — les deux applis partagent leur `localStorage`
 
