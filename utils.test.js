@@ -11,7 +11,6 @@ const {
   anneesListe,
   anneeReference,
   anneeIncluse,
-  optionsAnnees,
   lsKey, migrerLocalStorage,
 } = require('./utils.js');
 
@@ -321,10 +320,5 @@ describe('années chargées', () => {
     assert.equal(anneeReference('2025,2027,2026'), '2027');
     assert.equal(anneeIncluse('2026,2027', '2027-03-15'), true);
     assert.equal(anneeIncluse('2026', '2027-03-15'), false);
-  });
-  it('propose années seules, paires et les trois, sans perdre une valeur ancienne', () => {
-    const v = optionsAnnees(2026, '2026').map(o => o.value);
-    assert.deepEqual(v, ['2025', '2026', '2027', '2025,2026', '2026,2027', '2025,2026,2027']);
-    assert.equal(optionsAnnees(2026, '2023')[0].value, '2023');
   });
 });

@@ -399,3 +399,35 @@ test('cycle — réponse perdue mais ateliers dans la feuille : succès affiché
   expect(lots.length, 'un seul envoi : aucun second clic nécessaire').toBe(1);
   expect(verifs).toBe(1);
 });
+
+// ── 9. Plusieurs années cochées : un seul getAll avec years= ───────────────
+// AG-007 : un appel par année cochée doublerait l'exposition aux pertes de
+// livraison à l'ouverture. Le serveur fusionne, le client n'émet qu'un appel.
+test('années — cocher une seconde année recharge en UN appel years=', async ({ page }) => {
+  await instrumenter(page);
+  const getAlls = [];
+  await page.route('**/script.google.com/**', async route => {
+    const u = new URL(route.request().url());
+    if (u.searchParams.get('action') === 'getAll')
+      getAlls.push(u.searchParams.get('years') || 'year=' + u.searchParams.get('year'));
+    return route.fallback();
+  });
+  await page.goto('/index.html');
+  const selectConseiller = page.locator('select').first();
+  await expect(selectConseiller.locator('option', { hasText:'Michel Aswad' })).toHaveCount(1, { timeout:10000 });
+  await selectConseiller.selectOption('Michel Aswad');
+  await page.fill('input[type="password"]', 'test');
+  await page.getByText('🔓 Connexion', { exact:true }).click();
+  await page.waitForSelector('.sidebar-btn', { timeout:10000 });
+  await page.waitForTimeout(500);
+  getAlls.length = 0;
+
+  const c = new Date().getFullYear();
+  await page.locator('button.sidebar-year').click();
+  await page.getByRole('checkbox').nth(2).check();   // année suivante
+  await page.getByRole('button', { name:'OK', exact:true }).click();
+  await page.waitForTimeout(1000);
+
+  expect(getAlls, getAlls.join(' | ')).toEqual([`${c},${c+1}`]);
+  await expect(page.locator('button.sidebar-year')).toContainText(`${c} + ${c+1}`);
+});

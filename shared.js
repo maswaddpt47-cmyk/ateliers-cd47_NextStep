@@ -762,6 +762,47 @@ window.verifierEnregistres = async function(ids){
   }catch(_){ return null; }
 };
 
+// ── Choix des années chargées : cases à cocher (23/09/2026) ─────────────────
+// Un bouton (même classe CSS que l'ancien <select>) ouvre une liste de cases.
+// Position FIXE calculée depuis le bouton : dans le flux, la liste serait
+// coupée par le menu latéral replié. Le choix ne s'applique qu'à la fermeture
+// (clic ailleurs, OK, Échap annule) : un seul rechargement, pas un par case.
+function ChoixAnnees({value,onChange,className,title}){
+  const[ouvert,setOuvert]=React.useState(false);
+  const[brouillon,setBrouillon]=React.useState(()=>anneesListe(value));
+  const[pos,setPos]=React.useState(null);
+  const btnRef=React.useRef(null),panRef=React.useRef(null),brouillonRef=React.useRef(brouillon);
+  brouillonRef.current=brouillon;
+  const c=new Date().getFullYear();
+  const choix=[...new Set([String(c-1),String(c),String(c+1),...anneesListe(value)])].sort();
+  const appliquer=(l)=>{setOuvert(false);const v=l.join(',');if(v!==anneesListe(value).join(','))onChange(v);};
+  const ouvrir=()=>{
+    const r=btnRef.current.getBoundingClientRect(),h=choix.length*32+52;
+    const enHaut=r.bottom+h>window.innerHeight;
+    setPos({left:Math.max(8,r.left),top:enHaut?Math.max(8,r.top-h-4):r.bottom+4,minWidth:Math.max(r.width,130)});
+    setBrouillon(anneesListe(value));setOuvert(true);
+  };
+  React.useEffect(()=>{
+    if(!ouvert)return;
+    const clic=e=>{if(panRef.current&&!panRef.current.contains(e.target)&&btnRef.current&&!btnRef.current.contains(e.target))appliquer(brouillonRef.current);};
+    const touche=e=>{if(e.key==='Escape')setOuvert(false);};
+    document.addEventListener('mousedown',clic);document.addEventListener('keydown',touche);
+    return()=>{document.removeEventListener('mousedown',clic);document.removeEventListener('keydown',touche);};
+  },[ouvert,value]);
+  // Au moins une année reste cochée.
+  const basculer=an=>setBrouillon(l=>{const n=l.indexOf(an)>=0?l.filter(x=>x!==an):[...l,an].sort();return n.length?n:l;});
+  return CE(React.Fragment,null,
+    CE('button',{type:'button',ref:btnRef,className,title,'aria-label':title,'aria-haspopup':'true','aria-expanded':ouvert,
+      style:{cursor:'pointer',textAlign:'left',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'},
+      onClick:()=>ouvert?appliquer(brouillon):ouvrir()},anneesListe(value).join(' + ')+' ▾'),
+    ouvert&&pos&&CE('div',{ref:panRef,role:'group','aria-label':title,style:{position:'fixed',left:pos.left,top:pos.top,minWidth:pos.minWidth,zIndex:3000,background:'#fff',color:'#1a202c',border:'1px solid #e2e8f0',borderRadius:10,boxShadow:'0 8px 24px rgba(0,0,0,.18)',padding:8,fontSize:13}},
+      choix.map(an=>CE('label',{key:an,style:{display:'flex',alignItems:'center',gap:8,padding:'6px 8px',borderRadius:6,cursor:'pointer',fontWeight:600}},
+        CE('input',{type:'checkbox',checked:brouillon.indexOf(an)>=0,onChange:()=>basculer(an)}),an)),
+      CE('button',{type:'button',onClick:()=>appliquer(brouillon),style:{marginTop:6,width:'100%',padding:'6px 0',border:'none',borderRadius:6,background:'#1e3a8a',color:'#fff',fontWeight:700,cursor:'pointer'}},'OK')
+    )
+  );
+}
+
 // Chargement d'un script à la demande, une seule fois même si plusieurs
 // actions le réclament en même temps. Sert aux grosses librairies qui ne
 // servent qu'à un clic (export PDF, xlsx...) et qui n'ont donc rien à faire
