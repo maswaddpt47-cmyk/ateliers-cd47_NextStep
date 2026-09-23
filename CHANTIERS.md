@@ -233,8 +233,10 @@ atelier avec Classe mobile, le champ « Ordinateurs prêtés » se vide et
 Pixel 7, saisie complète d'un nouvel atelier : enregistré du premier coup).
 Lecture du code : rien ne remet `nb_ordinateurs` à vide hors `reset()`.
 En attente du scénario exact (appareil, nouveau/modification/duplication/
-cycle, ordre de saisie). Harnais de reproduction :
-`ateliers-cd47_NextStep/e2e/zz_repro.test.js` (non commité, à réutiliser).
+cycle, ordre de saisie). Harnais de reproduction : Playwright sur
+`index.html`, mocks de `e2e/smoke.test.js`, en remplissant chaque champ et
+en relevant la valeur après chaque étape (sélecteurs sous `[data-saisie]`,
+commune choisie par `mousedown` sur `.combo-item`).
 
 ## ⚠️ Origine commune — les deux applis partagent leur `localStorage`
 
