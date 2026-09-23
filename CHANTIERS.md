@@ -223,6 +223,19 @@ compte désormais les doublons annulés et les lectures sauvées.
 reste une **inférence** (banc mesuré sur le backend NEWGEN, régime 30-38 %
 de pertes) — ne pas l'annoncer à l'équipe sans ce conditionnement.
 
+## ⏳ 23/09/2026 — années multiples et vérification après réponse perdue
+
+Livré côté appli (les deux projets), **GAS v10.20.0 à déployer** (`gas/README.md`).
+- **Sélecteur d'années à cases à cocher** (`ChoixAnnees`, `shared.js`) :
+  plusieurs années chargées en **un seul** `getAll?years=` (AG-007,
+  `ATELIERS_NEWGEN/AGORA.md`). `f_annee` stocke « 2026,2027 », l'ancien
+  format se relit tel quel. Roadmap et Admin prennent la plus récente
+  (choix de design à valider par l'utilisateur).
+- **Réponse d'enregistrement perdue** → l'appli demande `verifierIds` avant
+  d'annoncer un échec (idée de l'utilisateur). Sans le GAS déployé :
+  comportement d'avant (message « recliquez, sans doublon »).
+- Tests : `e2e/appels.test.js` de NextStep (cas 8 et 9).
+
 ## 🔴 23/09/2026 — cycle enregistré en double, et divergence entre les deux projets
 
 **Incident** : cycle de 8 ateliers sur NextStep, réponse de `saveMany` perdue,

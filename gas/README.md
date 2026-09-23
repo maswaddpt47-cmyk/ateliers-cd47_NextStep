@@ -1,5 +1,18 @@
 # GAS_NEXTSTEP.js — copie de référence
 
+### ⏳ v10.20.0 à déployer (préparée le 23/09/2026)
+
+- **Plusieurs années en un appel** (`getAll` accepte `years=2026,2027`) :
+  sans ce déploiement, cocher deux années ne charge que l'année en cours.
+- **`verifierIds`** : quand la réponse d'un enregistrement se perd, l'appli
+  vérifie dans la feuille avant d'afficher un échec.
+
+1. Coller `gas/GAS_NEXTSTEP.js`, **Déployer → Gérer les déploiements → ✏️ →
+   Nouvelle version**. Rien d'autre à lancer.
+2. Test : cocher 2026 et 2027 dans l'appli → les ateliers des deux années
+   s'affichent.
+3. Me dire « déployé ».
+
 ### ✅ v10.19.0 déployée le 23/09/2026
 
 Vide le cache de l'appli quand on modifie le classeur **à la main**, y
