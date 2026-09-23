@@ -76,22 +76,18 @@ le calcul tourne sur 10.
 
 C'est le cas typique de la règle « les tests ne trouvent pas les défauts de
 sens » : tout calcule juste, sur la mauvaise valeur. Aucune suite ne pouvait
-le voir. **Résolu par le déploiement de v10.14.0 — pas encore fait au
-22/09/2026. Ne pas clore avant de l'avoir vérifié en ligne** (changer le
+le voir. **Résolu en principe par le déploiement du 23/09/2026 (v10.18.0,
+qui contient v10.14.0). Ne pas clore avant de l'avoir vérifié en ligne** (changer le
 stock, recharger, vérifier qu'une alerte de conflit mentionne bien le nouveau
 nombre).
 
-### 🔴 À FAIRE EN PREMIER — déployer le verrou GAS (préparé le 22/09/2026)
+### ✅ Verrou GAS déployé le 23/09/2026 à 08:40 — v10.18.0
 
-Le code est **écrit et poussé, pas déployé** : Apps Script n'a pas d'API de
-push, le déploiement est manuel. `actionSaveEntry`, `actionSaveMany` et
-`actionDelete` des deux copies sont enveloppés dans
-`LockService.getScriptLock().waitLock(20 s)` / `releaseLock()` en `finally`
-(`_avecVerrouEcriture`). Marche à suivre pas à pas : **`gas/README.md`**,
-section « EN ATTENTE DE DÉPLOIEMENT ».
-
-Un bandeau ⚠️ en tête de chaque copie GAS signale la divergence avec la
-production. **Le retirer seulement quand l'utilisateur confirme « déployé ».**
+`testerSecuriteDoGet` tout ✅. Bandeau ⚠️ retiré de `gas/GAS_NEXTSTEP.js`.
+**Reste à confirmer avant le portage du doublage** : le test réel (enregistrer
+un atelier puis en supprimer un depuis l'appli), la migration
+`ajouterColonnesPretMateriel`, et la vérification du champ « Stock
+ordinateurs » (section ci-dessus).
 
 ⚖️ **AG-004 tranché le 22/09/2026 — version à déployer : v10.18.0** (toute
 copie plus ancienne est périmée). Les mails « Summary of failures » montraient
