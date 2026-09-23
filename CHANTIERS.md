@@ -224,19 +224,16 @@ porter le doublage sans retirer la file. Un doublon mis en file derrière son
 propre jumeau ne partirait qu'après l'abandon de celui-ci — le mécanisme
 serait inopérant.
 
-## 🐞 Ouvert le 23/09/2026 — « Ordinateurs prêtés » remis à vide au premier enregistrement
+## 🐞 23/09/2026 — « Ordinateurs prêtés » vidé au premier enregistrement : non reproduit
 
-Signalé par l'utilisateur, **sur les deux projets** : en enregistrant un
-atelier avec Classe mobile, le champ « Ordinateurs prêtés » se vide et
-« champs obligatoires » s'affiche. Le deuxième enregistrement passe.
-**Non reproduit** en navigateur automatisé (Chromium de bureau et émulation
-Pixel 7, saisie complète d'un nouvel atelier : enregistré du premier coup).
-Lecture du code : rien ne remet `nb_ordinateurs` à vide hors `reset()`.
-En attente du scénario exact (appareil, nouveau/modification/duplication/
-cycle, ordre de saisie). Harnais de reproduction : Playwright sur
-`index.html`, mocks de `e2e/smoke.test.js`, en remplissant chaque champ et
-en relevant la valeur après chaque étape (sélecteurs sous `[data-saisie]`,
-commune choisie par `mousedown` sur `.combo-item`).
+Signalé par l'utilisateur sur les deux projets (PC, nouvel atelier, champs
+remplis dans l'ordre, nombre tapé au clavier, seul ce champ vidé). **Au
+second essai du même jour, les deux projets enregistrent du premier coup**,
+avec et sans dates de prêt. Non reproduit en navigateur automatisé non plus
+(ordre exact de l'utilisateur, avec et sans dates). Cause inconnue.
+**Hypothèse non vérifiée** : molette de la souris sur le champ numérique
+encore actif (Chrome modifie alors la valeur). À rouvrir si ça revient :
+demander si le champ affiche vide ou « 0 ».
 
 ## ⚠️ Origine commune — les deux applis partagent leur `localStorage`
 
