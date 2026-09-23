@@ -1,6 +1,8 @@
 
-// ── GAS Backend v10.20.0 ──────────────────────────────────────
-// ⚠️ v10.20.0 PAS ENCORE DÉPLOYÉE (préparée le 23/09/2026). En ligne : v10.19.0.
+// ── GAS Backend v10.21.0 ──────────────────────────────────────
+// ⚠️ v10.21.0 PAS ENCORE DÉPLOYÉE (préparée le 23/09/2026). En ligne : v10.19.0.
+// v10.21.0 : keepAlive réchauffe aussi N+1 à partir de septembre (AG-007,
+//            amendement de la session B, point 2).
 // v10.20.0 : getAll accepte years=2026,2027 (sélecteur multi-années, AG-007),
 //            et verifierIds (l'appli vérifie un enregistrement dont la réponse
 //            s'est perdue avant d'annoncer un échec).
@@ -1258,18 +1260,25 @@ var KEEPALIVE_DRAPEAU_S = 360;
 function keepAlive() {
   var cache = null, pose = false;
   try {
-    var an = String(new Date().getFullYear());
+    // v10.21.0 (AG-007, point 2) : à partir de septembre, l'année suivante est
+    // réchauffée aussi — un poste qui coche N + N+1 relisait sinon la feuille
+    // entière pour N+1 à chaque ouverture, pendant que l'agent attend.
+    var d = new Date(), an = d.getFullYear();
+    var annees = [String(an)];
+    if (d.getMonth() >= 8) annees.push(String(an + 1));
     // Cache deja chaud : rien a faire. A 5 min de declencheur contre 10 min de
     // TTL, un passage sur deux tombe ici et ne coute qu'un cache.get().
-    if (_lireCacheGetAll(an)) { Logger.log('keepAlive : cache ' + an + ' deja chaud.'); return; }
+    var froides = annees.filter(function(y){ return !_lireCacheGetAll(y); });
+    if (!froides.length) { Logger.log('keepAlive : cache ' + annees.join('+') + ' deja chaud.'); return; }
     cache = CacheService.getScriptCache();
     if (cache.get(KEEPALIVE_DRAPEAU)) { Logger.log('keepAlive : passage precedent encore en cours, saute.'); return; }
     cache.put(KEEPALIVE_DRAPEAU, '1', KEEPALIVE_DRAPEAU_S);
     pose = true;
-    var t0 = new Date().getTime();
-    var frais = _getAllFrais({year:an});
-    _cacherGetAll(an, frais);
-    Logger.log('keepAlive : cache ' + an + ' rechauffe en ' + (new Date().getTime()-t0) + ' ms');
+    froides.forEach(function(y){
+      var t0 = new Date().getTime();
+      _cacherGetAll(y, _getAllFrais({year:y}));
+      Logger.log('keepAlive : cache ' + y + ' rechauffe en ' + (new Date().getTime()-t0) + ' ms');
+    });
   } catch(err) {
     Logger.log('keepAlive erreur : ' + err);
   } finally {
