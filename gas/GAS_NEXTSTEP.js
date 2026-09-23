@@ -1,5 +1,10 @@
 
-// ── GAS Backend v10.18.0 ──────────────────────────────────────
+// ── GAS Backend v10.19.0 ──────────────────────────────────────
+// ⚠️ v10.19.0 PAS ENCORE DÉPLOYÉE (préparée le 23/09/2026). En ligne : v10.18.0.
+// v10.19.0 : modifications faites à la main dans le classeur — onEdit et
+//            invaliderCacheGetAll portés de NEWGEN (jamais recopiés), plus
+//            surChangementFeuille (onChange : suppression/insertion de
+//            lignes, que onEdit ne voit pas) et installerTriggerChangement.
 // v10.18.0 : keepAlive ne prend plus le verrou de script (AG-004 tranché le
 //            22/09/2026) : un keepAlive bloqué 8 min par la plateforme aurait
 //            refusé toutes les écritures pendant 8 min. Anti-empilement par
@@ -207,6 +212,52 @@ function _viderCache(){
     var an = new Date().getFullYear();
     [an-1, an, an+1].forEach(function(y){ _viderCacheAnnee(cache, String(y)); });
   }catch(_){}
+}
+// v10.19.0 : porté de NEWGEN (v11.28-v11.29), jamais recopié jusqu'ici.
+// À lancer à la main (menu Exécuter) si l'appli n'affiche pas une
+// modification faite directement dans le classeur.
+function invaliderCacheGetAll(){
+  _viderCache();
+  Logger.log('Cache getAll vidé (année courante ± 1). Les prochains appels liront la feuille à nouveau.');
+}
+// Simple trigger : toute saisie ou collage fait à la main dans la feuille
+// Ateliers_next_step vide le cache, sans rien à installer.
+function onEdit(e){
+  try{
+    if(!e || !e.range) return;
+    if(e.range.getSheet().getName() !== 'Ateliers_next_step') return;
+    _viderCache();
+  }catch(_){}
+}
+
+// ── Modifications faites à la main dans le classeur (23/09/2026) ──────────
+// onEdit (simple trigger, rien à installer) couvre la saisie et le collage.
+// Il NE couvre PAS la suppression ou l'insertion de lignes : d'après la
+// documentation Apps Script, ces changements de structure ne déclenchent que
+// onChange, qui doit être installé une fois (installerTriggerChangement).
+// Constaté le 23/09/2026 : lignes en double supprimées à la main, l'appli les
+// affichait encore jusqu'à l'expiration du cache (10 min).
+// ⚠️ HYPOTHÈSE NON VÉRIFIÉE : ce script ouvre le classeur par openById, il
+// n'y est donc sans doute pas attaché — et un onEdit « simple » ne se
+// déclenche que dans un script attaché. Le déclencheur installé ci-dessous
+// fonctionne dans les deux cas et couvre aussi les saisies (EDIT) : c'est
+// lui qui fait foi, onEdit n'est plus qu'un doublon sans risque.
+// Pas de filtre par feuille ici : l'événement onChange ne dit pas laquelle
+// a changé, et vider le cache ne coûte qu'une relecture.
+function surChangementFeuille(e) {
+  try {
+    var t = e && e.changeType;
+    if (t === 'EDIT' || t === 'REMOVE_ROW' || t === 'INSERT_ROW' || t === 'OTHER') _viderCache();
+  } catch (_) {}
+}
+// À lancer UNE fois depuis l'éditeur (menu Exécuter). Relançable sans risque :
+// l'ancien déclencheur est retiré avant d'en créer un nouveau.
+function installerTriggerChangement() {
+  ScriptApp.getProjectTriggers().forEach(function(t) {
+    if (t.getHandlerFunction() === 'surChangementFeuille') ScriptApp.deleteTrigger(t);
+  });
+  ScriptApp.newTrigger('surChangementFeuille').forSpreadsheet(_ss()).onChange().create();
+  Logger.log('Déclencheur « à la modification » installé : surChangementFeuille.');
 }
 function _viderCacheAnnee(cache, an){
   try{
