@@ -439,7 +439,7 @@ dehors des tests automatisés, qui ne peuvent pas les couvrir :
 
 ---
 
-## ⚖️ AG-008 répondu le 23/09/2026 — mon mécanisme ne tenait pas, le gaspillage si
+## ⚖️ AG-008 tranché le 23/09/2026 — mon mécanisme ne tenait pas, le gaspillage si
 
 J'avais contesté l'amendement 2 d'AG-007 (`keepAlive` prépare N+1 dès
 septembre) au motif qu'il double le travail d'une fonction qu'AG-004 sait
@@ -458,7 +458,10 @@ ne l'est plus que si un `getAll?years=` l'a demandée dans les 6 h (drapeau
 `CacheService`). Pire défaillance : un poste paie une lecture froide — le
 comportement d'avant v10.20.0. Jamais pire.
 
-**Bloc laissé ouvert** : l'utilisateur tranche, pas le contradicteur.
+**Bloc sorti d'`AGORA.md`** : il n'y avait plus rien à trancher — proposition
+réfutée, amendement implémenté, et ce qui reste est une **mesure**, pas une
+décision. Le verdict allant contre son auteur, le fermer n'était pas un
+conflit d'intérêts.
 
 **30 secondes pour avancer** : un `keepAlive` du 23/09 après-midi dans les
 Exécutions journalise déjà la durée de chaque préparation
