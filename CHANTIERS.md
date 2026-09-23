@@ -226,8 +226,10 @@ de pertes) — ne pas l'annoncer à l'équipe sans ce conditionnement.
 ## ✅ 23/09/2026 — années multiples et vérification après réponse perdue
 
 Livré côté appli (les deux projets), **GAS v10.21.0 déployé le 23/09/2026**.
-**À confirmer à l'usage** : cocher deux années affiche bien les deux ; un
-enregistrement dont la réponse se perd affiche « confirmé dans le classeur ».
+**Validé sur le terrain le 23/09/2026** par l'utilisateur : nouveau cycle de
+7 ateliers enregistré correctement, sans doublon (projet non précisé). Reste
+à observer : un cas réel de réponse perdue affichant « confirmé dans le
+classeur ».
 - **Sélecteur d'années à cases à cocher** (`ChoixAnnees`, `shared.js`) :
   plusieurs années chargées en **un seul** `getAll?years=` (AG-007,
   `ATELIERS_NEWGEN/AGORA.md`). `f_annee` stocke « 2026,2027 », l'ancien
