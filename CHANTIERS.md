@@ -223,6 +223,28 @@ compte désormais les doublons annulés et les lectures sauvées.
 reste une **inférence** (banc mesuré sur le backend NEWGEN, régime 30-38 %
 de pertes) — ne pas l'annoncer à l'équipe sans ce conditionnement.
 
+## 🔴 23/09/2026 — cycle enregistré en double, et divergence entre les deux projets
+
+**Incident** : cycle de 8 ateliers sur NextStep, réponse de `saveMany` perdue,
+toast rouge, second clic → **16 lignes**. Chaque clic tirait de nouveaux
+`_id`. **Corrigé côté appli, les deux projets** : `_id` gardés tant que
+l'envoi n'a pas réussi, toast « recliquez, cela ne créera pas de doublon »
+(test `e2e/appels.test.js` de NextStep, contre-preuve faite). Doublons
+supprimés à la main par l'utilisateur.
+
+**Divergence** : l'appli a continué d'afficher les doublons supprimés, parce
+que NextStep n'avait **jamais reçu** l'`onEdit` ajouté à NEWGEN en v11.29. Et
+`onEdit` ne voit de toute façon pas une suppression de lignes. **Préparé, à
+déployer** : NextStep v10.19.0, NEWGEN v11.38 (`gas/README.md`, étape
+`installerTriggerChangement`).
+
+**Inventaire GAS du 23/09/2026** (fonctions présentes d'un seul côté) : hors
+simples différences de nom, seuls `onEdit` et `invaliderCacheGetAll`
+manquaient à NextStep. Restent propres à NEWGEN, sans équivalent NextStep :
+`installerTrigger`/`verifierTrigger` (alerte retards), `backupGAS`,
+`ajouterColonneAutre`. **Aucun garde-fou n'empêche la prochaine divergence** :
+c'est la piste `gas-client.js` / test de parité (NextStep §6), à rouvrir.
+
 ## 🐞 23/09/2026 — « Ordinateurs prêtés » vidé au premier enregistrement : non reproduit
 
 Signalé par l'utilisateur sur les deux projets (PC, nouvel atelier, champs
