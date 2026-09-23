@@ -1,6 +1,6 @@
 # GAS_NEXTSTEP.js — copie de référence
 
-### ⏳ v10.19.0 à déployer (préparée le 23/09/2026)
+### ✅ v10.19.0 déployée le 23/09/2026
 
 Vide le cache de l'appli quand on modifie le classeur **à la main**, y
 compris quand on **supprime des lignes** (incident du 23/09/2026 : doublons

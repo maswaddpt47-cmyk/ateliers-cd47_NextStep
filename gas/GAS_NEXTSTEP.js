@@ -1,6 +1,6 @@
 
 // ── GAS Backend v10.19.0 ──────────────────────────────────────
-// ⚠️ v10.19.0 PAS ENCORE DÉPLOYÉE (préparée le 23/09/2026). En ligne : v10.18.0.
+// ✅ v10.19.0 DÉPLOYÉE le 23/09/2026 (confirmé par l'utilisateur).
 // v10.19.0 : modifications faites à la main dans le classeur — onEdit et
 //            invaliderCacheGetAll portés de NEWGEN (jamais recopiés), plus
 //            surChangementFeuille (onChange : suppression/insertion de
