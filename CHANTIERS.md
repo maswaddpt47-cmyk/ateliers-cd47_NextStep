@@ -12,8 +12,10 @@ est soldé. Ce n'est pas de la documentation permanente (cf.
 Réflexion en cours, rien n'est décidé. **Détail complet et questions
 ouvertes : `ATELIERS_NEWGEN/CHANTIERS.md`, section « Refonte
 d'architecture ».** Piste proposée : NEWGEN reprend la relève (c'était son
-rôle), NextStep gelé puis redirigé ; GAS remplacé par PHP+MySQL chez un
-hébergeur français déployé par push GitHub.
+rôle), GAS remplacé par PHP+MySQL chez un hébergeur français déployé par
+push GitHub. **NextStep reste la production jusqu'à la bascule : c'est son
+classeur qui sera copié**, et le code convergé serait publié **à son URL**
+pour ne pas casser les PWA installées de l'équipe (à confirmer).
 
 ---
 
