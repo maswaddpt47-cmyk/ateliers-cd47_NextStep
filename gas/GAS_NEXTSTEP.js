@@ -1240,11 +1240,15 @@ function ajouterColonnesPretMateriel(){
 // ci-dessus rappelle qu'une version trop lourde avait deja ete bloquee de
 // force par Google en boucle, et que ces blocages coincidaient avec les
 // 404/blocages de 30-35 s cote utilisateurs.
-// ⚠️ HYPOTHESE NON VERIFIEE : rien ne prouve que ce soit la cause des
-// demarrages laborieux signales le 22/09/2026. Ce correctif se justifie sur
-// son propre cout (moitie moins de lectures completes), pas sur ce symptome.
-// A recouper dans les Executions Apps Script : lignes keepAlive presentes
-// toutes les 5 min et sous 3 s = il fait son travail.
+// ⚠️ Ce correctif se justifie sur son propre cout (moitie moins de lectures
+// completes), pas sur les demarrages laborieux signales le 22/09/2026.
+// ⚠️ PERIME, corrige le 23/09/2026 : la version precedente de ce commentaire
+// disait « lignes keepAlive presentes toutes les 5 min et sous 3 s = il fait
+// son travail ». Faux critere. Les mails « Summary of failures » des 19-21/09
+// (voir AG-004) montrent que le probleme n'est pas une duree normale un peu
+// longue, mais des executions ARRETEES PAR LA PLATEFORME a 8 min 00 s pile,
+// trois fois. Dans les Executions, ce qu'il faut chercher est donc une ligne
+// keepAlive en « Echec » de ~8 min, pas une lecture lente.
 // v10.18.0 (22/09/2026, AG-004 tranché) — keepAlive NE PREND PLUS le verrou
 // de script. Les mails « Summary of failures » des 19-21/09 montrent trois
 // keepAlive bloqués 8 min 00 s chacun, arrêtés par la plateforme (le code

@@ -439,6 +439,28 @@ dehors des tests automatisés, qui ne peuvent pas les couvrir :
 
 ---
 
+## ⚖️ AG-008 ouvert le 23/09/2026 — keepAlive alourdi le jour où on le sait fragile
+
+AG-004 et AG-007 ont été tranchés le **même jour** sans se citer. Le premier
+établit que `keepAlive` est arrêté par la plateforme à **8 min 00 s** (3 fois
+en 3 jours). Le second lui fait réchauffer **N+1 en plus** à partir de
+septembre — deux lectures complètes par passage froid au lieu d'une. Bloc
+complet dans `AGORA.md` de ATELIERS_NEWGEN.
+
+**Déjà déployé** (v10.21.0). Rien à défaire : la question est « surveiller
+suffit-il, ou faut-il alléger ? ».
+
+⚠️ **Piste écartée, ne pas la rouvrir** : « les grosses réponses se perdent
+davantage ». **Les relevés du 22/09 ne le soutiennent pas** — aucun gradient
+entre taille et pertes : `getAll` (~110 Ko) 5/12 = 42 %, `getComptes` 3/5 =
+60 %, `getConfig` 4/6 = 67 %, `logLogin` 1/3 = 33 %. Le multi-années ne pose
+pas de problème de **livraison** ; seul le **coût d'exécution** de `keepAlive`
+est en cause.
+
+**30 secondes pour avancer** : Exécutions Apps Script depuis le 23/09 au matin
+— durée des `keepAlive` depuis que N+1 est réchauffée, et nouveaux échecs à
+8 min ?
+
 ## Points à ne pas défaire
 
 - **`keepAlive` ne prend jamais le verrou de script** (AG-004, 22/09/2026).
