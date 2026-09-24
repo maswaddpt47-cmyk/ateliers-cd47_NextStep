@@ -449,7 +449,12 @@ tr:hover td{background:#f7fafc}
 .cal-year-sel option{background:#1e3a8a;color:#fff}
 @keyframes fadeInUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
 @keyframes fadeSlideIn{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:translateY(0)}}
-.view-anim{animation:fadeSlideIn .22s ease both}
+/* fill-mode backwards, pas both : avec both, le transform:translateY(0) final
+   restait actif et faisait de .view-anim la référence de tout position:fixed
+   à l'intérieur — le panneau latéral de l'Historique défilait avec la page
+   au lieu de rester à l'écran (signalé le 24/09/2026). Rien ne reste après
+   l'animation, l'état final étant celui par défaut. */
+.view-anim{animation:fadeSlideIn .22s ease backwards}
 `;
   document.head.appendChild(s);
 })();
@@ -478,7 +483,21 @@ function FadeItem({children,delay=0,style={}}){
 // déploiement de production. index.html/admin.html ne définissent jamais
 // cette variable : GS_URL vaut donc toujours l'URL de production pour eux,
 // comportement strictement inchangé.
-const GS_URL = window.GS_URL_OVERRIDE || 'https://script.google.com/macros/s/AKfycbx_YutREW-ucdGKXiHB7Y2hgUMHBJqAF0NprMrXB9p4_dEHPxrWk7nsXxCLDcJBDDHPEw/exec';
+// ── Serveur : API Alwaysdata depuis la bascule du 25/09/2026 ───────────────
+// (refonte GAS → PHP + MySQL, AG-009 / AG-011, dépôt ATELIERS_NEWGEN, dossier
+// api/). Plus aucun appel au GAS : GS_URL pointe volontairement vers une
+// adresse morte, pour qu'un appel direct oublié échoue au lieu d'écrire dans
+// le classeur abandonné. Tout passe par requeteServeur (POST vers l'API, jeton
+// dans le corps) ; une réponse {auth:true} déclenche « ateliers:auth-expiree ».
+const GS_URL = 'about:blank#plus-de-gas';
+const API_PHP_URL = 'https://ateliers-numeriques.alwaysdata.net/api/index.php';
+window.BACKEND_PHP = true;
+window.RETOUR_REINIT_SUFFIXE = '';
+window.requeteServeur = function(params){
+  const token = window.authToken && window.authToken.get();
+  if(token && !params.has('token')) params.set('token', token);
+  return {url:`${API_PHP_URL}?action=${encodeURIComponent(params.get('action')||'')}`, corps:params.toString()};
+};
 // ── Politique d'appel GAS : un seul appel, jamais de retry sur simple lenteur ─
 // Fait mesuré (Network + onglet Logs, en production) : /exec met 12 à 16 s à
 // répondre en temps d'exécution réel — « exec?action=getConfig… 15.87 s »,
@@ -552,7 +571,9 @@ const GAS_TIMEOUT_ECRITURE_LOT_MS = 25000;  // saveMany : N entrées dans la mê
 const GAS_ACTIONS_ECRITURE = new Set([
   'saveEntry','saveMany','delete','saveLists','saveConfig','setConfig',
   'saveVisibility','saveColors','saveEmails','saveCompte',
-  'resetPassword','setPassword','selfSetPassword','logLogin'
+  'resetPassword','setPassword','selfSetPassword','logLogin',
+  // Mot de passe oublié (AG-013) : jamais doublés (deux mails sinon).
+  'demanderReinit','reinitMotDePasse'
 ]);
 const GAS_ACTIONS_LOT = new Set(['saveMany']);
 
@@ -609,14 +630,16 @@ window.logGas = function(action, attempt, ms, issue, file){
 // l'appel (doublage : dès que l'un des deux répond, l'autre n'a plus lieu
 // d'être). ctrl.inutile marqué avant l'annulation évite de journaliser en
 // rouge un appel qu'on a sciemment arrêté.
-window.gasUnAppel = async function(url, action, numero, plafond, ctrlFourni){
+window.gasUnAppel = async function(url, action, numero, plafond, ctrlFourni, corps){
   const limite = plafond || GAS_TIMEOUT_LECTURE_MS;
   const t0 = Date.now();
   const ctrl = ctrlFourni || new AbortController();
   const chien = setTimeout(()=>ctrl.abort(), limite);
   let res;
   try{
-    res = await fetch(url, {signal:ctrl.signal});
+    res = await fetch(url, corps
+      ? {method:'POST', body:corps, headers:{'Content-Type':'application/x-www-form-urlencoded'}, signal:ctrl.signal}
+      : {signal:ctrl.signal});
   }catch(err){
     if(ctrl.inutile){
       // Le jumeau a répondu : ce n'est PAS un échec. Journalisé sous un motif
@@ -655,6 +678,9 @@ window.gasUnAppel = async function(url, action, numero, plafond, ctrlFourni){
   // resumeLogsTexte le compte a part.
   const refus = data && data.ok === false ? 'serveur : ' + (data.error || 'refus') : undefined;
   logGas(action, numero, Date.now()-t0, refus);
+  if(data && data.auth === true){
+    try{ window.dispatchEvent(new Event('ateliers:auth-expiree')); }catch(_){}
+  }
   return data;
 };
 
@@ -668,7 +694,7 @@ const GAS_HEDGE_MS = 7000;
 // premier. Le premier qui répond gagne, l'autre est annulé. On ne rejette que
 // si TOUS les appels partis ont échoué (sinon on abandonnerait sur un 404
 // rapide pendant qu'un doublon est encore en route).
-function gasLectureDoublee(url, action, numero, plafond){
+function gasLectureDoublee(url, action, numero, plafond, corps){
   return new Promise((resolve, reject)=>{
     let termine=false, partis=1, echecs=0, derniere=null;
     let minuteurDoublon=null;
@@ -691,7 +717,7 @@ function gasLectureDoublee(url, action, numero, plafond){
     const lancer=(num)=>{
       const ctrl=new AbortController();
       ctrls.push(ctrl);
-      gasUnAppel(url, action, num, plafond, ctrl).then(d=>gagner(d, ctrl), perdre);
+      gasUnAppel(url, action, num, plafond, ctrl, corps).then(d=>gagner(d, ctrl), perdre);
     };
     lancer(numero);
     // Le doublon porte le numéro de son jumeau suivi de « b » : c'est ce que
@@ -714,7 +740,7 @@ const GAS_SANS_DOUBLON = new Set(['checkPassword']);
 // ── Politique de reprise, partagée par apiFetch et fetchAll ────────────────
 // apiFetch et rawGetAll recopiaient la même boucle, avec des plafonds qui
 // divergeaient à chaque retouche. Une seule implémentation, deux régimes.
-window.gasAppel = async function(url, action){
+window.gasAppel = async function(url, action, corps){
   const ecriture   = GAS_ACTIONS_ECRITURE.has(action);
   const plafond    = gasPlafond(action, ecriture);
   const pause      = ecriture ? GAS_PAUSE_ECRITURE_MS   : GAS_PAUSE_LECTURE_MS;
@@ -728,8 +754,8 @@ window.gasAppel = async function(url, action){
   for(let n=1; n<=tentatives; n++){
     try{
       return doubler
-        ? await gasLectureDoublee(url, action, n, plafond)
-        : await gasUnAppel(url, action, n, plafond);
+        ? await gasLectureDoublee(url, action, n, plafond, corps)
+        : await gasUnAppel(url, action, n, plafond, undefined, corps);
     }catch(err){
       derniere = err;
       // Erreur définitive (403, réponse non-JSON, déploiement cassé, erreur
@@ -1045,6 +1071,84 @@ function pwdPolicyOk(pwd){
   return typeof pwd==='string'&&pwd.length>=12&&/[A-Z]/.test(pwd)&&/[a-z]/.test(pwd)&&/[0-9]/.test(pwd)&&/[^A-Za-z0-9]/.test(pwd);
 }
 
+// ── Mot de passe oublié (AG-013, mode API seulement) ───────────────────────
+// Le conseiller demande un lien par mail ; le lien ramène sur cette même page
+// avec ?reinit=<jeton>, qui affiche le formulaire « nouveau mot de passe ».
+// Le jeton part ensuite dans le corps POST (requeteServeur), jamais dans l'URL
+// d'un appel, et il est retiré de la barre d'adresse une fois utilisé.
+window.jetonReinitUrl=function(){
+  try{const j=new URLSearchParams(window.location.search).get('reinit');return /^[0-9a-f]{64}$/.test(j||'')?j:null;}catch(_){return null;}
+};
+function oterReinitUrl(){
+  try{const u=new URL(window.location.href);u.searchParams.delete('reinit');window.history.replaceState(null,'',u.pathname+u.search+u.hash);}catch(_){}
+}
+const REINIT_CHAMP={width:'100%',padding:'10px 14px',border:'1px solid var(--border)',borderRadius:8,fontSize:14,outline:'none',boxSizing:'border-box',background:'var(--surface)',color:'var(--text)',marginBottom:10};
+const REINIT_BTN={width:'100%',padding:'11px',background:'#1e3a8a',color:'#fff',border:'none',borderRadius:8,fontSize:14,fontWeight:700,cursor:'pointer'};
+const REINIT_LIEN={background:'none',border:'none',color:'#1e3a8a',cursor:'pointer',fontSize:12,textDecoration:'underline',padding:0};
+
+function LienMotDePasseOublie({conseiller}){
+  const[ouvert,setOuvert]=React.useState(false);
+  const[envoi,setEnvoi]=React.useState(false);
+  const[msg,setMsg]=React.useState(null); // {ok,texte}
+  if(!window.BACKEND_PHP) return null;
+  async function envoyer(){
+    setEnvoi(true);setMsg(null);
+    try{
+      const retour=window.location.origin+window.location.pathname+(window.RETOUR_REINIT_SUFFIXE||'');
+      const r=await apiFetch('demanderReinit',{conseiller,retour,userAgent:navigator.userAgent});
+      setMsg(r&&r.ok?{ok:true,texte:r.message}:{ok:false,texte:(r&&r.error)||'Erreur'});
+    }catch(e){setMsg({ok:false,texte:'Erreur réseau : '+e.message});}
+    finally{setEnvoi(false);}
+  }
+  if(!ouvert) return CE('div',{style:{textAlign:'center',marginTop:12}},
+    CE('button',{type:'button',style:REINIT_LIEN,onClick:()=>setOuvert(true)},'Mot de passe oublié ?'));
+  return CE('div',{style:{marginTop:14,padding:12,border:'1px solid var(--border)',borderRadius:8,fontSize:13,color:'var(--text-2)'}},
+    CE('div',{style:{marginBottom:8}},'Un lien pour choisir un nouveau mot de passe sera envoyé à l’adresse mail enregistrée pour ',CE('strong',null,conseiller||'…'),'.'),
+    msg&&CE('p',{style:{color:msg.ok?'#15803d':'#c53030',margin:'0 0 8px'}},msg.texte),
+    !(msg&&msg.ok)&&CE('button',{type:'button',style:{...REINIT_BTN,opacity:envoi||!conseiller?.6:1},disabled:envoi||!conseiller,onClick:envoyer},envoi?'Envoi…':'📧 Recevoir un lien par mail'),
+    CE('div',{style:{textAlign:'center',marginTop:8}},CE('button',{type:'button',style:REINIT_LIEN,onClick:()=>{setOuvert(false);setMsg(null);}},'Fermer'))
+  );
+}
+
+function VueReinitMotDePasse({jeton,onFini}){
+  const[p1,setP1]=React.useState('');
+  const[p2,setP2]=React.useState('');
+  const[voir,setVoir]=React.useState(false);
+  const[envoi,setEnvoi]=React.useState(false);
+  const[err,setErr]=React.useState('');
+  const[fini,setFini]=React.useState(false);
+  function terminer(){oterReinitUrl();onFini&&onFini();}
+  async function valider(){
+    if(!pwdPolicyOk(p1)){setErr('❌ '+PWD_POLICY_MSG);return;}
+    if(p1!==p2){setErr('Les deux mots de passe ne correspondent pas.');return;}
+    setEnvoi(true);setErr('');
+    try{
+      const r=await apiFetch('reinitMotDePasse',{jeton,password:p1,userAgent:navigator.userAgent});
+      if(r&&r.ok){setFini(true);oterReinitUrl();}
+      else setErr((r&&r.error)||'Erreur');
+    }catch(e){setErr('Erreur réseau : '+e.message);}
+    finally{setEnvoi(false);}
+  }
+  if(fini) return CE('div',{style:{textAlign:'center'}},
+    CE('div',{style:{fontSize:32,marginBottom:8}},'✅'),
+    CE('div',{style:{fontSize:15,fontWeight:700,marginBottom:12,color:'var(--text)'}},'Mot de passe changé. Vous pouvez vous connecter.'),
+    CE('button',{type:'button',style:REINIT_BTN,onClick:terminer},'Aller à la connexion'));
+  const champ=(val,set,ph,entree)=>CE('input',{type:voir?'text':'password',placeholder:ph,value:val,autoComplete:'new-password',
+    onChange:e=>set(e.target.value),onKeyDown:e=>entree&&e.key==='Enter'&&valider(),style:REINIT_CHAMP});
+  return CE('div',null,
+    CE('div',{style:{textAlign:'center',fontSize:32,marginBottom:8}},'🔑'),
+    CE('div',{style:{fontSize:15,fontWeight:700,textAlign:'center',marginBottom:4,color:'var(--text)'}},'Choisir un nouveau mot de passe'),
+    CE('div',{style:{fontSize:11,color:'#718096',textAlign:'center',marginBottom:12}},'12 caractères min. avec majuscule, minuscule, chiffre et caractère spécial.'),
+    champ(p1,setP1,'Nouveau mot de passe',false),
+    champ(p2,setP2,'Confirmer',true),
+    CE('label',{style:{fontSize:12,color:'var(--text-2)',display:'flex',gap:6,alignItems:'center',marginBottom:10}},
+      CE('input',{type:'checkbox',checked:voir,onChange:e=>setVoir(e.target.checked)}),'Afficher'),
+    err&&CE('p',{style:{color:'#c53030',fontSize:13,marginBottom:8}},err),
+    CE('button',{type:'button',style:{...REINIT_BTN,opacity:envoi||!p1||!p2?.6:1},disabled:envoi||!p1||!p2,onClick:valider},envoi?'Enregistrement…':'✅ Valider'),
+    CE('div',{style:{textAlign:'center',marginTop:10}},CE('button',{type:'button',style:REINIT_LIEN,onClick:terminer},'Annuler et revenir à la connexion'))
+  );
+}
+
 window.authToken = {
   get()  { return sessionStorage.getItem('gs_token') || null; },
   set(t) { sessionStorage.setItem('gs_token', t); },
@@ -1056,10 +1160,9 @@ window.onLoginSuccess = function(conseiller, res){
   if(res && res.token){
     window.authToken.set(res.token);
     window.authToken.setRole(res.role || 'user');
-    // logLogin en fire-and-forget : le succès n'a plus besoin d'attendre
-    // l'écriture du log de connexion pour répondre (voir GAS actionCheckPassword,
-    // qui ne journalise plus que les échecs sur son chemin critique).
-    setTimeout(function(){
+    // checkPassword journalise déjà la connexion côté API, logLogin
+    // n'y fait plus rien — l'appel n'est plus envoyé.
+    if(false) setTimeout(function(){
       window.apiFetch && window.apiFetch('logLogin',{
         conseiller: conseiller,
         role: res.role || 'user',
@@ -1102,8 +1205,8 @@ window.onLogout = function(){
         params.set(k, typeof v==='object' ? JSON.stringify(v) : v);
       });
     }
-    const url = `${GS_URL}?${params.toString()}`;
-    return gasAppel(url, action);
+    const {url, corps} = window.requeteServeur(params);
+    return gasAppel(url, action, corps);
   };
 })();
 
@@ -1132,7 +1235,8 @@ window.onLogout = function(){
     const params = new URLSearchParams({action:'getAll'});
     params.set(String(year).indexOf(',')>=0 ? 'years' : 'year', String(year));
     if(source) params.set('source', source);
-    const data = await gasAppel(`${GS_URL}?${params.toString()}`, 'getAll');
+    const req = window.requeteServeur(params);
+    const data = await gasAppel(req.url, 'getAll', req.corps);
     // Le mode maintenance n'est pas une erreur, c'est un état que le serveur
     // rapporte : il sort de _getAllFrais avec {ok:false, maintenance:true,
     // msg}. Le renvoyer tel quel évite un appel getConfig dédié côté client
@@ -1395,7 +1499,7 @@ function VueListes({lists,onSave,onClose,emails,onSaveEmails,materielsMasques,on
     // Sauvegarder les matériels masqués (action générique setConfig, purge le cache)
     try{
       const arr=[...masquesDraft];
-      const res=await apiFetch('setConfig',{key:'materiels_masques',value:JSON.stringify(arr)});
+      const res=await apiFetch('setConfig',{key:'materiels_caches',value:JSON.stringify(arr)});
       if(res&&res.ok){if(onSaveMasques)onSaveMasques(arr);}
       else showToast('⚠️ Matériels masqués : erreur GAS',false);
     }catch(_){showToast('⚠️ Matériels masqués : hors-ligne',false);}
@@ -3740,7 +3844,7 @@ function VueAdmin({entries,onRefresh,addLog,conseillersList,onSaveColors}){
       const BATCH=5;let done=0;
       for(let i=0;i<entries_raw.length;i+=BATCH){
         if(cancelRef.current){showToast(`⛔ Annulé — ${done} lignes importées`,false);addLog(`Import CSV annulé à ${done}/${entries_raw.length}`,'info');return;}
-        const batch=entries_raw.slice(i,i+BATCH);const params=new URLSearchParams({action:'saveMany',entries:JSON.stringify(batch)});const res=await Promise.race([fetch(`${GS_URL}?${params.toString()}`),new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')),45000))]);const data=await res.json();if(!data.ok)throw new Error(data.error);done+=batch.length;setImportProgress(Math.round(done/entries_raw.length*100));setImportMsg(`${done}/${entries_raw.length} lignes importées…`);}
+        const batch=entries_raw.slice(i,i+BATCH);const data=await apiFetch('saveMany',{entries:batch});if(!data.ok)throw new Error(data.error);done+=batch.length;setImportProgress(Math.round(done/entries_raw.length*100));setImportMsg(`${done}/${entries_raw.length} lignes importées…`);}
       addLog(`Import CSV : ${entries_raw.length} ateliers`,'ok');showToast(`✅ ${entries_raw.length} ateliers importés`);onRefresh();
     }catch(err){showToast('❌ '+err.message,false);addLog('Erreur import CSV : '+err.message,'err');}
     finally{setImporting(false);setImportProgress(0);setImportMsg('');cancelRef.current=false;}
@@ -3775,7 +3879,7 @@ function VueAdmin({entries,onRefresh,addLog,conseillersList,onSaveColors}){
       const BATCH=5;let done=0;
       for(let i=0;i<entries_raw.length;i+=BATCH){
         if(cancelRef.current){showToast(`⛔ Annulé — ${done} lignes importées`,false);addLog(`Import XLSX annulé à ${done}/${entries_raw.length}`,'info');return;}
-        const batch=entries_raw.slice(i,i+BATCH);const params=new URLSearchParams({action:'saveMany',entries:JSON.stringify(batch)});const res=await Promise.race([fetch(`${GS_URL}?${params.toString()}`),new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')),45000))]);const data=await res.json();if(!data.ok)throw new Error(data.error);done+=batch.length;setImportProgress(Math.round(done/entries_raw.length*100));}
+        const batch=entries_raw.slice(i,i+BATCH);const data=await apiFetch('saveMany',{entries:batch});if(!data.ok)throw new Error(data.error);done+=batch.length;setImportProgress(Math.round(done/entries_raw.length*100));}
       addLog(`Import XLSX : ${entries_raw.length} ateliers`,'ok');showToast(`✅ ${entries_raw.length} ateliers importés`);onRefresh();
     }catch(err){showToast('❌ '+err.message,false);addLog('Erreur import XLSX : '+err.message,'err');}
     finally{setImporting(false);setImportProgress(0);setImportMsg('');cancelRef.current=false;}
