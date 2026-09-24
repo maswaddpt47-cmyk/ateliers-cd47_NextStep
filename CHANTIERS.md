@@ -7,6 +7,26 @@ est soldé. Ce n'est pas de la documentation permanente (cf.
 
 ---
 
+## 🚀 24/09/2026 — Bascule vers l'API Alwaysdata prête, prévue le 25/09/2026 vers 15 h
+
+Branche `claude/architecture-refonte-migration-wqlanb`, **non fusionnée** :
+`deploy.yml` ne part que de `main`, la production reste sur le GAS tant que
+la fusion n'est pas faite. Contenu : code du labo NextStep d'ATELIERS_NEWGEN
+(API en POST, mot de passe oublié, déconnexion auto d'Index à 30 min,
+panneau latéral fixe, annonce de nouvelle version, plus de PWA), espace de
+noms de stockage `nextstep` inchangé. Tests e2e adaptés, 33 verts.
+
+**Ordre du jour J** (détail : `ATELIERS_NEWGEN/CHANTIERS.md`) :
+1. GAS NextStep en maintenance ; export xlsx frais du classeur.
+2. Page d'import de l'API : Analyser, puis Importer.
+3. Fusion de la branche dans `main` (déploiement 2-3 min), vérification.
+4. Désactiver le déclencheur GAS `envoyerAlertesRetard` (sinon rappels en
+   double / sur données figées).
+5. Verrouiller l'import (sinon un second import écraserait les saisies
+   faites après la bascule).
+
+---
+
 ## 🧭 23/09/2026 — Refonte d'architecture en réflexion : NextStep à geler
 
 Réflexion en cours, rien n'est décidé. **Détail complet et questions
