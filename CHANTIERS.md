@@ -7,7 +7,7 @@ est soldé. Ce n'est pas de la documentation permanente (cf.
 
 ---
 
-## 🚀 24/09/2026 — Bascule vers l'API Alwaysdata prête, prévue le 25/09/2026 vers 15 h
+## 🚀 24/09/2026 — Bascule vers l'API Alwaysdata prête, fixée au 25/09/2026 à 15 h 30 (mail envoyé à l'équipe le 24/09)
 
 Branche `claude/architecture-refonte-migration-wqlanb`, **non fusionnée** :
 `deploy.yml` ne part que de `main`, la production reste sur le GAS tant que
