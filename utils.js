@@ -166,7 +166,7 @@ function buildICS(evts) {
 // projet le 19/09/2026.
 function resumeLogsTexte(logs, appli){
   var gas = (logs||[]).filter(function(l){ return l && typeof l.msg === 'string' && l.msg.indexOf('GAS ') === 0; });
-  if(!gas.length) return 'JOURNAL ' + appli + ' : aucun appel GAS enregistré.';
+  if(!gas.length) return 'JOURNAL ' + appli + ' : aucun appel serveur enregistré.';
   var lus = [];
   gas.forEach(function(l){
     // Le suffixe « (file N s) » est optionnel : les lignes journalisees avant
@@ -192,7 +192,7 @@ function resumeLogsTexte(logs, appli){
       jour: d ? d.toLocaleDateString('fr-FR', {day:'2-digit', month:'2-digit'}) : ''
     });
   });
-  if(!lus.length) return 'JOURNAL ' + appli + ' : ' + gas.length + ' lignes GAS, aucune au format attendu.';
+  if(!lus.length) return 'JOURNAL ' + appli + ' : ' + gas.length + ' lignes d\'appel, aucune au format attendu.';
   var ko = lus.filter(function(x){ return x.ko; });
   var refus = lus.filter(function(x){ return x.refus; });
   var okSec = lus.filter(function(x){ return !x.ko && !x.refus && !x.annule; }).map(function(x){ return x.sec; }).sort(function(a,b){ return a-b; });
@@ -206,7 +206,7 @@ function resumeLogsTexte(logs, appli){
   };
   var prem = lus[lus.length-1], der = lus[0];
   var l = [];
-  l.push('JOURNAL ' + appli + ' — ' + lus.length + ' appels GAS');
+  l.push('JOURNAL ' + appli + ' — ' + lus.length + ' appels serveur');
   l.push('periode (heure locale) : ' + prem.jour + ' ' + prem.heure + ' -> ' + der.jour + ' ' + der.heure);
   var reels = lus.filter(function(x){ return !x.annule; });
   l.push('perdus : ' + ko.length + '/' + reels.length + ' (' + Math.round(ko.length/reels.length*100) + '%)'

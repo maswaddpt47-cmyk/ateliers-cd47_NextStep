@@ -182,7 +182,7 @@ describe('resumeLogsTexte', () => {
 
   it('compte les pertes et le temps passé à attendre des réponses mortes', () => {
     const txt = resumeLogsTexte(JOURNAL, 'NEXTSTEP');
-    assert.match(txt, /^JOURNAL NEXTSTEP — 5 appels GAS/);
+    assert.match(txt, /^JOURNAL NEXTSTEP — 5 appels serveur/);
     assert.match(txt, /perdus : 3\/5 \(60%\)/);
     // 8.1 + 12.0 + 12.0 arrondi
     assert.match(txt, /reponses mortes : 32s/);
@@ -244,10 +244,10 @@ describe('resumeLogsTexte', () => {
     assert.match(txt, /doublons non annules : 1 — 1 ont sauve la lecture, 0 en echec  \(\+1 annules/);
   });
 
-  it('ignore les lignes qui ne sont pas des appels GAS, et le journal vide', () => {
+  it('ignore les lignes qui ne sont pas des appels serveur, et le journal vide', () => {
     const melange = [...JOURNAL, { t: '12:00:00', msg: '221 ateliers chargés (2026)', type: 'ok', ts: Date.now() }];
-    assert.match(resumeLogsTexte(melange, 'NEXTSTEP'), /— 5 appels GAS/);
-    assert.equal(resumeLogsTexte([], 'NEWGEN'), 'JOURNAL NEWGEN : aucun appel GAS enregistré.');
+    assert.match(resumeLogsTexte(melange, 'NEXTSTEP'), /— 5 appels serveur/);
+    assert.equal(resumeLogsTexte([], 'NEWGEN'), 'JOURNAL NEWGEN : aucun appel serveur enregistré.');
   });
 });
 
