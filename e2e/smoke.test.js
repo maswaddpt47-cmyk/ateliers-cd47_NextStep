@@ -171,6 +171,15 @@ test('admin — onglet Bingo sans ReferenceError', async ({ page }) => {
   expect(errs, `Bingo : ${errs.join(' | ')}`).toHaveLength(0);
 });
 
+test('admin — onglets Corbeille et Sauvegardes (AG-014) sans erreur', async ({ page }) => {
+  await login(page);
+  for (const onglet of ['Corbeille', 'Sauvegardes']) {
+    const errs = await clickTab(page, onglet);
+    expect(errs, `${onglet} : ${errs.join(' | ')}`).toHaveLength(0);
+  }
+  await expect(page.getByText('Faire une copie maintenant')).toBeVisible();
+});
+
 test('admin — onglet Admin sans ReferenceError (dont section Stock ordinateurs)', async ({ page }) => {
   await login(page);
   const errs = await clickTab(page, 'Admin');

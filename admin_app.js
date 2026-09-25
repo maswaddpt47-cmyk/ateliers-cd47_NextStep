@@ -168,6 +168,8 @@ var VIEW_META = {
   admin:      { ico: '⚙️', label: 'Admin',          group: 'Config' },
   logs:            { ico: '📜',  label: 'Logs',        group: 'Config' },
   logs_connexion:  { ico: '🔐',  label: 'Connexions',  group: 'Config' },
+  corbeille:       { ico: '🗑️',  label: 'Corbeille',   group: 'Config' },
+  sauvegardes:     { ico: '💾',  label: 'Sauvegardes', group: 'Config' },
 };
 
 // ── App Admin ──────────────────────────────────────────────
@@ -581,6 +583,8 @@ const LOGS_KEY = lsKey('adm_logs');
       sideBtn('logs','📜','Logs'),
       role==='admin'&&sideBtn('admin','⚙️','Admin'),
       (role==='admin'||role==='superviseur')&&sideBtn('logs_connexion','🔐','Connexions'),
+      (role==='admin'||role==='superviseur')&&sideBtn('corbeille','🗑️','Corbeille'),
+      (role==='admin'||role==='superviseur')&&sideBtn('sauvegardes','💾','Sauvegardes'),
 
       // Bas : sélecteur année + notifs
       CE('div',{className:'sidebar-bottom'},
@@ -652,6 +656,8 @@ const LOGS_KEY = lsKey('adm_logs');
 
           view==='admin'&&role==='admin'&&CE(VueAdmin,{entries,onRefresh:()=>loadData(),addLog,conseillersList:lists.conseillers,onSaveColors:(c)=>{applyColors(c);},annee:anneeReference(annee),adminConseiller}),
           view==='logs_connexion'&&(role==='admin'||role==='superviseur')&&CE(VueLogs,null),
+          view==='corbeille'&&(role==='admin'||role==='superviseur')&&CE(VueCorbeille,null),
+          view==='sauvegardes'&&(role==='admin'||role==='superviseur')&&CE(VueSauvegardes,null),
           view==='logs'&&CE('div',{className:'card'},
             CE('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14,flexWrap:'wrap',gap:8}},
               CE('h2',{style:{margin:0}},'📜 Journal des opérations'),
@@ -1001,6 +1007,118 @@ const LOGS_COLONNES=[
   {label:'Appareil',key:'user_agent'}
 ];
 let logsCache=null; // {data:[...], ts:number} — survit aux démontages du composant
+// ── Corbeille (AG-014, 25/09/2026) ─────────────────────────────────────────
+// Un atelier supprimé reste 30 jours côté serveur ; restaurer le remet tel
+// quel (refusé si un atelier de même identifiant a été recréé entre-temps).
+function VueCorbeille(){
+  const[liste,setListe]=React.useState(null);
+  const[jours,setJours]=React.useState(30);
+  const[err,setErr]=React.useState('');
+  const[enCours,setEnCours]=React.useState('');
+  function charger(){
+    setErr('');
+    window.apiFetch('getCorbeille')
+      .then(r=>{ if(r&&r.ok){ setListe(r.ateliers||[]); setJours(r.jours||30); } else setErr((r&&r.error)||'Erreur'); })
+      .catch(e=>setErr(e.message||'Erreur réseau'));
+  }
+  React.useEffect(charger,[]);
+  async function restaurer(a){
+    if(!confirm('Restaurer l\'atelier du '+fmtDate(a.date)+' — '+(a.thematique||a.commune||a._id)+' ?')) return;
+    setEnCours(a._id);
+    try{
+      const r=await window.apiFetch('restaurerCorbeille',{_id:a._id});
+      if(r&&r.ok){
+        if(window.__entreeSauvegardee) window.__entreeSauvegardee(r.entry);
+        setListe(l=>l.filter(x=>x._id!==a._id));
+        showToast('✅ Atelier restauré');
+      } else showToast('❌ '+((r&&r.error)||'Erreur'),false);
+    }catch(e){ showToast('❌ '+(e.message||'Erreur réseau'),false); }
+    finally{ setEnCours(''); }
+  }
+  const th={padding:'6px 10px',textAlign:'left',fontSize:11,color:'var(--text-2,#718096)',borderBottom:'1px solid var(--border,#e2e8f0)'};
+  const td={padding:'6px 10px',fontSize:12,borderBottom:'1px solid var(--border,#f0f0f0)'};
+  return CE('div',{className:'card'},
+    CE('h2',{style:{marginTop:0}},'🗑️ Corbeille'),
+    CE('p',{style:{fontSize:12,color:'var(--text-2,#718096)',marginTop:0}},
+      'Les ateliers supprimés sont gardés '+jours+' jours, puis effacés définitivement. « Restaurer » remet l\'atelier tel qu\'il était au moment de sa suppression.'),
+    err&&CE('p',{style:{color:'#c53030',fontSize:13}},err+(window.BACKEND_PHP?'':' (corbeille disponible avec le serveur Alwaysdata seulement)')),
+    liste===null&&!err&&CE('p',{style:{fontSize:13}},'Chargement…'),
+    liste&&liste.length===0&&CE('p',{style:{fontSize:13,color:'var(--text-2,#718096)'}},'La corbeille est vide.'),
+    liste&&liste.length>0&&CE('div',{style:{overflowX:'auto'}},
+      CE('table',{style:{width:'100%',borderCollapse:'collapse'}},
+        CE('thead',null,CE('tr',null,['Atelier','Commune','Conseiller','Supprimé le','Par',''].map(h=>CE('th',{key:h,style:th},h)))),
+        CE('tbody',null,liste.map(a=>CE('tr',{key:a._id},
+          CE('td',{style:td},CE('strong',null,fmtDate(a.date)+(a.horaire?' '+a.horaire:'')),' — ',a.thematique||'—'),
+          CE('td',{style:td},a.commune||'—'),
+          CE('td',{style:td},a.conseiller||'—'),
+          CE('td',{style:td},fmtDate(String(a.supprime_le).slice(0,10))+' '+String(a.supprime_le).slice(11,16)),
+          CE('td',{style:td},a.supprime_par||'—'),
+          CE('td',{style:{...td,textAlign:'right'}},
+            CE('button',{disabled:!!enCours,onClick:()=>restaurer(a),style:{padding:'4px 10px',fontSize:12,fontWeight:700,border:'1px solid #1e3a8a',color:'#1e3a8a',background:'transparent',borderRadius:6,cursor:'pointer'}},
+              enCours===a._id?'…':'↩ Restaurer'))
+        )))
+      )
+    )
+  );
+}
+
+// ── Sauvegardes (AG-014, 25/09/2026) ───────────────────────────────────────
+// Lecture seule + copie à la demande. Pas de restauration complète ici, par
+// choix : une session Admin volée ne doit pas pouvoir effacer la base.
+function VueSauvegardes(){
+  const[etat,setEtat]=React.useState(null);
+  const[err,setErr]=React.useState('');
+  const[copie,setCopie]=React.useState(false);
+  function charger(){
+    setErr('');
+    window.apiFetch('etatSauvegardes')
+      .then(r=>{ if(r&&r.ok) setEtat(r); else setErr((r&&r.error)||'Erreur'); })
+      .catch(e=>setErr(e.message||'Erreur réseau'));
+  }
+  React.useEffect(charger,[]);
+  async function copierMaintenant(){
+    setCopie(true);
+    try{
+      const r=await window.apiFetch('copieMaintenant');
+      if(r&&r.ok){ showToast('✅ Copie faite : '+r.fichier); charger(); }
+      else showToast('❌ '+((r&&r.error)||'Erreur'),false);
+    }catch(e){ showToast('❌ '+(e.message||'Erreur réseau'),false); }
+    finally{ setCopie(false); }
+  }
+  // Une copie de plus de 26 h veut dire que la tâche de nuit n'a pas tourné.
+  const age=s=>{ if(!s) return Infinity; const d=new Date(String(s).replace(' ','T')); return isNaN(d)?Infinity:(Date.now()-d.getTime())/3600000; };
+  const affDate=s=>s?fmtDate(String(s).slice(0,10))+' à '+String(s).slice(11,16):'jamais';
+  const derniere=etat&&etat.copies&&etat.copies[0];
+  const tuile=(titre,ok,ligne,detail)=>CE('div',{style:{flex:'1 1 240px',padding:'12px 14px',borderRadius:10,border:'1px solid '+(ok?'#bbf7d0':'#fecaca'),background:ok?'#f0fdf4':'#fef2f2'}},
+    CE('div',{style:{fontSize:12,fontWeight:700,color:'#374151'}},titre),
+    CE('div',{style:{fontSize:15,fontWeight:800,margin:'4px 0',color:ok?'#166534':'#991b1b'}},(ok?'✅ ':'⚠️ ')+ligne),
+    CE('div',{style:{fontSize:11,color:'#6b7280'}},detail));
+  const td={padding:'4px 10px',fontSize:12,borderBottom:'1px solid var(--border,#f0f0f0)'};
+  return CE('div',{className:'card'},
+    CE('h2',{style:{marginTop:0}},'💾 Sauvegardes'),
+    err&&CE('p',{style:{color:'#c53030',fontSize:13}},err+(window.BACKEND_PHP?'':' (disponible avec le serveur Alwaysdata seulement)')),
+    etat===null&&!err&&CE('p',{style:{fontSize:13}},'Chargement…'),
+    etat&&CE(React.Fragment,null,
+      CE('div',{style:{display:'flex',gap:12,flexWrap:'wrap',marginBottom:14}},
+        tuile('Copie de nuit (Alwaysdata, 03:00)',age(derniere&&derniere.date)<26,affDate(derniere&&derniere.date),
+          (etat.copies||[]).length+' copie(s) gardée(s), '+etat.jours+' jours'),
+        tuile('Copie chiffrée hors site (04:15)',age(etat.chiffree)<26,affDate(etat.chiffree),
+          'Dépôt GitHub privé, lisible avec la clé privée seulement')
+      ),
+      CE('button',{disabled:copie,onClick:copierMaintenant,style:{padding:'8px 16px',fontSize:13,fontWeight:700,background:'#1e3a8a',color:'#fff',border:'none',borderRadius:8,cursor:copie?'progress':'pointer'}},
+        copie?'Copie en cours…':'💾 Faire une copie maintenant'),
+      CE('p',{style:{fontSize:11,color:'var(--text-2,#718096)'}},'À faire avant une grosse manipulation. Une copie toutes les 5 minutes au plus.'),
+      (etat.copies||[]).length>0&&CE('details',{style:{marginTop:10}},
+        CE('summary',{style:{fontSize:12,cursor:'pointer'}},'Voir les copies disponibles'),
+        CE('table',{style:{borderCollapse:'collapse',marginTop:6}},CE('tbody',null,
+          etat.copies.map(c=>CE('tr',{key:c.nom},CE('td',{style:td},affDate(c.date)),CE('td',{style:td},c.ko+' Ko'))))))
+      ,
+      CE('p',{style:{fontSize:12,color:'var(--text-2,#718096)',marginTop:14}},
+        '🔒 Restaurer toute la base n\'est pas possible depuis l\'Admin, volontairement : suivre la procédure de restauration (PDF). Pour un atelier supprimé par erreur, utiliser la Corbeille.')
+    )
+  );
+}
+
 function VueLogs(){
   const[logs,setLogs]=React.useState([]);
   const[loading,setLoading]=React.useState(true);

@@ -573,7 +573,9 @@ const GAS_ACTIONS_ECRITURE = new Set([
   'saveVisibility','saveColors','saveEmails','saveCompte',
   'resetPassword','setPassword','selfSetPassword','logLogin',
   // Mot de passe oublié (AG-013) : jamais doublés (deux mails sinon).
-  'demanderReinit','reinitMotDePasse'
+  'demanderReinit','reinitMotDePasse',
+  // Corbeille et copie à la demande (AG-014) : écritures, jamais doublées.
+  'restaurerCorbeille','copieMaintenant'
 ]);
 const GAS_ACTIONS_LOT = new Set(['saveMany']);
 
@@ -1192,7 +1194,7 @@ window.onLogout = function(){
     'saveLists','saveConfig','setConfig',
     'saveVisibility','saveColors','saveEmails',
     'saveCompte','resetPassword','setPassword',
-    'getLogs'
+    'getLogs','getCorbeille','restaurerCorbeille','etatSauvegardes','copieMaintenant'
   ]);
 
   window.apiFetch = async function apiFetch(action, body={}){
