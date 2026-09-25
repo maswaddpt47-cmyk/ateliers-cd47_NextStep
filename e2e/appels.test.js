@@ -135,6 +135,7 @@ test('index — modifier un atelier émet saveEntry seul, sans getAll derrière'
     .toHaveCount(1, { timeout:10000 });
   await selectConseiller.selectOption('Michel Aswad');
 
+  await page.locator('select').first().selectOption({ index: 1 }).catch(() => {});  // aucun nom présélectionné (25/09/2026)
   await page.fill('input[type="password"]', 'test');
   await page.getByText('🔓 Connexion', { exact:true }).click();
   await page.waitForSelector('.sidebar-btn', { timeout:10000 });
@@ -167,6 +168,7 @@ test('admin — deux onglets écrivent dans le journal sans s\'écraser', async 
     await instrumenter(p);
     await p.goto('/admin.html');
     await p.waitForSelector('input[type="password"]', { timeout:10000 });
+    await p.locator('select').first().selectOption({ index: 1 }).catch(() => {});  // aucun nom présélectionné (25/09/2026)
     await p.fill('input[type="password"]', 'test');
     await p.getByText('Connexion', { exact:true }).click();
     await p.waitForSelector('.sidebar-btn', { timeout:10000 });
@@ -207,6 +209,7 @@ test('index — aucun getConfig, le drapeau maintenance voyage dans getAll', asy
   const appels = await instrumenter(page);
   await page.goto('/index.html');
   await page.waitForSelector('input[type="password"]', { timeout:10000 });
+  await page.locator('select').first().selectOption({ index: 1 }).catch(() => {});  // aucun nom présélectionné (25/09/2026)
   await page.fill('input[type="password"]', 'test');
   await page.getByText('🔓 Connexion', { exact:true }).click();
   await page.waitForSelector('.sidebar-btn', { timeout:10000 });
@@ -233,6 +236,7 @@ test('index — le mode maintenance s\'affiche toujours, via getAll seul', async
 
   await page.goto('/index.html');
   await page.waitForSelector('input[type="password"]', { timeout:10000 });
+  await page.locator('select').first().selectOption({ index: 1 }).catch(() => {});  // aucun nom présélectionné (25/09/2026)
   await page.fill('input[type="password"]', 'test');
   await page.getByText('🔓 Connexion', { exact:true }).click();
 
@@ -319,6 +323,7 @@ test('cycle — un second clic après échec renvoie les mêmes _id', async ({ p
   const selectConseiller = page.locator('select').first();
   await expect(selectConseiller.locator('option', { hasText:'Michel Aswad' })).toHaveCount(1, { timeout:10000 });
   await selectConseiller.selectOption('Michel Aswad');
+  await page.locator('select').first().selectOption({ index: 1 }).catch(() => {});  // aucun nom présélectionné (25/09/2026)
   await page.fill('input[type="password"]', 'test');
   await page.getByText('🔓 Connexion', { exact:true }).click();
   await page.waitForSelector('.sidebar-btn', { timeout:10000 });
@@ -381,6 +386,7 @@ test('cycle — réponse perdue mais ateliers dans la feuille : succès affiché
   const selectConseiller = page.locator('select').first();
   await expect(selectConseiller.locator('option', { hasText:'Michel Aswad' })).toHaveCount(1, { timeout:10000 });
   await selectConseiller.selectOption('Michel Aswad');
+  await page.locator('select').first().selectOption({ index: 1 }).catch(() => {});  // aucun nom présélectionné (25/09/2026)
   await page.fill('input[type="password"]', 'test');
   await page.getByText('🔓 Connexion', { exact:true }).click();
   await page.waitForSelector('.sidebar-btn', { timeout:10000 });
@@ -426,6 +432,7 @@ test('années — cocher une seconde année recharge en UN appel years=', async 
   const selectConseiller = page.locator('select').first();
   await expect(selectConseiller.locator('option', { hasText:'Michel Aswad' })).toHaveCount(1, { timeout:10000 });
   await selectConseiller.selectOption('Michel Aswad');
+  await page.locator('select').first().selectOption({ index: 1 }).catch(() => {});  // aucun nom présélectionné (25/09/2026)
   await page.fill('input[type="password"]', 'test');
   await page.getByText('🔓 Connexion', { exact:true }).click();
   await page.waitForSelector('.sidebar-btn', { timeout:10000 });
@@ -452,11 +459,13 @@ test('bascule — plus aucun appel au GAS, sur Index comme sur Admin', async ({ 
   await page.route('**/script.google.com/**', route => { gas.push(route.request().url()); return route.abort(); });
   await page.goto('/index.html');
   await page.waitForSelector('input[type="password"]', { timeout:10000 });
+  await page.locator('select').first().selectOption({ index: 1 }).catch(() => {});  // aucun nom présélectionné (25/09/2026)
   await page.fill('input[type="password"]', 'test');
   await page.getByText('🔓 Connexion', { exact:true }).click();
   await page.waitForTimeout(1500);
   await page.goto('/admin.html');
   await page.waitForSelector('input[type="password"]', { timeout:10000 });
+  await page.locator('select').first().selectOption({ index: 1 }).catch(() => {});  // aucun nom présélectionné (25/09/2026)
   await page.fill('input[type="password"]', 'test');
   await page.getByText('Connexion', { exact:true }).click();
   await page.waitForTimeout(1500);

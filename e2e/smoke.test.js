@@ -93,6 +93,7 @@ async function login(page) {
   // Attend que le formulaire de login soit visible
   await page.waitForSelector('input[type="password"]', { timeout: 10000 });
   // Remplit et soumet
+  await page.locator('select').first().selectOption({ index: 1 }).catch(() => {});  // aucun nom présélectionné (25/09/2026)
   await page.fill('input[type="password"]', 'test');
   await page.getByText('Connexion', { exact: true }).click();
   // Attend que la sidebar soit visible (= connexion réussie)
@@ -106,6 +107,7 @@ async function loginIndex(page) {
   await page.waitForSelector('input[type="password"]', { timeout: 10000 });
   // 'test' ne correspond au mot de passe par défaut d'aucun conseiller mocké
   // (defaultPwdIndex → "cd47<prénom>") : évite l'écran de changement forcé.
+  await page.locator('select').first().selectOption({ index: 1 }).catch(() => {});  // aucun nom présélectionné (25/09/2026)
   await page.fill('input[type="password"]', 'test');
   await page.getByText('🔓 Connexion', { exact: true }).click();
   await page.waitForSelector('.sidebar-btn', { timeout: 10000 });

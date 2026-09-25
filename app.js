@@ -85,7 +85,9 @@ function VueLoginIndex({conseillers,onSuccess}){
   const MAX_FAILS=3, LOCK_MS=5*60*1000;
   const base=conseillers&&conseillers.length?conseillers:CONSEILLERS_DEFAULT;
 
-  const[conseiller,setConseiller]=React.useState(base[0]||'');
+  // Aucun nom présélectionné (demande de l'utilisateur, 25/09/2026) : on se
+  // connectait parfois sous le nom proposé sans y prêter attention.
+  const[conseiller,setConseiller]=React.useState('');
   const[pwd,setPwd]=React.useState('');
   const[show,setShow]=React.useState(false);
   const[err,setErr]=React.useState('');
@@ -104,7 +106,7 @@ function VueLoginIndex({conseillers,onSuccess}){
   const[changingPwd,setChangingPwd]=React.useState(false);
   const[showNewPwd,setShowNewPwd]=React.useState(false);
 
-  React.useEffect(()=>{ if(base.length) setConseiller(c=>base.includes(c)?c:base[0]); },[base.join(',')]);
+  React.useEffect(()=>{ if(base.length) setConseiller(c=>base.includes(c)?c:''); },[base.join(',')]);
 
   React.useEffect(()=>{
     if(!lockUntil||lockUntil<=Date.now())return;
@@ -121,6 +123,7 @@ function VueLoginIndex({conseillers,onSuccess}){
   const isLocked=lockUntil>Date.now()||countdown>0;
 
   async function handleSubmit(){
+    if(!conseiller){setErr('Choisissez votre nom dans la liste.');return;}
     if(!pwd.trim()||isLocked)return;
     setLoading(true);setErr('');
     try{
@@ -222,6 +225,7 @@ function VueLoginIndex({conseillers,onSuccess}){
             CE(AnnonceNouvelleVersion),
             CE('label',{className:'accueil-label'},'Qui êtes-vous ?'),
             CE('select',{className:'accueil-select',value:conseiller,onChange:e=>setConseiller(e.target.value)},
+              CE('option',{value:''},'— Choisir votre nom —'),
               base.map(c=>CE('option',{key:c,value:c},c))
             ),
             CE('div',{style:{position:'relative',margin:'10px 0'}},
@@ -234,7 +238,7 @@ function VueLoginIndex({conseillers,onSuccess}){
               CE('button',{onClick:()=>setShow(s=>!s),style:{position:'absolute',right:10,top:'50%',transform:'translateY(-50%)',background:'none',border:'none',cursor:'pointer',fontSize:16,color:'#718096',padding:0}},show?'🙈':'👁️')
             ),
             err&&CE('p',{style:{color:'#c53030',fontSize:13,marginBottom:8}},err),
-            CE('button',{className:'accueil-btn',disabled:loading||!pwd.trim(),onClick:handleSubmit},loading?'Vérification…':'🔓 Connexion'),
+            CE('button',{className:'accueil-btn',disabled:loading||!conseiller||!pwd.trim(),onClick:handleSubmit},loading?'Vérification…':'🔓 Connexion'),
             CE(LienMotDePasseOublie,{conseiller}),
             CE(MentionVersion)
           )

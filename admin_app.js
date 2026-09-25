@@ -33,11 +33,13 @@ function AdminLogin({onLogin,savedName,onResetProfil,conseillers:conseillersProp
   const[lockUntil,setLockUntil]=React.useState(0);
   const[countdown,setCountdown]=React.useState(0);
   const base=conseillersProp&&conseillersProp.length?conseillersProp:CONSEILLERS_DEFAULT;
-  const[conseiller,setConseiller]=React.useState(()=>savedName&&savedName!=='admin'&&base.includes(savedName)?savedName:(base[0]||''));
+  // Aucun nom présélectionné, même le dernier utilisé (demande de
+  // l'utilisateur, 25/09/2026) : connexions sous un nom pris sans y penser.
+  const[conseiller,setConseiller]=React.useState('');
   // Resync quand la liste arrive depuis App (fetch async)
   React.useEffect(()=>{
     if(!base.length)return;
-    setConseiller(c=>base.includes(c)?c:base[0]);
+    setConseiller(c=>base.includes(c)?c:'');
   },[base.join(',')]);
 
   // Préchargement des ateliers en parallèle de la saisie du mot de passe :
@@ -67,6 +69,7 @@ function AdminLogin({onLogin,savedName,onResetProfil,conseillers:conseillersProp
   const isLocked=lockUntil>Date.now()||countdown>0;
 
   async function handleSubmit(){
+    if(!conseiller){setErr('Choisissez votre nom dans la liste.');return;}
     if(!pwd.trim()||isLocked) return;
     setLoading(true);setErr('');setHint('');
     const isMobile=/Android|iPhone|iPad/i.test(navigator.userAgent);
@@ -130,6 +133,7 @@ function AdminLogin({onLogin,savedName,onResetProfil,conseillers:conseillersProp
             CE('div',{style:{marginBottom:10}},
               CE('label',{style:{fontSize:12,fontWeight:600,color:'#4a5568',display:'block',marginBottom:4}},'Conseiller'),
               CE('select',{value:conseiller,onChange:e=>setConseiller(e.target.value),style:{width:'100%',padding:'10px 14px',border:'1px solid #e2e8f0',borderRadius:8,fontSize:14,outline:'none',boxSizing:'border-box',background:'#fff'}},
+                CE('option',{value:''},'— Choisir votre nom —'),
                 base.map(c=>CE('option',{key:c,value:c},c))
               )
             ),
@@ -144,7 +148,7 @@ function AdminLogin({onLogin,savedName,onResetProfil,conseillers:conseillersProp
             ),
             err&&CE('p',{style:{color:'#c53030',fontSize:13,marginBottom:8}},err),
             hint&&!err&&CE('p',{style:{color:'#718096',fontSize:12,marginBottom:8,display:'flex',alignItems:'center',gap:6}},CE('span',{className:'spinner',style:{width:12,height:12,borderWidth:2}}),hint),
-            CE('button',{onClick:handleSubmit,disabled:loading||!pwd.trim(),style:{width:'100%',padding:'11px',background:'#1e3a8a',color:'#fff',border:'none',borderRadius:8,fontSize:14,fontWeight:700,cursor:loading?'progress':'pointer'}},loading?'Vérification…':'Connexion'),
+            CE('button',{onClick:handleSubmit,disabled:loading||!conseiller||!pwd.trim(),style:{width:'100%',padding:'11px',background:'#1e3a8a',color:'#fff',border:'none',borderRadius:8,fontSize:14,fontWeight:700,cursor:loading?'progress':'pointer'}},loading?'Vérification…':'Connexion'),
             CE(LienMotDePasseOublie,{conseiller}),
             CE(MentionVersion)
           )
