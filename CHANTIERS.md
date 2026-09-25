@@ -7,6 +7,14 @@ est soldé. Ce n'est pas de la documentation permanente (cf.
 
 ---
 
+## ✅ 25/09/2026 — Bascule faite et contrôlée (avancée au matin)
+
+En ligne à 10:12 (`a75fb91`), contrôlée par l'utilisateur vers 10:25 (Admin,
+Index, atelier de test, maintenance levée). GAS NextStep coupé (accès
+« Seulement moi »), déclencheur `envoyerAlertesRetard` supprimé, import
+verrouillé. Détail : `ATELIERS_NEWGEN/CHANTIERS.md`. Le bloc ci-dessous est
+l'ordre du jour tel qu'il avait été préparé.
+
 ## 🚀 24/09/2026 — Bascule vers l'API Alwaysdata prête, fixée au 25/09/2026 à 15 h 30 (mail envoyé à l'équipe le 24/09)
 
 Branche `claude/architecture-refonte-migration-wqlanb`, **non fusionnée** :
