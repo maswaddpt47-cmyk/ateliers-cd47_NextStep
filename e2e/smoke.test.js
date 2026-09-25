@@ -66,7 +66,7 @@ test.beforeEach(async ({ page }) => {
   // geo.api.gouv.fr : coordonnees (fetchGPSCommune) et contours de communes.
   // Jamais intercepte jusqu'ici — un vrai appel sortait pendant les suites.
   await page.route('**/geo.api.gouv.fr/**', route => route.abort());
-  await page.route('**/script.google.com/**', async route => {
+  await page.route('**/ateliers-numeriques.alwaysdata.net/**', async route => {
     const url = new URL(route.request().url());
     const action = url.searchParams.get('action') || '';
     await route.fulfill({

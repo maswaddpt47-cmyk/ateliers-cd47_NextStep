@@ -58,6 +58,26 @@ function defaultPwdIndex(nom){
   return 'cd47'+p;
 }
 
+// ── Annonce de la nouvelle version (bascule vers Alwaysdata) ──────────────
+// Affichée sur l'écran de connexion jusqu'à ce que le conseiller clique
+// « Compris » (mémorisé sur ce poste). Non bloquante : on peut se connecter
+// sans la fermer. À retirer quelques semaines après la bascule.
+function AnnonceNouvelleVersion(){
+  const CLE=lsKey('annonce_alwaysdata_vue');
+  const[vue,setVue]=React.useState(()=>{ try{ return localStorage.getItem(CLE)==='1'; }catch(_){ return false; } });
+  if(vue) return null;
+  const fermer=()=>{ try{ localStorage.setItem(CLE,'1'); }catch(_){} setVue(true); };
+  return CE('div',{role:'status',style:{background:'#eff6ff',border:'1px solid #93c5fd',borderRadius:10,padding:'12px 14px',margin:'0 0 14px',fontSize:13,lineHeight:1.45,color:'#1e3a8a',textAlign:'left'}},
+    CE('div',{style:{fontWeight:800,fontSize:14,marginBottom:6}},'🚀 Nouvelle version de l\u2019application'),
+    CE('div',null,'Les ateliers sont désormais enregistrés sur un nouveau serveur : ',CE('strong',null,'plus rapide et sans échecs d\u2019enregistrement'),'.'),
+    CE('ul',{style:{margin:'6px 0 8px',paddingLeft:18}},
+      CE('li',null,'Même adresse, mêmes écrans, mêmes ateliers.'),
+      CE('li',null,'Connectez-vous comme d\u2019habitude, avec ',CE('strong',null,'votre mot de passe habituel'),'.'),
+      CE('li',null,'Mot de passe oublié ? Un lien « Mot de passe oublié ? » est maintenant disponible sous le bouton de connexion.')),
+    CE('button',{type:'button',onClick:fermer,style:{background:'#1e3a8a',color:'#fff',border:'none',borderRadius:6,padding:'6px 14px',fontWeight:700,fontSize:12,cursor:'pointer'}},'Compris')
+  );
+}
+
 // ── VueLoginIndex — gate mot de passe par conum (identification, avant l'accueil) ─
 // Porté depuis ATELIERS_NEWGEN app.js (validé en production là-bas). Seul le
 // titre et CONSEILLERS_DEFAULT diffèrent — logique inchangée.
@@ -107,7 +127,8 @@ function VueLoginIndex({conseillers,onSuccess}){
       const res=await apiFetch('checkPassword',{conseiller,password:pwd,userAgent:navigator.userAgent,source:'index.html'});
       if(res.ok){
         setFailCount(0);setLockUntil(0);
-        if(pwd.trim()===defaultPwdIndex(conseiller)){
+        // doit_changer : mot de passe provisoire de l'API (resetPassword).
+        if(res.doit_changer||pwd.trim()===defaultPwdIndex(conseiller)){
           setPendingRes(res);
           setMustChangePwd(true);
         }else{
@@ -198,6 +219,7 @@ function VueLoginIndex({conseillers,onSuccess}){
             CE('button',{className:'accueil-btn',disabled:changingPwd||!newPwd||!newPwd2,onClick:handleChangePwd},changingPwd?'Enregistrement…':'✅ Valider et continuer')
           )
         : CE(React.Fragment,null,
+            CE(AnnonceNouvelleVersion),
             CE('label',{className:'accueil-label'},'Qui êtes-vous ?'),
             CE('select',{className:'accueil-select',value:conseiller,onChange:e=>setConseiller(e.target.value)},
               base.map(c=>CE('option',{key:c,value:c},c))
@@ -212,7 +234,8 @@ function VueLoginIndex({conseillers,onSuccess}){
               CE('button',{onClick:()=>setShow(s=>!s),style:{position:'absolute',right:10,top:'50%',transform:'translateY(-50%)',background:'none',border:'none',cursor:'pointer',fontSize:16,color:'#718096',padding:0}},show?'🙈':'👁️')
             ),
             err&&CE('p',{style:{color:'#c53030',fontSize:13,marginBottom:8}},err),
-            CE('button',{className:'accueil-btn',disabled:loading||!pwd.trim(),onClick:handleSubmit},loading?'Vérification…':'🔓 Connexion')
+            CE('button',{className:'accueil-btn',disabled:loading||!pwd.trim(),onClick:handleSubmit},loading?'Vérification…':'🔓 Connexion'),
+            CE(LienMotDePasseOublie,{conseiller})
           )
     )
   );
@@ -249,16 +272,19 @@ function App(){
   // relevait que « le getAll qui servait à récupérer lists.conseillers
   // coûtait ~20 s pour la même information ».
   const[loginConseillers,setLoginConseillers]=React.useState(CONSEILLERS_DEFAULT);
+  // Lien « mot de passe oublié » reçu par mail (?reinit=…).
+  const[jetonReinit,setJetonReinit]=React.useState(()=>window.jetonReinitUrl());
 
   // SEUL appel lancé avant la connexion. Mesuré à 1,8-2,2 s quand il part
   // seul (Journal client, 18/09/2026) — contre des HTTP 404 à 15-34 s quand
   // il partait dans la rafale getComptes + getConfig + getAll.
   React.useEffect(()=>{
+    // Labo : getComptes public rend les noms (sans état) et la maintenance.
     apiFetch('getComptes').then(res=>{
       if(!res.ok||!res.comptes) return;
-      setInactifsSet(new Set(res.comptes.filter(c=>c.actif==='NON').map(c=>c.conseiller)));
-      const actifs=res.comptes.filter(c=>c.actif!=='NON').map(c=>c.conseiller).filter(Boolean);
-      if(actifs.length>0) setLoginConseillers(actifs);
+      const noms=res.comptes.map(c=>c.conseiller).filter(Boolean);
+      if(noms.length>0) setLoginConseillers(noms);
+      if(res.maintenance) setMaintenance({msg:res.maintenance_msg||''});
     }).catch(()=>{});
   },[]);
   const[sidebarPinned,setSidebarPinned] = React.useState(()=>localStorage.getItem(lsKey('sidebar_pinned'))==='1');
@@ -282,6 +308,46 @@ function App(){
   function setAnnee(v){ localStorage.setItem(lsKey('f_annee'),v); setAnneeState(v); }
   function resetConseiller(){ setFiltreConseiller(null); }
   function togglePin(){ setSidebarPinned(p=>{ const n=!p; localStorage.setItem(lsKey('sidebar_pinned'),n?'1':'0'); return n; }); }
+  // Jeton refusé par l'API (expiré après 6 h) : retour à la connexion.
+  React.useEffect(()=>{
+    const f=()=>{ window.authToken.clear(); sessionStorage.removeItem('gs_conseiller'); setAuthed(false); setFiltreConseiller(null); setShowPicker(false); setView('accueil'); setError(null); };
+    window.addEventListener('ateliers:auth-expiree',f);
+    return()=>window.removeEventListener('ateliers:auth-expiree',f);
+  },[]);
+  // ── Déconnexion automatique après 30 min d'inactivité (24/09/2026) ──────
+  // Même règle que l'Admin, pour les postes partagés (médiathèques, lieux
+  // d'accueil) : une session oubliée restait ouverte jusqu'à 6 h. Clé propre
+  // à Index : l'activité sur l'Admin ne prolonge pas Index. EXCEPTION
+  // volontaire : jamais pendant la saisie d'un atelier (aucun brouillon
+  // n'est gardé, un conseiller qui anime son atelier perdrait sa saisie) —
+  // le compteur reprend en sortant du formulaire.
+  const vueCourante=React.useRef(view);
+  vueCourante.current=view;
+  React.useEffect(()=>{
+    if(!authed) return;
+    const CLE=lsKey('idx_derniere_activite'), DELAI=30*60*1000;
+    const toucher=()=>{ try{ localStorage.setItem(CLE,String(Date.now())); }catch(_){} };
+    const expirer=()=>{
+      if(vueCourante.current==='saisie') return false;
+      let dernier=0; try{ dernier=parseInt(localStorage.getItem(CLE)||'0',10); }catch(_){}
+      if(!(dernier>0&&Date.now()-dernier>DELAI)) return false;
+      window.authToken.clear();
+      setAuthed(false); setFiltreConseiller(null); setShowPicker(false); setView('accueil');
+      showToast('⏱️ Déconnecté après 30 min d’inactivité.',false);
+      return true;
+    };
+    toucher();
+    const minuteur=setInterval(expirer,60*1000);
+    const auRetour=()=>{ if(!expirer()) toucher(); };
+    const activite=()=>{ if(!expirer()) toucher(); };
+    window.addEventListener('focus',auRetour);
+    ['keydown','mousedown','touchstart'].forEach(t=>window.addEventListener(t,activite,{passive:true}));
+    return()=>{
+      clearInterval(minuteur);
+      window.removeEventListener('focus',auRetour);
+      ['keydown','mousedown','touchstart'].forEach(t=>window.removeEventListener(t,activite));
+    };
+  },[authed]);
   function handleLogout(){
     if(!window.confirm('Se déconnecter ?'))return;
     window.authToken.clear();
@@ -346,7 +412,9 @@ function App(){
       }
       if(data.visibility)setVisibility(v=>({...v,...data.visibility}));
       if(data.conseiller_colors)applyColors(data.conseiller_colors);
-      if(Array.isArray(data.materiels_masques))setMaterielsMasques(data.materiels_masques);
+      // L'API rend la forme NEWGEN (materielsCaches), pas materiels_masques.
+      if(Array.isArray(data.materielsCaches))setMaterielsMasques(data.materielsCaches);
+      if(Array.isArray(data.conseillers_inactifs))setInactifsSet(new Set(data.conseillers_inactifs));
       if(data.stockOrdinateurs)STOCK_ORDINATEURS=parseInt(data.stockOrdinateurs)||STOCK_ORDINATEURS;
       setLastSync(new Date());
       setSeenIds(prev=>{
@@ -520,6 +588,11 @@ function App(){
   // maintenance" : on affiche la landing tout de suite, sans attendre. Seul
   // un getAll rapportant maintenance:true bascule sur MaintenanceScreen.
   if(maintenance && maintenance!==false) return CE(MaintenanceScreen,{msg:maintenance.msg});
+
+  if(jetonReinit){
+    return CE('div',{className:'accueil-wrap'},CE('div',{className:'accueil-card'},
+      CE(VueReinitMotDePasse,{jeton:jetonReinit,onFini:()=>setJetonReinit(null)})));
+  }
 
   if(!authed){
     return CE(VueLoginIndex,{

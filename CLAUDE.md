@@ -108,31 +108,19 @@ Toujours committer et pousser directement sur `main`. Ne pas créer de branche i
    versions de `shared.js`/`admin_app.js` vieilles de plusieurs semaines).
    Vérifier ce point avant de conclure qu'un correctif ne marche pas.
 
-## PWA & service worker
+## Plus de PWA — `sw.js` de désinstallation
 
-Source canonique : `MD-LIB/pwa-service-worker.md`. Les deux pages sont
-installables en PWA depuis le 19/09/2026 (`manifest-app.json`,
-`manifest-admin.json`, `icons/`, `sw.js`). Prolonge directement la règle de
-cache-busting ci-dessus : un service worker est le seul code du projet qui
-**survit au déploiement suivant**, puisqu'il reste installé sur l'appareil.
+Les pages ne sont **plus installables** depuis la bascule du 25/09/2026
+(AG-012 d'ATELIERS_NEWGEN : en mode installé, sans barre d'adresse, aucun
+rechargement forcé de `index.html`/`admin.html` n'était possible). Ni
+manifeste, ni `apple-touch-icon`, ni enregistrement de service worker.
 
-- **`sw.js` ne met rien en cache et n'intercepte rien, volontairement.** Le
-  versioning est déjà assuré par le `?v=N` ; un service worker en cache-first
-  recréerait l'incident du 16/09/2026 en pire, son cache ne partant pas avec
-  les données de navigation.
-- **Jamais de `respondWith()`.** La requête serait ré-émise depuis le contexte
-  du service worker, hors de portée du mock `page.route()` des tests
-  `e2e/smoke.test.js` et `e2e/appels.test.js`. Vérifié le 19/09/2026 : avec
-  `respondWith`, les 22 tests du smoke test échouaient tous à la connexion ;
-  sans, tous passent. Le symptôme ne ressemble pas à sa cause.
-- **Enregistrement sur `load`**, en fin de `<body>`, avec un `catch` vide.
-- ⚠️ **En mode installé, il n'y a plus de barre d'adresse, donc plus de
-  rechargement forcé.** Le `?v=N` protège `shared.js`, `app.js` et les CSS,
-  **pas `index.html`/`admin.html` eux-mêmes**. Sortie de secours à connaître :
-  désinstaller/réinstaller l'application, ou vider les données du site.
-- Après toute modification de `sw.js` : relancer les suites navigateur **sur
-  les vraies pages** (une page de test nue n'enregistre pas le service
-  worker, donc ne prouve rien).
+- **`sw.js` reste publié, sans date de fin** : il se désinscrit sur les
+  appareils où l'ancien est installé. Ne pas le supprimer.
+- **Jamais de désinscription depuis la page** : l'origine est partagée avec
+  NEWGEN et GDINV2 (commentaire en tête de `sw.js`).
+- Si une PWA revenait un jour : `MD-LIB/pwa-service-worker.md` (jamais de
+  cache, jamais de `respondWith()`).
 
 ## Architecture
 
@@ -141,10 +129,12 @@ cache-busting ci-dessus : un service worker est le seul code du projet qui
 - `admin_app.js` — frontend admin
 - `index.html` — page principale conseillers
 - `admin.html` — page admin
-- GAS backend — Google Apps Script, URL dans `shared.js` → `GS_URL`. Le script
-  lui-même n'est pas dans ce repo (pas d'API de push GAS) ; `gas/GAS_NEXTSTEP.js`
-  en est une copie de référence versionnée, à tenir à jour manuellement après
-  chaque déploiement confirmé (voir `gas/README.md`).
+- Serveur — **API PHP + MySQL chez Alwaysdata depuis la bascule du
+  25/09/2026** (`window.BACKEND_PHP`, `window.requeteServeur` dans
+  `shared.js`). Le code de l'API vit dans **ATELIERS_NEWGEN** (`api/`,
+  déployé par `deploy-api.yml`), pas ici : tout changement côté serveur se
+  fait là-bas. `GS_URL` est neutralisée ; `gas/` n'est plus qu'une archive,
+  et `e2e/appels.test.js` échoue si un appel à `script.google.com` revient.
 
 ## Tests
 
@@ -182,6 +172,10 @@ Playwright exige `npm ci` et un Chromium (préinstallé en local, sinon
 - **La CI bloque le déploiement si un test échoue.**
 
 ## GAS — règles critiques
+
+> **Historique depuis la bascule du 25/09/2026** : le client ne parle plus
+> au GAS. Les plafonds ci-dessous restent en vigueur (le client les
+> applique aussi à l'API) ; le reste documente l'ancien serveur.
 
 - Toutes les actions passent par `doGet` (GET uniquement, pas POST) — les
   Exécutions Apps Script listent donc uniquement `doGet` (et `keepAlive` pour

@@ -81,7 +81,7 @@ async function instrumenter(page) {
   // geo.api.gouv.fr : coordonnees (fetchGPSCommune) et contours de communes.
   // Jamais intercepte jusqu'ici — un vrai appel sortait pendant les suites.
   await page.route('**/geo.api.gouv.fr/**', route => route.abort());
-  await page.route('**/script.google.com/**', async route => {
+  await page.route('**/ateliers-numeriques.alwaysdata.net/**', async route => {
     const action = new URL(route.request().url()).searchParams.get('action') || '';
     appels.push(action);
     await route.fulfill({ status:200, contentType:'application/json', body:JSON.stringify(reponseGas(action)) });
@@ -90,6 +90,14 @@ async function instrumenter(page) {
 }
 
 const compte = (appels, action) => appels.filter(a => a === action).length;
+
+// Paramètres d'un appel à l'API : action dans l'URL, le reste dans le corps
+// POST (depuis la bascule du 25/09/2026, plus rien dans l'URL).
+function paramsAppel(route) {
+  const p = new URLSearchParams(route.request().postData() || '');
+  new URL(route.request().url()).searchParams.forEach((v, k) => { if (!p.has(k)) p.set(k, v); });
+  return p;
+}
 
 // ── 1. Rien de lourd avant la connexion (index.html) ────────────────────────
 // Avant le 18/09/2026, index.html lançait getComptes + getConfig + un getAll
@@ -215,7 +223,7 @@ test('index — aucun getConfig, le drapeau maintenance voyage dans getAll', asy
 test('index — le mode maintenance s\'affiche toujours, via getAll seul', async ({ page }) => {
   await instrumenter(page);
   // On réécrit la seule réponse getAll pour simuler la maintenance active.
-  await page.route('**/script.google.com/**', async route => {
+  await page.route('**/ateliers-numeriques.alwaysdata.net/**', async route => {
     const action = new URL(route.request().url()).searchParams.get('action') || '';
     const corps = action === 'getAll'
       ? { ok:false, maintenance:true, msg:'Mise à jour en cours, merci de revenir plus tard.' }
@@ -243,7 +251,7 @@ test('index — le mode maintenance s\'affiche toujours, via getAll seul', async
 // passe jamais par le compteur d'instrumenter).
 async function premierAppelMuet(page, actionVisee) {
   const vus = { n:0 };
-  await page.route('**/script.google.com/**', async route => {
+  await page.route('**/ateliers-numeriques.alwaysdata.net/**', async route => {
     const action = new URL(route.request().url()).searchParams.get('action') || '';
     if (action !== actionVisee) return route.fallback();
     vus.n++;
@@ -261,7 +269,8 @@ test('lecture muette — le doublon part à 7 s et rapporte la réponse', async 
 
   const r = await page.evaluate(async () => {
     const t0 = Date.now();
-    const data = await window.gasAppel(`${GS_URL}?action=getVisibility`, 'getVisibility');
+    const req = window.requeteServeur(new URLSearchParams({ action:'getVisibility' }));
+    const data = await window.gasAppel(req.url, 'getVisibility', req.corps);
     return { ok:data.ok, ms:Date.now()-t0, journal:window.__gasLog.map(e => `${e.action} #${e.attempt} ${e.issue}`) };
   });
 
@@ -279,7 +288,8 @@ test('écriture muette — jamais doublée pendant qu\'elle est en vol', async (
   await page.waitForSelector('input[type="password"]', { timeout:10000 });
 
   await page.evaluate(() => {
-    window.gasAppel(`${GS_URL}?action=saveEntry`, 'saveEntry').catch(() => {});
+    const req = window.requeteServeur(new URLSearchParams({ action:'saveEntry' }));
+    window.gasAppel(req.url, 'saveEntry', req.corps).catch(() => {});
   });
   // Au-delà de GAS_HEDGE_MS : une lecture aurait déjà son doublon.
   await page.waitForTimeout(8500);
@@ -295,8 +305,8 @@ test('écriture muette — jamais doublée pendant qu\'elle est en vol', async (
 test('cycle — un second clic après échec renvoie les mêmes _id', async ({ page }) => {
   await instrumenter(page);
   const lots = [];
-  await page.route('**/script.google.com/**', async route => {
-    const u = new URL(route.request().url());
+  await page.route('**/ateliers-numeriques.alwaysdata.net/**', async route => {
+    const u = { searchParams: paramsAppel(route) };
     if (u.searchParams.get('action') !== 'saveMany') return route.fallback();
     lots.push(JSON.parse(u.searchParams.get('entries')).map(e => e._id));
     // Premier envoi : échec définitif immédiat (pas de reprise automatique),
@@ -351,8 +361,8 @@ test('cycle — réponse perdue mais ateliers dans la feuille : succès affiché
   await instrumenter(page);
   const lots = [];
   let verifs = 0;
-  await page.route('**/script.google.com/**', async route => {
-    const u = new URL(route.request().url());
+  await page.route('**/ateliers-numeriques.alwaysdata.net/**', async route => {
+    const u = { searchParams: paramsAppel(route) };
     const action = u.searchParams.get('action');
     if (action === 'saveMany') {
       lots.push(JSON.parse(u.searchParams.get('entries')).map(e => e._id));
@@ -406,8 +416,8 @@ test('cycle — réponse perdue mais ateliers dans la feuille : succès affiché
 test('années — cocher une seconde année recharge en UN appel years=', async ({ page }) => {
   await instrumenter(page);
   const getAlls = [];
-  await page.route('**/script.google.com/**', async route => {
-    const u = new URL(route.request().url());
+  await page.route('**/ateliers-numeriques.alwaysdata.net/**', async route => {
+    const u = { searchParams: paramsAppel(route) };
     if (u.searchParams.get('action') === 'getAll')
       getAlls.push(u.searchParams.get('years') || 'year=' + u.searchParams.get('year'));
     return route.fallback();
@@ -430,4 +440,25 @@ test('années — cocher une seconde année recharge en UN appel years=', async 
 
   expect(getAlls, getAlls.join(' | ')).toEqual([`${c},${c+1}`]);
   await expect(page.locator('button.sidebar-year')).toContainText(`${c} + ${c+1}`);
+});
+
+// ── Bascule du 25/09/2026 : plus aucun appel au GAS ────────────────────────
+// Le classeur Google est abandonné à la bascule ; un appel oublié y écrirait
+// sans que personne ne le voie. Toute requête vers script.google.com fait
+// échouer ce test (connexion Index puis Admin, chargement des ateliers).
+test('bascule — plus aucun appel au GAS, sur Index comme sur Admin', async ({ page }) => {
+  await instrumenter(page);
+  const gas = [];
+  await page.route('**/script.google.com/**', route => { gas.push(route.request().url()); return route.abort(); });
+  await page.goto('/index.html');
+  await page.waitForSelector('input[type="password"]', { timeout:10000 });
+  await page.fill('input[type="password"]', 'test');
+  await page.getByText('🔓 Connexion', { exact:true }).click();
+  await page.waitForTimeout(1500);
+  await page.goto('/admin.html');
+  await page.waitForSelector('input[type="password"]', { timeout:10000 });
+  await page.fill('input[type="password"]', 'test');
+  await page.getByText('Connexion', { exact:true }).click();
+  await page.waitForTimeout(1500);
+  expect(gas, gas.join(' | ')).toEqual([]);
 });
