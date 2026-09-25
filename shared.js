@@ -3675,12 +3675,14 @@ function VueAnomalies({entries,onEdit,communes:communesProp,apiFetch,showToast,a
           if(scored.length>0&&scored[0].d<=3)communeSugg=scored[0].nom;
         }
       }
-      if(champsVides.length===0&&!communeInvalide)return null;
-      return{e,champsVides,communeInvalide,communeSugg};
+      // Présents > inscrits : contrôle repris de l'Admin (ménage du 25/09/2026).
+      const chiffres=typeof presentsSuperieursInscrits==='function'&&presentsSuperieursInscrits(e);
+      if(champsVides.length===0&&!communeInvalide&&!chiffres)return null;
+      return{e,champsVides,communeInvalide,communeSugg,chiffres};
     }).filter(Boolean);
   },[entries,communes]);
   const anomaliesFiltrees=filtreConum==='Tous'?anomalies:anomalies.filter(a=>a.e.conseiller===filtreConum||a.e.co_animateur===filtreConum);
-  const filtered=filter==='manquants'?anomaliesFiltrees.filter(a=>a.champsVides.length>0):filter==='communes'?anomaliesFiltrees.filter(a=>a.communeInvalide):anomaliesFiltrees;
+  const filtered=filter==='manquants'?anomaliesFiltrees.filter(a=>a.champsVides.length>0):filter==='communes'?anomaliesFiltrees.filter(a=>a.communeInvalide):filter==='chiffres'?anomaliesFiltrees.filter(a=>a.chiffres):anomaliesFiltrees;
   async function handleSaveCommune(entry,valeur){
     if(!valeur||!valeur.trim())return;
     setSaving(entry._id);
@@ -3692,7 +3694,7 @@ function VueAnomalies({entries,onEdit,communes:communesProp,apiFetch,showToast,a
     }catch(err){if(showToast)showToast('⚠️ Erreur : '+err.message);}
     setSaving(null);
   }
-  const nbTotal=anomaliesFiltrees.length,nbManquants=anomaliesFiltrees.filter(a=>a.champsVides.length>0).length,nbCommunes=anomaliesFiltrees.filter(a=>a.communeInvalide).length;
+  const nbTotal=anomaliesFiltrees.length,nbManquants=anomaliesFiltrees.filter(a=>a.champsVides.length>0).length,nbCommunes=anomaliesFiltrees.filter(a=>a.communeInvalide).length,nbChiffres=anomaliesFiltrees.filter(a=>a.chiffres).length;
   const conumsList=['Tous',...Array.from(new Set(anomalies.map(a=>a.e.conseiller).filter(Boolean))).sort()];
   return CE('div',{className:'card',style:{maxWidth:900,margin:'0 auto'}},
     CE('div',{style:{display:'flex',alignItems:'center',gap:12,marginBottom:16}},
@@ -3714,6 +3716,10 @@ function VueAnomalies({entries,onEdit,communes:communesProp,apiFetch,showToast,a
       CE('div',{style:{background:'#ede9fe',borderRadius:8,padding:'8px 14px',flex:'1',minWidth:120,cursor:'pointer',border:filter==='communes'?'2px solid #7c3aed':'2px solid transparent'},onClick:()=>setFilter('communes')},
         CE('div',{style:{fontSize:20,fontWeight:700,color:'#6d28d9'}},nbCommunes),
         CE('div',{style:{fontSize:11,color:'#4c1d95'}},loadingCommunes?'⏳ Chargement…':'Communes invalides')
+      ),
+      CE('div',{style:{background:'#ffedd5',borderRadius:8,padding:'8px 14px',flex:'1',minWidth:120,cursor:'pointer',border:filter==='chiffres'?'2px solid #ea580c':'2px solid transparent'},onClick:()=>setFilter('chiffres')},
+        CE('div',{style:{fontSize:20,fontWeight:700,color:'#c2410c'}},nbChiffres),
+        CE('div',{style:{fontSize:11,color:'#7c2d12'}},'Présents > inscrits')
       )
     ),
     CE('div',{className:'chip-bar',style:{marginBottom:12}},
@@ -3726,7 +3732,7 @@ function VueAnomalies({entries,onEdit,communes:communesProp,apiFetch,showToast,a
           'Aucune anomalie dans cette catégorie'
         )
       :CE('div',{style:{display:'flex',flexDirection:'column',gap:8}},
-          filtered.map(({e,champsVides,communeInvalide,communeSugg})=>{
+          filtered.map(({e,champsVides,communeInvalide,communeSugg,chiffres})=>{
             const corrVal=corrections[e._id]?.commune!==undefined?corrections[e._id].commune:(communeSugg||e.commune||'');
             const estCorrige=saved[e._id];
             return CE('div',{key:e._id,style:{background:estCorrige?'#f0fdf4':'#fff',border:'1px solid '+(estCorrige?'#86efac':'#e5e7eb'),borderRadius:8,padding:'10px 14px'}},
@@ -3735,6 +3741,8 @@ function VueAnomalies({entries,onEdit,communes:communesProp,apiFetch,showToast,a
                 estCorrige&&CE('span',{style:{fontSize:11,color:'#16a34a',fontWeight:600}},'✅ Corrigé'),
                 onEdit&&CE('button',{onClick:()=>onEdit(e._id),style:{fontSize:11,padding:'2px 8px',borderRadius:4,border:'1px solid #3b82f6',background:'#eff6ff',color:'#1d4ed8',cursor:'pointer'}},'✏️ Ouvrir')
               ),
+              chiffres&&CE('div',{style:{fontSize:11,color:'#c2410c',fontWeight:600,marginBottom:(champsVides.length>0||communeInvalide)?6:0}},
+                '📊 '+e.presents+' présent(s) pour '+e.inscrits+' inscrit(s) — à corriger via ✏️ Ouvrir'),
               champsVides.length>0&&CE('div',{style:{marginBottom:communeInvalide?6:0}},
                 CE('div',{style:{fontSize:11,color:'#9ca3af',marginBottom:4}},'Champs obligatoires vides :'),
                 CE('div',{style:{display:'flex',gap:4,flexWrap:'wrap'}},

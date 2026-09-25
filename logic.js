@@ -405,6 +405,16 @@ function normalizeImportRow(raw) {
   };
 }
 
+// ── Anomalie de chiffres : plus de présents que d'inscrits ───────────────────
+// Repris de l'ancienne « Vérification cohérence » de l'Admin (retirée le
+// 25/09/2026) : seul de ses contrôles que l'onglet Anomalies ne faisait pas.
+// Un champ vide ou non numérique n'est pas une anomalie de chiffres.
+function presentsSuperieursInscrits(e) {
+  const txt = v => String(v == null ? '' : v).trim();
+  if (!/^\d+$/.test(txt(e && e.presents)) || !/^\d+$/.test(txt(e && e.inscrits))) return false;
+  return parseInt(txt(e.presents), 10) > parseInt(txt(e.inscrits), 10);
+}
+
 // ── Compatible Node (tests) ET navigateur (script tag) ────────────────────────
 
 if (typeof module !== 'undefined') {
@@ -422,5 +432,6 @@ if (typeof module !== 'undefined') {
     STOCK_ORDINATEURS, totalJourParConseiller, periodePretMateriel, findOrdinateursConflicts,
     getPretsMateriel, totauxParJourMateriel, estConflitPasse,
     estWeekend, veilleOuvree, lendemainOuvre,
+    presentsSuperieursInscrits,
   };
 }

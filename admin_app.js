@@ -810,93 +810,9 @@ function TableCommunes({fd}){
 }
 
 
-// ════════════════════════════════════════════════════════════
-//   • KPIs enrichis (4 indicateurs + taux + mois)
-//   • Validation pré-import CSV & XLSX (modal aperçu)
-// ════════════════════════════════════════════════════════════
-
-// ── Modale aperçu import ───────────────────────────────────
-function ImportPreviewModal({preview, onConfirm, onCancel}){
-  if(!preview) return null;
-  const {rows, errors, type} = preview;
-  const COLS=['statut','date','horaire','conseiller','commune','thematique','orienteur'];
-  return CE('div',{className:'confirm-overlay',onClick:onCancel},
-    CE('div',{onClick:e=>e.stopPropagation(),style:{
-      background:'#fff',borderRadius:14,padding:'24px',maxWidth:760,width:'95%',
-      maxHeight:'85vh',overflowY:'auto',boxShadow:'0 16px 64px rgba(0,0,0,.25)',
-      animation:'slideUp .18s ease'
-    }},
-      CE('h3',{style:{margin:'0 0 4px',fontSize:16,color:'#1a202c'}},'📋 Aperçu — Import '+type),
-      CE('p',{style:{margin:'0 0 16px',fontSize:13,color:'#4a5568'}},
-        rows.length+' ligne'+(rows.length>1?'s':'')+' détectée'+(rows.length>1?'s':'')+
-        (errors.length>0?' · '+errors.length+' anomalie'+(errors.length>1?'s':'')+' détectée'+(errors.length>1?'s':'') : '')),
-
-      // Bandeau erreurs
-      errors.length>0&&CE('div',{style:{background:'#fff5f5',border:'1px solid #fed7d7',borderRadius:8,padding:'10px 14px',marginBottom:14}},
-        CE('div',{style:{fontWeight:700,fontSize:13,color:'#c53030',marginBottom:6}},'⚠️ '+errors.length+' anomalie'+(errors.length>1?'s':'')+' détectée'+(errors.length>1?'s':'')+' :'),
-        errors.slice(0,8).map((e,i)=>CE('div',{key:i,style:{fontSize:12,color:'#c53030',marginBottom:2}},'• '+e)),
-        errors.length>8&&CE('div',{style:{fontSize:11,color:'#9ca3af',marginTop:4}},'… et '+(errors.length-8)+' autre'+(errors.length-8>1?'s':''))
-      ),
-
-      // Tableau aperçu (5 premières lignes)
-      CE('div',{style:{overflowX:'auto',marginBottom:16}},
-        CE('table',{style:{width:'100%',borderCollapse:'collapse',fontSize:11,minWidth:500}},
-          CE('thead',null,CE('tr',null,
-            COLS.map(c=>CE('th',{key:c,style:{background:'#f1f5f9',padding:'6px 8px',textAlign:'left',fontSize:11,fontWeight:700,color:'#4a5568',borderBottom:'2px solid #e2e8f0',whiteSpace:'nowrap'}},c))
-          )),
-          CE('tbody',null,
-            rows.slice(0,5).map((r,i)=>CE('tr',{key:i,style:{background:i%2?'#f8fafc':'#fff'}},
-              COLS.map(c=>CE('td',{key:c,style:{padding:'5px 8px',borderBottom:'1px solid #f0f0f0',maxWidth:120,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',color:!r[c]&&['statut','date','conseiller'].includes(c)?'#fc8181':'#1a202c'}},
-                String(r[c]||'—')
-              ))
-            ))
-          )
-        )
-      ),
-      rows.length>5&&CE('p',{style:{fontSize:11,color:'#9ca3af',margin:'-10px 0 14px',textAlign:'right'}},
-        '… '+( rows.length-5)+' ligne'+(rows.length-5>1?'s':'')+' supplémentaire'+(rows.length-5>1?'s':'')+' non affichée'+(rows.length-5>1?'s':'')),
-
-      CE('div',{style:{display:'flex',gap:10,justifyContent:'flex-end'}},
-        CE('button',{onClick:onCancel,style:{padding:'9px 20px',border:'1px solid #e2e8f0',borderRadius:8,background:'#f8fafc',cursor:'pointer',fontSize:13,fontWeight:600,color:'#4a5568'}},'Annuler'),
-        CE('button',{onClick:onConfirm,autoFocus:true,style:{padding:'9px 20px',border:'none',borderRadius:8,background:errors.length>0?'#dd6b20':'#1e3a8a',cursor:'pointer',fontSize:13,fontWeight:700,color:'#fff'}},
-          errors.length>0?'⚠️ Importer quand même':'✅ Confirmer l\'import'
-        )
-      )
-    )
-  );
-}
-
-function ImportRapportModal({rapport,onClose}){
-  if(!rapport) return null;
-  const {total,envoyes,batchErrors,anomaliesPre,annule,ts}=rapport;
-  const ok=envoyes===total&&!annule&&batchErrors.length===0;
-  const partial=envoyes>0&&(annule||batchErrors.length>0);
-  const couleur=ok?'#276749':partial?'#92400e':'#9b2335';
-  const bg=ok?'#f0fff4':partial?'#fffbeb':'#fff5f5';
-  const border=ok?'#9ae6b4':partial?'#fbd38d':'#fed7d7';
-  return CE('div',{className:'confirm-overlay',onClick:onClose},
-    CE('div',{onClick:e=>e.stopPropagation(),style:{background:'#fff',borderRadius:14,padding:'28px',maxWidth:460,width:'92%',boxShadow:'0 16px 64px rgba(0,0,0,.25)',animation:'slideUp .18s ease'}},
-      CE('h3',{style:{margin:'0 0 16px',fontSize:16,color:'#1a202c'}},'📊 Rapport d\'import'),
-      CE('div',{style:{background:bg,border:'1px solid '+border,borderRadius:10,padding:'14px 18px',marginBottom:16}},
-        CE('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:anomaliesPre>0||batchErrors.length>0?12:0}},
-          CE('div',{style:{textAlign:'center'}},CE('div',{style:{fontSize:28,fontWeight:800,color:'#1a202c'}},total),CE('div',{style:{fontSize:11,color:'#718096'}},'Lignes détectées')),
-          CE('div',{style:{textAlign:'center'}},CE('div',{style:{fontSize:28,fontWeight:800,color:envoyes===total?'#276749':'#dd6b20'}},envoyes),CE('div',{style:{fontSize:11,color:'#718096'}},'Envoyées ✓'))
-        ),
-        anomaliesPre>0&&CE('div',{style:{fontSize:12,color:'#92400e',marginBottom:4}},'⚠️ '+anomaliesPre+' anomalie'+(anomaliesPre>1?'s':'')+' détectée'+(anomaliesPre>1?'s':'')+' avant envoi'),
-        annule&&CE('div',{style:{fontSize:12,color:'#c53030',marginBottom:4}},'⛔ Import annulé manuellement'),
-        batchErrors.length>0&&CE('div',null,
-          CE('div',{style:{fontSize:12,color:'#c53030',fontWeight:700,marginBottom:4}},batchErrors.length+' lot'+(batchErrors.length>1?'s':'')+' en erreur :'),
-          batchErrors.map((e,i)=>CE('div',{key:i,style:{fontSize:11,color:'#c53030',marginBottom:2}},'• Lignes '+e.from+'–'+e.to+' : '+e.msg))
-        )
-      ),
-      CE('div',{style:{fontSize:11,color:'#9ca3af',marginBottom:16}},'Import du '+ts),
-      CE('button',{onClick:onClose,style:{width:'100%',padding:'10px',border:'none',borderRadius:8,background:'#1e3a8a',color:'#fff',fontWeight:700,fontSize:13,cursor:'pointer'}},'Fermer')
-    )
-  );
-}
-
-// ════════════════════════════════════════════════════════════
-// ════════════════════════════════════════════════════════════
+// Ménage du 25/09/2026 (demande de l'utilisateur) : import CSV/XLSX,
+// vérification cohérence, « réinitialiser la BDD » et panneau KPI retirés
+// de l'onglet Admin.
 
 function ChangerMotDePasse({adminConseiller}){
   const[currentPwd,setCurrentPwd]=React.useState('');
@@ -961,19 +877,19 @@ function ReinitialiserMotDePasseCollegue({conseillers}){
 
   async function handleReset(){
     if(!cible)return;
-    if(!window.confirm('Réinitialiser le mot de passe de '+cible+' au mot de passe par défaut ?\n\nCette action est immédiate et remplace son mot de passe actuel.'))return;
+    if(!window.confirm('Donner un mot de passe provisoire à '+cible+' ?\n\nCette action est immédiate et remplace son mot de passe actuel.'))return;
     setSaving(true);setResult(null);setCopied(false);
     try{
       const res=await apiFetch('resetPassword',{conseiller:cible});
       if(res&&res.ok)setResult({ok:true,newPassword:res.newPassword});
-      else setResult({ok:false,txt:res&&res.error||'Erreur GAS'});
+      else setResult({ok:false,txt:res&&res.error||'Erreur serveur'});
     }catch(_){setResult({ok:false,txt:'Hors-ligne'});}
     finally{setSaving(false);}
   }
 
   return CE('div',{className:'admin-section'},
     CE('h3',null,'🔑 Mot de passe oublié — réinitialiser pour un collègue'),
-    CE('p',{style:{fontSize:12,color:'#4a5568',marginBottom:12}},'Remet le mot de passe par défaut du conseiller sélectionné. Communiquez-lui ensuite le nouveau mot de passe affiché ci-dessous (téléphone, en personne…).'),
+    CE('p',{style:{fontSize:12,color:'#4a5568',marginBottom:12}},'Tire un mot de passe provisoire pour le conseiller sélectionné. Communiquez-le-lui ensuite (téléphone, en personne…). S\'il a une adresse mail enregistrée, « Mot de passe oublié » sur la page de connexion lui évite de passer par vous.'),
     CE('div',{style:{display:'flex',gap:10,flexWrap:'wrap',alignItems:'flex-end'}},
       CE('div',null,
         CE('label',null,'Conseiller'),
@@ -1206,19 +1122,10 @@ function VueAdminV10({entries,onRefresh,addLog,conseillersList,onSaveColors,anne
       setTimeout(()=>{el.style.opacity='1';el.style.transform='translateY(0)';},i*100+30);
     });
   },[]);
-  const[resetStep,setResetStep]=React.useState(0);
   const[visibility,setVisibility]=React.useState(null);
   const[visSaving,setVisSaving]=React.useState(false);
-  const[importing,setImporting]=React.useState(false);
   const[colorDraft,setColorDraft]=React.useState({...CONSEILLER_COLORS});
   const[colorSaving,setColorSaving]=React.useState(false);
-  const[importProgress,setImportProgress]=React.useState(0);
-  const[importMsg,setImportMsg]=React.useState('');
-  const[importPreview,setImportPreview]=React.useState(null); // v10 : aperçu avant envoi
-  const[importRapport,setImportRapport]=React.useState(null); // v10 : rapport post-import
-  const cancelRef=React.useRef(false);
-  const pendingRowsRef=React.useRef([]);
-  const preErrorCountRef=React.useRef(0);
   const MOIS_CAL=['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
   const MOIS_SHORT_CAL=['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
   const[moisDeb,setMoisDeb]=React.useState(()=>parseInt(localStorage.getItem(lsKey('cal_moisDeb'))||'1'));
@@ -1234,26 +1141,6 @@ function VueAdminV10({entries,onRefresh,addLog,conseillersList,onSaveColors,anne
   React.useEffect(()=>{apiFetch('getVisibility').then(res=>{if(res.ok)setVisibility(res.visibility);}).catch(()=>{});},[]);
   React.useEffect(()=>{setColorDraft(d=>{const draft={...CONSEILLER_COLORS,...d};(conseillersList||[]).forEach(c=>{if(!draft[c])draft[c]='#6B7280';});return draft;});},[conseillersList]);
 
-  // ── KPIs enrichis ─────────────────────────────────
-  const kpis=React.useMemo(()=>{
-    const now=new Date();
-    const moisActuel=now.getMonth(), anneeActuelle=now.getFullYear();
-    const total=entries.length;
-    const realises=entries.filter(e=>e.statut==='Réalisé').length;
-    const annules=entries.filter(e=>e.statut==='Annulé').length;
-    const base=total-annules;
-    const taux=base>0?Math.round(realises/base*100):0;
-    const ceMois=entries.filter(e=>{
-      if(!e.date)return false;
-      const d=new Date(e.date);
-      return d.getFullYear()===anneeActuelle&&d.getMonth()===moisActuel;
-    }).length;
-    const parConseiller={};
-    entries.forEach(e=>{if(e.conseiller){parConseiller[e.conseiller]=(parConseiller[e.conseiller]||0)+1;}});
-    const topConseiller=Object.entries(parConseiller).sort((a,b)=>b[1]-a[1])[0];
-    return{total,realises,taux,ceMois,topConseiller,annules};
-  },[entries,annee]);
-
   async function handleSaveColors(){
     setColorSaving(true);
     try{const res=await apiFetch('saveColors',{colors:JSON.stringify(colorDraft)});if(!res.ok)throw new Error(res.error);applyColors(colorDraft);if(onSaveColors)onSaveColors(colorDraft);showToast('✅ Couleurs sauvegardées');addLog('Couleurs conseillers mises à jour','ok');}
@@ -1267,8 +1154,6 @@ function VueAdminV10({entries,onRefresh,addLog,conseillersList,onSaveColors,anne
     catch(err){showToast('❌ '+err.message,false);}
     finally{setVisSaving(false);}
   }
-
-  function handleReset(){if(resetStep===0){setResetStep(1);return;}if(resetStep===1){setResetStep(2);return;}addLog('Réinitialisation BDD locale','info');showToast('✅ BDD locale vidée (Google Sheet intact)');setResetStep(0);onRefresh();}
 
   // ── Export Timeline ────────────────────────────────
   async function handleExport(){
@@ -1303,86 +1188,6 @@ function VueAdminV10({entries,onRefresh,addLog,conseillersList,onSaveColors,anne
       addTlLog(`✓ "${fileName}" téléchargé`,'ok');
     }catch(err){addTlLog('✗ '+err.message,'err');console.error(err);}
     finally{setTlRunning(false);}
-  }
-
-  // ── Validation pré-import ─────────────────────────
-  function detectErrors(rows){
-    const errs=[];
-    rows.forEach((r,i)=>{
-      const ln='Ligne '+(i+2);
-      if(!r.statut)errs.push(ln+' : statut vide');
-      if(!r.date||r.date==='Invalid Date'||r.date==='NaN-NaN-NaN')errs.push(ln+' : date invalide ('+JSON.stringify(r.date)+')');
-      if(!r.conseiller)errs.push(ln+' : conseiller vide');
-      if(!r.commune)errs.push(ln+' : commune vide');
-    });
-    return errs;
-  }
-
-  async function doUpload(rows_raw){
-    setImportPreview(null);setImporting(true);setImportProgress(0);
-    const BATCH=5;let done=0;const batchErrors=[];let annule=false;
-    try{
-      setImportMsg(`${rows_raw.length} lignes — envoi vers Google Sheets…`);
-      for(let i=0;i<rows_raw.length;i+=BATCH){
-        if(cancelRef.current){annule=true;break;}
-        const batch=rows_raw.slice(i,i+BATCH);
-        try{
-          // Labo : par l'API (apiFetch joint le jeton), jamais le GAS.
-          const data=await apiFetch('saveMany',{entries:batch});
-          if(!data.ok)throw new Error(data.error||'Erreur batch');
-          done+=batch.length;
-        }catch(be){batchErrors.push({from:i+1,to:Math.min(i+BATCH,rows_raw.length),msg:be.message});}
-        setImportProgress(Math.round(Math.min(done+(batchErrors.length*BATCH),rows_raw.length)/rows_raw.length*100));
-        setImportMsg(`${done}/${rows_raw.length} lignes importées…`);
-      }
-      const rapport={total:rows_raw.length,envoyes:done,batchErrors,anomaliesPre:preErrorCountRef.current,annule,ts:new Date().toLocaleString('fr-FR')};
-      setImportRapport(rapport);
-      const logMsg=`Import : ${done}/${rows_raw.length} envoyés`+(batchErrors.length>0?` · ${batchErrors.length} erreur(s) batch`:'')+(annule?' · annulé':'');
-      addLog(logMsg,batchErrors.length>0||annule?'err':'ok');
-      if(!annule&&batchErrors.length===0)showToast(`✅ ${done} ateliers importés`);
-      onRefresh();
-    }catch(err){showToast('❌ '+err.message,false);addLog('Erreur import : '+err.message,'err');}
-    finally{setImporting(false);setImportProgress(0);setImportMsg('');cancelRef.current=false;}
-  }
-
-  async function handleImportCSV(e){
-    const file=e.target.files[0];if(!file)return;e.target.value='';
-    try{
-      const text=await file.text();const lines=text.split('\n').filter(l=>l.trim());
-      if(lines.length<2)throw new Error('Fichier vide ou invalide');
-      const sep=(lines[0].split(';').length>lines[0].split(',').length)?';':',';
-      function parseCSVLine(line){const res=[];let cur='',inQ=false;for(let i=0;i<line.length;i++){const c=line[i];if(c==='"')inQ=!inQ;else if(c===sep&&!inQ){res.push(cur.trim());cur='';}else cur+=c;}res.push(cur.trim());return res;}
-      const headers=parseCSVLine(lines[0]).map(h=>h.replace(/^"|"$/g,'').trim());
-      const rows_raw=[];
-      for(let i=1;i<lines.length;i++){const vals=parseCSVLine(lines[i]);if(vals.length<3)continue;const row={};headers.forEach((h,idx)=>{row[h]=vals[idx]?vals[idx].replace(/^"|"$/g,'').trim():'';});if(!row._id&&!row.statut&&!row['Statut'])continue;
-        const g=(...keys)=>{for(const k of keys){if(row[k]!==undefined&&row[k]!=='')return row[k];}return '';};
-        rows_raw.push({_id:g('_id')||genId(),_n:parseInt(g('_n','N°'))||0,statut:g('statut','Statut')||'Planifié',date:normalizeDate(g('date','Date')),horaire:normalizeHoraire(g('horaire','Horaire')),ampm:g('ampm','AM/PM')||'AM',orienteur:g('orienteur','Orienteur'),commune:normalizeCommune(g('commune','Commune')),lieu:g('lieu','Lieu',"Lieu de l'atelier"),thematique:g('thematique','Thématique','Thematique'),inscrits:g('inscrits','Inscrits')===''?'':parseInt(g('inscrits','Inscrits'))||0,presents:g('presents','Présents')===''?'':parseInt(g('presents','Présents'))||0,public:g('pub','public','Public')||'Tous publics',conseiller:g('conseiller','Conseiller','Conseiller numérique'),materiel:MATERIELS.filter(m=>String(g(m)).trim().toUpperCase()==='OUI'),residence:g('residence','Résidence','Résidence des participants'),remarques:g('remarques','Remarques')});
-      }
-      pendingRowsRef.current=rows_raw;
-      setImportPreview({rows:rows_raw,errors:detectErrors(rows_raw),type:'CSV'});
-    }catch(err){showToast('❌ '+err.message,false);addLog('Erreur lecture CSV : '+err.message,'err');}
-  }
-
-  async function handleImportXLSX(e){
-    const file=e.target.files[0];if(!file)return;e.target.value='';
-    try{
-      const ab=await file.arrayBuffer();const wb=XLSX.read(ab);const ws=wb.Sheets[wb.SheetNames[0]];const rows=XLSX.utils.sheet_to_json(ws,{defval:''});
-      const g=(r,...keys)=>{for(const k of keys){if(r[k]!==undefined&&r[k]!=='')return r[k];}return '';};
-      const rows_raw=rows.map(r=>({
-        _id:g(r,'_id')||genId(),_n:parseInt(g(r,'_n','N°','n'))||0,
-        statut:g(r,'statut','Statut')||'Planifié',date:normalizeDate(g(r,'date','Date')),
-        horaire:normalizeHoraire(g(r,'horaire','Horaire')),ampm:g(r,'ampm','AM/PM')||'AM',
-        orienteur:g(r,'orienteur','Orienteur'),commune:normalizeCommune(g(r,'commune','Commune')),
-        lieu:g(r,'lieu','Lieu',"Lieu de l'atelier"),thematique:g(r,'thematique','Thématique','Thematique'),
-        inscrits:g(r,'inscrits','Inscrits')===''?'':parseInt(g(r,'inscrits','Inscrits'))||0,
-        presents:g(r,'presents','Présents','Presents')===''?'':parseInt(g(r,'presents','Présents','Presents'))||0,
-        public:g(r,'public','Public')||'Tous publics',conseiller:g(r,'conseiller','Conseiller','Conseiller numérique'),
-        materiel:MATERIELS.filter(m=>String(g(r,m)).trim().toUpperCase()==='OUI'),
-        residence:g(r,'residence','Résidence','Résidence des participants'),remarques:g(r,'remarques','Remarques'),
-      })).filter(r=>r.statut);
-      pendingRowsRef.current=rows_raw;
-      setImportPreview({rows:rows_raw,errors:detectErrors(rows_raw),type:'XLSX'});
-    }catch(err){showToast('❌ '+err.message,false);addLog('Erreur lecture XLSX : '+err.message,'err');}
   }
 
   const[maintenanceOn,setMaintenanceOn]=React.useState(false);
@@ -1423,27 +1228,10 @@ function VueAdminV10({entries,onRefresh,addLog,conseillersList,onSaveColors,anne
     }catch(err){showToast('❌ '+err.message,false);}
     finally{setStockOrdiSaving(false);}
   }
-  const resetLabels=['🗑️ Réinitialiser la BDD locale','⚠️ Confirmer (1/2)','🚨 Confirmer définitivement (2/2)'];
   const STATUT_COLOR={'Planifié':'#9683EC','Réalisé':'#70AD47','Annulé':'#FF5050','Non réalisé':'#FFC000','Reporté':'#ED7D31'};
 
   return CE(React.Fragment,null,
-    CE(ImportPreviewModal,{preview:importPreview,onCancel:()=>{setImportPreview(null);pendingRowsRef.current=[];},onConfirm:()=>{preErrorCountRef.current=importPreview.errors.length;doUpload(pendingRowsRef.current);}}),
-    CE(ImportRapportModal,{rapport:importRapport,onClose:()=>setImportRapport(null)}),
     CE('div',{ref:adminRef},
-
-      // ── KPIs enrichis ──
-      CE('div',{className:'card'},
-        CE('h2',{style:{marginBottom:14}},'⚙️ Panneau Administrateur'),
-        CE('div',{style:{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(130px,1fr))',gap:12,marginBottom:4}},
-          CE(FadeItem,{delay:0},CE('div',{className:'kpi',style:{borderLeft:'4px solid #1e3a8a',background:'#f0f4ff',textAlign:'left'}},CE('div',{className:'val',style:{color:'#1e3a8a'}},kpis.total),CE('div',{className:'lbl'},'Total ateliers'))),
-          CE(FadeItem,{delay:0.08},CE('div',{className:'kpi',style:{borderLeft:'4px solid #16a34a',background:'#f0fdf4',textAlign:'left'}},CE('div',{className:'val',style:{color:'#16a34a'}},kpis.realises),CE('div',{className:'lbl'},'Réalisés'))),
-          CE(FadeItem,{delay:0.16},CE('div',{className:'kpi',style:{borderLeft:'4px solid '+(kpis.taux>=75?'#16a34a':kpis.taux>=50?'#d97706':'#dc2626'),background:kpis.taux>=75?'#f0fdf4':kpis.taux>=50?'#fffbeb':'#fff5f5',textAlign:'left'}},CE('div',{className:'val',style:{color:kpis.taux>=75?'#16a34a':kpis.taux>=50?'#d97706':'#dc2626'}},kpis.taux+'%'),CE('div',{className:'lbl'},'Taux réalisation'))),
-          CE(FadeItem,{delay:0.24},CE('div',{className:'kpi',style:{borderLeft:'4px solid #9683EC',background:'#f5f3ff',textAlign:'left'}},CE('div',{className:'val',style:{color:'#9683EC'}},kpis.ceMois),CE('div',{className:'lbl'},'Ce mois-ci')))
-        ),
-        kpis.topConseiller&&CE('p',{style:{fontSize:11,color:'#9ca3af',marginTop:6,marginBottom:0}},
-          '🏆 Top conseiller : '+kpis.topConseiller[0]+' ('+kpis.topConseiller[1]+' atelier'+(kpis.topConseiller[1]>1?'s':'')+')'
-        )
-      ),
 
       CE('div',{className:'admin-section'},
         CE('h3',null,'🎨 Couleurs des conseillers'),
@@ -1474,49 +1262,6 @@ function VueAdminV10({entries,onRefresh,addLog,conseillersList,onSaveColors,anne
       ),
 
       CE('div',{className:'admin-section'},
-        CE('h3',null,'📥 Import CSV'),
-        CE('p',{style:{fontSize:12,color:'#4a5568',marginBottom:12}},'Importe un fichier CSV compatible. Les entrées existantes sont fusionnées.'),
-        importing?CE('div',null,CE('p',{style:{fontSize:12,color:'#4a5568',marginBottom:6}},importMsg),CE('div',{className:'progress-bar'},CE('div',{className:'progress-fill',style:{width:importProgress+'%'}})),CE('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginTop:6}},CE('p',{style:{fontSize:11,color:'#718096'}},importProgress+'%'),CE('button',{className:'btn btn-danger btn-sm',onClick:()=>cancelRef.current=true},'⛔ Annuler'))):
-          CE('label',{style:{display:'inline-block',cursor:'pointer'}},CE('span',{className:'btn btn-primary'},'📂 Choisir un fichier CSV'),CE('input',{type:'file',accept:'.csv',style:{display:'none'},onChange:handleImportCSV}))
-      ),
-
-      CE('div',{className:'admin-section'},
-        CE('h3',null,'📊 Import XLSX'),
-        CE('p',{style:{fontSize:12,color:'#4a5568',marginBottom:12}},'Réimporte un fichier .xlsx précédemment exporté.'),
-        importing?CE('div',null,CE('p',{style:{fontSize:12,color:'#4a5568',marginBottom:6}},importMsg||'Import en cours…'),CE('div',{className:'progress-bar'},CE('div',{className:'progress-fill',style:{width:importProgress+'%'}})),CE('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginTop:6}},CE('p',{style:{fontSize:11,color:'#718096'}},importProgress+'%'),CE('button',{className:'btn btn-danger btn-sm',onClick:()=>cancelRef.current=true},'⛔ Annuler'))):
-          CE('label',{style:{display:'inline-block',cursor:'pointer'}},CE('span',{className:'btn btn-warn'},'📂 Choisir un fichier XLSX'),CE('input',{type:'file',accept:'.xlsx',style:{display:'none'},onChange:handleImportXLSX}))
-      ),
-
-      CE('div',{className:'admin-section'},
-        CE('h3',null,'🔍 Vérification cohérence'),
-        CE('p',{style:{fontSize:12,color:'#4a5568',marginBottom:12}},'Analyse les données chargées pour détecter les anomalies.'),
-        CE('button',{className:'btn btn-primary',onClick:()=>{
-          const now=new Date();
-          const anomalies=[];
-          // Doublons _id
-          const ids=entries.map(e=>e._id);
-          const dupIds=ids.filter((id,i)=>ids.indexOf(id)!==i);
-          if(dupIds.length>0) anomalies.push('⚠️ '+dupIds.length+' doublon'+(dupIds.length>1?'s':'')+' d\'identifiant détecté'+(dupIds.length>1?'s':''));
-          // Dates dans le futur (> aujourd'hui + 30j)
-          const futurLimit=new Date(now.getTime()+30*24*60*60*1000);
-          const futurEntries=entries.filter(e=>{if(!e.date)return false;const d=new Date(e.date);return d>futurLimit;});
-          if(futurEntries.length>0) anomalies.push('📅 '+futurEntries.length+' atelier'+(futurEntries.length>1?'s':'')+' planifié'+(futurEntries.length>1?'s':'')+' à plus de 30j dans le futur');
-          // Ateliers sans conseiller
-          const sansConseiller=entries.filter(e=>!e.conseiller);
-          if(sansConseiller.length>0) anomalies.push('👤 '+sansConseiller.length+' atelier'+(sansConseiller.length>1?'s':'')+' sans conseiller');
-          // Ateliers sans date
-          const sansDate=entries.filter(e=>!e.date||e.date==='Invalid Date');
-          if(sansDate.length>0) anomalies.push('📅 '+sansDate.length+' atelier'+(sansDate.length>1?'s':'')+' sans date valide');
-          // Présents > inscrits
-          const presentsAberrants=entries.filter(e=>e.presents&&e.inscrits&&parseInt(e.presents)>parseInt(e.inscrits));
-          if(presentsAberrants.length>0) anomalies.push('📊 '+presentsAberrants.length+' atelier'+(presentsAberrants.length>1?'s':'')+' avec présents > inscrits');
-          const msg=anomalies.length===0?'OK : aucune anomalie ('+entries.length+' ateliers)':anomalies.join(' — ');
-          addLog('Vérification cohérence : '+(anomalies.length===0?'OK':anomalies.length+' anomalie'+(anomalies.length>1?'s':'')),anomalies.length===0?'ok':'err');
-          alert(msg);
-        }},'🔍 Analyser ('+entries.length+' ateliers)')
-      ),
-
-      CE('div',{className:'admin-section'},
         CE('h3',null,'🖥️ Stock ordinateurs'),
         CE('p',{style:{fontSize:12,color:'#4a5568',marginBottom:16}},"Nombre d'ordinateurs disponibles pour le prêt aux participants — utilisé par la Frise du parc et les conflits de stock (Anomalies BDD)."),
         CE('div',{style:{display:'flex',alignItems:'center',gap:10}},
@@ -1544,15 +1289,6 @@ function VueAdminV10({entries,onRefresh,addLog,conseillersList,onSaveColors,anne
             CE('input',{type:'text',value:maintenanceMsg,onChange:e=>setMaintenanceMsg(e.target.value),placeholder:'Ex: Retour dans 10 minutes.',style:{width:'100%',padding:'8px 12px',border:'1.5px solid #e2e8f0',borderRadius:8,fontSize:13,boxSizing:'border-box'}}),
             CE('button',{onClick:()=>handleSaveMaintenance(maintenanceOn),disabled:maintenanceSaving,style:{marginTop:8,padding:'6px 16px',background:'#1e3a8a',color:'#fff',border:'none',borderRadius:6,fontSize:12,fontWeight:600,cursor:'pointer'}},maintenanceSaving?'…':'💾 Sauver le message')
           )
-        )
-      ),
-            CE('div',{className:'admin-section'},
-        CE('h3',null,'🗑️ Réinitialiser la base de données'),
-        CE('p',{style:{fontSize:12,color:'#4a5568',marginBottom:12}},'Vide uniquement le cache local. Le Google Sheet reste intact.'),
-        resetStep>0&&CE('div',{className:'confirm-box'},CE('p',null,resetStep===1?'Êtes-vous sûr ? Cette action vide le cache local.':'Dernière confirmation — cliquez pour confirmer.')),
-        CE('div',{style:{display:'flex',gap:10}},
-          CE('button',{className:'btn btn-danger',onClick:handleReset},resetLabels[resetStep]),
-          resetStep>0&&CE('button',{className:'btn btn-secondary',onClick:()=>setResetStep(0)},'Annuler')
         )
       ),
       CE('div',{className:'admin-section'},

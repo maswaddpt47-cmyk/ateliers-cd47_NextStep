@@ -13,6 +13,7 @@ const {
   getPretsMateriel, totauxParJourMateriel, estConflitPasse,
   demiJourneeAtelier, totauxParDemiJourneeMateriel, occupeCreneauMateriel,
   estWeekend, veilleOuvree, lendemainOuvre,
+  presentsSuperieursInscrits,
 } = require('./logic.js');
 
 // ── STATUTS_VALIDES ───────────────────────────────────────────────────────────
@@ -672,5 +673,20 @@ describe('occupation à la demi-journée', () => {
     ];
     const t = totauxParDemiJourneeMateriel(getPretsMateriel(entries), ['2026-10-01']);
     assert.deepEqual(t['2026-10-01'], { AM: 6, PM: 12 });
+  });
+});
+
+describe('presentsSuperieursInscrits', () => {
+  it('signale plus de présents que d\'inscrits, en nombres et non en texte ("9" > "10")', () => {
+    assert.equal(presentsSuperieursInscrits({ presents: '11', inscrits: '10' }), true);
+    assert.equal(presentsSuperieursInscrits({ presents: 9, inscrits: 10 }), false);
+    assert.equal(presentsSuperieursInscrits({ presents: '9', inscrits: '10' }), false);
+    assert.equal(presentsSuperieursInscrits({ presents: '10', inscrits: '10' }), false);
+  });
+  it('ignore les champs vides ou non numériques', () => {
+    assert.equal(presentsSuperieursInscrits({ presents: '5', inscrits: '' }), false);
+    assert.equal(presentsSuperieursInscrits({ presents: '', inscrits: '3' }), false);
+    assert.equal(presentsSuperieursInscrits({ presents: '5', inscrits: 'n/c' }), false);
+    assert.equal(presentsSuperieursInscrits({}), false);
   });
 });
