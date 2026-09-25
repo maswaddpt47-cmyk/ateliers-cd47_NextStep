@@ -3,6 +3,9 @@ name: Deploy to GitHub Pages
 on:
   push:
     branches: [main]
+    # Documentation seule (CHANTIERS, CLAUDE, AGORA…) : rien à publier ni à
+    # retester. Un push qui mêle .md et code se déploie normalement.
+    paths-ignore: ['**.md']
   workflow_dispatch:
 
 permissions:
