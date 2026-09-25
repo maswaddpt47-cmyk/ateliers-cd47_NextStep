@@ -244,6 +244,14 @@ describe('resumeLogsTexte', () => {
     assert.match(txt, /doublons non annules : 1 — 1 ont sauve la lecture, 0 en echec  \(\+1 annules/);
   });
 
+  it('lit les lignes « API » (depuis la bascule du 25/09/2026) comme les anciennes « GAS »', () => {
+    const logs = [
+      { t: '12:26:14', ts: Date.UTC(2026, 8, 25, 10, 26, 14), type: 'ok', msg: 'API getAll #1 — ok en 0.1 s' },
+      { t: '12:26:11', ts: Date.UTC(2026, 8, 25, 10, 26, 11), type: 'ok', msg: 'GAS getComptes #1 — ok en 0.2 s' },
+    ];
+    assert.match(resumeLogsTexte(logs, 'NEXTSTEP'), /— 2 appels serveur/);
+  });
+
   it('ignore les lignes qui ne sont pas des appels serveur, et le journal vide', () => {
     const melange = [...JOURNAL, { t: '12:00:00', msg: '221 ateliers chargés (2026)', type: 'ok', ts: Date.now() }];
     assert.match(resumeLogsTexte(melange, 'NEXTSTEP'), /— 5 appels serveur/);

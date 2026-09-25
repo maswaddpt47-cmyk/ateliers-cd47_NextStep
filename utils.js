@@ -165,13 +165,13 @@ function buildICS(evts) {
 // identiques à l'écran, et des mesures ont déjà été attribuées au mauvais
 // projet le 19/09/2026.
 function resumeLogsTexte(logs, appli){
-  var gas = (logs||[]).filter(function(l){ return l && typeof l.msg === 'string' && l.msg.indexOf('GAS ') === 0; });
+  var gas = (logs||[]).filter(function(l){ return l && typeof l.msg === 'string' && /^(GAS|API) /.test(l.msg); });
   if(!gas.length) return 'JOURNAL ' + appli + ' : aucun appel serveur enregistré.';
   var lus = [];
   gas.forEach(function(l){
     // Le suffixe « (file N s) » est optionnel : les lignes journalisees avant
     // le 22/09/2026 ne l'ont pas, et elles doivent rester lisibles.
-    var m = l.msg.match(/^GAS (\S+) #(\S+) — (.+) en ([\d.]+) s(?: \(file ([\d.]+) s\))?$/);
+    var m = l.msg.match(/^(?:GAS|API) (\S+) #(\S+) — (.+) en ([\d.]+) s(?: \(file ([\d.]+) s\))?$/);
     if(!m) return;
     var d = l.ts ? new Date(l.ts) : null;
     lus.push({

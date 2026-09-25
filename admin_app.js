@@ -371,7 +371,7 @@ const LOGS_KEY = lsKey('adm_logs');
   // tentative : on lit où passe le temps sans ouvrir les DevTools.
   React.useEffect(()=>{
     window.gasLogHook=e=>addLog(
-      `GAS ${e.action} #${e.attempt} — ${e.issue} en ${(e.ms/1000).toFixed(1)} s`
+      `API ${e.action} #${e.attempt} — ${e.issue} en ${(e.ms/1000).toFixed(1)} s`
         + (e.file>=100 ? ` (file ${(e.file/1000).toFixed(1)} s)` : ''),
       // 'annulé' n'est ni une réussite ni un échec : l'appel a été arrêté
       // parce que son jumeau avait répondu. Le peindre en rouge ferait croire
