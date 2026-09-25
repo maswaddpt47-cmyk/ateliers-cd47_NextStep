@@ -2604,7 +2604,7 @@ function VueCalendrier({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
                 style:{background:retard?'#fecaca':sc+'22',borderLeft:`3px solid ${retard?'#ef4444':sc}`},
                 onClick:ev=>{ev.stopPropagation();openPanel(e);}},
                 CE('span',{className:'cal-event-time',style:{color:retard?'#991b1b':sc}},e.horaire||''),
-                CE('span',{className:'cal-event-label'},e.thematique||e.lieu||'—')
+                CE('span',{className:'cal-event-label',title:[e.thematique||e.lieu,e.orienteur].filter(Boolean).join(' — ')},e.thematique||e.lieu||'—',e.orienteur&&CE('span',{style:{opacity:.65,fontWeight:400}},' · '+e.orienteur))
               );
             }),
             hidden>0&&!expanded&&CE('div',{className:'cal-more',onClick:ev=>{ev.stopPropagation();setExpandDay(day);}},`+${hidden} autre${hidden>1?'s':''}`),
@@ -4502,6 +4502,7 @@ function VueAgendaSemaine({entries,onEdit,onDelete,onDuplicate,canDelete,initCon
       CE('div',{style:{fontWeight:600,color:'#1a202c',lineHeight:1.25,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',marginBottom:1}},
         e.thematique||e.commune||'—'),
       e.commune&&e.thematique&&CE('div',{style:{color:'#718096',fontSize:10,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}},e.commune),
+      e.orienteur&&CE('div',{title:'Orienteur',style:{color:'#718096',fontSize:10,fontStyle:'italic',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}},'🤝 '+e.orienteur),
       e.horaire&&CE('div',{style:{color:'#a0aec0',fontSize:10,marginTop:1}},e.horaire),
       retard&&CE('div',{style:{color:'#dc2626',fontSize:9,fontWeight:700,marginTop:2,animation:'blink-retard 1.4s ease-in-out infinite'}},'⚠ À mettre à jour')
     );
