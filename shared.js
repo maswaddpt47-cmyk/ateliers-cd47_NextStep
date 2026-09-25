@@ -1086,6 +1086,13 @@ const REINIT_CHAMP={width:'100%',padding:'10px 14px',border:'1px solid var(--bor
 const REINIT_BTN={width:'100%',padding:'11px',background:'#1e3a8a',color:'#fff',border:'none',borderRadius:8,fontSize:14,fontWeight:700,cursor:'pointer'};
 const REINIT_LIEN={background:'none',border:'none',color:'#1e3a8a',cursor:'pointer',fontSize:12,textDecoration:'underline',padding:0};
 
+// Repère visible de la version (demande de l'utilisateur, 25/09/2026) :
+// distinguer d'un coup d'œil la version Alwaysdata de l'ancienne (GAS).
+window.VERSION_APPLI = 'Version 2 — serveur Alwaysdata';
+function MentionVersion(){
+  return CE('p',{className:'mention-version',style:{fontSize:11,color:'#94a3b8',textAlign:'center',margin:'14px 0 0'}},window.VERSION_APPLI);
+}
+
 function LienMotDePasseOublie({conseiller}){
   const[ouvert,setOuvert]=React.useState(false);
   const[envoi,setEnvoi]=React.useState(false);

@@ -145,7 +145,8 @@ function AdminLogin({onLogin,savedName,onResetProfil,conseillers:conseillersProp
             err&&CE('p',{style:{color:'#c53030',fontSize:13,marginBottom:8}},err),
             hint&&!err&&CE('p',{style:{color:'#718096',fontSize:12,marginBottom:8,display:'flex',alignItems:'center',gap:6}},CE('span',{className:'spinner',style:{width:12,height:12,borderWidth:2}}),hint),
             CE('button',{onClick:handleSubmit,disabled:loading||!pwd.trim(),style:{width:'100%',padding:'11px',background:'#1e3a8a',color:'#fff',border:'none',borderRadius:8,fontSize:14,fontWeight:700,cursor:loading?'progress':'pointer'}},loading?'Vérification…':'Connexion'),
-            CE(LienMotDePasseOublie,{conseiller})
+            CE(LienMotDePasseOublie,{conseiller}),
+            CE(MentionVersion)
           )
     )
   );
@@ -583,6 +584,7 @@ const LOGS_KEY = lsKey('adm_logs');
 
       // Bas : sélecteur année + notifs
       CE('div',{className:'sidebar-bottom'},
+        CE('span',{title:window.VERSION_APPLI,style:{fontSize:10,fontWeight:700,color:'rgba(255,255,255,.55)',letterSpacing:'.04em'}},'v2'),
         CE(ChoixAnnees,{className:'sidebar-year',value:annee,onChange:setAnnee,title:'Années chargées'}),
         CE('button',{
           className:'sidebar-btn',

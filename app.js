@@ -235,7 +235,8 @@ function VueLoginIndex({conseillers,onSuccess}){
             ),
             err&&CE('p',{style:{color:'#c53030',fontSize:13,marginBottom:8}},err),
             CE('button',{className:'accueil-btn',disabled:loading||!pwd.trim(),onClick:handleSubmit},loading?'Vérification…':'🔓 Connexion'),
-            CE(LienMotDePasseOublie,{conseiller})
+            CE(LienMotDePasseOublie,{conseiller}),
+            CE(MentionVersion)
           )
     )
   );
