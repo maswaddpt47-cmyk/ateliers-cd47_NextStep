@@ -34,6 +34,17 @@ jobs:
       - run: node --test integration.test.js
       - run: node --test reseau.test.js
       - run: node scripts/check-cache-busting.js "${{ github.event.before }}" "${{ github.sha }}"
+      # Aucune ressource tierce chargée par les pages (bibliothèques dans
+      # vendor/ depuis le 25/09/2026) : un CDN verrait l'adresse IP de chaque
+      # agent à chaque ouverture et pourrait servir un script modifié.
+      - name: "[RGPD-17] Aucune ressource externe dans les pages"
+        run: |
+          externes=$(grep -noE '(src|href)="(https?:)?//[^"]+' index.html admin.html || true)
+          if [ -n "$externes" ]; then
+            echo "::error::Ressource externe chargée par une page :"
+            echo "$externes"
+            exit 1
+          fi
 
   e2e:
     needs: test
