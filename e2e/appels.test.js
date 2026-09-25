@@ -471,3 +471,30 @@ test('bascule — plus aucun appel au GAS, sur Index comme sur Admin', async ({ 
   await page.waitForTimeout(1500);
   expect(gas, gas.join(' | ')).toEqual([]);
 });
+
+// ── 10. Déconnexion : le jeton est annulé côté serveur ─────────────────────
+// Jusqu'au 25/09/2026, se déconnecter ne faisait qu'oublier le jeton dans le
+// navigateur : copié, il restait valable 6 h. authToken.clear() envoie
+// désormais action=logout avec le jeton, que l'API efface de la base.
+test('admin — Déconnexion envoie logout avec le jeton', async ({ page }) => {
+  await instrumenter(page);
+  const logouts = [];
+  await page.route('**/ateliers-numeriques.alwaysdata.net/**', async route => {
+    const p = paramsAppel(route);
+    if (p.get('action') === 'logout') logouts.push(p.get('token'));
+    return route.fallback();
+  });
+  await page.goto('/admin.html');
+  await page.waitForSelector('input[type="password"]', { timeout:10000 });
+  await expect(page.locator('select').first().locator('option')).not.toHaveCount(1, { timeout:10000 });
+  await page.locator('select').first().selectOption({ index:1 });  // aucun nom présélectionné (25/09/2026)
+  await page.fill('input[type="password"]', 'test');
+  await page.getByText('Connexion', { exact:true }).click();
+  await page.waitForSelector('.sidebar-btn', { timeout:10000 });
+
+  page.once('dialog', d => d.accept());
+  await page.getByText('🚪 Déconnexion', { exact:true }).click();
+  await page.waitForSelector('input[type="password"]', { timeout:10000 });
+  await page.waitForTimeout(300);
+  expect(logouts, 'un logout, avec le jeton de la session').toEqual(['jeton-de-test']);
+});

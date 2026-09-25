@@ -861,8 +861,8 @@ window.chargerScriptUneFois = function(src){
 // contourne le problème entièrement, sans dépendre de ce que la boîte de
 // dialogue du navigateur décide de faire.
 async function exporterElementPDF(selector, titre, nomFichier){
-  await window.chargerScriptUneFois('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
-  await window.chargerScriptUneFois('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+  await window.chargerScriptUneFois('vendor/html2canvas-1.4.1/html2canvas.min.js');
+  await window.chargerScriptUneFois('vendor/jspdf-2.5.1/jspdf.umd.min.js');
   const el = document.querySelector(selector);
   if(!el) throw new Error('Rien à exporter pour le moment.');
   const canvas = await window.html2canvas(el, { scale: 3, backgroundColor: '#ffffff' });
@@ -1161,7 +1161,17 @@ function VueReinitMotDePasse({jeton,onFini}){
 window.authToken = {
   get()  { return sessionStorage.getItem('gs_token') || null; },
   set(t) { sessionStorage.setItem('gs_token', t); },
-  clear(){ sessionStorage.removeItem('gs_token'); sessionStorage.removeItem('gs_role'); },
+  clear(){
+    // Déconnexion côté serveur (25/09/2026) : le jeton est effacé en base avant
+    // d'être oublié ici, sinon il restait valable 6 h. keepalive : l'envoi part
+    // même si la page se ferme. Sans réponse attendue : oublier le jeton ici
+    // ne doit jamais dépendre du réseau.
+    const t = sessionStorage.getItem('gs_token');
+    if(t && window.BACKEND_PHP){
+      try{ fetch(`${API_PHP_URL}?action=logout`, {method:'POST', keepalive:true, headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:'token='+encodeURIComponent(t)}).catch(()=>{}); }catch(_){}
+    }
+    sessionStorage.removeItem('gs_token'); sessionStorage.removeItem('gs_role');
+  },
   getRole()  { return sessionStorage.getItem('gs_role') || 'user'; },
   setRole(r) { sessionStorage.setItem('gs_role', r); }
 };
