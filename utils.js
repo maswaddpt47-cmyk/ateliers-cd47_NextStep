@@ -390,6 +390,31 @@ function ampmDepuisHoraire(h) {
   return heure < 12 ? 'AM' : 'PM';
 }
 
+// Tuiles de l'Historique (demande de l'utilisateur, 26/09/2026) : calculées
+// sur la liste filtrée SANS le filtre de statut, sinon « Total » ne comptait
+// que le statut affiché et Réalisés/Annulés tombaient à 0. Pourcentages sur le
+// total. Reportés + Non réalisés regroupés en « autres ». Inscrits et présents
+// comptés sur les seuls ateliers réalisés : le taux de présence n'a de sens
+// que pour un atelier qui a eu lieu.
+function kpiHistorique(liste) {
+  const k = { total: 0, planifies: 0, realises: 0, annules: 0, autres: 0, inscrits: 0, presents: 0 };
+  (liste || []).forEach(e => {
+    k.total++;
+    const s = (e && e.statut) || '';
+    if (s === 'Planifié') k.planifies++;
+    else if (s === 'Réalisé') {
+      k.realises++;
+      k.inscrits += parseInt(e.inscrits, 10) || 0;
+      k.presents += parseInt(e.presents, 10) || 0;
+    } else if (s === 'Annulé') k.annules++;
+    else k.autres++;
+  });
+  const pct = n => (k.total ? Math.round(n / k.total * 100) : 0);
+  k.pct = { planifies: pct(k.planifies), realises: pct(k.realises), annules: pct(k.annules), autres: pct(k.autres) };
+  k.tx = k.inscrits ? Math.round(k.presents / k.inscrits * 100) : 0;
+  return k;
+}
+
 if (typeof module !== 'undefined') {
   module.exports = {
     stripAccents, trunc,
@@ -405,5 +430,6 @@ if (typeof module !== 'undefined') {
   lsKey, migrerLocalStorage, LS_A_MIGRER,
   comparerHistorique,
   ampmDepuisHoraire,
+  kpiHistorique,
   };
 }

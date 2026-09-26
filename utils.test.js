@@ -14,6 +14,7 @@ const {
   lsKey, migrerLocalStorage,
   comparerHistorique,
   ampmDepuisHoraire,
+  kpiHistorique,
 } = require('./utils.js');
 
 // ── stripAccents ──────────────────────────────────────────────────────────────
@@ -364,5 +365,28 @@ describe('ampmDepuisHoraire', () => {
   });
   it('horaire vide ou illisible → rien (le champ n\'est pas touché)', () => {
     assert.deepEqual(['', null, 'matin', '25:00'].map(ampmDepuisHoraire), ['', '', '', '']);
+  });
+});
+
+// ── kpiHistorique ──────────────────────────────────────────
+describe('kpiHistorique', () => {
+  const liste = [
+    { statut: 'Planifié', inscrits: 8 },
+    { statut: 'Réalisé', inscrits: 10, presents: 7 },
+    { statut: 'Réalisé', inscrits: '6', presents: '5' },
+    { statut: 'Annulé', inscrits: 4 },
+    { statut: 'Reporté' },
+    { statut: 'Non réalisé' },
+  ];
+  it('le total compte tous les statuts, et les tuiles s\'additionnent au total', () => {
+    const k = kpiHistorique(liste);
+    assert.equal(k.total, 6);
+    assert.equal(k.planifies + k.realises + k.annules + k.autres, k.total);
+    assert.deepEqual(k.pct, { planifies: 17, realises: 33, annules: 17, autres: 33 });
+  });
+  it('inscrits et présents sur les seuls réalisés (taux de présence)', () => {
+    const k = kpiHistorique(liste);
+    assert.deepEqual([k.inscrits, k.presents, k.tx], [16, 12, 75]);
+    assert.equal(kpiHistorique([]).tx, 0);
   });
 });

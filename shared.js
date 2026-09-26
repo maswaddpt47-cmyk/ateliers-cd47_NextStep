@@ -339,6 +339,8 @@ tr:hover td{background:#f7fafc}
 .chip-nonrealise.active{background:#f1f5f9;color:#475569}
 .chip-dot{width:7px;height:7px;border-radius:50%;background:currentColor;flex-shrink:0}
 .kpi-row{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+.kpi-histo{display:grid!important;grid-template-columns:repeat(6,1fr);gap:8px}
+@media(max-width:600px){.kpi-histo{grid-template-columns:repeat(3,1fr);gap:6px!important}}
 @keyframes kpiSlideUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
 .kpi-mini{flex:1;min-width:60px;background:#fff;border-radius:8px;padding:10px 8px;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,.08);animation:kpiSlideUp .38s cubic-bezier(.22,.68,0,1.2) both}
 .kpi-mini .v{font-size:22px;font-weight:800;line-height:1}
@@ -2234,9 +2236,9 @@ function VueHistorique({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
   const conseillersHist=React.useMemo(()=>{const s=new Set();entries.forEach(e=>{if(e.conseiller)s.add(e.conseiller);});return[...Array.from(s).sort()];},[entries]);
   const CHIP_STATUTS=[{key:'Tous',label:'Tous',cls:'chip-all'},{key:'Planifié',label:'Planifié',cls:'chip-planifie',dot:'#3b82f6'},{key:'Réalisé',label:'Réalisé',cls:'chip-realise',dot:'#22c55e'},{key:'Annulé',label:'Annulé',cls:'chip-annule',dot:'#ef4444'},{key:'Reporté',label:'Reporté',cls:'chip-reporte',dot:'#f59e0b'},{key:'Non réalisé',label:'Non réalisé',cls:'chip-nonrealise',dot:'#94a3b8'}];
   const counts=React.useMemo(()=>{const c={Tous:entries.length};STATUTS.forEach(s=>{c[s]=entries.filter(e=>e.statut===s).length;});return c;},[entries]);
-  const filtered=React.useMemo(()=>{
+  // Tous les filtres sauf le statut : base des tuiles (kpiHistorique).
+  const sansStatut=React.useMemo(()=>{
     let r=entries;
-    if(filtStatut!=='Tous')r=r.filter(e=>e.statut===filtStatut);
     if(filtMois!=='Tous')r=r.filter(e=>e.date&&e.date.startsWith(filtMois));
     if(filtCommune!=='Toutes'){const normFilt=filtCommune.replace(/\s*\(\d+\)\s*/g,'').trim().toUpperCase();r=r.filter(e=>e.commune===filtCommune||e.commune.replace(/\s*\(\d+\)\s*/g,'').trim().toUpperCase()===normFilt);}
     if(filtConseiller!=='Tous')r=r.filter(e=>e.conseiller===filtConseiller);
@@ -2251,10 +2253,11 @@ function VueHistorique({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
       if(entries.some(e=>window._newIdsFilter.has(e._id)))r=r.filter(e=>window._newIdsFilter.has(e._id));
       else window._newIdsFilter=null;
     }
-    return[...r].sort((a,b)=>comparerHistorique(a,b,sortDir));
-  },[entries,filtStatut,filtMois,filtCommune,filtConseiller,filtPublic,dSearch,sortDir,dateFrom,dateTo]);
+    return r;
+  },[entries,filtMois,filtCommune,filtConseiller,filtPublic,dSearch,dateFrom,dateTo]);
+  const filtered=React.useMemo(()=>[...(filtStatut!=='Tous'?sansStatut.filter(e=>e.statut===filtStatut):sansStatut)].sort((a,b)=>comparerHistorique(a,b,sortDir)),[sansStatut,filtStatut,sortDir]);
 
-  const kpi=React.useMemo(()=>{const realises=filtered.filter(e=>e.statut==='Réalisé');const annules=filtered.filter(e=>e.statut==='Annulé').length;const inscrits=filtered.reduce((s,e)=>s+(parseInt(e.inscrits)||0),0);const presents=filtered.reduce((s,e)=>s+(parseInt(e.presents)||0),0);const tx=inscrits>0?Math.round(presents/inscrits*100):0;return{total:filtered.length,realises:realises.length,annules,inscrits,presents,tx};},[filtered]);
+  const kpi=React.useMemo(()=>kpiHistorique(sansStatut),[sansStatut]);
   const nRetard=entries.filter(e=>isRetard(e)&&(filtConseiller==='Tous'||e.conseiller===filtConseiller)).length;
 
   function openPanel(e){setPanel(e);setPanelStatut(e.statut);setPanelInscrits(e.inscrits===undefined||e.inscrits===''?'':String(e.inscrits));setPanelPresents(e.presents===undefined||e.presents===''?'':String(e.presents));setPanelThematique(e.thematique||'');setPanelNote(e.remarques||'');}
@@ -2319,12 +2322,13 @@ function VueHistorique({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
 
   return CE('div',null,
     // KPIs
-    CE('div',{className:'kpi-row'},
-      CE(FadeItem,{delay:0,style:{flex:'1 1 0',minWidth:0}},CE('div',{className:'kpi-mini',style:{borderLeft:'3px solid #1e3a8a',background:'#f0f4ff'}},CE('div',{className:'v',style:{color:'#1e3a8a'}},kpi.total),CE('div',{className:'l'},'Total'))),
-      CE(FadeItem,{delay:0.08,style:{flex:'1 1 0',minWidth:0}},CE('div',{className:'kpi-mini',style:{borderLeft:'3px solid #16a34a',background:'#f0fdf4'}},CE('div',{className:'v',style:{color:'#166534'}},kpi.realises),CE('div',{className:'l'},'Réalisés'),CE('div',{className:'p',style:{color:'#166534'}},kpi.total?Math.round(kpi.realises/kpi.total*100)+'%':'-'))),
-      CE(FadeItem,{delay:0.16,style:{flex:'1 1 0',minWidth:0}},CE('div',{className:'kpi-mini',style:{borderLeft:'3px solid #dc2626',background:'#fff5f5'}},CE('div',{className:'v',style:{color:'#991b1b'}},kpi.annules),CE('div',{className:'l'},'Annulés'),CE('div',{className:'p',style:{color:'#991b1b'}},kpi.total?Math.round(kpi.annules/kpi.total*100)+'%':'-'))),
-      CE(FadeItem,{delay:0.24,style:{flex:'1 1 0',minWidth:0}},CE('div',{className:'kpi-mini',style:{borderLeft:'3px solid #2563eb',background:'#eff6ff'}},CE('div',{className:'v',style:{color:'#2563eb'}},kpi.inscrits),CE('div',{className:'l'},'Inscrits'))),
-      CE(FadeItem,{delay:0.32,style:{flex:'1 1 0',minWidth:0}},CE('div',{className:'kpi-mini',style:{borderLeft:'3px solid #d97706',background:'#fffbeb'}},CE('div',{className:'v',style:{color:'#d97706'}},kpi.presents),CE('div',{className:'l'},'Présents'),CE('div',{className:'p',style:{color:'#d97706'}},kpi.tx+'%')))
+    CE('div',{className:'kpi-row kpi-histo'},
+      CE(FadeItem,{delay:0,style:{minWidth:0}},CE('div',{className:'kpi-mini',style:{borderLeft:'3px solid #1e3a8a',background:'#f0f4ff'}},CE('div',{className:'v',style:{color:'#1e3a8a'}},kpi.total),CE('div',{className:'l'},'Total'))),
+      CE(FadeItem,{delay:0.06,style:{minWidth:0}},CE('div',{className:'kpi-mini',style:{borderLeft:'3px solid #2563eb',background:'#eff6ff'}},CE('div',{className:'v',style:{color:'#2563eb'}},kpi.planifies),CE('div',{className:'l'},'Planifiés'),CE('div',{className:'p',style:{color:'#2563eb'}},kpi.total?kpi.pct.planifies+'%':'-'))),
+      CE(FadeItem,{delay:0.12,style:{minWidth:0}},CE('div',{className:'kpi-mini',style:{borderLeft:'3px solid #16a34a',background:'#f0fdf4'}},CE('div',{className:'v',style:{color:'#166534'}},kpi.realises),CE('div',{className:'l'},'Réalisés'),CE('div',{className:'p',style:{color:'#166534'}},kpi.total?kpi.pct.realises+'%':'-'))),
+      CE(FadeItem,{delay:0.18,style:{minWidth:0}},CE('div',{className:'kpi-mini',style:{borderLeft:'3px solid #dc2626',background:'#fff5f5'}},CE('div',{className:'v',style:{color:'#991b1b'}},kpi.annules),CE('div',{className:'l'},'Annulés'),CE('div',{className:'p',style:{color:'#991b1b'}},kpi.total?kpi.pct.annules+'%':'-'))),
+      CE(FadeItem,{delay:0.24,style:{minWidth:0}},CE('div',{className:'kpi-mini',style:{borderLeft:'3px solid #94a3b8',background:'#f8fafc'},title:'Reportés et non réalisés'},CE('div',{className:'v',style:{color:'#475569'}},kpi.autres),CE('div',{className:'l'},'Autres'),CE('div',{className:'p',style:{color:'#475569'}},kpi.total?kpi.pct.autres+'%':'-'))),
+      CE(FadeItem,{delay:0.3,style:{minWidth:0}},CE('div',{className:'kpi-mini',style:{borderLeft:'3px solid #d97706',background:'#fffbeb'},title:'Présents / inscrits des ateliers réalisés'},CE('div',{className:'v',style:{color:'#d97706'}},kpi.presents+'/'+kpi.inscrits),CE('div',{className:'l'},'Présents'),CE('div',{className:'p',style:{color:'#d97706'}},kpi.inscrits?kpi.tx+'%':'-')))
     ),
     // Alerte retards
     nRetard>0&&CE('div',{style:{background:'#fffbeb',border:'1px solid #fcd34d',borderRadius:10,padding:'10px 14px',marginBottom:10,display:'flex',gap:10,alignItems:'center'}},
