@@ -1,130 +1,42 @@
-// Logique métier pure — compatible Node (require) ET navigateur (script tag)
-// Dépend de utils.js (chargé avant en navigateur, ou via require en Node).
+// logic.js — fonctions pures métier, testées sous Node.js (logic.test.js).
+// Chargé par index.html et admin.html depuis le 26/09/2026 (AG-015, lot 0),
+// entre utils.js et shared.js : les pages exécutent ce que les tests testent.
+// Avant, les pages exécutaient des copies placées dans shared.js, et ce
+// fichier avait divergé d'elles sans que rien ne le montre.
+// Identique dans NEWGEN et NextStep (parité, AG-015). Le 26/09/2026, les
+// fonctions que seuls les tests appelaient (computeKpi, applyFilters,
+// validateLotRow, normalizeMateriel…) en sont sorties : elles avaient divergé
+// entre les deux dépôts sans qu'aucune page ne les exécute.
 
-// En Node : on importe utils.js. En navigateur : les fonctions sont déjà en global (utils.js chargé avant).
 if (typeof require !== 'undefined') {
-  const _u = require('./utils.js');
-  var stripAccents     = _u.stripAccents;
-  var normCommune      = _u.normCommune;
-  var normalizeDate    = _u.normalizeDate;
-  var normalizeHoraire = _u.normalizeHoraire;
-  var normalizeCommune = _u.normalizeCommune;
-  var normalizeMat     = _u.normalizeMat;
-  var matIncludes      = _u.matIncludes;
-  var addJoursIso      = _u.addJoursIso;
+  var {addJoursIso, matIncludes} = require('./utils.js');
+}
+// En contexte navigateur, addJoursIso et matIncludes sont déjà des globals (utils.js chargé avant)
+
+// ── Matériel ──────────────────────────────────────────────────
+
+// Retire de la liste des cases à cocher du formulaire les matériels masqués
+// (config 'materiels_caches', Admin → Listes → toggle par matériel) — sans
+// les retirer de la liste de référence (`materiels`, celle qui persiste pour
+// les ateliers déjà enregistrés). Un matériel masqué mais déjà sélectionné
+// (édition d'un atelier existant) reste affiché pour ne pas le désélectionner
+// silencieusement.
+function filterMaterielsVisibles(materiels,caches,selectionnes){
+  return (materiels||[]).filter(m=>!matIncludes(caches,m)||matIncludes(selectionnes,m));
 }
 
-// ── Statuts et constantes ─────────────────────────────────────────────────────
+// ── Conflits matériel ─────────────────────────────────────────
 
-const STATUTS_VALIDES = ['Planifié', 'Réalisé', 'Annulé', 'Non réalisé', 'Reporté'];
-
-// ── KPI ───────────────────────────────────────────────────────────────────────
-
-function computeKpi(entries) {
-  const realises  = entries.filter(e => e.statut === 'Réalisé');
-  const annules   = entries.filter(e => e.statut === 'Annulé');
-  const planifies = entries.filter(e => e.statut === 'Planifié');
-  const inscrits  = realises.reduce((s, e) => s + (parseInt(e.inscrits) || 0), 0);
-  const presents  = realises.reduce((s, e) => s + (parseInt(e.presents) || 0), 0);
-  const tx        = inscrits > 0 ? Math.round(presents / inscrits * 100) : 0;
-  return {
-    total:    entries.length,
-    realises: realises.length,
-    annules:  annules.length,
-    planifies:planifies.length,
-    inscrits,
-    presents,
-    tx,
-  };
-}
-
-// ── Validation formulaire ─────────────────────────────────────────────────────
-
-const REQUIRED_FIELDS = ['statut','date','horaire','ampm','commune','lieu','thematique','conseiller','orienteur','public'];
-
-function validateEntry(form) {
-  const errors = {};
-  for (const f of REQUIRED_FIELDS) {
-    if (!String(form[f] || '').trim()) errors[f] = 'Requis';
-  }
-  if (form.inscrits === '' || form.inscrits == null) errors.inscrits = 'Requis';
-  return errors;
-}
-
-function validateLotShared(form) {
-  const errors = {};
-  const shared = ['statut','commune','lieu','orienteur','public'];
-  for (const f of shared) {
-    if (!String(form[f] || '').trim()) errors[f] = 'Requis';
-  }
-  return errors;
-}
-
-function validateLotRow(row) {
-  const errors = {};
-  for (const f of ['date','horaire','ampm','thematique']) {
-    if (!String(row[f] || '').trim()) errors[f] = 'Requis';
-  }
-  return errors;
-}
-
-// ── Matériel ──────────────────────────────────────────────────────────────────
-
-// Normalise un tableau de matériels en pipe-string pour l'API
-function normalizeMateriel(arr) {
-  if (!Array.isArray(arr)) return String(arr || '');
-  return arr.filter(Boolean).join('|');
-}
-
-// ── Filtres ───────────────────────────────────────────────────────────────────
-
-function applyFilters(entries, filters) {
-  const { statut, mois, commune, conseiller, public: pub, dateFrom, dateTo, search } = filters;
-  return entries.filter(e => {
-    if (statut    && e.statut    !== statut)    return false;
-    if (conseiller && e.conseiller !== conseiller) return false;
-    if (pub       && e.public    !== pub)        return false;
-    if (commune   && normCommune(e.commune)     !== normCommune(commune)) return false;
-    if (mois      && e.date && !e.date.startsWith(mois)) return false;
-    if (dateFrom  && e.date && e.date < dateFrom) return false;
-    if (dateTo    && e.date && e.date > dateTo)   return false;
-    if (search) {
-      const q = stripAccents(search);
-      const hay = stripAccents([e.commune, e.lieu, e.thematique, e.conseiller, e.orienteur, e.remarques].join(' '));
-      if (!hay.includes(q)) return false;
-    }
-    return true;
-  });
-}
-
-// ── Visibilité matériel ──────────────────────────────────────────────────────
-
-// Un matériel masqué (Admin → Listes → Matériels) disparaît des nouvelles
-// cases à cocher du formulaire de saisie, mais reste affiché s'il est déjà
-// sélectionné sur l'entrée en cours (édition) — jamais de perte de
-// visibilité sur une donnée existante. Extrait de VueSaisie (inline
-// jusqu'ici) pour être testable, même principe que sur ATELIERS_NEWGEN
-// (filterMaterielsVisibles).
-function filterMaterielsVisibles(materiels, masques, selectionnes) {
-  return (materiels || []).filter(m => !matIncludes(masques, m) || matIncludes(selectionnes, m));
-}
-
-// ── Conflits matériel ─────────────────────────────────────────────────────────
-
-// Repère les dates où 2+ conseillers distincts ont réservé "Classe mobile" —
-// matériel physique partagé, ne peut être utilisé qu'à un seul endroit à la
-// fois. Alerte informative uniquement (jamais bloquante à la saisie) : les
-// Annulés sont exclus, un atelier annulé n'immobilise plus le matériel.
-// Groupé par date ET demi-journée (22/09/2026) : deux conseillers le même
-// jour, l'un le matin l'autre l'après-midi, ne se disputent pas la Classe
-// mobile. Un atelier dont la demi-journée est inconnue tombe dans les deux,
-// donc entre en conflit avec l'un comme avec l'autre.
+// Miroir de findMobileClassConflicts (shared.js) : Classe mobile est un
+// matériel physique unique, ne peut pas être à deux endroits le même jour.
+// entries[].materiel est attendu en tableau (forme en mémoire côté navigateur,
+// avant la conversion pipe-string faite juste avant l'envoi à GAS).
 function findMobileClassConflicts(entries) {
   const parCreneau = {};
   entries.forEach(e => {
     if (e.statut === 'Annulé') return;
     if (!e.date) return;
-    if (!matIncludes(e.materiel, 'Classe mobile')) return;
+    if (!matIncludes(e.materiel,'Classe mobile')) return;
     const demi = demiJourneeAtelier(e);
     (demi ? [demi] : ['AM', 'PM']).forEach(d => {
       const k = e.date + '|' + d;
@@ -149,24 +61,26 @@ function findMobileClassConflicts(entries) {
   });
 }
 
-// ── Conflits stock ordinateurs ──────────────────────────────────────────────
-// Porté depuis ATELIERS_NEWGEN. Contrairement à findMobileClassConflicts
-// (même jour uniquement, matériel considéré comme unique/indivisible), ici
-// la quantité (nb_ordinateurs, saisie manuelle) et la date de retour
-// (date_retour_materiel) forment une période de prêt : deux ateliers à des
-// dates différentes peuvent quand même se disputer le stock si le premier
-// n'a pas rendu le matériel avant que le second en ait besoin. On étale
-// chaque atelier sur les jours qu'il occupe (date → date_retour_materiel
-// inclus, ou juste date si pas de retour renseigné), on cumule les
-// quantités par jour, puis on fusionne les jours consécutifs en conflit en
-// un seul bloc (date de début → date de fin) — pour ne pas répéter les
-// mêmes conseillers sur chaque jour d'un même chevauchement de plusieurs
-// jours. Chaque conseiller d'un bloc est en conflit avec tous les autres
-// conseillers du même bloc.
+// Miroir de findOrdinateursConflicts (shared.js). Contrairement à
+// findMobileClassConflicts (même jour uniquement, matériel considéré comme
+// unique/indivisible), ici la quantité (nb_ordinateurs, saisie manuelle) et
+// la date de retour (date_retour_materiel) forment une période de prêt :
+// deux ateliers à des dates différentes peuvent quand même se disputer le
+// stock si le premier n'a pas rendu le matériel avant que le second en ait
+// besoin. On étale chaque atelier sur les jours qu'il occupe (date →
+// date_retour_materiel inclus, ou juste date si pas de retour renseigné),
+// on cumule les quantités par jour, puis on fusionne les jours consécutifs
+// en conflit en un seul bloc (date de début → date de fin) — pour ne pas
+// répéter les mêmes conseillers sur chaque jour d'un même chevauchement de
+// plusieurs jours. Chaque conseiller d'un bloc est en conflit avec tous les
+// autres conseillers du même bloc.
 // let (pas const) : écrasée par la config GAS (stockOrdinateurs renvoyé par
-// getAll) dans loadData (app.js/admin_app.js), modifiable depuis Admin.
+// getAll) dans loadData, et modifiable depuis le panneau Admin. shared.js —
+// la copie réellement servie aux pages — l'a toujours déclarée en let ;
+// ce const-ci n'avait aucun effet tant que logic.js n'était chargé que par
+// les tests, mais aurait fait échouer la mise à jour en silence le jour où
+// une page l'aurait référencé (22/09/2026).
 let STOCK_ORDINATEURS = 10;
-
 // Cumul du jour à partir d'une liste d'items {conseiller, qte} — au max par
 // conseiller, pas en somme : un même conseiller qui enchaîne deux ateliers
 // dos-à-dos (retour du premier = prélèvement du second, sans repasser par
@@ -178,7 +92,6 @@ function totalJourParConseiller(items) {
   (items || []).forEach(x => { parConseiller[x.conseiller] = Math.max(parConseiller[x.conseiller] || 0, x.qte); });
   return Object.values(parConseiller).reduce((s, q) => s + q, 0);
 }
-
 // Jour de semaine ISO (0=dimanche...6=samedi), indépendant du fuseau (parse
 // manuel plutôt que new Date(dateIso) qui interprète 'YYYY-MM-DD' en UTC).
 function estWeekend(dateIso) {
@@ -259,7 +172,7 @@ function findOrdinateursConflicts(entries, stock = STOCK_ORDINATEURS) {
   (entries || []).forEach(e => {
     if (e.statut === 'Annulé') return;
     if (!e.date) return;
-    if (!matIncludes(e.materiel, 'Classe mobile')) return;
+    if (!matIncludes(e.materiel,'Classe mobile')) return;
     // Classe mobile cochée sans quantité renseignée (entrées historiques
     // antérieures au champ obligatoire, ou import) → on suppose 1 ordinateur
     // plutôt que d'exclure l'entrée : sinon elle disparaît silencieusement
@@ -338,7 +251,7 @@ function findOrdinateursConflicts(entries, stock = STOCK_ORDINATEURS) {
 function getPretsMateriel(entries) {
   return (entries || [])
     .filter(e => e.statut !== 'Annulé' && e.date
-      && matIncludes(e.materiel, 'Classe mobile'))
+      && matIncludes(e.materiel,'Classe mobile'))
     .map(e => {
       const { debut, fin } = periodePretMateriel(e);
       return {
@@ -382,56 +295,15 @@ function estConflitPasse(conflit, today) {
   return (conflit.dateFin || conflit.date) < today;
 }
 
-// ── Normalisation d'une entrée importée (CSV / XLSX) ─────────────────────────
-
-function normalizeImportRow(raw) {
-  return {
-    statut:       String(raw.statut      || '').trim(),
-    date:         normalizeDate(raw.date),
-    horaire:      normalizeHoraire(raw.horaire),
-    ampm:         String(raw.ampm        || '').trim(),
-    commune:      normalizeCommune(String(raw.commune || '').trim()),
-    lieu:         String(raw.lieu        || '').trim(),
-    thematique:   String(raw.thematique  || '').trim(),
-    conseiller:   String(raw.conseiller  || '').trim(),
-    co_animateur: String(raw.co_animateur|| '').trim(),
-    orienteur:    String(raw.orienteur   || '').trim(),
-    public:       String(raw.public      || '').trim(),
-    inscrits:     raw.inscrits !== '' && raw.inscrits != null ? parseInt(raw.inscrits) || '' : '',
-    presents:     raw.presents !== '' && raw.presents != null ? parseInt(raw.presents) || '' : '',
-    materiel:     Array.isArray(raw.materiel) ? raw.materiel : [],
-    residence:    String(raw.residence   || '').trim(),
-    remarques:    String(raw.remarques   || '').trim(),
-  };
-}
-
-// ── Anomalie de chiffres : plus de présents que d'inscrits ───────────────────
-// Repris de l'ancienne « Vérification cohérence » de l'Admin (retirée le
-// 25/09/2026) : seul de ses contrôles que l'onglet Anomalies ne faisait pas.
-// Un champ vide ou non numérique n'est pas une anomalie de chiffres.
-function presentsSuperieursInscrits(e) {
-  const txt = v => String(v == null ? '' : v).trim();
-  if (!/^\d+$/.test(txt(e && e.presents)) || !/^\d+$/.test(txt(e && e.inscrits))) return false;
-  return parseInt(txt(e.presents), 10) > parseInt(txt(e.inscrits), 10);
-}
-
-// ── Compatible Node (tests) ET navigateur (script tag) ────────────────────────
-
 if (typeof module !== 'undefined') {
   module.exports = {
-    STATUTS_VALIDES, REQUIRED_FIELDS,
-    computeKpi,
-    validateEntry, validateLotShared, validateLotRow,
-    normalizeMateriel,
-    applyFilters,
-    normalizeImportRow,
-    findMobileClassConflicts,
     filterMaterielsVisibles,
+    findMobileClassConflicts,
     demiJourneeAtelier, finOccupationMateriel, occupeCreneauMateriel,
     totauxParDemiJourneeMateriel,
-    STOCK_ORDINATEURS, totalJourParConseiller, periodePretMateriel, findOrdinateursConflicts,
-    getPretsMateriel, totauxParJourMateriel, estConflitPasse,
+    STOCK_ORDINATEURS, totalJourParConseiller, findOrdinateursConflicts, periodePretMateriel,
+    getPretsMateriel, totauxParJourMateriel,
+    estConflitPasse,
     estWeekend, veilleOuvree, lendemainOuvre,
-    presentsSuperieursInscrits,
   };
 }

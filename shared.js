@@ -2765,7 +2765,6 @@ function VueCalendrier({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
 // ECharts — composants graphiques (migration depuis Recharts)
 // ═══════════════════════════════════════════════════════════
 function NoData(){return CE('p',{style:{color:'#718096',fontSize:12,textAlign:'center',paddingTop:20}},'Aucune donnée');}
-function trunc(s,n){return s&&s.length>n?s.slice(0,n-1)+'…':s;}
 function barH(n,base){return Math.max(base,base+(Math.max(0,n-6)*8));}
 
 // ── Base wrapper ECharts ────────────────────────────────────
