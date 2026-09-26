@@ -442,7 +442,9 @@ tr:hover td{background:#f7fafc}
 .cal-event{display:flex;align-items:center;gap:3px;padding:2px 5px;border-radius:3px;font-size:9.5px;cursor:pointer;margin-bottom:2px;transition:filter .1s;overflow:hidden;max-width:100%;line-height:1.3}
 .cal-event:hover{filter:brightness(.9)}
 .cal-event-time{font-weight:700;flex-shrink:0;font-size:9px}
-.cal-event-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;color:#1a202c}
+.cal-event-label{display:flex;flex-direction:column;min-width:0;flex:1;color:#1a202c}
+.cal-event-label>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cal-event-orienteur{opacity:.7;font-style:italic;font-size:9px}
 .cal-more{font-size:9.5px;color:#6b7280;cursor:pointer;margin-top:2px;font-weight:600;padding:1px 4px;background:#f1f5f9;border-radius:3px;display:inline-block}
 .cal-more:hover{color:#1e3a8a;background:#dbeafe}
 .cal-year-sel{padding:4px 8px;border:1.5px solid rgba(255,255,255,.35);border-radius:6px;background:rgba(255,255,255,.12);color:#fff;font-size:12px;font-weight:700;cursor:pointer;outline:none}
@@ -2616,7 +2618,7 @@ function VueCalendrier({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
                 style:{background:retard?'#fecaca':sc+'22',borderLeft:`3px solid ${retard?'#ef4444':sc}`},
                 onClick:ev=>{ev.stopPropagation();openPanel(e);}},
                 CE('span',{className:'cal-event-time',style:{color:retard?'#991b1b':sc}},e.horaire||''),
-                CE('span',{className:'cal-event-label',title:[e.thematique||e.lieu,e.orienteur].filter(Boolean).join(' — ')},e.thematique||e.lieu||'—',e.orienteur&&CE('span',{style:{opacity:.65,fontWeight:400}},' · '+e.orienteur))
+                CE('span',{className:'cal-event-label',title:[e.thematique||e.lieu,e.orienteur].filter(Boolean).join(' — ')},CE('span',null,e.thematique||e.lieu||'—'),e.orienteur&&CE('span',{className:'cal-event-orienteur'},'🤝 '+e.orienteur))
               );
             }),
             hidden>0&&!expanded&&CE('div',{className:'cal-more',onClick:ev=>{ev.stopPropagation();setExpandDay(day);}},`+${hidden} autre${hidden>1?'s':''}`),
