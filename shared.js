@@ -2382,7 +2382,7 @@ function VueHistorique({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
   function closePanel(){setPanel(null);}
 
 
-  function resetFiltres(){setSearch('');setDSearch('');setFiltStatut('Planifié');setFiltMois('Tous');setFiltCommune('Toutes');setFiltConseiller('Tous');setFiltPublic([]);setDateFrom('');setDateTo('');window._newIdsFilter=null;if(onResetConseiller)onResetConseiller();}
+  function resetFiltres(statut='Planifié'){setSearch('');setDSearch('');setFiltStatut(statut);setFiltMois('Tous');setFiltCommune('Toutes');setFiltConseiller('Tous');setFiltPublic([]);setDateFrom('');setDateTo('');window._newIdsFilter=null;if(onResetConseiller)onResetConseiller();}
 
   function exportXLSX(){
     const rows=[['N°','Statut','Date','Horaire','Commune','Lieu','Thématique','Inscrits','Présents','Public','Conseiller','Orienteur','Matériel','Résidence','Remarques']];
@@ -2451,16 +2451,20 @@ function VueHistorique({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
     // tous » vidait le filtre mais laissait le bandeau (26/09/2026).
     filtConseiller!=='Tous'&&CE('div',{className:'filtre-banner'},
       CE('span',null,'👤 Affichage filtré : ',CE('strong',null,filtConseiller)),
-      CE('button',{onClick:resetFiltres},'Voir tous')
+      CE('button',{onClick:()=>resetFiltres()},'Voir tous')
     ),
     // Filtres — repliables (demande de l'utilisateur, 26/09/2026) : en-tête
     // toujours visible avec le nombre de filtres actifs, état mémorisé.
     CE('div',{className:'card',style:{marginBottom:10}},
-      CE('div',{onClick:basculerFiltres,style:{display:'flex',alignItems:'center',gap:8,cursor:'pointer',userSelect:'none'}},
-        CE('span',{style:{fontSize:13,fontWeight:700,color:'#1e3a8a'}},'🔎 Filtres'),
-        nbFiltresActifs>0&&CE('span',{style:{fontSize:11,fontWeight:700,background:'#1e3a8a',color:'#fff',borderRadius:10,padding:'1px 8px'}},nbFiltresActifs+' actif'+(nbFiltresActifs>1?'s':'')),
-        !filtresOuverts&&filtStatut!=='Tous'&&CE('span',{style:{fontSize:11,color:'#718096'}},'Statut : '+filtStatut),
-        CE('span',{style:{marginLeft:'auto',fontSize:12,color:'#718096'}},filtresOuverts?'▴':'▾')
+      // En-tête bien visible, sur le modèle de NEWGEN (demande de
+      // l'utilisateur, 26/09/2026), aux couleurs de NextStep.
+      CE('div',{onClick:basculerFiltres,style:{display:'flex',alignItems:'center',gap:9,cursor:'pointer',userSelect:'none',padding:'4px 2px'}},
+        CE('svg',{width:18,height:18,viewBox:'0 0 24 24',fill:'none',stroke:'#1e3a8a',strokeWidth:2,strokeLinecap:'round',strokeLinejoin:'round'},
+          CE('path',{d:'M4 6h16M7 12h10M10 18h4'})),
+        CE('span',{style:{fontSize:15,fontWeight:700,color:'#1a202c',flex:1}},'Filtres'),
+        nbFiltresActifs>0&&CE('span',{style:{fontSize:11,fontWeight:800,padding:'2px 9px',borderRadius:12,background:'#1e3a8a',color:'#fff',boxShadow:'0 2px 6px rgba(30,58,138,.35)'}},nbFiltresActifs+' actif'+(nbFiltresActifs>1?'s':'')),
+        nbFiltresActifs>0&&CE('button',{onClick:e=>{e.stopPropagation();resetFiltres('Tous');},title:'Vider tous les filtres, statut compris',style:{fontSize:12,fontWeight:600,color:'#718096',background:'none',border:'1px solid #e2e8f0',borderRadius:8,padding:'4px 10px',cursor:'pointer'}},'Effacer'),
+        CE('span',{style:{fontSize:12,color:'#718096',transition:'transform .2s',transform:filtresOuverts?'rotate(180deg)':'none'}},'▾')
       ),
       filtresOuverts&&CE('div',{style:{marginTop:10}},
         CE('div',{style:{fontSize:11,fontWeight:700,color:'#718096',letterSpacing:'.06em',marginBottom:6}},'STATUT'),
@@ -2499,7 +2503,7 @@ function VueHistorique({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
         CE('button',{className:'btn btn-secondary btn-sm',onClick:exportXLSX},'📥 XLSX'),
         CE('button',{className:'btn btn-secondary btn-sm',onClick:exportICS},'📅 ICS'),
         CE('button',{className:'btn btn-secondary btn-sm',onClick:onRefresh},'🔄 Sync'),
-        CE('button',{className:'btn btn-secondary btn-sm',onClick:resetFiltres},'✖ Réinitialiser')
+        CE('button',{className:'btn btn-secondary btn-sm',onClick:()=>resetFiltres()},'✖ Réinitialiser')
       ),
       CE('div',{style:{fontSize:11,color:'#718096',marginTop:8}},`${filtered.length} atelier(s) affiché(s) sur ${entries.length}`)
     ),
