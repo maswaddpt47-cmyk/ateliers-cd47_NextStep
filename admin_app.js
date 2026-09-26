@@ -203,7 +203,11 @@ function App(){
       if(comptes.length===0)return; // on garde CONSEILLERS_DEFAULT
       // Labo : l'API filtre déjà (source=admin → interrupteurs activés seuls)
       // et ne rend ni rôle ni état sans connexion.
+      // Connecté en admin (bouton « Changer »), l'API rend TOUS les comptes
+      // avec leur interrupteur, pour l'onglet Listes : écarter ici les
+      // « sans Admin », sinon la liste de connexion les propose (26/09/2026).
       const eligibles=comptes
+        .filter(c=>c.actif!=='NON')
         .map(c=>c.conseiller)
         .filter(Boolean);
       setLoginConseillers(eligibles.length>0?eligibles:CONSEILLERS_DEFAULT);
