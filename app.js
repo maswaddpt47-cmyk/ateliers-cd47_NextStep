@@ -418,7 +418,7 @@ function App(){
       if(data.visibility)setVisibility(v=>({...v,...data.visibility}));
       if(data.conseiller_colors)applyColors(data.conseiller_colors);
       // L'API rend la forme NEWGEN (materielsCaches), pas materiels_masques.
-      if(Array.isArray(data.materielsCaches))setMaterielsMasques(data.materielsCaches);
+      if(Array.isArray(data.materielsCaches)){setMaterielsMasques(data.materielsCaches);MATERIELS_CACHES=data.materielsCaches;}
       if(Array.isArray(data.conseillers_inactifs))setInactifsSet(new Set(data.conseillers_inactifs));
       if(data.stockOrdinateurs)STOCK_ORDINATEURS=parseInt(data.stockOrdinateurs)||STOCK_ORDINATEURS;
       setLastSync(new Date());
