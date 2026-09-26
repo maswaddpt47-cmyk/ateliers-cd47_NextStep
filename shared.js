@@ -2199,7 +2199,7 @@ function VueHistorique({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
   const[panelStatut,setPanelStatut]=React.useState('');
   const[panelInscrits,setPanelInscrits]=React.useState('');
   const[panelPresents,setPanelPresents]=React.useState('');
-  const[panelThematique,setPanelThematique]=React.useState('');const[panelDate,setPanelDate]=React.useState('');const[panelHoraire,setPanelHoraire]=React.useState('');const[panelNbOrdi,setPanelNbOrdi]=React.useState('');const[panelPublic,setPanelPublic]=React.useState('');const[panelMobile,setPanelMobile]=React.useState(false);
+  const[panelThematique,setPanelThematique]=React.useState('');const[panelDate,setPanelDate]=React.useState('');const[panelHoraire,setPanelHoraire]=React.useState('');const[panelNbOrdi,setPanelNbOrdi]=React.useState('');const[panelPublic,setPanelPublic]=React.useState('');const[panelMobile,setPanelMobile]=React.useState(false);const[panelPrelev,setPanelPrelev]=React.useState('');const[panelRetour,setPanelRetour]=React.useState('');
   const[panelNote,setPanelNote]=React.useState('');
   const[saving,setSaving]=React.useState(false);
   const[confirmDel,setConfirmDel]=React.useState(null);
@@ -2252,13 +2252,13 @@ function VueHistorique({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
   const kpi=React.useMemo(()=>kpiHistorique(sansStatut),[sansStatut]);
   const nRetard=entries.filter(e=>isRetard(e)&&(filtConseiller==='Tous'||e.conseiller===filtConseiller)).length;
 
-  function openPanel(e){setPanel(e);setPanelStatut(e.statut);setPanelInscrits(e.inscrits===undefined||e.inscrits===''?'':String(e.inscrits));setPanelPresents(e.presents===undefined||e.presents===''?'':String(e.presents));setPanelThematique(e.thematique||'');setPanelNote(e.remarques||'');setPanelDate(normalizeDate(e.date)||'');setPanelHoraire(normalizeHoraire(e.horaire)||'');setPanelNbOrdi(e.nb_ordinateurs===undefined||e.nb_ordinateurs===''||e.nb_ordinateurs===null?'':String(e.nb_ordinateurs));setPanelPublic(e.public||'');setPanelMobile(matIncludes(e.materiel,'Classe mobile'));}
+  function openPanel(e){setPanel(e);setPanelStatut(e.statut);setPanelInscrits(e.inscrits===undefined||e.inscrits===''?'':String(e.inscrits));setPanelPresents(e.presents===undefined||e.presents===''?'':String(e.presents));setPanelThematique(e.thematique||'');setPanelNote(e.remarques||'');setPanelDate(normalizeDate(e.date)||'');setPanelHoraire(normalizeHoraire(e.horaire)||'');setPanelNbOrdi(e.nb_ordinateurs===undefined||e.nb_ordinateurs===''||e.nb_ordinateurs===null?'':String(e.nb_ordinateurs));setPanelPublic(e.public||'');setPanelMobile(matIncludes(e.materiel,'Classe mobile'));setPanelPrelev(normalizeDate(e.date_prelevement_materiel)||'');setPanelRetour(normalizeDate(e.date_retour_materiel)||'');}
   function closePanel(){setPanel(null);}
 
   async function savePanel(){
     if(!panel)return;if(!panelDate){showToast('❌ Date requise',false);return;}if(panelMobile&&!(parseInt(panelNbOrdi)>0)){showToast('❌ Ordinateurs prêtés requis avec la Classe mobile',false);return;}setSaving(true);
     try{
-      const updated={...panel,statut:panelStatut,inscrits:panelInscrits===''?'':parseInt(panelInscrits)||0,presents:panelPresents===''?'':parseInt(panelPresents)||0,thematique:panelThematique,date:panelDate,horaire:panelHoraire,ampm:panelHoraire!==(normalizeHoraire(panel.horaire)||'')?(ampmDepuisHoraire(panelHoraire)||panel.ampm):panel.ampm,public:panelPublic,materiel:matierePanneau(panel,panelMobile),nb_ordinateurs:panelMobile?(panelNbOrdi===''?'':parseInt(panelNbOrdi)||0):'',remarques:panelNote};
+      const updated={...panel,statut:panelStatut,inscrits:panelInscrits===''?'':parseInt(panelInscrits)||0,presents:panelPresents===''?'':parseInt(panelPresents)||0,thematique:panelThematique,date:panelDate,horaire:panelHoraire,ampm:panelHoraire!==(normalizeHoraire(panel.horaire)||'')?(ampmDepuisHoraire(panelHoraire)||panel.ampm):panel.ampm,public:panelPublic,materiel:matierePanneau(panel,panelMobile),nb_ordinateurs:panelMobile?(panelNbOrdi===''?'':parseInt(panelNbOrdi)||0):'',date_prelevement_materiel:panelMobile?panelPrelev:'',date_retour_materiel:panelMobile?panelRetour:'',remarques:panelNote};
       const res=await apiFetch('saveEntry',{entry:updated});
       if(!res.ok)throw new Error(res.error);
       showToast('✅ Mis à jour');closePanel();entreeSauvegardee(updated, onRefresh);
@@ -2453,10 +2453,17 @@ function VueHistorique({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
             CE('input',{type:'checkbox',checked:panelMobile,onChange:e=>setPanelMobile(e.target.checked),style:{width:18,height:18,margin:0,flex:'none'}}),CE('span',null,'Classe mobile')),
           panelMobile&&CE('div',{className:'sp-field'},CE('label',null,"Ordinateurs prêtés *"),
             CE('input',{type:'number',min:1,max:10,value:panelNbOrdi,onChange:e=>setPanelNbOrdi(e.target.value),style:{width:'100%',padding:'8px 10px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:13},placeholder:'Ex : 4'})),
+          // Facultatives, comme dans le formulaire : sans elles le prêt ne
+          // couvre que le jour de l'atelier (periodePretMateriel).
+          panelMobile&&CE('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}},
+            CE('div',{className:'sp-field'},CE('label',null,'Prélèvement ordi'),
+              CE('input',{type:'date',value:panelPrelev,onChange:e=>setPanelPrelev(e.target.value),style:{width:'100%',padding:'8px 10px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:13}})),
+            CE('div',{className:'sp-field'},CE('label',null,'Retour ordi'),
+              CE('input',{type:'date',value:panelRetour,onChange:e=>setPanelRetour(e.target.value),style:{width:'100%',padding:'8px 10px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:13}}))),
           parseInt(panel.nb_ordinateurs)>0&&(panel.date_prelevement_materiel||panel.date_retour_materiel)&&CE('div',{className:'sp-info-row'},CE('span',null,'Période de prêt'),CE('span',null,fmtPeriode(periodePretMateriel(panel).debut,periodePretMateriel(panel).fin))),
           // Conflit de matériel si l'on enregistre (26/09/2026) : même contrôle
           // que l'onglet Anomalies, sur l'atelier tel qu'il sera enregistré.
-          (()=>{const c=typeof conflitsDeLEntree==='function'?conflitsDeLEntree(entries,{...panel,date:panelDate,horaire:panelHoraire,ampm:panelHoraire!==(normalizeHoraire(panel.horaire)||'')?(ampmDepuisHoraire(panelHoraire)||panel.ampm):panel.ampm,materiel:matierePanneau(panel,panelMobile),nb_ordinateurs:panelMobile?(panelNbOrdi===''?'':parseInt(panelNbOrdi)||0):''},typeof findOrdinateursConflicts==='function'?findOrdinateursConflicts:null,typeof findMobileClassConflicts==='function'?findMobileClassConflicts:null):{ordi:[],mobile:[]};
+          (()=>{const c=typeof conflitsDeLEntree==='function'?conflitsDeLEntree(entries,{...panel,date:panelDate,horaire:panelHoraire,ampm:panelHoraire!==(normalizeHoraire(panel.horaire)||'')?(ampmDepuisHoraire(panelHoraire)||panel.ampm):panel.ampm,materiel:matierePanneau(panel,panelMobile),nb_ordinateurs:panelMobile?(panelNbOrdi===''?'':parseInt(panelNbOrdi)||0):'',date_prelevement_materiel:panelMobile?panelPrelev:'',date_retour_materiel:panelMobile?panelRetour:''},typeof findOrdinateursConflicts==='function'?findOrdinateursConflicts:null,typeof findMobileClassConflicts==='function'?findMobileClassConflicts:null):{ordi:[],mobile:[]};
             if(!c.ordi.length&&!c.mobile.length)return null;
             return CE('div',{style:{background:'#fff7ed',border:'1px solid #fed7aa',borderRadius:8,padding:'8px 10px',fontSize:12,color:'#9a3412',display:'flex',flexDirection:'column',gap:4}},
               CE('strong',null,'⚠️ Conflit de matériel si vous enregistrez :'),
@@ -2512,7 +2519,7 @@ function VueCalendrier({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
   const[panelStatut,setPanelStatut]=React.useState('');
   const[panelInscrits,setPanelInscrits]=React.useState('');
   const[panelPresents,setPanelPresents]=React.useState('');
-  const[panelThematique,setPanelThematique]=React.useState('');const[panelDate,setPanelDate]=React.useState('');const[panelHoraire,setPanelHoraire]=React.useState('');const[panelNbOrdi,setPanelNbOrdi]=React.useState('');const[panelPublic,setPanelPublic]=React.useState('');const[panelMobile,setPanelMobile]=React.useState(false);
+  const[panelThematique,setPanelThematique]=React.useState('');const[panelDate,setPanelDate]=React.useState('');const[panelHoraire,setPanelHoraire]=React.useState('');const[panelNbOrdi,setPanelNbOrdi]=React.useState('');const[panelPublic,setPanelPublic]=React.useState('');const[panelMobile,setPanelMobile]=React.useState(false);const[panelPrelev,setPanelPrelev]=React.useState('');const[panelRetour,setPanelRetour]=React.useState('');
   const[panelNote,setPanelNote]=React.useState('');
   const[saving,setSaving]=React.useState(false);
   const[confirmDel,setConfirmDel]=React.useState(null);
@@ -2564,12 +2571,12 @@ function VueCalendrier({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
   function goToday(){setCalDate(new Date(today.getFullYear(),today.getMonth(),1));setExpandDay(null);}
 
   // Panel
-  function openPanel(e){setPanel(e);setPanelStatut(e.statut);setPanelInscrits(e.inscrits===undefined||e.inscrits===''?'':String(e.inscrits));setPanelPresents(e.presents===undefined||e.presents===''?'':String(e.presents));setPanelThematique(e.thematique||'');setPanelNote(e.remarques||'');setPanelDate(normalizeDate(e.date)||'');setPanelHoraire(normalizeHoraire(e.horaire)||'');setPanelNbOrdi(e.nb_ordinateurs===undefined||e.nb_ordinateurs===''||e.nb_ordinateurs===null?'':String(e.nb_ordinateurs));setPanelPublic(e.public||'');setPanelMobile(matIncludes(e.materiel,'Classe mobile'));}
+  function openPanel(e){setPanel(e);setPanelStatut(e.statut);setPanelInscrits(e.inscrits===undefined||e.inscrits===''?'':String(e.inscrits));setPanelPresents(e.presents===undefined||e.presents===''?'':String(e.presents));setPanelThematique(e.thematique||'');setPanelNote(e.remarques||'');setPanelDate(normalizeDate(e.date)||'');setPanelHoraire(normalizeHoraire(e.horaire)||'');setPanelNbOrdi(e.nb_ordinateurs===undefined||e.nb_ordinateurs===''||e.nb_ordinateurs===null?'':String(e.nb_ordinateurs));setPanelPublic(e.public||'');setPanelMobile(matIncludes(e.materiel,'Classe mobile'));setPanelPrelev(normalizeDate(e.date_prelevement_materiel)||'');setPanelRetour(normalizeDate(e.date_retour_materiel)||'');}
   function closePanel(){setPanel(null);}
   async function savePanel(){
     if(!panel)return;if(!panelDate){showToast('❌ Date requise',false);return;}if(panelMobile&&!(parseInt(panelNbOrdi)>0)){showToast('❌ Ordinateurs prêtés requis avec la Classe mobile',false);return;}setSaving(true);
     try{
-      const updated={...panel,statut:panelStatut,inscrits:panelInscrits===''?'':parseInt(panelInscrits)||0,presents:panelPresents===''?'':parseInt(panelPresents)||0,thematique:panelThematique,date:panelDate,horaire:panelHoraire,ampm:panelHoraire!==(normalizeHoraire(panel.horaire)||'')?(ampmDepuisHoraire(panelHoraire)||panel.ampm):panel.ampm,public:panelPublic,materiel:matierePanneau(panel,panelMobile),nb_ordinateurs:panelMobile?(panelNbOrdi===''?'':parseInt(panelNbOrdi)||0):'',remarques:panelNote};
+      const updated={...panel,statut:panelStatut,inscrits:panelInscrits===''?'':parseInt(panelInscrits)||0,presents:panelPresents===''?'':parseInt(panelPresents)||0,thematique:panelThematique,date:panelDate,horaire:panelHoraire,ampm:panelHoraire!==(normalizeHoraire(panel.horaire)||'')?(ampmDepuisHoraire(panelHoraire)||panel.ampm):panel.ampm,public:panelPublic,materiel:matierePanneau(panel,panelMobile),nb_ordinateurs:panelMobile?(panelNbOrdi===''?'':parseInt(panelNbOrdi)||0):'',date_prelevement_materiel:panelMobile?panelPrelev:'',date_retour_materiel:panelMobile?panelRetour:'',remarques:panelNote};
       const res=await apiFetch('saveEntry',{entry:updated});
       if(!res.ok)throw new Error(res.error);
       showToast('✅ Mis à jour');closePanel();entreeSauvegardee(updated, onRefresh);
@@ -2701,10 +2708,17 @@ function VueCalendrier({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
             CE('input',{type:'checkbox',checked:panelMobile,onChange:e=>setPanelMobile(e.target.checked),style:{width:18,height:18,margin:0,flex:'none'}}),CE('span',null,'Classe mobile')),
           panelMobile&&CE('div',{className:'sp-field'},CE('label',null,"Ordinateurs prêtés *"),
             CE('input',{type:'number',min:1,max:10,value:panelNbOrdi,onChange:e=>setPanelNbOrdi(e.target.value),style:{width:'100%',padding:'8px 10px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:13},placeholder:'Ex : 4'})),
+          // Facultatives, comme dans le formulaire : sans elles le prêt ne
+          // couvre que le jour de l'atelier (periodePretMateriel).
+          panelMobile&&CE('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}},
+            CE('div',{className:'sp-field'},CE('label',null,'Prélèvement ordi'),
+              CE('input',{type:'date',value:panelPrelev,onChange:e=>setPanelPrelev(e.target.value),style:{width:'100%',padding:'8px 10px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:13}})),
+            CE('div',{className:'sp-field'},CE('label',null,'Retour ordi'),
+              CE('input',{type:'date',value:panelRetour,onChange:e=>setPanelRetour(e.target.value),style:{width:'100%',padding:'8px 10px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:13}}))),
           parseInt(panel.nb_ordinateurs)>0&&(panel.date_prelevement_materiel||panel.date_retour_materiel)&&CE('div',{className:'sp-info-row'},CE('span',null,'Période de prêt'),CE('span',null,fmtPeriode(periodePretMateriel(panel).debut,periodePretMateriel(panel).fin))),
           // Conflit de matériel si l'on enregistre (26/09/2026) : même contrôle
           // que l'onglet Anomalies, sur l'atelier tel qu'il sera enregistré.
-          (()=>{const c=typeof conflitsDeLEntree==='function'?conflitsDeLEntree(entries,{...panel,date:panelDate,horaire:panelHoraire,ampm:panelHoraire!==(normalizeHoraire(panel.horaire)||'')?(ampmDepuisHoraire(panelHoraire)||panel.ampm):panel.ampm,materiel:matierePanneau(panel,panelMobile),nb_ordinateurs:panelMobile?(panelNbOrdi===''?'':parseInt(panelNbOrdi)||0):''},typeof findOrdinateursConflicts==='function'?findOrdinateursConflicts:null,typeof findMobileClassConflicts==='function'?findMobileClassConflicts:null):{ordi:[],mobile:[]};
+          (()=>{const c=typeof conflitsDeLEntree==='function'?conflitsDeLEntree(entries,{...panel,date:panelDate,horaire:panelHoraire,ampm:panelHoraire!==(normalizeHoraire(panel.horaire)||'')?(ampmDepuisHoraire(panelHoraire)||panel.ampm):panel.ampm,materiel:matierePanneau(panel,panelMobile),nb_ordinateurs:panelMobile?(panelNbOrdi===''?'':parseInt(panelNbOrdi)||0):'',date_prelevement_materiel:panelMobile?panelPrelev:'',date_retour_materiel:panelMobile?panelRetour:''},typeof findOrdinateursConflicts==='function'?findOrdinateursConflicts:null,typeof findMobileClassConflicts==='function'?findMobileClassConflicts:null):{ordi:[],mobile:[]};
             if(!c.ordi.length&&!c.mobile.length)return null;
             return CE('div',{style:{background:'#fff7ed',border:'1px solid #fed7aa',borderRadius:8,padding:'8px 10px',fontSize:12,color:'#9a3412',display:'flex',flexDirection:'column',gap:4}},
               CE('strong',null,'⚠️ Conflit de matériel si vous enregistrez :'),
