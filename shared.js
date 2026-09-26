@@ -2358,7 +2358,7 @@ function VueHistorique({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
           conseillersHist.map(c=>CE('span',{key:c,className:'chip'+(filtConseiller===c?' active':''),style:{color:conseillerColor(c)},onClick:()=>{const nv=filtConseiller===c?'Tous':c;setFiltConseiller(nv);if(onChangeConseiller)onChangeConseiller(nv);}},
             CE('span',{className:'chip-dot',style:{background:conseillerColor(c)}}),c))),
         CE('div',{className:'chip-bar',style:{marginBottom:0}},
-          CE('span',{className:'chip chip-all'+(filtPublic.length===0?' active':''),onClick:()=>setFiltPublic([])},'Tous publics'),
+          CE('span',{className:'chip chip-all'+(filtPublic.length===0?' active':''),onClick:()=>setFiltPublic([]),title:'Retirer le filtre de public'},'Tout afficher'),
           PUBLICS.map(p=>CE('span',{key:p,className:'chip'+(filtPublic.includes(p)?' active':''),onClick:()=>basculerPublic(p)},p)))
       ),
       CE('div',{style:{display:'flex',gap:8,flexWrap:'wrap',alignItems:'center',marginTop:8}},
