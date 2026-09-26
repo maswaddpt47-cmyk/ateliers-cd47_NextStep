@@ -2450,6 +2450,15 @@ function VueHistorique({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
           CE('div',{className:'sp-field'},CE('label',null,"Ordinateurs prêtés"),
             CE('input',{type:'number',min:0,value:panelNbOrdi,onChange:e=>setPanelNbOrdi(e.target.value),style:{width:'100%',padding:'8px 10px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:13},placeholder:'0'})),
           parseInt(panel.nb_ordinateurs)>0&&(panel.date_prelevement_materiel||panel.date_retour_materiel)&&CE('div',{className:'sp-info-row'},CE('span',null,'Période de prêt'),CE('span',null,fmtPeriode(periodePretMateriel(panel).debut,periodePretMateriel(panel).fin))),
+          // Conflit de matériel si l'on enregistre (26/09/2026) : même contrôle
+          // que l'onglet Anomalies, sur l'atelier tel qu'il sera enregistré.
+          (()=>{const c=typeof conflitsDeLEntree==='function'?conflitsDeLEntree(entries,{...panel,date:panelDate,horaire:panelHoraire,ampm:panelHoraire!==(normalizeHoraire(panel.horaire)||'')?(ampmDepuisHoraire(panelHoraire)||panel.ampm):panel.ampm,nb_ordinateurs:panelNbOrdi===''?'':parseInt(panelNbOrdi)||0},typeof findOrdinateursConflicts==='function'?findOrdinateursConflicts:null,typeof findMobileClassConflicts==='function'?findMobileClassConflicts:null):{ordi:[],mobile:[]};
+            if(!c.ordi.length&&!c.mobile.length)return null;
+            return CE('div',{style:{background:'#fff7ed',border:'1px solid #fed7aa',borderRadius:8,padding:'8px 10px',fontSize:12,color:'#9a3412',display:'flex',flexDirection:'column',gap:4}},
+              CE('strong',null,'⚠️ Conflit de matériel si vous enregistrez :'),
+              c.ordi.map(g=>CE('div',{key:'o'+g.date},'🖥️ '+fmtPeriode(g.date,g.dateFin)+' : '+g.total+' ordinateurs demandés sur '+STOCK_ORDINATEURS+' en stock')),
+              c.mobile.map(g=>CE('div',{key:'m'+g.date},'📦 '+fmtDate(g.date)+' : Classe mobile aussi réservée par '+[...new Set(g.entries.filter(x=>x._id!==panel._id).map(x=>x.conseiller))].join(', '))),
+              CE('div',{style:{color:'#6b7280'}},'Enregistrement possible : à régler ensuite dans Gestion ordi ou Anomalies.'));})(),
           CE('div',{className:'sp-field'},CE('label',null,'Thématique'),
             CE(ComboThematique,{value:panelThematique,onChange:setPanelThematique,entries:entries})),
           CE('div',{className:'sp-field'},CE('label',null,'Remarques'),
@@ -2685,6 +2694,15 @@ function VueCalendrier({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
           CE('div',{className:'sp-field'},CE('label',null,"Ordinateurs prêtés"),
             CE('input',{type:'number',min:0,value:panelNbOrdi,onChange:e=>setPanelNbOrdi(e.target.value),style:{width:'100%',padding:'8px 10px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:13},placeholder:'0'})),
           parseInt(panel.nb_ordinateurs)>0&&(panel.date_prelevement_materiel||panel.date_retour_materiel)&&CE('div',{className:'sp-info-row'},CE('span',null,'Période de prêt'),CE('span',null,fmtPeriode(periodePretMateriel(panel).debut,periodePretMateriel(panel).fin))),
+          // Conflit de matériel si l'on enregistre (26/09/2026) : même contrôle
+          // que l'onglet Anomalies, sur l'atelier tel qu'il sera enregistré.
+          (()=>{const c=typeof conflitsDeLEntree==='function'?conflitsDeLEntree(entries,{...panel,date:panelDate,horaire:panelHoraire,ampm:panelHoraire!==(normalizeHoraire(panel.horaire)||'')?(ampmDepuisHoraire(panelHoraire)||panel.ampm):panel.ampm,nb_ordinateurs:panelNbOrdi===''?'':parseInt(panelNbOrdi)||0},typeof findOrdinateursConflicts==='function'?findOrdinateursConflicts:null,typeof findMobileClassConflicts==='function'?findMobileClassConflicts:null):{ordi:[],mobile:[]};
+            if(!c.ordi.length&&!c.mobile.length)return null;
+            return CE('div',{style:{background:'#fff7ed',border:'1px solid #fed7aa',borderRadius:8,padding:'8px 10px',fontSize:12,color:'#9a3412',display:'flex',flexDirection:'column',gap:4}},
+              CE('strong',null,'⚠️ Conflit de matériel si vous enregistrez :'),
+              c.ordi.map(g=>CE('div',{key:'o'+g.date},'🖥️ '+fmtPeriode(g.date,g.dateFin)+' : '+g.total+' ordinateurs demandés sur '+STOCK_ORDINATEURS+' en stock')),
+              c.mobile.map(g=>CE('div',{key:'m'+g.date},'📦 '+fmtDate(g.date)+' : Classe mobile aussi réservée par '+[...new Set(g.entries.filter(x=>x._id!==panel._id).map(x=>x.conseiller))].join(', '))),
+              CE('div',{style:{color:'#6b7280'}},'Enregistrement possible : à régler ensuite dans Gestion ordi ou Anomalies.'));})(),
           CE('div',{className:'sp-field'},CE('label',null,'Thématique'),
             CE(ComboThematique,{value:panelThematique,onChange:setPanelThematique,entries:entries})),
           CE('div',{className:'sp-field'},CE('label',null,'Remarques'),
@@ -3915,8 +3933,8 @@ function VuePowerBI({entries, conseillers: conseillersList}){
   const total=fd.length;
   const real=fd.filter(d=>d.statut==='Réalisé').length;
   const tReal=total?Math.round(real/total*100):0;
-  const totPre=fd.filter(d=>d.statut==='Réalisé').reduce((s,d)=>s+(parseInt(d.presents)||0),0);
-  const totIns=fd.filter(d=>d.statut==='Réalisé').reduce((s,d)=>s+(parseInt(d.inscrits)||0),0);
+  const totPre=kpiHistorique(fd).presents;
+  const totIns=kpiHistorique(fd).inscrits;
   const tPres=totIns?Math.round(totPre/totIns*100):0;
 
   // Par mois
@@ -3926,7 +3944,7 @@ function VuePowerBI({entries, conseillers: conseillersList}){
       Réalisés:r.filter(d=>d.statut==='Réalisé').length,
       Planifiés:r.filter(d=>d.statut==='Planifié').length,
       Annulés:r.filter(d=>d.statut==='Annulé').length,
-      Présents:r.filter(d=>d.statut==='Réalisé').reduce((s,d)=>s+(parseInt(d.presents)||0),0)
+      Présents:kpiHistorique(r).presents
     };
   });
 
@@ -3954,7 +3972,7 @@ function VuePowerBI({entries, conseillers: conseillersList}){
   const allComm=[...new Set(fd.map(d=>normCommune(d.commune)).filter(Boolean))];
   const pComm=allComm.map(c=>({
     name:c.length>14?c.slice(0,14)+'…':c,fullName:c,
-    presents:fd.filter(d=>normCommune(d.commune)===c&&d.statut==='Réalisé').reduce((s,d)=>s+(parseInt(d.presents)||0),0),
+    presents:kpiHistorique(fd.filter(d=>normCommune(d.commune)===c)).presents,
     ateliers:fd.filter(d=>normCommune(d.commune)===c).length
   })).sort((a,b)=>b.presents-a.presents).slice(0,8);
 
@@ -4156,7 +4174,7 @@ function VuePowerBI({entries, conseillers: conseillersList}){
             const r=fd.filter(d=>d.conseiller===c);
             const rl=r.filter(d=>d.statut==='Réalisé').length;
             const pct=r.length?Math.round(rl/r.length*100):0;
-            const pre=r.filter(d=>d.statut==='Réalisé').reduce((s,d)=>s+(parseInt(d.presents)||0),0);
+            const pre=kpiHistorique(r).presents;
             const ann=r.filter(d=>d.statut==='Annulé').length;
             return CE('div',{key:c,style:{background:PBI_BG,borderRadius:6,padding:12,boxShadow:'0 1px 6px rgba(0,0,0,.15)',borderTop:`3px solid ${cColor(c)}`}},
               CE('div',{style:{fontSize:11,fontWeight:700,color:cColor(c),marginBottom:8,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}},c),
@@ -4192,7 +4210,7 @@ function VuePowerBI({entries, conseillers: conseillersList}){
                 const r=fd.filter(d=>d.conseiller===c);
                 const rl=r.filter(d=>d.statut==='Réalisé').length;
                 const pct=r.length?Math.round(rl/r.length*100):0;
-                const pre=r.filter(d=>d.statut==='Réalisé').reduce((s,d)=>s+(parseInt(d.presents)||0),0);
+                const pre=kpiHistorique(r).presents;
                 const ann=r.filter(d=>d.statut==='Annulé').length;
                 return CE('tr',{key:c,style:{background:i%2?PBI_BG2:PBI_BG}},
                   CE('td',{style:{padding:'6px 8px'}},CE('div',{style:{display:'flex',alignItems:'center',gap:5}},
@@ -4342,8 +4360,8 @@ function VueAgendaSemaine({entries,onEdit,onDelete,onDuplicate,canDelete,initCon
   const planifies=filtered.filter(e=>e.statut==='Planifié').length;
   const realises=filtered.filter(e=>e.statut==='Réalisé').length;
   const retards=filtered.filter(e=>isRetard(e)).length;
-  const inscritsW=filtered.filter(e=>e.statut==='Réalisé').reduce((s,e)=>s+(parseInt(e.inscrits)||0),0);
-  const presentsW=filtered.filter(e=>e.statut==='Réalisé').reduce((s,e)=>s+(parseInt(e.presents)||0),0);
+  const inscritsW=kpiHistorique(filtered).inscrits;
+  const presentsW=kpiHistorique(filtered).presents;
 
   // ── Card atelier ────────────────────────────────────────────
   function renderCard(e){
@@ -4575,7 +4593,7 @@ function VueRoadmap({entries,annee,conseillers}){
   const kpis=React.useMemo(()=>{
     const total=filtered.length;
     const realises=filtered.filter(e=>e.statut==='Réalisé').length;
-    const presents=filtered.filter(e=>e.statut==='Réalisé').reduce((s,e)=>s+(parseInt(e.presents)||0),0);
+    const presents=kpiHistorique(filtered).presents;
     const taux=total>0?Math.round(realises/total*100):0;
     return{total,realises,presents,taux};
   },[filtered]);

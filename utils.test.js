@@ -390,3 +390,24 @@ describe('kpiHistorique', () => {
     assert.equal(kpiHistorique([]).tx, 0);
   });
 });
+
+// ── conflitsDeLEntree (panneau latéral, 26/09/2026) ─────────────────────────
+describe('conflitsDeLEntree', () => {
+  const { conflitsDeLEntree } = require('./utils.js');
+  const { findOrdinateursConflicts, findMobileClassConflicts } = require('./logic.js');
+  const at = (id, conseiller, date, nb) => ({ _id: id, conseiller, date, horaire: '09:00', ampm: 'AM', statut: 'Planifié', materiel: ['Classe mobile'], nb_ordinateurs: nb });
+  const autres = [at('a', 'Alice', '2026-10-05', 8)];
+  it('déplacer un atelier sur une date déjà prise : conflit de stock et de Classe mobile signalés', () => {
+    const c = conflitsDeLEntree(autres, at('b', 'Bruno', '2026-10-05', 6), findOrdinateursConflicts, findMobileClassConflicts);
+    assert.equal(c.ordi.length, 1);
+    assert.equal(c.ordi[0].total, 14);
+    assert.equal(c.mobile.length, 1);
+  });
+  it('sur une date libre, ou déjà enregistré ailleurs dans la liste : rien, et pas compté deux fois', () => {
+    const libre = conflitsDeLEntree(autres, at('b', 'Bruno', '2026-10-06', 6), findOrdinateursConflicts, findMobileClassConflicts);
+    assert.deepEqual([libre.ordi.length, libre.mobile.length], [0, 0]);
+    // L'ancienne version de l'atelier (même _id) est remplacée, pas additionnée.
+    const deplace = conflitsDeLEntree([...autres, at('b', 'Bruno', '2026-10-05', 6)], at('b', 'Bruno', '2026-10-06', 6), findOrdinateursConflicts, findMobileClassConflicts);
+    assert.deepEqual([deplace.ordi.length, deplace.mobile.length], [0, 0]);
+  });
+});

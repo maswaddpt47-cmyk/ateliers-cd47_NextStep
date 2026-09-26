@@ -396,6 +396,20 @@ function ampmDepuisHoraire(h) {
 // total. Reportés + Non réalisés regroupés en « autres ». Inscrits et présents
 // comptés sur les seuls ateliers réalisés : le taux de présence n'a de sens
 // que pour un atelier qui a eu lieu.
+// Conflits de matériel où figurerait un atelier modifié, avant de
+// l'enregistrer (panneau latéral de l'Historique et du Calendrier, 26/09/2026 :
+// date et ordinateurs y sont modifiables, sans passer par le formulaire).
+// Les deux détecteurs sont passés en paramètre : ils vivent dans shared.js
+// (pages) et logic.js (tests). Avertissement seulement, jamais bloquant.
+function conflitsDeLEntree(entries, entree, trouverOrdi, trouverMobile) {
+  const liste = (entries || []).filter(e => e._id !== entree._id).concat([entree]);
+  const concerne = g => (g.entries || []).some(x => x && x._id === entree._id);
+  return {
+    ordi: (typeof trouverOrdi === 'function' ? trouverOrdi(liste) : []).filter(concerne),
+    mobile: (typeof trouverMobile === 'function' ? trouverMobile(liste) : []).filter(concerne),
+  };
+}
+
 function kpiHistorique(liste) {
   const k = { total: 0, planifies: 0, realises: 0, annules: 0, autres: 0, inscrits: 0, presents: 0 };
   (liste || []).forEach(e => {
@@ -431,5 +445,6 @@ if (typeof module !== 'undefined') {
   comparerHistorique,
   ampmDepuisHoraire,
   kpiHistorique,
+  conflitsDeLEntree,
   };
 }
