@@ -1020,6 +1020,9 @@ function VueSauvegardes(){
           (etat.copies||[]).length+' copie(s) gardée(s), '+etat.jours+' jours'),
         tuile('Copie chiffrée hors site (04:15)',age(etat.chiffree)<26,affDate(etat.chiffree),
           CE(React.Fragment,null,'Dépôt GitHub privé, lisible avec la clé privée seulement',CE('br'),
+            // Consigne visible seulement quand il faut agir (26/09/2026).
+            age(etat.chiffree)>=26&&CE('div',{style:{marginTop:8,padding:'6px 8px',borderRadius:6,background:'#fff',border:'1px solid #fecaca',color:'#991b1b',fontSize:12,lineHeight:1.4}},
+              '⚠️ Pas de copie chiffrée depuis plus de 26 h. Touchez « Relancer sur GitHub », puis sur la page ouverte « Run workflow » et le bouton vert « Run workflow ». Revenez ici après 1 minute et rechargez : la tuile doit repasser au vert.'),
             // Relance à la main si GitHub a pris du retard (26/09/2026) : sur la
             // page ouverte, « Run workflow ». Un lien, pas d'appel : aucun jeton
             // GitHub à stocker sur le serveur (choix de l'utilisateur).
