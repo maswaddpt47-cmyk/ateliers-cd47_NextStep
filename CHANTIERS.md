@@ -20,8 +20,7 @@ AG-003 à AG-008, ordre du jour de la bascule) a été retirée. Texte complet :
 ## Reste ouvert
 
 - **Parité avec NEWGEN (AG-015)** : 4 écarts au 26/09/2026, dont 3 voulus ;
-  reste la question `VueHistorique` et une vérification terrain par
-  l'utilisateur avant le 28/09. Suivi et **ordre de push (NextStep
+  reste la question `VueHistorique` (vérification terrain faite le 26/09). Suivi et **ordre de push (NextStep
   d'abord)** : `CHANTIERS.md` d'ATELIERS_NEWGEN, section parité.
 - **Lisibilité des couleurs de la Frise du parc** : jamais vérifiée à l'œil.
 - `manifest-*.json` à retirer (plus de PWA depuis AG-012), une fois les
