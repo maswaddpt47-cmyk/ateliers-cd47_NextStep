@@ -1762,7 +1762,7 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
   function reset(){idNouveauRef.current=null;setForm(empty);setEditId(null);setIsDup(false);setErrors({});}
   function resetLot(){idsLotRef.current={};setLotForm({orienteur:'',commune:'',lieu:'',conseiller:'',co_animateur:'',public:'',materiel:[],residence:'',remarques:'',nb_ordinateurs:''});setLotRows([emptyRow(),emptyRow()]);setLotErrors({});setLotRowErrors({});setLotSubmitted(false);}
 
-  function set(k,v){setForm(f=>({...f,[k]:v}));setErrors(er=>({...er,[k]:''}));}
+  function set(k,v){const a=k==='horaire'?ampmDepuisHoraire(v):'';setForm(f=>({...f,[k]:v,...(a?{ampm:a}:{})}));setErrors(er=>({...er,[k]:'',...(a?{ampm:''}:{})}));}
   function toggleMat(m){setForm(f=>{const already=matIncludes(f.materiel,m);return{...f,materiel:already?f.materiel.filter(x=>normalizeMat(x)!==normalizeMat(m)):[...f.materiel,m]};});}
   function setLot(k,v){setLotForm(f=>({...f,[k]:v}));setLotErrors(er=>({...er,[k]:''}));}
   function toggleLotMat(m){setLotForm(f=>{const already=matIncludes(f.materiel,m);return{...f,materiel:already?f.materiel.filter(x=>normalizeMat(x)!==normalizeMat(m)):[...f.materiel,m]};});}
@@ -1770,7 +1770,7 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
   // ── lignes du lot ──
   function addRow(){setLotRows(r=>[...r,emptyRow()]);}
   function removeRow(id){if(lotRows.length<=1)return;setLotRows(r=>r.filter(x=>x.id!==id));}
-  function setRow(id,k,v){setLotRows(r=>r.map(x=>x.id===id?{...x,[k]:v}:x));setLotRowErrors(er=>{const upd={...(er[id]||{})};delete upd[k];return{...er,[id]:upd};});}
+  function setRow(id,k,v){const a=k==='horaire'?ampmDepuisHoraire(v):'';setLotRows(r=>r.map(x=>x.id===id?{...x,[k]:v,...(a?{ampm:a}:{})}:x));setLotRowErrors(er=>{const upd={...(er[id]||{})};delete upd[k];if(a)delete upd.ampm;return{...er,[id]:upd};});}
   function blurRow(id,k,v){setLotRowErrors(er=>{const upd={...(er[id]||{})};if(!v||!String(v).trim())upd[k]='Requis';else delete upd[k];return{...er,[id]:upd};});}
   function validateOnBlur(name,val,errSetter){
     const empty=typeof val==='string'?!val.trim():(val===''||val===null||val===undefined);

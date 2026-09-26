@@ -13,6 +13,7 @@ const {
   anneeIncluse,
   lsKey, migrerLocalStorage,
   comparerHistorique,
+  ampmDepuisHoraire,
 } = require('./utils.js');
 
 // ── stripAccents ──────────────────────────────────────────────────────────────
@@ -348,5 +349,15 @@ describe('comparerHistorique', () => {
   });
   it('date décroissante : les dates s\'inversent, pas l\'ordre à l\'intérieur d\'un jour', () => {
     assert.deepEqual([...liste].sort((x, y) => comparerHistorique(x, y, -1)).map(e => e._id), ['c', 'a', 'b', 'd']);
+  });
+});
+
+// ── ampmDepuisHoraire ──────────────────────────────────────
+describe('ampmDepuisHoraire', () => {
+  it('seuil à 12:00 : 11:59 → AM, 12:00 → PM, 9:30 sans zéro → AM', () => {
+    assert.deepEqual(['11:59', '12:00', '9:30', '14:30'].map(ampmDepuisHoraire), ['AM', 'PM', 'AM', 'PM']);
+  });
+  it('horaire vide ou illisible → rien (le champ n\'est pas touché)', () => {
+    assert.deepEqual(['', null, 'matin', '25:00'].map(ampmDepuisHoraire), ['', '', '', '']);
   });
 });
