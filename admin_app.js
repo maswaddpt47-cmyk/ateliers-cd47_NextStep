@@ -758,8 +758,8 @@ function TableCommunes({fd}){
   const communes=[...new Set(fd.map(d=>d.commune).filter(Boolean))].map(c=>{
     const r=fd.filter(d=>d.commune===c);
     const rl=r.filter(d=>d.statut==='Réalisé').length;
-    const ins=r.reduce((s,d)=>s+(parseInt(d.inscrits)||0),0);
-    const pre=r.reduce((s,d)=>s+(parseInt(d.presents)||0),0);
+    const ins=r.filter(d=>d.statut==='Réalisé').reduce((s,d)=>s+(parseInt(d.inscrits)||0),0);
+    const pre=r.filter(d=>d.statut==='Réalisé').reduce((s,d)=>s+(parseInt(d.presents)||0),0);
     const tp=ins?Math.round(pre/ins*100):0;
     return{name:c,ateliers:r.length,realises:rl,inscrits:ins,presents:pre,presence:tp};
   }).sort((a,b)=>sortDir*(a[sortKey]>b[sortKey]?1:a[sortKey]<b[sortKey]?-1:0));
