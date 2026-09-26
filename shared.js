@@ -2315,6 +2315,8 @@ function VueHistorique({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
   // Plusieurs publics sélectionnables (26/09/2026) : [] = tous.
   const[filtPublic,setFiltPublic]=React.useState([]);
   const basculerPublic=p=>setFiltPublic(l=>l.includes(p)?l.filter(x=>x!==p):[...l,p]);
+  const[filtresOuverts,setFiltresOuverts]=React.useState(()=>{try{return localStorage.getItem(lsKey('hist_filtres_ouverts'))==='1';}catch(_){return false;}});
+  function basculerFiltres(){setFiltresOuverts(o=>{try{localStorage.setItem(lsKey('hist_filtres_ouverts'),o?'0':'1');}catch(_){}return !o;});}
   const[sortDir,setSortDir]=React.useState(1);
   const[dateFrom,setDateFrom]=React.useState('');
   const[dateTo,setDateTo]=React.useState('');
@@ -2371,6 +2373,7 @@ function VueHistorique({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
     return r;
   },[entries,filtMois,filtCommune,filtConseiller,filtPublic,dSearch,dateFrom,dateTo]);
   const filtered=React.useMemo(()=>[...(filtStatut!=='Tous'?sansStatut.filter(e=>e.statut===filtStatut):sansStatut)].sort((a,b)=>comparerHistorique(a,b,sortDir)),[sansStatut,filtStatut,sortDir]);
+  const nbFiltresActifs=(filtStatut!=='Tous'?1:0)+(search?1:0)+(filtMois!=='Tous'?1:0)+(filtCommune!=='Toutes'?1:0)+(filtConseiller!=='Tous'?1:0)+(filtPublic.length?1:0)+(dateFrom||dateTo?1:0);
 
   const kpi=React.useMemo(()=>kpiHistorique(sansStatut),[sansStatut]);
   const nRetard=entries.filter(e=>isRetard(e)&&(filtConseiller==='Tous'||e.conseiller===filtConseiller)).length;
@@ -2450,37 +2453,48 @@ function VueHistorique({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
       CE('span',null,'👤 Affichage filtré : ',CE('strong',null,filtConseiller)),
       CE('button',{onClick:resetFiltres},'Voir tous')
     ),
-    // Filtres
+    // Filtres — repliables (demande de l'utilisateur, 26/09/2026) : en-tête
+    // toujours visible avec le nombre de filtres actifs, état mémorisé.
     CE('div',{className:'card',style:{marginBottom:10}},
-      CE('div',{style:{fontSize:11,fontWeight:700,color:'#718096',letterSpacing:'.06em',marginBottom:6}},'STATUT'),
-      CE('div',{className:'chip-bar'},
-        CHIP_STATUTS.map(c=>CE('button',{key:c.key,className:`chip ${c.cls}${filtStatut===c.key?' active':''}`,onClick:()=>setFiltStatut(c.key)},
-          c.dot&&CE('span',{className:'chip-dot',style:{background:c.dot}}),c.label,' ',CE('span',{style:{opacity:.7,fontSize:11}},'('+counts[c.key]+')')))
+      CE('div',{onClick:basculerFiltres,style:{display:'flex',alignItems:'center',gap:8,cursor:'pointer',userSelect:'none'}},
+        CE('span',{style:{fontSize:13,fontWeight:700,color:'#1e3a8a'}},'🔎 Filtres'),
+        nbFiltresActifs>0&&CE('span',{style:{fontSize:11,fontWeight:700,background:'#1e3a8a',color:'#fff',borderRadius:10,padding:'1px 8px'}},nbFiltresActifs+' actif'+(nbFiltresActifs>1?'s':'')),
+        !filtresOuverts&&filtStatut!=='Tous'&&CE('span',{style:{fontSize:11,color:'#718096'}},'Statut : '+filtStatut),
+        CE('span',{style:{marginLeft:'auto',fontSize:12,color:'#718096'}},filtresOuverts?'▴':'▾')
       ),
-      CE('hr',{style:{border:'none',borderTop:'1px solid #f0f4f8',margin:'10px 0'}}),
-      CE('div',{style:{display:'flex',gap:8,flexWrap:'wrap',alignItems:'center'}},
-        CE('input',{type:'text',value:search,placeholder:'🔍 Recherche…',style:{flex:'1 1 160px',padding:'6px 10px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:13},onChange:e=>setSearch(e.target.value)}),
-        CE('select',{style:{padding:'6px 8px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:12},value:filtMois,onChange:e=>setFiltMois(e.target.value)},
-          CE('option',{value:'Tous'},'Tous les mois'),moisDispo.map(m=>CE('option',{key:m,value:m},m))),
-        CE('select',{style:{padding:'6px 8px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:12},value:filtCommune,onChange:e=>setFiltCommune(e.target.value)},
-          CE('option',{value:'Toutes'},'Toutes communes'),
-          [...new Set(entries.map(e=>e.commune).filter(Boolean))].sort((a,b)=>a.localeCompare(b)).map(c=>CE('option',{key:c,value:c},c))),
-        CE('div',{className:'chip-bar',style:{marginBottom:0}},
-          CE('span',{className:'chip chip-all'+(filtConseiller==='Tous'?' active':''),onClick:()=>{setFiltConseiller('Tous');if(onChangeConseiller)onChangeConseiller('Tous');}},
-            CE('span',{className:'chip-dot'}),'Tous'),
-          conseillersHist.map(c=>CE('span',{key:c,className:'chip'+(filtConseiller===c?' active':''),style:{color:conseillerColor(c)},onClick:()=>{const nv=filtConseiller===c?'Tous':c;setFiltConseiller(nv);if(onChangeConseiller)onChangeConseiller(nv);}},
-            CE('span',{className:'chip-dot',style:{background:conseillerColor(c)}}),c))),
-        CE('div',{className:'chip-bar',style:{marginBottom:0}},
-          CE('span',{className:'chip chip-all'+(filtPublic.length===0?' active':''),onClick:()=>setFiltPublic([]),title:'Retirer le filtre de public'},'Tout afficher'),
-          PUBLICS.map(p=>CE('span',{key:p,className:'chip'+(filtPublic.includes(p)?' active':''),onClick:()=>basculerPublic(p)},p)))
-      ),
-      CE('div',{style:{display:'flex',gap:8,flexWrap:'wrap',alignItems:'center',marginTop:8}},
+      filtresOuverts&&CE('div',{style:{marginTop:10}},
+        CE('div',{style:{fontSize:11,fontWeight:700,color:'#718096',letterSpacing:'.06em',marginBottom:6}},'STATUT'),
+        CE('div',{className:'chip-bar'},
+          CHIP_STATUTS.map(c=>CE('button',{key:c.key,className:`chip ${c.cls}${filtStatut===c.key?' active':''}`,onClick:()=>setFiltStatut(c.key)},
+            c.dot&&CE('span',{className:'chip-dot',style:{background:c.dot}}),c.label,' ',CE('span',{style:{opacity:.7,fontSize:11}},'('+counts[c.key]+')')))
+        ),
+        CE('hr',{style:{border:'none',borderTop:'1px solid #f0f4f8',margin:'10px 0'}}),
+        CE('div',{style:{display:'flex',gap:8,flexWrap:'wrap',alignItems:'center'}},
+          CE('input',{type:'text',value:search,placeholder:'🔍 Recherche…',style:{flex:'1 1 160px',padding:'6px 10px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:13},onChange:e=>setSearch(e.target.value)}),
+          CE('select',{style:{padding:'6px 8px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:12},value:filtMois,onChange:e=>setFiltMois(e.target.value)},
+            CE('option',{value:'Tous'},'Tous les mois'),moisDispo.map(m=>CE('option',{key:m,value:m},m))),
+          CE('select',{style:{padding:'6px 8px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:12},value:filtCommune,onChange:e=>setFiltCommune(e.target.value)},
+            CE('option',{value:'Toutes'},'Toutes communes'),
+            [...new Set(entries.map(e=>e.commune).filter(Boolean))].sort((a,b)=>a.localeCompare(b)).map(c=>CE('option',{key:c,value:c},c))),
+          CE('div',{className:'chip-bar',style:{marginBottom:0}},
+            CE('span',{className:'chip chip-all'+(filtConseiller==='Tous'?' active':''),onClick:()=>{setFiltConseiller('Tous');if(onChangeConseiller)onChangeConseiller('Tous');}},
+              CE('span',{className:'chip-dot'}),'Tous'),
+            conseillersHist.map(c=>CE('span',{key:c,className:'chip'+(filtConseiller===c?' active':''),style:{color:conseillerColor(c)},onClick:()=>{const nv=filtConseiller===c?'Tous':c;setFiltConseiller(nv);if(onChangeConseiller)onChangeConseiller(nv);}},
+              CE('span',{className:'chip-dot',style:{background:conseillerColor(c)}}),c))),
+          CE('div',{className:'chip-bar',style:{marginBottom:0}},
+            CE('span',{className:'chip chip-all'+(filtPublic.length===0?' active':''),onClick:()=>setFiltPublic([]),title:'Retirer le filtre de public'},'Tout afficher'),
+            PUBLICS.map(p=>CE('span',{key:p,className:'chip'+(filtPublic.includes(p)?' active':''),onClick:()=>basculerPublic(p)},p)))
+        ),
+        CE('div',{style:{display:'flex',gap:8,flexWrap:'wrap',alignItems:'center',marginTop:8}},
         CE('div',{style:{display:'flex',alignItems:'center',gap:4}},
           CE('span',{style:{fontSize:11,fontWeight:700,color:'#718096',whiteSpace:'nowrap'}},'Du'),
           CE('input',{type:'date',value:dateFrom,onChange:e=>setDateFrom(e.target.value),style:{padding:'6px 8px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:12}}),
           CE('span',{style:{fontSize:11,fontWeight:700,color:'#718096',whiteSpace:'nowrap'}},'Au'),
           CE('input',{type:'date',value:dateTo,onChange:e=>setDateTo(e.target.value),style:{padding:'6px 8px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:12}})
-        ),
+        )
+        )
+      ),
+      CE('div',{style:{display:'flex',gap:8,flexWrap:'wrap',alignItems:'center',marginTop:8}},
         CE('button',{className:'btn btn-secondary btn-sm',onClick:()=>setSortDir(d=>-d)},sortDir===1?'↑ Date':'↓ Date'),
         CE('button',{className:'btn btn-secondary btn-sm',onClick:exportXLSX},'📥 XLSX'),
         CE('button',{className:'btn btn-secondary btn-sm',onClick:exportICS},'📅 ICS'),
