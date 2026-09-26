@@ -118,6 +118,34 @@ tr:hover td{background:#f7fafc}
 .combo-dropdown{position:absolute;top:100%;left:0;right:0;background:#fff;border:1.5px solid #1e3a8a;border-top:none;border-radius:0 0 6px 6px;max-height:240px;overflow-y:auto;z-index:200;box-shadow:0 4px 12px rgba(0,0,0,.1)}
 .combo-item{display:flex;align-items:center;gap:10px;padding:7px 12px;cursor:pointer;font-size:13px;transition:background .1s}
 .combo-item:hover,.combo-item.active{background:#eff6ff}
+/* Écran d'attente — repris de NEWGEN le 26/09/2026 (variables NextStep : --bg2, --text2). */
+.attente-gas{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;padding:44px 28px;text-align:center;background:var(--bg2,#fff);border-radius:14px;box-shadow:0 2px 4px rgba(12,36,48,.06),0 10px 28px rgba(12,36,48,.11);max-width:380px;margin:32px auto}
+/* ── Bobine façon amorce SMPTE (compte à rebours cinéma vintage) ─────────── */
+@property --sweep{syntax:'<angle>';initial-value:0deg;inherits:false}
+.attente-reel{position:relative;width:92px;height:92px;border-radius:50%;flex:none;
+  background:radial-gradient(circle at 42% 38%,#ddd7c7 0%,#c7c0ac 45%,#a89f89 78%,#8b8270 100%);
+  box-shadow:0 6px 16px rgba(0,0,0,.3),inset 0 0 20px rgba(0,0,0,.35),inset 0 0 0 2px rgba(20,18,14,.45);
+  display:flex;align-items:center;justify-content:center;overflow:hidden;
+  animation:reel-flicker 3.6s steps(1) infinite}
+.attente-reel-grain{position:absolute;inset:0;border-radius:50%;pointer-events:none;mix-blend-mode:multiply;opacity:.3;z-index:1;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+.attente-reel-ring{position:absolute;inset:8px;border-radius:50%;border:1.5px solid rgba(20,18,14,.4);z-index:2}
+.attente-reel-tickwrap{position:absolute;inset:0;z-index:2}
+.attente-reel-tick{position:absolute;top:5px;left:50%;width:2px;height:8px;background:rgba(20,18,14,.55);transform:translateX(-1px);border-radius:1px}
+.attente-reel-tick.maj{height:11px;background:rgba(20,18,14,.8)}
+.attente-reel-cross{position:absolute;inset:0;z-index:2}
+.attente-reel-cross::before,.attente-reel-cross::after{content:'';position:absolute;background:rgba(20,18,14,.55)}
+.attente-reel-cross::before{left:6%;right:6%;top:50%;height:1.5px}
+.attente-reel-cross::after{top:6%;bottom:6%;left:50%;width:1.5px}
+.attente-reel-wedge{position:absolute;inset:0;border-radius:50%;z-index:3;
+  background:conic-gradient(from 0deg,rgba(18,16,12,.85) 0deg,rgba(18,16,12,.85) var(--sweep),transparent var(--sweep),transparent 360deg);
+  animation:reel-sweep 1s linear infinite}
+.attente-reel-num{position:relative;z-index:4;font-size:30px;font-weight:800;color:#14120e;font-variant-numeric:tabular-nums;letter-spacing:-.5px}
+@keyframes reel-sweep{from{--sweep:0deg}to{--sweep:360deg}}
+@keyframes reel-flicker{0%,84%,100%{filter:brightness(1)}86%{filter:brightness(.9)}88%{filter:brightness(1.06)}90%{filter:brightness(.96)}92%{filter:brightness(1)}}
+.attente-gas-titre{font-size:15px;font-weight:700;color:#1b4fd6}
+.attente-gas-txt{font-size:13px;color:var(--text2,#4e6270);max-width:300px;line-height:1.5;animation:attente-fade .4s ease}
+@keyframes attente-fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
 .combo-cat-header{padding:6px 12px 2px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#1e3a8a;pointer-events:none;user-select:none}
 .combo-cp{font-size:11px;font-weight:700;color:#1e3a8a;min-width:42px;font-family:monospace}
 .combo-nom{color:#1a202c}
@@ -878,60 +906,31 @@ async function exporterElementPDF(selector, titre, nomFichier){
 function AttenteGAS({titre}){
   const PALIERS = [
     {t:0,     txt:'Chargement des ateliers…'},
-    {t:4000,  txt:"Plus lent que d'habitude (moins d'une seconde en temps normal)…"},
-    {t:10000, txt:'On y est presque…'},
-    {t:15000, txt:'Toujours en cours — on patiente…'},
-    {t:22000, txt:'Ça traîne un peu plus que d’habitude — encore un peu…'},
-  ];
-  const ASTUCES = [
-    '💡 Cliquez sur un atelier en retard dans Historique pour le clôturer en un clic.',
-    '💡 La Carte affiche la répartition des ateliers par commune.',
-    '💡 Le Bingo repère d’un coup d’œil les communes déjà couvertes.',
-    '💡 Le premier chargement de la journée est souvent le plus long — les suivants sont plus rapides.',
-    '💡 Exportez vos ateliers en XLSX ou en calendrier (ICS) depuis Historique.',
+    {t:6000,  txt:"Plus lent que d'habitude (moins d'une seconde en temps normal)…"},
+    {t:13000, txt:'Réponse perdue en chemin — nouvelle tentative…'},
+    {t:26000, txt:'Dernière tentative…'},
   ];
   const[palier,setPalier]=React.useState(0);
   const[secs,setSecs]=React.useState(0);
-  const[astuce,setAstuce]=React.useState(()=>Math.floor(Math.random()*ASTUCES.length));
   React.useEffect(()=>{
     const timers=PALIERS.slice(1).map((p,i)=>setTimeout(()=>setPalier(i+1),p.t));
     const tick=setInterval(()=>setSecs(s=>s+1),1000);
-    const tickAstuce=setInterval(()=>setAstuce(a=>(a+1)%ASTUCES.length),4000);
-    return()=>{timers.forEach(clearTimeout);clearInterval(tick);clearInterval(tickAstuce);};
+    return()=>{timers.forEach(clearTimeout);clearInterval(tick);};
   },[]);
-  // Cadran façon "leader" vintage de bobine de cinéma (cercle beige, croix
-  // fixe, part sombre façon camembert qui balaie). Durée totale inconnue,
-  // contrairement à un vrai compte à rebours de film, donc on compte les
-  // secondes écoulées plutôt qu'à rebours vers zéro. @property permet
-  // l'interpolation fluide de --wipe dans le conic-gradient ; sans support
-  // navigateur, ça dégrade sans casser (juste moins fluide).
-  return CE('div',{style:{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:14,padding:'40px 20px',textAlign:'center'}},
-    CE('style',null,`
-      @property --wipe{ syntax:'<angle>'; inherits:false; initial-value:0deg; }
-      @keyframes attenteWipe{ from{--wipe:0deg;} to{--wipe:360deg;} }
-      @keyframes attenteFlicker{ 0%,100%{opacity:1;} 40%{opacity:.9;} 60%{opacity:1;} 85%{opacity:.94;} }
-      .attente-reel{
-        --wipe:0deg;
-        width:78px;height:78px;border-radius:50%;position:relative;
-        background:conic-gradient(rgba(58,52,40,.6) var(--wipe), transparent var(--wipe)), #d9d3bd;
-        border:3px solid #6b6552;
-        animation:attenteWipe 1s linear infinite, attenteFlicker 2.4s ease-in-out infinite;
-        display:flex;align-items:center;justify-content:center;
-      }
-      .attente-reel::before,.attente-reel::after{content:'';position:absolute;background:#6b6552;}
-      .attente-reel::before{left:5px;right:5px;top:50%;height:2px;transform:translateY(-50%);}
-      .attente-reel::after{top:5px;bottom:5px;left:50%;width:2px;transform:translateX(-50%);}
-      .attente-reel .chiffre{
-        position:relative;z-index:2;color:#2b2820;font-weight:800;font-size:22px;
-        font-variant-numeric:tabular-nums;
-      }
-    `),
+  return CE('div',{className:'attente-gas'},
     CE('div',{className:'attente-reel'},
-      CE('span',{className:'chiffre'},secs)
+      CE('div',{className:'attente-reel-grain'}),
+      CE('div',{className:'attente-reel-ring'}),
+      // 12 repères façon amorce de film — 4 principaux (0/3/6/9h) plus longs
+      Array.from({length:12}).map((_,i)=>CE('div',{key:i,className:'attente-reel-tickwrap',style:{transform:`rotate(${i*30}deg)`}},
+        CE('div',{className:'attente-reel-tick'+(i%3===0?' maj':'')})
+      )),
+      CE('div',{className:'attente-reel-cross'}),
+      CE('div',{className:'attente-reel-wedge'}),
+      CE('span',{className:'attente-reel-num'},secs)
     ),
-    titre&&CE('div',{style:{fontSize:15,fontWeight:700,color:'#1e3a8a'}},titre),
-    CE('div',{style:{fontSize:13,color:'#718096',maxWidth:340,lineHeight:1.5}},PALIERS[palier].txt),
-    secs>=3&&CE('div',{key:astuce,style:{fontSize:11,color:'#94a3b8',maxWidth:280,marginTop:4,fontStyle:'italic'}},ASTUCES[astuce])
+    titre&&CE('div',{className:'attente-gas-titre'},titre),
+    CE('div',{key:palier,className:'attente-gas-txt'},PALIERS[palier].txt)
   );
 }
 

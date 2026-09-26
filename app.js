@@ -268,6 +268,13 @@ function App(){
   const[online,setOnline]          = React.useState(navigator.onLine);
   const[showPicker,setShowPicker]   = React.useState(false);
   const[inactifsSet,setInactifsSet] = React.useState(new Set());
+  // Mode sombre (26/09/2026, comme l'admin et comme NEWGEN) : même
+  // mécanisme que admin_app.js, préférence propre à la page conseillers.
+  const[darkMode,setDarkMode]=React.useState(()=>{ try{ return localStorage.getItem(lsKey('f_dark'))==='1'; }catch(_){ return false; } });
+  React.useEffect(()=>{
+    document.documentElement.setAttribute('data-theme',darkMode?'dark':'light');
+    try{ localStorage.setItem(lsKey('f_dark'),darkMode?'1':'0'); }catch(_){}
+  },[darkMode]);
   const[materielsMasques,setMaterielsMasques] = React.useState([]);
   // Liste du menu déroulant de connexion. Elle sortait de lists.conseillers,
   // donc du getAll complet : c'est ce qui obligeait l'appel le plus lourd de
@@ -729,6 +736,15 @@ function App(){
 
       CE('div',{className:'sidebar-bottom'},
         CE(ChoixAnnees,{className:'sidebar-year',value:annee,onChange:setAnnee,title:'Années chargées'}),
+        CE('button',{
+          className:'sidebar-btn',
+          title:darkMode?'Mode clair':'Mode sombre',
+          onClick:()=>setDarkMode(d=>!d),
+          style:{width:52,height:44,flexShrink:0}
+        },
+          CE('span',{className:'sidebar-btn-ico'},darkMode?'☀️':'🌙'),
+          CE('span',{className:'sidebar-btn-lbl'},darkMode?'Mode clair':'Mode sombre')
+        ),
         newEntries.length>0&&CE('button',{
           className:'sidebar-notif-btn',
           title:`${newEntries.length} nouveaux ateliers`,
