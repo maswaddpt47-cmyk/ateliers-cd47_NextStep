@@ -2498,11 +2498,13 @@ function VueHistorique({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
 // ═══════════════════════════════════════════════════════════
 // VUE CALENDRIER — v9.2
 // ═══════════════════════════════════════════════════════════
-function VueCalendrier({entries,onEdit,onDelete,onRefresh,onDuplicate,initConseiller,onResetConseiller,canDelete,onChangeConseiller}){
+function VueCalendrier({entries,onEdit,onDelete,onRefresh,onEntryUpdated,onDuplicate,initConseiller,onResetConseiller,canDelete,onChangeConseiller}){
   const today=new Date();
   const todayStr=today.toISOString().slice(0,10);
   const[calDate,setCalDate]=React.useState(new Date(today.getFullYear(),today.getMonth(),1));
   const[filtConseiller,setFiltConseiller]=React.useState(initConseiller||'Tous');
+  const[filtPublic,setFiltPublic]=React.useState('Tous');
+  const[filtresOpen,setFiltresOpen]=React.useState(false);
   const[panel,setPanel]=React.useState(null);
   const[panelStatut,setPanelStatut]=React.useState('');
   const[panelInscrits,setPanelInscrits]=React.useState('');
@@ -2527,8 +2529,9 @@ function VueCalendrier({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
   const monthEntries=React.useMemo(()=>{
     let r=entries.filter(e=>e.date&&e.date.startsWith(monthStr));
     if(filtConseiller!=='Tous')r=r.filter(e=>e.conseiller===filtConseiller);
+    if(filtPublic!=='Tous')r=r.filter(e=>(e.public||'Tous publics')===filtPublic);
     return r;
-  },[entries,monthStr,filtConseiller]);
+  },[entries,monthStr,filtConseiller,filtPublic]);
 
   // Map jour→ateliers
   const dayMap=React.useMemo(()=>{
@@ -2564,10 +2567,23 @@ function VueCalendrier({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
   async function savePanel(){
     if(!panel)return;if(!panelDate){showToast('❌ Date requise',false);return;}if(panelMobile&&!(parseInt(panelNbOrdi)>0)){showToast('❌ Ordinateurs prêtés requis avec la Classe mobile',false);return;}setSaving(true);
     try{
-      const updated={...panel,statut:panelStatut,inscrits:panelInscrits===''?'':parseInt(panelInscrits)||0,presents:panelPresents===''?'':parseInt(panelPresents)||0,thematique:panelThematique,date:panelDate,horaire:panelHoraire,ampm:panelHoraire!==(normalizeHoraire(panel.horaire)||'')?(ampmDepuisHoraire(panelHoraire)||panel.ampm):panel.ampm,public:panelPublic,materiel:matierePanneau(panel,panelMobile),nb_ordinateurs:panelMobile?(panelNbOrdi===''?'':parseInt(panelNbOrdi)||0):'',date_prelevement_materiel:panelMobile?panelPrelev:'',date_retour_materiel:panelMobile?panelRetour:'',remarques:panelNote};
+      const updated={...panel,statut:panelStatut,inscrits:panelInscrits===''?'':parseInt(panelInscrits)||0,presents:panelPresents===''?'':parseInt(panelPresents)||0,thematique:panelThematique,date:panelDate,horaire:panelHoraire,ampm:panelHoraire!==(normalizeHoraire(panel.horaire)||'')?(ampmDepuisHoraire(panelHoraire)||panel.ampm):panel.ampm,public:panelPublic,nb_ordinateurs:panelMobile?(panelNbOrdi===''?'':parseInt(panelNbOrdi)||0):'',date_prelevement_materiel:panelMobile?panelPrelev:'',date_retour_materiel:panelMobile?panelRetour:'',remarques:panelNote,materiel:matierePanneau(panel,panelMobile).join('|')};
       const res=await apiFetch('saveEntry',{entry:updated});
       if(!res.ok)throw new Error(res.error);
-      showToast('✅ Mis à jour');closePanel();entreeSauvegardee(updated, onRefresh);
+      showToast('✅ Mis à jour');closePanel();
+      // GAS vient de confirmer l'écriture : relancer un getAll complet pour
+      // relire ce qu'on a écrit soi-même faisait payer deux allers-retours au
+      // lieu d'un, et le second au pire tarif (actionSaveEntry invalide le
+      // cache getAll juste avant, donc la relecture repart de la feuille).
+      // On applique la même entrée localement, comme le fait déjà la création
+      // d'atelier. `materiel` repart en tableau, et c'est celui qui vient
+      // d'être enregistré (case Classe mobile comprise) — panel.materiel, qui
+      // servait ici, réaffichait l'ancien jusqu'au rechargement (26/09/2026).
+      // Le prochain rechargement réel (auto 5 min, changement d'année, bouton
+      // Rafraîchir) resynchronise avec la feuille.
+      // onEntryUpdated (NEWGEN) ou, à défaut, entreeSauvegardee (les deux applis).
+      const loc={...updated,materiel:matierePanneau(panel,panelMobile)};
+      if(onEntryUpdated) onEntryUpdated(loc); else entreeSauvegardee(loc,onRefresh);
     }catch(err){showToast('❌ '+err.message,false);}
     finally{setSaving(false);}
   }
@@ -2586,27 +2602,38 @@ function VueCalendrier({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
 
   return CE('div',null,
     // ── Header ──
-    CE('div',{className:'card',style:{marginBottom:12}},
-      CE('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:10,marginBottom:12}},
+    CE('div',{className:'card',style:{marginBottom:12,padding:0,overflow:'hidden'}},
+      // Navigation mois + toggle filtres
+      CE('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:8,padding:'10px 14px'}},
         CE('div',{style:{display:'flex',alignItems:'center',gap:8}},
           CE('button',{className:'btn btn-secondary btn-sm',onClick:prevMonth},'‹'),
-          CE('div',{style:{fontSize:18,fontWeight:800,color:'#1e3a8a',minWidth:170,textAlign:'center'}},`${MOIS_LONG[mo]} ${yr}`),
+          CE('div',{style:{fontSize:18,fontWeight:800,color:'var(--text)',minWidth:170,textAlign:'center'}},`${MOIS_LONG[mo]} ${yr}`),
           CE('button',{className:'btn btn-secondary btn-sm',onClick:nextMonth},'›'),
           CE('button',{className:'btn btn-secondary btn-sm',style:{marginLeft:4,fontSize:12},onClick:goToday},'Aujourd\'hui')
+        ),
+        CE('button',{
+          onClick:()=>setFiltresOpen(o=>!o),
+          style:{display:'flex',alignItems:'center',gap:5,background:'none',border:'1.5px solid var(--border)',borderRadius:6,padding:'4px 10px',cursor:'pointer',fontSize:12,color:'var(--text-3)',fontWeight:600}
+        },
+          '🔍 Filtres',
+          CE('span',{style:{fontSize:11,transition:'transform .2s',transform:filtresOpen?'rotate(180deg)':'rotate(0deg)'}},'▾')
         )
       ),
-      CE('div',{className:'chip-bar',style:{marginBottom:8}},
-        CE('span',{className:'chip chip-all'+(filtConseiller==='Tous'?' active':''),onClick:()=>{setFiltConseiller('Tous');if(onChangeConseiller)onChangeConseiller('Tous');}},
-          CE('span',{className:'chip-dot'}),'Tous'),
-        conseillersCal.map(c=>CE('span',{key:c,className:'chip'+(filtConseiller===c?' active':''),style:{color:conseillerColor(c)},onClick:()=>{setFiltConseiller(f=>f===c?'Tous':c);if(onChangeConseiller)onChangeConseiller(filtConseiller===c?'Tous':c);}},
-          CE('span',{className:'chip-dot',style:{background:conseillerColor(c)}}),c))
-      ),
-      CE('div',{key:monthStr,style:{display:'flex',gap:8,flexWrap:'wrap'}},
-        CE('div',{className:'kpi-mini',style:{flex:'1 1 70px',borderLeft:'3px solid #1e3a8a',background:'#f0f4ff',animationDelay:'.00s'}},CE('div',{className:'v',style:{color:'#1e3a8a',fontSize:20}},kpi.total),CE('div',{className:'l'},'Ateliers')),
-        CE('div',{className:'kpi-mini',style:{flex:'1 1 70px',borderLeft:'3px solid #16a34a',background:'#f0fdf4',animationDelay:'.07s'}},CE('div',{className:'v',style:{color:'#166534',fontSize:20}},kpi.realises),CE('div',{className:'l'},'Réalisés')),
-        CE('div',{className:'kpi-mini',style:{flex:'1 1 70px',borderLeft:'3px solid #2563eb',background:'#eff6ff',animationDelay:'.14s'}},CE('div',{className:'v',style:{color:'#2563eb',fontSize:20}},kpi.planifies),CE('div',{className:'l'},'Planifiés')),
-        CE('div',{className:'kpi-mini',style:{flex:'1 1 70px',borderLeft:'3px solid #7c3aed',background:'#faf5ff',animationDelay:'.21s'}},CE('div',{className:'v',style:{color:'#7c3aed',fontSize:20}},kpi.inscrits),CE('div',{className:'l'},'Inscrits')),
-        CE('div',{className:'kpi-mini',style:{flex:'1 1 70px',borderLeft:'3px solid #0891b2',background:'#ecfeff',animationDelay:'.28s'}},CE('div',{className:'v',style:{color:'#0891b2',fontSize:20}},kpi.presents),CE('div',{className:'l'},'Présents'))
+      // Chips conseillers + KPIs — collapsibles via CSS
+      CE('div',{style:{borderTop:filtresOpen?'1px solid #f0f4f8':'none',maxHeight:filtresOpen?'500px':'0',overflow:'hidden',transition:'max-height .3s cubic-bezier(.4,0,.2,1)',padding:filtresOpen?'10px 14px':'0 14px'}},
+        CE('div',{className:'chip-bar',style:{marginBottom:10}},
+          CE('span',{className:'chip chip-all'+(filtConseiller==='Tous'?' active':''),onClick:()=>{setFiltConseiller('Tous');if(onChangeConseiller)onChangeConseiller('Tous');}},
+            CE('span',{className:'chip-dot'}),'Tous'),
+          conseillersCal.map(c=>CE('span',{key:c,className:'chip'+(filtConseiller===c?' active':''),style:{color:conseillerColor(c)},onClick:()=>{setFiltConseiller(f=>f===c?'Tous':c);if(onChangeConseiller)onChangeConseiller(filtConseiller===c?'Tous':c);}},
+            CE('span',{className:'chip-dot',style:{background:conseillerColor(c)}}),c))
+        ),
+        CE('div',{key:monthStr,style:{display:'flex',gap:8,flexWrap:'wrap'}},
+          CE('div',{className:'kpi-mini',style:{flex:'1 1 70px',borderLeft:'3px solid #2563eb',background:'rgba(37,99,235,.08)',animationDelay:'.00s'}},CE('div',{className:'v',style:{color:'#2563eb',fontSize:20}},kpi.total),CE('div',{className:'l'},'Ateliers')),
+          CE('div',{className:'kpi-mini',style:{flex:'1 1 70px',borderLeft:'3px solid #16a34a',background:'rgba(22,163,74,.08)',animationDelay:'.07s'}},CE('div',{className:'v',style:{color:'#16a34a',fontSize:20}},kpi.realises),CE('div',{className:'l'},'Réalisés')),
+          CE('div',{className:'kpi-mini',style:{flex:'1 1 70px',borderLeft:'3px solid #2563eb',background:'rgba(37,99,235,.06)',animationDelay:'.14s'}},CE('div',{className:'v',style:{color:'#2563eb',fontSize:20}},kpi.planifies),CE('div',{className:'l'},'Planifiés')),
+          CE('div',{className:'kpi-mini',style:{flex:'1 1 70px',borderLeft:'3px solid #7c3aed',background:'rgba(124,58,237,.08)',animationDelay:'.21s'}},CE('div',{className:'v',style:{color:'#7c3aed',fontSize:20}},kpi.inscrits),CE('div',{className:'l'},'Inscrits')),
+          CE('div',{className:'kpi-mini',style:{flex:'1 1 70px',borderLeft:'3px solid #0891b2',background:'rgba(8,145,178,.08)',animationDelay:'.28s'}},CE('div',{className:'v',style:{color:'#0891b2',fontSize:20}},kpi.presents),CE('div',{className:'l'},'Présents'))
+        )
       )
     ),
     // ── Grille ──
