@@ -1406,7 +1406,7 @@ function buildThemGroups(inputVal,entries){
     if(filtered.length>0)groups.push({cat,items:filtered});
   });
   const filteredExtras=qs?extras.filter(t=>stripAccents(t.toLowerCase()).includes(qs)):extras;
-  if(filteredExtras.length>0)groups.push({cat:null,items:filteredExtras});
+  if(filteredExtras.length>0)groups.push({cat:'Thèmes précédents',items:filteredExtras});
   return groups;
 }
 
@@ -1460,7 +1460,7 @@ function entreeSauvegardee(entry, onRefresh){
   else if(onRefresh) onRefresh();
 }
 
-function VueListes({lists,onSave,onClose,emails,onSaveEmails,materielsMasques,onSaveMasques}){
+function VueListes({lists,onSave,onClose,emails,onSaveEmails}){
   const TABS=[{key:'statuts',label:'Statuts'},{key:'conseillers',label:'Conseillers'},{key:'publics',label:'Types de public'},{key:'materiels',label:'Matériels'}];
   const[activeTab,setActiveTab]=React.useState('statuts');
   const[draft,setDraft]=React.useState({statuts:[...lists.statuts],conseillers:[...lists.conseillers],publics:[...lists.publics],materiels:[...lists.materiels]});
@@ -1472,11 +1472,8 @@ function VueListes({lists,onSave,onClose,emails,onSaveEmails,materielsMasques,on
   const[rappelsSaving,setRappelsSaving]=React.useState(false);
   const[comptes,setComptes]=React.useState({});   // { CONSEILLER: {role, actif} }
   const[comptesSaving,setComptesSaving]=React.useState({});
-  // Matériels masqués du formulaire de saisie sans être supprimés de la
-  // liste (garde l'historique/les exports intacts). Persisté via l'action
-  // générique setConfig, purgée du cache comme toute écriture de config.
-  const[masquesDraft,setMasquesDraft]=React.useState(()=>new Set(materielsMasques||[]));
-  function toggleMasque(item){setMasquesDraft(s=>{const n=new Set(s);n.has(item)?n.delete(item):n.add(item);return n;});}
+  const[materielsCachesLocal,setMaterielsCachesLocal]=React.useState([]);
+  const[materielCacheSaving,setMaterielCacheSaving]=React.useState({});
 
   const items=draft[activeTab];
   function setItems(fn){setDraft(d=>({...d,[activeTab]:fn(d[activeTab])}));setEditIdx(null);}
@@ -1497,19 +1494,15 @@ function VueListes({lists,onSave,onClose,emails,onSaveEmails,materielsMasques,on
       if(res&&res.ok){if(onSaveEmails)onSaveEmails(emailDraft);}
       else showToast('⚠️ Emails : erreur GAS',false);
     }catch(_){showToast('⚠️ Emails : hors-ligne',false);}
-    // Sauvegarder les matériels masqués (action générique setConfig, purge le cache)
-    try{
-      const arr=[...masquesDraft];
-      const res=await apiFetch('setConfig',{key:'materiels_caches',value:JSON.stringify(arr)});
-      if(res&&res.ok){if(onSaveMasques)onSaveMasques(arr);}
-      else showToast('⚠️ Matériels masqués : erreur GAS',false);
-    }catch(_){showToast('⚠️ Matériels masqués : hors-ligne',false);}
     showToast('✅ Listes et emails enregistrés');
     onClose();
   }
   React.useEffect(()=>{function k(e){if(e.key==='Escape')onClose();}document.addEventListener('keydown',k);return()=>document.removeEventListener('keydown',k);},[]);
   React.useEffect(()=>{setNewVal('');setEditIdx(null);},[activeTab]);
-  React.useEffect(()=>{apiFetch('getConfig').then(res=>{if(res.ok&&res.config){try{setRappelsActif(JSON.parse(res.config['rappels_actifs']||'{}'));}catch(_){setRappelsActif({});}}}).catch(()=>{});},[]);
+  React.useEffect(()=>{fetchConfig().then(res=>{if(res.ok&&res.config){
+    try{setRappelsActif(JSON.parse(res.config['rappels_actifs']||'{}'));}catch(_){setRappelsActif({});}
+    try{setMaterielsCachesLocal(JSON.parse(res.config['materiels_caches']||'[]'));}catch(_){setMaterielsCachesLocal([]);}
+  }}).catch(()=>{});},[]);
   React.useEffect(()=>{if(activeTab==='conseillers'){apiFetch('getComptes').then(res=>{if(res.ok&&res.comptes){const m={};res.comptes.forEach(c=>{m[c.conseiller]={role:c.role||'user',actif:c.actif};});setComptes(m);}}).catch(()=>{});}},[activeTab]);
 
   async function handleSaveRappels(newObj){
@@ -1523,7 +1516,7 @@ function VueListes({lists,onSave,onClose,emails,onSaveEmails,materielsMasques,on
     const existing=comptes[nom]||{role:'user'};
     try{
       const res=await apiFetch('saveCompte',{conseiller:nom,role:existing.role,actif:newActif?'OUI':'NON'});
-      if(res&&res.ok){setComptes(m=>({...m,[nom]:{...existing,actif:newActif?'OUI':'NON'}}));showToast(newActif?'✅ '+nom+' activé':'🔕 '+nom+' désactivé');}
+      if(res&&res.ok){setComptes(m=>({...m,[nom]:{...existing,actif:newActif?'OUI':'NON'}}));showToast(newActif?'✅ '+nom+' : accès Admin autorisé':'🔒 '+nom+' : accès Admin retiré (Index reste ouvert)');}
       else showToast('❌ Erreur serveur',false);
     }catch(_){showToast('❌ Hors-ligne',false);}
     finally{setComptesSaving(s=>({...s,[nom]:false}));}
@@ -1537,6 +1530,16 @@ function VueListes({lists,onSave,onClose,emails,onSaveEmails,materielsMasques,on
       else showToast('❌ Erreur serveur',false);
     }catch(_){showToast('❌ Hors-ligne',false);}
     finally{setComptesSaving(s=>({...s,[nom]:false}));}
+  }
+  async function handleToggleMaterielCache(item,hidden){
+    setMaterielCacheSaving(s=>({...s,[item]:true}));
+    const next=hidden?[...materielsCachesLocal,item]:materielsCachesLocal.filter(m=>m!==item);
+    try{
+      const res=await apiFetch('setConfig',{key:'materiels_caches',value:JSON.stringify(next)});
+      if(res&&res.ok){setMaterielsCachesLocal(next);MATERIELS_CACHES=next;showToast(hidden?'🙈 '+item+' masqué du formulaire':'👁️ '+item+' de nouveau visible');}
+      else showToast('❌ Erreur serveur',false);
+    }catch(_){showToast('❌ Hors-ligne',false);}
+    finally{setMaterielCacheSaving(s=>({...s,[item]:false}));}
   }
   return CE('div',{className:'listes-overlay',onClick:e=>{if(e.target.className==='listes-overlay')onClose();}},
     CE('div',{className:'listes-modal'},
@@ -1596,7 +1599,8 @@ function VueListes({lists,onSave,onClose,emails,onSaveEmails,materielsMasques,on
                   onChange:e=>handleToggleActif(item,e.target.checked)}),
                 CE('span',{className:'tgl-track',style:comptes[item]?.actif==='NON'?{background:'#e2e8f0'}:{}})
               ),
-              CE('span',null,comptes[item]?.actif!=='NON'?'🔑 login':'🔑 inactif')
+              // Mode API : l'interrupteur ne ferme que l'Admin (24/09/2026), Index reste ouvert.
+              CE('span',null,comptes[item]?.actif!=='NON'?'🔑 accès Admin':'🔒 sans Admin')
             ),
             CE('select',{
               value:comptes[item]?.role||'user',
@@ -1610,18 +1614,22 @@ function VueListes({lists,onSave,onClose,emails,onSaveEmails,materielsMasques,on
               CE('option',{value:'superviseur'},'👁️ Superviseur')
             )
           ),
-          // Masquer du formulaire de saisie sans supprimer de la liste —
-          // l'historique/les exports gardent la valeur intacte.
-          activeTab==='materiels'&&CE('div',{
-            title:masquesDraft.has(item)?'Masqué du formulaire de saisie — cliquer pour réafficher':'Visible dans le formulaire de saisie — cliquer pour masquer',
-            style:{flexShrink:0,display:'flex',flexDirection:'column',alignItems:'center',fontSize:10,color:masquesDraft.has(item)?'#9ca3af':'#2563eb',gap:2}
-          },
-            CE('label',{className:'tgl',style:{marginBottom:0}},
-              CE('input',{type:'checkbox',checked:!masquesDraft.has(item),onChange:()=>toggleMasque(item)}),
-              CE('span',{className:'tgl-track',style:masquesDraft.has(item)?{background:'#e2e8f0'}:{}})
-            ),
-            CE('span',null,masquesDraft.has(item)?'🙈 masqué':'👁️ visible')
-          ),
+          // Masquer un matériel du formulaire de saisie sans le supprimer de
+          // cette liste (les ateliers déjà enregistrés le gardent).
+          activeTab==='materiels'&&(()=>{
+            const cache=materielsCachesLocal.includes(item);
+            return CE('div',{
+              title:cache?'Masqué du formulaire de saisie — cliquer pour rendre visible':'Visible dans le formulaire de saisie — cliquer pour masquer',
+              style:{flexShrink:0,display:'flex',flexDirection:'column',alignItems:'center',fontSize:10,color:cache?'#9ca3af':'#22543d',gap:2}
+            },
+              CE('label',{className:'tgl',style:{marginBottom:0}},
+                CE('input',{type:'checkbox',checked:!cache,disabled:!!materielCacheSaving[item],
+                  onChange:e=>handleToggleMaterielCache(item,!e.target.checked)}),
+                CE('span',{className:'tgl-track',style:cache?{background:'#e2e8f0'}:{}})
+              ),
+              CE('span',null,cache?'🙈 masqué':'👁️ visible')
+            );
+          })(),
           CE('div',{className:'listes-actions'},
             editIdx===i
               ?CE('button',{className:'btn btn-primary btn-sm',onClick:()=>saveEdit(i)},'✓ OK')
@@ -1984,7 +1992,7 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
         // Un matériel masqué (Admin → Listes) disparaît des nouveaux choix,
         // mais reste affiché s'il est déjà coché sur cette entrée — jamais de
         // perte de visibilité sur une donnée existante (filterMaterielsVisibles, logic.js).
-        filterMaterielsVisibles(materiels,materielsMasques||[],frm.materiel).map(m=>{
+        filterMaterielsVisibles(materiels,MATERIELS_CACHES,frm.materiel).map(m=>{
           const chk=matIncludes(frm.materiel,m);
           return CE('label',{key:m,style:{display:'flex',alignItems:'center',gap:6,padding:'7px 12px',border:`2px solid ${chk?ac:'#e2e8f0'}`,borderRadius:20,cursor:'pointer',fontSize:12,fontWeight:600,color:chk?ac:'#718096',background:chk?acLight:'#fff',transition:'all .15s',userSelect:'none'},onClick:e=>{e.preventDefault();(modeLot?toggleLotMat:toggleMat)(m);}},
             CE('input',{type:'checkbox',checked:chk,style:{display:'none'},onChange:()=>{}}),m);
