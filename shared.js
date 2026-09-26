@@ -3795,6 +3795,38 @@ function VueBingo({entries}){
   );
 }
 
+// Détail communes du Dashboard, triable en touchant l'en-tête d'une colonne
+// (demande de l'utilisateur, 26/09/2026). Commune : A→Z d'abord ; colonnes
+// chiffrées : du plus grand au plus petit d'abord ; second appui = inverse.
+function TableCommunes({fd}){
+  const[tri,setTri]=React.useState({col:'commune',sens:1});
+  const lignes=React.useMemo(()=>{
+    const m={};
+    fd.forEach(d=>{const c=normCommune(d.commune);if(!c)return;const x=m[c]||(m[c]={commune:c,ateliers:0,presents:0,inscrits:0});x.ateliers++;x.presents+=parseInt(d.presents)||0;x.inscrits+=parseInt(d.inscrits)||0;});
+    return Object.values(m);
+  },[fd]);
+  const triees=[...lignes].sort((a,b)=>{
+    const va=a[tri.col],vb=b[tri.col];
+    const c=tri.col==='commune'?String(va).localeCompare(String(vb),'fr'):(va-vb);
+    return c?c*tri.sens:a.commune.localeCompare(b.commune,'fr');
+  });
+  const COLS=[['commune','Commune'],['ateliers','Ateliers'],['presents','Présents'],['inscrits','Inscrits']];
+  function trier(col){setTri(t=>t.col===col?{col,sens:-t.sens}:{col,sens:col==='commune'?1:-1});}
+  return CE('table',{style:{width:'100%',borderCollapse:'collapse',fontSize:11}},
+    CE('thead',null,CE('tr',null,
+      COLS.map(([k,h])=>CE('th',{key:k,onClick:()=>trier(k),title:'Trier',style:{padding:'6px 8px',textAlign:'left',fontWeight:700,color:tri.col===k?'#1e3a8a':'#6b7280',borderBottom:'2px solid #e5e7eb',fontSize:10,cursor:'pointer',userSelect:'none',whiteSpace:'nowrap'}},h,tri.col===k?(tri.sens===1?' ▲':' ▼'):''))
+    )),
+    CE('tbody',null,
+      triees.map(x=>CE('tr',{key:x.commune,style:{borderBottom:'1px solid #f0f4f8'}},
+        CE('td',{style:{padding:'6px 8px',fontWeight:600}},x.commune),
+        CE('td',{style:{padding:'6px 8px'}},x.ateliers),
+        CE('td',{style:{padding:'6px 8px',color:'#16a34a',fontWeight:600}},x.presents),
+        CE('td',{style:{padding:'6px 8px',color:'#2563eb'}},x.inscrits)
+      ))
+    )
+  );
+}
+
 // ═══════════════════════════════════════════════════════════
 // VUE ACCUEIL — frontend uniquement
 // ═══════════════════════════════════════════════════════════
@@ -4186,24 +4218,7 @@ function VuePowerBI({entries, conseillers: conseillersList}){
 
         CE(CardPBI,{title:'Détail communes'},
           CE('div',{style:{overflowX:'auto'}},
-            CE('table',{style:{width:'100%',borderCollapse:'collapse',fontSize:11}},
-              CE('thead',null,CE('tr',null,
-                ['Commune','Ateliers','Présents','Inscrits'].map(h=>CE('th',{key:h,style:{padding:'6px 8px',textAlign:'left',fontWeight:700,color:'#6b7280',borderBottom:'2px solid #e5e7eb',fontSize:10}},h))
-              )),
-              CE('tbody',null,
-                [...new Set(fd.map(d=>normCommune(d.commune)).filter(Boolean))].sort().map(comm=>{
-                  const rows=fd.filter(d=>normCommune(d.commune)===comm);
-                  const pre=rows.reduce((s,d)=>s+(parseInt(d.presents)||0),0);
-                  const ins=rows.reduce((s,d)=>s+(parseInt(d.inscrits)||0),0);
-                  return CE('tr',{key:comm,style:{borderBottom:'1px solid #f0f4f8'}},
-                    CE('td',{style:{padding:'6px 8px',fontWeight:600}},comm),
-                    CE('td',{style:{padding:'6px 8px'}},rows.length),
-                    CE('td',{style:{padding:'6px 8px',color:'#16a34a',fontWeight:600}},pre),
-                    CE('td',{style:{padding:'6px 8px',color:'#2563eb'}},ins)
-                  );
-                })
-              )
-            )
+            CE(TableCommunes,{fd})
           )
         )
       ),
