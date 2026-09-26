@@ -2339,8 +2339,10 @@ function VueHistorique({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
       )
     ),
     // Filtre conseiller (frontend)
-    initConseiller&&CE('div',{className:'filtre-banner'},
-      CE('span',null,'👤 Affichage filtré : ',CE('strong',null,initConseiller)),
+    // Bandeau lié au filtre réel, pas au conseiller de départ : sinon « Voir
+    // tous » vidait le filtre mais laissait le bandeau (26/09/2026).
+    filtConseiller!=='Tous'&&CE('div',{className:'filtre-banner'},
+      CE('span',null,'👤 Affichage filtré : ',CE('strong',null,filtConseiller)),
       CE('button',{onClick:resetFiltres},'Voir tous')
     ),
     // Filtres
