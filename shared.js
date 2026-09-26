@@ -1695,9 +1695,9 @@ function ComboThematiqueFixed({value,onChange,onBlur,entries,hasError}){
 
 // VUE SAISIE — v9.1 : mode unique + mode lot (cycle)
 // ═══════════════════════════════════════════════════════════
-const emptyRow=()=>({id:genId(),date:'',horaire:'',ampm:'',thematique:'',date_prelevement_materiel:'',date_retour_materiel:''});
+const emptyRow=()=>({id:genId(),date:'',horaire:'',ampm:'',thematique:'',inscrits:4,presents:'',date_prelevement_materiel:'',date_retour_materiel:''});
 
-function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefillData,onClearPrefill,accentColor,materielsMasques}){
+function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefillData,onClearPrefill,accentColor}){
   const statuts    = lists?.statuts     || STATUTS_DEFAULT;
   const conseillers= lists?.conseillers || CONSEILLERS_DEFAULT;
   const publics    = lists?.publics     || PUBLICS_DEFAULT;
@@ -1716,7 +1716,6 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
   const[lotRows,setLotRows]     = React.useState([emptyRow(),emptyRow()]);
   const[lotErrors,setLotErrors] = React.useState({});
   const[lotRowErrors,setLotRowErrors]= React.useState({});
-  const[lotSubmitted,setLotSubmitted]= React.useState(false);
 
   const[saving,setSaving]= React.useState(false);
   const[formError,setFormError]= React.useState('');
@@ -1747,7 +1746,7 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
   const idNouveauRef=React.useRef(null);
   const idsLotRef=React.useRef({});
   function reset(){idNouveauRef.current=null;setForm(empty);setEditId(null);setIsDup(false);setErrors({});}
-  function resetLot(){idsLotRef.current={};setLotForm({orienteur:'',commune:'',lieu:'',conseiller:'',co_animateur:'',public:'',materiel:[],residence:'',remarques:'',nb_ordinateurs:''});setLotRows([emptyRow(),emptyRow()]);setLotErrors({});setLotRowErrors({});setLotSubmitted(false);}
+  function resetLot(){idsLotRef.current={};setLotForm({orienteur:'',commune:'',lieu:'',conseiller:'',co_animateur:'',public:'',materiel:[],residence:'',remarques:'',nb_ordinateurs:''});setLotRows([emptyRow(),emptyRow()]);setLotErrors({});setLotRowErrors({});}
 
   function set(k,v){const a=k==='horaire'?ampmDepuisHoraire(v):'';setForm(f=>({...f,[k]:v,...(a?{ampm:a}:{})}));setErrors(er=>({...er,[k]:'',...(a?{ampm:''}:{})}));}
   function toggleMat(m){setForm(f=>{const already=matIncludes(f.materiel,m);return{...f,materiel:already?f.materiel.filter(x=>normalizeMat(x)!==normalizeMat(m)):[...f.materiel,m]};});}
@@ -1757,15 +1756,11 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
   // ── lignes du lot ──
   function addRow(){setLotRows(r=>[...r,emptyRow()]);}
   function removeRow(id){if(lotRows.length<=1)return;setLotRows(r=>r.filter(x=>x.id!==id));}
-  function setRow(id,k,v){const a=k==='horaire'?ampmDepuisHoraire(v):'';setLotRows(r=>r.map(x=>x.id===id?{...x,[k]:v,...(a?{ampm:a}:{})}:x));setLotRowErrors(er=>{const upd={...(er[id]||{})};delete upd[k];if(a)delete upd.ampm;return{...er,[id]:upd};});}
-  function blurRow(id,k,v){setLotRowErrors(er=>{const upd={...(er[id]||{})};if(!v||!String(v).trim())upd[k]='Requis';else delete upd[k];return{...er,[id]:upd};});}
-  function validateOnBlur(name,val,errSetter){
-    const empty=typeof val==='string'?!val.trim():(val===''||val===null||val===undefined);
-    if(empty)errSetter(er=>({...er,[name]:'Requis'}));
-  }
+  function setRow(id,k,v){const a=k==='horaire'?ampmDepuisHoraire(v):'';setLotRows(r=>r.map(x=>x.id===id?{...x,[k]:v,...(a?{ampm:a}:{})}:x));setLotRowErrors(er=>({...er,[id]:{...(er[id]||{}),[k]:'',...(a?{ampm:''}:{})}}));}
 
   // ── validation mode unique ──
   const FIELD_LABELS={'statut':'Statut','date':'Date','horaire':'Horaire','ampm':'AM/PM','commune':'Commune','lieu':'Lieu','thematique':'Thématique','conseiller':'Conseiller','orienteur':'Orienteur','public':'Type de public','inscrits':'Inscrits','nb_ordinateurs':'Ordinateurs prêtés'};
+
   function validate(){
     const e={};
     if(!form.statut)            e.statut='Requis';
@@ -1779,20 +1774,21 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
     if(!form.orienteur.trim())  e.orienteur='Requis';
     if(!form.public)            e.public='Requis';
     if(form.inscrits==='')      e.inscrits='Requis';
+    // Classe mobile cochée sans quantité : le conflit de stock (Frise du
+    // parc, findOrdinateursConflicts) ne peut rien détecter sans ce nombre
+    // — confirmé en prod le 18/09/2026 (ateliers Classe mobile sans
+    // ordinateurs prêtés invisibles dans la Frise, alors que le conflit
+    // Classe mobile lui-même s'affichait bien dans la liste).
     if(matIncludes(form.materiel,'Classe mobile')&&!(parseInt(form.nb_ordinateurs)>0)) e.nb_ordinateurs='Requis';
     setErrors(e);
     const missing=Object.keys(e).map(k=>FIELD_LABELS[k]||k);
-    if(missing.length>0) setFormError('Champs obligatoires manquants : '+missing.join(', '));
+    if(missing.length>0)setFormError('Champs obligatoires manquants : '+missing.join(', '));
     else setFormError('');
     return missing.length===0;
   }
 
   // ── validation mode lot ──
-  // rows : les lignes réellement remplies. Valider lotRows (l'état React,
-  // pas encore purgé des lignes vides au moment du clic) refusait le premier
-  // clic dès qu'une ligne vide restait dans le tableau — NEWGEN passait déjà
-  // les lignes remplies.
-  function validateLot(rows){
+  function validateLot(rows=lotRows){
     const e={};
     if(!lotForm.commune.trim())   e.commune='Requis';
     if(!lotForm.lieu.trim())      e.lieu='Requis';
@@ -1802,33 +1798,43 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
     if(matIncludes(lotForm.materiel,'Classe mobile')&&!(parseInt(lotForm.nb_ordinateurs)>0)) e.nb_ordinateurs='Requis';
     setLotErrors(e);
     const re={};
-    (rows||lotRows).forEach(r=>{
+    rows.forEach(r=>{
       const er={};
       if(!r.date)       er.date='Requis';
       if(!r.horaire)    er.horaire='Requis';
       if(!r.ampm)       er.ampm='Requis';
-      if(!r.thematique.trim()) er.thematique='Requis';
+      if(!(r.thematique||'').trim()) er.thematique='Requis';
+      if(r.inscrits==='')er.inscrits='Requis';
       if(Object.keys(er).length>0)re[r.id]=er;
     });
     setLotRowErrors(re);
     const missing=[...Object.keys(e).map(k=>FIELD_LABELS[k]||k)];
-    if(Object.keys(re).length>0) missing.push('Date/Horaire/AM-PM/Thématique dans le tableau');
-    if(missing.length>0) setFormError('Champs obligatoires manquants : '+missing.join(', '));
+    if(Object.keys(re).length>0)missing.push('Date/Horaire/AM-PM/Thématique/Inscrits dans le tableau');
+    if(missing.length>0)setFormError('Champs obligatoires manquants : '+missing.join(', '));
     else setFormError('');
     return Object.keys(e).length===0&&Object.keys(re).length===0;
   }
 
   // ── submit mode unique ──
   async function handleSubmit(){
-    if(!validate())return;
+    if(!validate()){showToast('⚠️ Champs obligatoires manquants',false);return;}
     setSaving(true);
-    const entry={...form,_id:form._id||idNouveauRef.current||(idNouveauRef.current=genId()),inscrits:form.inscrits===''?'':parseInt(form.inscrits)||0,presents:form.presents===''?'':parseInt(form.presents)||0,nb_ordinateurs:form.nb_ordinateurs===''?'':parseInt(form.nb_ordinateurs)||0};
+    const entry={...form,_id:form._id||idNouveauRef.current||(idNouveauRef.current=genId()),inscrits:form.inscrits===''?'':parseInt(form.inscrits)||0,presents:form.presents===''?'':parseInt(form.presents)||0,nb_ordinateurs:form.nb_ordinateurs===''?'':parseInt(form.nb_ordinateurs)||0,materiel:(form.materiel||[]).join('|')};
     const reussir=()=>{
       showToast(editId?'✅ Atelier modifié':'✅ Atelier enregistré');
-      if(onNewEntry&&!editId)onNewEntry(entry);
-      if(!editId) window._pendingHighlight=[entry._id];
-      entreeSauvegardee(entry);
-      onSaved();reset();
+      // materiel repart en tableau (pas la chaîne '|' envoyée à GAS) : c'est
+      // le format attendu partout ailleurs dans l'app (badges, filtres...).
+      // _n reste vide : seul GAS connaît le vrai numéro de ligne, il arrivera
+      // au prochain rechargement réel sans que ça bloque l'affichage ici.
+      if(onNewEntry&&!editId)onNewEntry({...entry,_n:'',materiel:form.materiel||[]});
+      // Mise en évidence dans Historique : _pendingHighlight est lu au montage
+      // (l'Historique n'est pas encore affiché au moment de l'enregistrement),
+      // l'événement sert quand il l'est déjà.
+      if(!editId){ window._pendingHighlight=[entry._id]; document.dispatchEvent(new CustomEvent('ateliers:highlight',{detail:{ids:[entry._id]}})); }
+      // Application locale, sans relire le serveur : entreeSauvegardee (les
+      // deux applis) et onSaved(isNew, entry) (NEWGEN).
+      entreeSauvegardee({...entry,materiel:form.materiel||[]});
+      onSaved(!editId,{...entry,materiel:form.materiel||[]});reset();
     };
     try{
       const res=await apiFetch('saveEntry',{entry});
@@ -1844,59 +1850,45 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
   }
 
   // ── submit mode lot ──
-  // Une ligne du tableau devenue atelier (sans _id, attribué par l'appelant).
-  const lotEntree=row=>({_n:'',statut:'Planifié',date:row.date,horaire:row.horaire,ampm:row.ampm,thematique:row.thematique,orienteur:lotForm.orienteur,commune:lotForm.commune,lieu:lotForm.lieu,conseiller:lotForm.conseiller,co_animateur:lotForm.co_animateur||'',public:lotForm.public,materiel:lotForm.materiel,residence:lotForm.residence,remarques:lotForm.remarques,inscrits:4,presents:'',nb_ordinateurs:lotForm.nb_ordinateurs===''?'':parseInt(lotForm.nb_ordinateurs)||0,date_prelevement_materiel:row.date_prelevement_materiel||'',date_retour_materiel:row.date_retour_materiel||''});
   async function handleSubmitLot(){
-    setLotSubmitted(true);
-    // Purger les lignes totalement vides avant validation
-    const rowsFilled=lotRows.filter(r=>r.date||r.horaire||r.thematique.trim());
-    if(rowsFilled.length===0){setFormError('Ajoutez au moins une date dans le tableau.');return;}
+    const rowsFilled=lotRows.filter(r=>r.date||r.horaire||(r.thematique||'').trim());
+    if(rowsFilled.length===0){setFormError('Ajoutez au moins une date dans le tableau.');showToast('⚠️ Ajoutez au moins une date dans le tableau.',false);return;}
     if(rowsFilled.length<lotRows.length)setLotRows(rowsFilled);
-    if(!validateLot(rowsFilled))return;
+    if(!validateLot(rowsFilled)){showToast('⚠️ Champs obligatoires manquants',false);return;}
     setSaving(true);
     try{
-      const entries=rowsFilled.map(row=>({...lotEntree(row),_id:idsLotRef.current[row.id]||(idsLotRef.current[row.id]=genId())}));
-      // Un seul appel réseau pour tout le cycle (au lieu d'un saveEntry par date
-      // en boucle séquentielle) : actionSaveMany traite chaque entrée côté
-      // serveur, dans la même exécution GAS — un aléa réseau n'a plus qu'un
-      // aller-retour à survivre au lieu d'un par date, et n'interrompt plus la
-      // suite. Avant ce correctif, un échec sur la 3e date sur 4 laissait les
-      // 2 suivantes jamais tentées, sans qu'on puisse savoir lesquelles sans
-      // aller vérifier Historique à la main (observé en prod le 15/09/2026).
-      // _id étant généré une seule fois ici et actionSaveEntry étant idempotent
-      // par _id (met à jour la ligne existante plutôt que d'en créer une
-      // seconde), une reprise automatique par apiFetch sur échec de transport
-      // ne peut pas dupliquer une entrée déjà écrite avec succès.
-      const res=await apiFetch('saveMany',{entries:JSON.stringify(entries)});
-      let failedIdx=[];
-      if(!res.ok){
-        try{
-          const m=/Erreurs batch: (.+)/.exec(res.error||'');
-          if(m)failedIdx=JSON.parse(m[1]).map(e=>e.idx);
-        }catch(_){}
+      const entries=rowsFilled.map(row=>({_id:idsLotRef.current[row.id]||(idsLotRef.current[row.id]=genId()),_n:'',statut:'Planifié',date:row.date,horaire:row.horaire,ampm:row.ampm,thematique:row.thematique,orienteur:lotForm.orienteur,commune:lotForm.commune,lieu:lotForm.lieu,conseiller:lotForm.conseiller,co_animateur:lotForm.co_animateur||'',public:lotForm.public,materiel:(lotForm.materiel||[]).join('|'),residence:lotForm.residence,remarques:lotForm.remarques,inscrits:row.inscrits===''?'':parseInt(row.inscrits)||0,presents:row.presents===''?'':parseInt(row.presents)||0,nb_ordinateurs:lotForm.nb_ordinateurs===''?'':parseInt(lotForm.nb_ordinateurs)||0,date_prelevement_materiel:row.date_prelevement_materiel||'',date_retour_materiel:row.date_retour_materiel||''}));
+      // Même conversion materiel string→tableau que le mode unique.
+      const appliquer=liste=>{
+        liste.forEach(entry=>{const loc={...entry,materiel:lotForm.materiel||[]};if(onNewEntry)onNewEntry(loc);entreeSauvegardee(loc);});
+        const ids=liste.map(e=>e._id);
+        window._pendingHighlight=ids;
+        document.dispatchEvent(new CustomEvent('ateliers:highlight',{detail:{ids}}));
+      };
+      const reussir=(verifie)=>{appliquer(entries);showToast(`✅ ${entries.length} atelier(s) créé(s)`+(verifie?' — confirmé après vérification':''));onSaved(true);resetLot();};
+      let res;
+      try{ res=await apiFetch('saveMany',{entries}); }
+      catch(err){
+        // Réponse perdue : on vérifie en base avant d'annoncer un échec.
+        if(await verifierEnregistres(entries.map(e=>e._id))){reussir(true);return;}
+        throw err;
       }
-      const succeeded=entries.filter((_,i)=>failedIdx.indexOf(i)===-1);
-      succeeded.forEach(entry=>{ if(onNewEntry)onNewEntry(entry); entreeSauvegardee(entry); });
-      window._pendingHighlight=succeeded.map(e=>e._id);
-      if(!res.ok){
-        const failedDates=failedIdx.map(i=>(entries[i]&&entries[i].date)||('#'+(i+1))).join(', ');
-        showToast(`⚠️ ${succeeded.length}/${entries.length} créé(s) — échec sur ${failedDates||'une ou plusieurs dates'} : vérifiez Historique avant de resoumettre`,false);
-      }else{
-        showToast(`✅ ${entries.length} atelier(s) créé(s)`);
-      }
-      onSaved();resetLot();
-    }catch(err){
-      // Réponse perdue : on vérifie dans la feuille avant d'annoncer un échec.
-      const entries=rowsFilled.map(row=>({...lotEntree(row),_id:idsLotRef.current[row.id]}));
-      if(!err.refus&&entries.every(e=>e._id)&&await verifierEnregistres(entries.map(e=>e._id))){
-        entries.forEach(entry=>{ if(onNewEntry)onNewEntry(entry); entreeSauvegardee(entry); });
-        window._pendingHighlight=entries.map(e=>e._id);
-        showToast(`✅ ${entries.length} atelier(s) créé(s) — confirmé dans le classeur`);
-        onSaved();resetLot();
-        return;
-      }
-      showToast('❌ '+err.message+(err.refus?'':' — les dates ont peut-être été enregistrées quand même : recliquez sur Enregistrer, cela ne créera pas de doublon.'),false);
-    }
+      if(res.ok){reussir();return;}
+      // L'API n'est pas transactionnelle (api/lib/ecriture.php, action_save_many) :
+      // un refus peut ne toucher qu'une partie des dates, listées dans
+      // « Erreurs batch: [{idx,error}] ». Les dates écrites s'affichent, celles
+      // en échec restent dans le tableau pour être corrigées (repris de NextStep,
+      // qui vidait le tableau, 26/09/2026).
+      let echecs=null;
+      try{const m=/Erreurs batch: (.+)/.exec(res.error||'');if(m)echecs=JSON.parse(m[1]).map(e=>e.idx);}catch(_){}
+      if(!echecs||!echecs.length) throw Object.assign(new Error(res.error||'Erreur serveur'),{refus:true});
+      const ecrites=entries.filter((_,i)=>!echecs.includes(i));
+      if(ecrites.length) appliquer(ecrites);
+      setLotRows(rowsFilled.filter((_,i)=>echecs.includes(i)));
+      const dates=echecs.map(i=>fmtDate(entries[i]&&entries[i].date)||('#'+(i+1))).join(', ');
+      setFormError(`${ecrites.length}/${entries.length} atelier(s) créé(s). Échec sur : ${dates} — ces dates restent dans le tableau.`);
+      showToast(`⚠️ ${ecrites.length}/${entries.length} créé(s) — échec sur ${dates}`,false);
+    }catch(err){showToast('❌ '+err.message+(err.refus?'':' — les dates ont peut-être été enregistrées quand même : recliquez sur Enregistrer, cela ne créera pas de doublon.'),false);}
     finally{setSaving(false);}
   }
 
@@ -1939,7 +1931,7 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
   // datesConflit : date(s) concernée(s) par ce formulaire (une seule en mode
   // unique, une par ligne en mode cycle) — sert uniquement à l'alerte
   // Classe mobile ci-dessous, purement informative (jamais bloquante).
-  const champsCommuns=(frm,setFn,errs,entries_,setErrs,datesConflit)=>{
+  const champsCommuns=(frm,setFn,errs,entries_,datesConflit)=>{
     const matMobileActif=matIncludes(frm.materiel,'Classe mobile');
     const conflitsMat=matMobileActif&&datesConflit&&datesConflit.length
       ?[...new Set(datesConflit.filter(Boolean))].map(d=>({
@@ -1960,13 +1952,13 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
     ),
     CE('div',{style:{marginTop:12}},
       Lbl({t:'Lieu de l\'atelier *',err:!!errs.lieu}),
-      CE('input',{type:'text',style:iStyle(errs.lieu),value:frm.lieu,placeholder:'Salle, médiathèque, établissement…',onChange:e=>setFn('lieu',e.target.value),onBlur:e=>setErrs&&validateOnBlur('lieu',e.target.value,setErrs)}),
+      CE('input',{type:'text',style:iStyle(errs.lieu),value:frm.lieu,placeholder:'Salle, médiathèque, établissement…',onChange:e=>setFn('lieu',e.target.value)}),
       errs.lieu&&CE('span',{style:{color:'#e53e3e',fontSize:11,fontWeight:600}},errs.lieu)
     ),
     CE('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:12,marginTop:12}},
       CE('div',null,
         Lbl({t:'Conseiller *',err:!!errs.conseiller}),
-        CE('select',{style:sStyle(errs.conseiller),value:frm.conseiller,onChange:e=>setFn('conseiller',e.target.value),onBlur:e=>setErrs&&validateOnBlur('conseiller',e.target.value,setErrs)},
+        CE('select',{style:sStyle(errs.conseiller),value:frm.conseiller,onChange:e=>setFn('conseiller',e.target.value)},
           CE('option',{value:'',disabled:true},'— Choisir —'),
           conseillers.map(c=>CE('option',{key:c,value:c},c))),
         errs.conseiller&&CE('span',{style:{color:'#e53e3e',fontSize:11,fontWeight:600}},errs.conseiller)),
@@ -1977,7 +1969,7 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
           conseillers.filter(c=>c!==frm.conseiller).map(c=>CE('option',{key:c,value:c},c)))),
       CE('div',null,
         Lbl({t:'Type de public *',err:!!errs.public}),
-        CE('select',{style:sStyle(errs.public),value:frm.public,onChange:e=>setFn('public',e.target.value),onBlur:e=>setErrs&&validateOnBlur('public',e.target.value,setErrs)},
+        CE('select',{style:sStyle(errs.public),value:frm.public,onChange:e=>setFn('public',e.target.value)},
           CE('option',{value:'',disabled:true},'— Choisir —'),
           publics.map(p=>CE('option',{key:p,value:p},p))),
         errs.public&&CE('span',{style:{color:'#e53e3e',fontSize:11,fontWeight:600}},errs.public)),
@@ -1988,9 +1980,6 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
     CE('div',{style:{marginTop:12}},
       LblG({t:'Matériel utilisé'}),
       CE('div',{style:{display:'flex',flexWrap:'wrap',gap:8}},
-        // Un matériel masqué (Admin → Listes) disparaît des nouveaux choix,
-        // mais reste affiché s'il est déjà coché sur cette entrée — jamais de
-        // perte de visibilité sur une donnée existante (filterMaterielsVisibles, logic.js).
         filterMaterielsVisibles(materiels,MATERIELS_CACHES,frm.materiel).map(m=>{
           const chk=matIncludes(frm.materiel,m);
           return CE('label',{key:m,style:{display:'flex',alignItems:'center',gap:6,padding:'7px 12px',border:`2px solid ${chk?ac:'#e2e8f0'}`,borderRadius:20,cursor:'pointer',fontSize:12,fontWeight:600,color:chk?ac:'#718096',background:chk?acLight:'#fff',transition:'all .15s',userSelect:'none'},onClick:e=>{e.preventDefault();(modeLot?toggleLotMat:toggleMat)(m);}},
@@ -2016,7 +2005,7 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
     matMobileActif&&CE('div',{style:{marginTop:12,display:'grid',gridTemplateColumns:modeLot?'1fr':'1fr 1fr 1fr',gap:12}},
       CE('div',null,
         Lbl({t:'Ordinateurs prêtés *',err:!!errs.nb_ordinateurs}),
-        CE('input',{type:'number',min:0,max:10,style:iStyle(errs.nb_ordinateurs),value:frm.nb_ordinateurs,placeholder:'Ex : 4',onChange:e=>setFn('nb_ordinateurs',e.target.value),onBlur:e=>setErrs&&validateOnBlur('nb_ordinateurs',e.target.value,setErrs)}),
+        CE('input',{type:'number',min:0,max:10,style:iStyle(errs.nb_ordinateurs),value:frm.nb_ordinateurs,placeholder:'Ex : 4',onChange:e=>setFn('nb_ordinateurs',e.target.value)}),
         errs.nb_ordinateurs&&CE('span',{style:{color:'#e53e3e',fontSize:11,fontWeight:600}},errs.nb_ordinateurs)),
       // En mode cycle, les dates de prélèvement/retour se saisissent par
       // séance (tableau ci-dessous) — une seule date partagée pour tout le
@@ -2034,7 +2023,7 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
       CE('input',{type:'text',style:iStyle(false),value:frm.remarques,placeholder:'Notes libres',onChange:e=>setFn('remarques',e.target.value)}))
   );};
 
-  return CE('div',{'data-saisie':'1',style:{padding:'4px 0',...acVars}},
+  return CE('div',{'data-saisie':'1',style:{padding:'4px 0'}},
     // Badge conseiller coloré
     accentColor&&CE('div',{style:{display:'inline-flex',alignItems:'center',gap:8,padding:'6px 14px',borderRadius:20,fontSize:12,fontWeight:700,color:'#fff',background:ac,marginBottom:14}},
       editId?'✏️ Modifier':isDup?'📋 Duplication':modeLot?'🔄 Saisie par cycle':'⚡ Saisie One Shot'
@@ -2043,7 +2032,7 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
     // Toggle One Shot / Cycle
     canToggle&&CE('div',{style:{display:'flex',gap:0,border:'1.5px solid #e2e8f0',borderRadius:8,overflow:'hidden',marginBottom:16,width:'fit-content'}},
       CE('button',{style:{padding:'8px 20px',background:!modeLot?ac:'#fff',border:'none',cursor:'pointer',fontSize:13,fontWeight:700,color:!modeLot?'#fff':'#718096',transition:'all .15s'},onClick:()=>{setModeLot(false);resetLot();}},'⚡ Saisie One Shot'),
-      CE('button',{style:{padding:'8px 20px',background:modeLot?ac:'#fff',border:'none',cursor:'pointer',fontSize:13,fontWeight:700,color:modeLot?'#fff':'#718096',transition:'all .15s'},onClick:()=>{setModeLot(true);reset();resetLot();}},'🔄 Saisie par cycle')
+      CE('button',{style:{padding:'8px 20px',background:modeLot?ac:'#fff',border:'none',cursor:'pointer',fontSize:13,fontWeight:700,color:modeLot?'#fff':'#718096',transition:'all .15s'},onClick:()=>{setModeLot(true);reset();}},'🔄 Saisie par cycle')
     ),
 
     isDup&&CE('div',{className:'dup-badge'},'📋 Duplication — vérifiez et complétez avant d\'enregistrer'),
@@ -2059,21 +2048,21 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
         CE('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr 80px',gap:12}},
           CE('div',null,
             Lbl({t:'Date *',err:!!errors.date}),
-            CE('input',{type:'date',style:iStyle(errors.date),value:form.date,onChange:e=>set('date',e.target.value),onBlur:e=>validateOnBlur('date',e.target.value,setErrors)}),
+            CE('input',{type:'date',style:iStyle(errors.date),value:form.date,onChange:e=>set('date',e.target.value)}),
             errors.date&&CE('span',{style:{color:'#e53e3e',fontSize:11,fontWeight:600}},errors.date)),
           CE('div',null,
             Lbl({t:'Horaire *',err:!!errors.horaire}),
-            CE('input',{type:'time',style:iStyle(errors.horaire),value:form.horaire,onChange:e=>set('horaire',e.target.value),onBlur:e=>validateOnBlur('horaire',e.target.value,setErrors)}),
+            CE('input',{type:'time',style:iStyle(errors.horaire),value:form.horaire,onChange:e=>set('horaire',e.target.value)}),
             errors.horaire&&CE('span',{style:{color:'#e53e3e',fontSize:11,fontWeight:600}},errors.horaire)),
           CE('div',null,
             Lbl({t:'AM/PM *',err:!!errors.ampm}),
-            CE('select',{style:sStyle(errors.ampm),value:form.ampm,onChange:e=>set('ampm',e.target.value),onBlur:e=>validateOnBlur('ampm',e.target.value,setErrors)},
+            CE('select',{style:sStyle(errors.ampm),value:form.ampm,onChange:e=>set('ampm',e.target.value)},
               CE('option',{value:'',disabled:true},'—'),CE('option',{value:'AM'},'AM'),CE('option',{value:'PM'},'PM')),
             errors.ampm&&CE('span',{style:{color:'#e53e3e',fontSize:11,fontWeight:600}},errors.ampm))
         )
       ),
       // Champs communs
-      CE('div',{style:secStyle},champsCommuns(form,set,errors,entries,setErrors,[form.date])),
+      CE('div',{style:secStyle},champsCommuns(form,set,errors,entries,[form.date])),
       // Thématique
       CE('div',{style:secStyle},
         Lbl({t:'Thématique *',err:!!errors.thematique}),
@@ -2085,7 +2074,7 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
         CE('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}},
           CE('div',null,
             Lbl({t:'Inscrits *',err:!!errors.inscrits}),
-            CE('input',{type:'number',min:0,style:{...nStyle(),border:`2px solid ${errors.inscrits?'#e53e3e':'#e2e8f0'}`},value:form.inscrits,placeholder:'0',onChange:e=>set('inscrits',e.target.value),onBlur:e=>validateOnBlur('inscrits',e.target.value,setErrors)}),
+            CE('input',{type:'number',min:0,style:{...nStyle(),border:`2px solid ${errors.inscrits?'#e53e3e':'#e2e8f0'}`},value:form.inscrits,placeholder:'0',onChange:e=>set('inscrits',e.target.value)}),
             errors.inscrits&&CE('span',{style:{color:'#e53e3e',fontSize:11,fontWeight:600}},errors.inscrits)),
           CE('div',null,
             LblG({t:'Présents'}),
@@ -2093,14 +2082,12 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
         )
       ),
       // Boutons
-      CE('div',{style:{marginTop:4}},
-        formError&&CE('div',{style:{background:'#fff5f5',border:'2px solid #fc8181',borderRadius:10,padding:'10px 14px',marginBottom:10,color:'#c53030',fontSize:13,fontWeight:600,display:'flex',alignItems:'center',gap:8}},
-          CE('span',{style:{fontSize:16}},'⚠️'),formError),
-        CE('div',{style:{display:'flex',gap:12}},
-          CE('button',{style:{padding:'13px 28px',border:'none',borderRadius:12,cursor:saving?'not-allowed':'pointer',fontSize:14,fontWeight:700,color:'#fff',background:saving?'#94a3b8':ac,opacity:saving?.7:1,display:'flex',alignItems:'center',gap:8},onClick:handleSubmit,disabled:saving},
-            saving?CE('span',null,CE('span',{className:'spinner'}),'Enregistrement…'):(editId?'💾 Modifier l\'atelier':'💾 Enregistrer l\'atelier')),
-          CE('button',{style:{padding:'13px 24px',border:'2px solid #e2e8f0',borderRadius:12,cursor:'pointer',fontSize:14,fontWeight:600,color:'#718096',background:'#fff'},onClick:()=>{reset();setFormError('');}},isDup||editId?'✖ Annuler':'✖ Réinitialiser')
-        )
+      formError&&CE('div',{style:{background:'#fff5f5',border:'2px solid #fc8181',borderRadius:10,padding:'10px 14px',marginBottom:10,color:'#c53030',fontSize:13,fontWeight:600,display:'flex',alignItems:'center',gap:8}},
+        CE('span',{style:{fontSize:16}},'⚠️'),formError),
+      CE('div',{style:{display:'flex',gap:12,marginTop:4}},
+        CE('button',{style:{padding:'13px 28px',border:'none',borderRadius:12,cursor:saving?'not-allowed':'pointer',fontSize:14,fontWeight:700,color:'#fff',background:saving?'#94a3b8':ac,opacity:saving?.7:1,display:'flex',alignItems:'center',gap:8},onClick:handleSubmit,disabled:saving},
+          saving?CE('span',null,CE('span',{className:'spinner'}),'Enregistrement…'):(editId?'💾 Modifier l\'atelier':'💾 Enregistrer l\'atelier')),
+        CE('button',{style:{padding:'13px 24px',border:'2px solid #e2e8f0',borderRadius:12,cursor:'pointer',fontSize:14,fontWeight:600,color:'#718096',background:'#fff'},onClick:()=>{reset();setFormError('');}},isDup||editId?'✖ Annuler':'✖ Réinitialiser')
       )
     ),
 
@@ -2109,51 +2096,59 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
     // ══════════════════════════════
     modeLot&&CE('div',null,
       CE('div',{style:{...secStyle,background:acLight,borderTop:`3px solid ${ac}`,display:'flex',alignItems:'center',gap:8,fontSize:13,fontWeight:700,color:ac}},
-        '🔄 ',lotRows.length,' atelier(s) à créer — tous "Planifié", inscrits/présents à compléter après'
+        '🔄 ',lotRows.length,' atelier(s) à créer — tous "Planifié"'
       ),
       // Champs communs
-      CE('div',{style:secStyle},champsCommuns(lotForm,setLot,lotErrors,entries,setLotErrors,lotRows.map(r=>r.date))),
+      CE('div',{style:secStyle},champsCommuns(lotForm,setLot,lotErrors,entries,lotRows.map(r=>r.date))),
       // Tableau des dates
-      CE('div',{style:{...secStyle,overflow:'visible'}},
+      CE('div',{style:secStyle},
         CE('div',{style:{fontSize:13,fontWeight:700,color:ac,marginBottom:12}},'📅 Dates du cycle'),
-        CE('div',{style:{display:'grid',gridTemplateColumns:'140px 100px 64px 1fr 32px',gap:8,padding:'0 4px',marginBottom:6}},
-          CE('span',{style:{fontSize:11,fontWeight:700,color:'#718096'}},'DATE *'),
-          CE('span',{style:{fontSize:11,fontWeight:700,color:'#718096'}},'HORAIRE *'),
-          CE('span',{style:{fontSize:11,fontWeight:700,color:'#718096'}},'AM/PM'),
-          CE('span',{style:{fontSize:11,fontWeight:700,color:'#718096'}},'THÉMATIQUE *'),
-          CE('span',null)
-        ),
         lotRows.map((row)=>{
           const rErr=lotRowErrors[row.id]||{};
-          const hasErr=lotSubmitted&&Object.keys(rErr).length>0;
+          const hasErr=Object.values(rErr).some(v=>v);
           const brd=(err)=>`2px solid ${err?'#e53e3e':'#e2e8f0'}`;
-          const inp=(type,val,key,err,ph)=>CE('input',{type,value:val,placeholder:ph||'',onChange:e=>setRow(row.id,key,e.target.value),onBlur:e=>blurRow(row.id,key,e.target.value),style:{width:'100%',padding:'8px 10px',border:brd(err),borderRadius:8,fontSize:12,background:err?'#fff5f5':'#f8fafc',outline:'none',boxSizing:'border-box'}});
-          return CE('div',{key:row.id,style:{borderRadius:10,border:`1.5px solid ${hasErr?'#fc8181':acLight}`,marginBottom:6,background:hasErr?'#fff5f5':acLight,position:'relative',overflow:'visible'}},
-            CE('div',{style:{display:'grid',gridTemplateColumns:'140px 100px 64px 1fr 32px',gap:8,alignItems:'start',padding:'9px 10px'}},
-              inp('date',row.date,'date',rErr.date),
-              inp('time',row.horaire,'horaire',rErr.horaire),
-              CE('select',{value:row.ampm,onChange:e=>setRow(row.id,'ampm',e.target.value),onBlur:e=>blurRow(row.id,'ampm',e.target.value),style:{width:'100%',padding:'8px 4px',border:brd(rErr.ampm),borderRadius:8,fontSize:12,background:'#f8fafc'}},
-                CE('option',{value:'',disabled:true},'—'),CE('option',{value:'AM'},'AM'),CE('option',{value:'PM'},'PM')),
-              CE(ComboThematiqueFixed,{value:row.thematique,onChange:v=>setRow(row.id,'thematique',v),onBlur:v=>blurRow(row.id,'thematique',v),entries:entries,hasError:!!rErr.thematique}),
-              CE('button',{onClick:()=>removeRow(row.id),disabled:lotRows.length===1,style:{background:'none',border:`1px solid ${acLight}`,borderRadius:6,color:'#9b2c2c',cursor:'pointer',fontSize:15,height:32,width:32,display:'flex',alignItems:'center',justifyContent:'center'}},'×')
+          const bg=(err)=>err?'#fff5f5':'#f8fafc';
+          const inp=(type,val,key,err,ph)=>CE('input',{type,value:val,placeholder:ph||'',onChange:e=>setRow(row.id,key,e.target.value),style:{width:'100%',padding:'8px 10px',border:brd(err),borderRadius:8,fontSize:12,background:bg(err),outline:'none',boxSizing:'border-box'}});
+          const lbl=(t,err)=>CE('span',{style:{fontSize:10,fontWeight:700,color:err?'#e53e3e':'#718096',textTransform:'uppercase',letterSpacing:'.06em',display:'block',marginBottom:3}},t);
+          return CE('div',{key:row.id,style:{borderRadius:10,border:`1.5px solid ${hasErr?'#fc8181':acLight}`,marginBottom:6,background:hasErr?'#fff5f5':acLight,position:'relative'}},
+            // Ligne 1 : Date + Horaire + AM/PM + Supprimer
+            CE('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr auto 32px',gap:8,alignItems:'end',padding:'9px 10px 8px'}},
+              CE('div',null,lbl('Date *',rErr.date),inp('date',row.date,'date',rErr.date)),
+              CE('div',null,lbl('Horaire *',rErr.horaire),inp('time',row.horaire,'horaire',rErr.horaire)),
+              CE('div',null,lbl('AM/PM',rErr.ampm),
+                CE('select',{value:row.ampm,onChange:e=>setRow(row.id,'ampm',e.target.value),style:{padding:'8px 6px',border:brd(rErr.ampm),borderRadius:8,fontSize:12,background:bg(rErr.ampm)}},
+                  CE('option',{value:'',disabled:true},'—'),CE('option',{value:'AM'},'AM'),CE('option',{value:'PM'},'PM'))),
+              CE('button',{onClick:()=>removeRow(row.id),disabled:lotRows.length===1,style:{background:'none',border:`1px solid ${acLight}`,borderRadius:6,color:'#9b2c2c',cursor:'pointer',fontSize:15,height:32,width:32,display:'flex',alignItems:'center',justifyContent:'center',alignSelf:'end'}},'×')
             ),
-            // Dates de prélèvement/retour matériel — uniquement si Classe
-            // mobile est cochée (champ commun du cycle), par séance car
-            // chaque date de ce tableau emprunte et rend le matériel à son
-            // propre rythme (le prélèvement peut précéder la date de cette
-            // séance).
-            // Champs optionnels : pas de blurRow ici (contrairement à inp())
-            // — sinon un blur sur un champ resté vide le marquerait "Requis"
-            // dans lotRowErrors alors qu'il ne l'est pas (validateLot() ne le
-            // corrigerait qu'à la prochaine tentative de soumission).
-            matIncludes(lotForm.materiel,'Classe mobile')&&CE('div',{style:{display:'flex',gap:8,padding:'0 10px 9px',borderTop:`1px solid ${acLight}`}},
+            // Ligne 2 : Thématique pleine largeur
+            CE('div',{style:{padding:'0 10px 8px'}},
+              lbl('Thématique *',rErr.thematique),
+              CE(ComboThematiqueFixed,{value:row.thematique,onChange:v=>setRow(row.id,'thematique',v),entries:entries,hasError:!!rErr.thematique})
+            ),
+            // Ligne 3 : Inscrits + Présents
+            CE('div',{style:{display:'flex',gap:8,padding:'0 10px 9px',borderTop:`1px solid ${acLight}`}},
               CE('div',{style:{flex:1}},
-                CE('span',{style:{fontSize:10,fontWeight:700,color:'#718096',textTransform:'uppercase',letterSpacing:'.06em',display:'block',marginTop:6,marginBottom:3}},'Prélèvement ordi'),
-                CE('input',{type:'date',value:row.date_prelevement_materiel||'',onChange:e=>setRow(row.id,'date_prelevement_materiel',e.target.value),style:{width:'100%',padding:'8px 10px',border:'2px solid #e2e8f0',borderRadius:8,fontSize:12,background:'#f8fafc',outline:'none',boxSizing:'border-box'}})
+                lbl('Inscrits *',rErr.inscrits),
+                CE('input',{type:'number',min:0,value:row.inscrits,placeholder:'—',onChange:e=>setRow(row.id,'inscrits',e.target.value),style:{width:'100%',padding:'7px 10px',border:brd(rErr.inscrits),borderRadius:8,fontSize:13,fontWeight:700,textAlign:'center',background:bg(rErr.inscrits),outline:'none',boxSizing:'border-box'}})
               ),
               CE('div',{style:{flex:1}},
-                CE('span',{style:{fontSize:10,fontWeight:700,color:'#718096',textTransform:'uppercase',letterSpacing:'.06em',display:'block',marginTop:6,marginBottom:3}},'Retour ordi'),
-                CE('input',{type:'date',value:row.date_retour_materiel||'',onChange:e=>setRow(row.id,'date_retour_materiel',e.target.value),style:{width:'100%',padding:'8px 10px',border:'2px solid #e2e8f0',borderRadius:8,fontSize:12,background:'#f8fafc',outline:'none',boxSizing:'border-box'}})
+                lbl('Présents',false),
+                CE('input',{type:'number',min:0,value:row.presents,placeholder:'—',onChange:e=>setRow(row.id,'presents',e.target.value),style:{width:'100%',padding:'7px 10px',border:brd(false),borderRadius:8,fontSize:13,fontWeight:700,textAlign:'center',background:'#f8fafc',outline:'none',boxSizing:'border-box'}})
+              )
+            ),
+            // Ligne 4 : Dates de prélèvement/retour matériel — uniquement si
+            // Classe mobile est cochée (champ commun du cycle), par séance
+            // car chaque date de ce tableau emprunte et rend le matériel à
+            // son propre rythme (le prélèvement peut précéder la date de
+            // cette séance).
+            matIncludes(lotForm.materiel,'Classe mobile')&&CE('div',{style:{display:'flex',gap:8,padding:'0 10px 9px',borderTop:`1px solid ${acLight}`}},
+              CE('div',{style:{flex:1}},
+                lbl('Prélèvement ordi',false),
+                inp('date',row.date_prelevement_materiel,'date_prelevement_materiel',false)
+              ),
+              CE('div',{style:{flex:1}},
+                lbl('Retour ordi',false),
+                inp('date',row.date_retour_materiel,'date_retour_materiel',false)
               )
             )
           );
@@ -2161,14 +2156,12 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
         CE('button',{onClick:addRow,style:{display:'flex',alignItems:'center',justifyContent:'center',gap:6,padding:10,background:'#fff',border:`2px dashed ${ac}`,borderRadius:10,cursor:'pointer',fontSize:13,color:ac,fontWeight:700,width:'100%',marginTop:6}},'＋ Ajouter une date')
       ),
       // Boutons
-      CE('div',{style:{marginTop:4}},
-        formError&&CE('div',{style:{background:'#fff5f5',border:'2px solid #fc8181',borderRadius:10,padding:'10px 14px',marginBottom:10,color:'#c53030',fontSize:13,fontWeight:600,display:'flex',alignItems:'center',gap:8}},
-          CE('span',{style:{fontSize:16}},'⚠️'),formError),
-        CE('div',{style:{display:'flex',gap:12}},
-          CE('button',{style:{padding:'13px 28px',border:'none',borderRadius:12,cursor:saving?'not-allowed':'pointer',fontSize:14,fontWeight:700,color:'#fff',background:saving?'#94a3b8':ac,opacity:saving?.7:1,display:'flex',alignItems:'center',gap:8},onClick:handleSubmitLot,disabled:saving},
-            saving?CE('span',null,CE('span',{className:'spinner'}),'Création…'):`💾 Créer ${lotRows.length} atelier(s)`),
-          CE('button',{style:{padding:'13px 24px',border:'2px solid #e2e8f0',borderRadius:12,cursor:'pointer',fontSize:14,fontWeight:600,color:'#718096',background:'#fff'},onClick:()=>{resetLot();setFormError('');}}, '✖ Réinitialiser')
-        )
+      formError&&CE('div',{style:{background:'#fff5f5',border:'2px solid #fc8181',borderRadius:10,padding:'10px 14px',marginBottom:10,color:'#c53030',fontSize:13,fontWeight:600,display:'flex',alignItems:'center',gap:8}},
+        CE('span',{style:{fontSize:16}},'⚠️'),formError),
+      CE('div',{style:{display:'flex',gap:12,marginTop:4}},
+        CE('button',{style:{padding:'13px 28px',border:'none',borderRadius:12,cursor:saving?'not-allowed':'pointer',fontSize:14,fontWeight:700,color:'#fff',background:saving?'#94a3b8':ac,opacity:saving?.7:1,display:'flex',alignItems:'center',gap:8},onClick:handleSubmitLot,disabled:saving},
+          saving?CE('span',null,CE('span',{className:'spinner'}),'Création…'):`💾 Créer ${lotRows.length} atelier(s)`),
+        CE('button',{style:{padding:'13px 24px',border:'2px solid #e2e8f0',borderRadius:12,cursor:'pointer',fontSize:14,fontWeight:600,color:'#718096',background:'#fff'},onClick:()=>{resetLot();setFormError('');}}, '✖ Réinitialiser')
       )
     )
   );
