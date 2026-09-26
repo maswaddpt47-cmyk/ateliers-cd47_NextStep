@@ -344,11 +344,16 @@ describe('comparerHistorique', () => {
     { _id: 'c', date: '2026-11-02', horaire: '14:00', orienteur: 'Cité Scolaire - Collège Jean Monnet' },
     { _id: 'd', date: '2026-10-05', horaire: '09:30', orienteur: '' },
   ];
-  it('même date : orienteur puis horaire, quel que soit l\'ordre d\'enregistrement', () => {
-    assert.deepEqual([...liste].sort((x, y) => comparerHistorique(x, y, 1)).map(e => e._id), ['d', 'c', 'a', 'b']);
+  it('même date : ordre chronologique, quel que soit l\'ordre d\'enregistrement', () => {
+    assert.deepEqual([...liste].sort((x, y) => comparerHistorique(x, y, 1)).map(e => e._id), ['d', 'b', 'c', 'a']);
+  });
+  it('même date et même heure : orienteur départage', () => {
+    const x = { date: '2026-11-02', horaire: '14:00', orienteur: 'Convergence' };
+    const y = { date: '2026-11-02', horaire: '14:00', orienteur: 'Cité Scolaire' };
+    assert.ok(comparerHistorique(y, x, 1) < 0);
   });
   it('date décroissante : les dates s\'inversent, pas l\'ordre à l\'intérieur d\'un jour', () => {
-    assert.deepEqual([...liste].sort((x, y) => comparerHistorique(x, y, -1)).map(e => e._id), ['c', 'a', 'b', 'd']);
+    assert.deepEqual([...liste].sort((x, y) => comparerHistorique(x, y, -1)).map(e => e._id), ['b', 'c', 'a', 'd']);
   });
 });
 

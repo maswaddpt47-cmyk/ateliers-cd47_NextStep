@@ -356,23 +356,26 @@ if (typeof window !== 'undefined') {
 }
 
 // Ordre de l'Historique : date (sens choisi par l'utilisateur), puis, pour
-// une même date, orienteur puis horaire — toujours croissants. Sans ça, deux
-// ateliers du même jour sortaient dans l'ordre d'enregistrement (demande de
-// l'utilisateur, 26/09/2026). Orienteur vide en dernier.
+// une même date, ordre chronologique (horaire), puis orienteur pour
+// départager deux ateliers à la même heure — toujours croissants. Sans ça,
+// deux ateliers du même jour sortaient dans l'ordre d'enregistrement
+// (demande de l'utilisateur, 26/09/2026). Horaire ou orienteur vide en dernier.
 function comparerHistorique(a, b, sens) {
   const s = sens === -1 ? -1 : 1;
   const da = (a && a.date) || '', db = (b && b.date) || '';
   if (da !== db) return da < db ? -s : s;
-  const oa = String((a && a.orienteur) || '').trim(), ob = String((b && b.orienteur) || '').trim();
-  if (oa !== ob) {
-    if (!oa) return 1;
-    if (!ob) return -1;
-    const c = oa.localeCompare(ob, 'fr', { sensitivity: 'base' });
-    if (c) return c;
-  }
   const h = e => String((e && e.horaire) || '').trim().replace(/^(\d):/, '0$1:');
   const ha = h(a), hb = h(b);
-  return ha < hb ? -1 : ha > hb ? 1 : 0;
+  if (ha !== hb) {
+    if (!ha) return 1;
+    if (!hb) return -1;
+    return ha < hb ? -1 : 1;
+  }
+  const oa = String((a && a.orienteur) || '').trim(), ob = String((b && b.orienteur) || '').trim();
+  if (oa === ob) return 0;
+  if (!oa) return 1;
+  if (!ob) return -1;
+  return oa.localeCompare(ob, 'fr', { sensitivity: 'base' });
 }
 
 // AM/PM déduit de l'horaire saisi : avant 12:00 → AM, à partir de 12:00 → PM
