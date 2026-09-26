@@ -6,6 +6,9 @@ set -euo pipefail
 
 cd "$CLAUDE_PROJECT_DIR"
 
+# Rappel de ménage de CHANTIERS.md (n'échoue jamais).
+bash scripts/check-chantiers.sh CHANTIERS.md
+
 echo "🧪 Vérification de l'état des tests..."
 
 FAIL=0
