@@ -19,6 +19,9 @@ AG-003 à AG-008, ordre du jour de la bascule) a été retirée. Texte complet :
 
 ## Reste ouvert
 
+- **Alignement avec NEWGEN (parité AG-015)** : en cours, 16 écarts restants
+  au 26/09/2026. Suivi, questions en attente et ordre de push (**NextStep
+  d'abord**) : `CHANTIERS.md` d'ATELIERS_NEWGEN, chantier parité.
 - **Lisibilité des couleurs de la Frise du parc** : jamais vérifiée à l'œil.
 - `manifest-*.json` à retirer (plus de PWA depuis AG-012), une fois les
   dernières installations désinstallées ; `sw.js` de désinstallation reste
