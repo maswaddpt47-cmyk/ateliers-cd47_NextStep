@@ -1,160 +1,133 @@
-// Fonctions utilitaires pures — compatibles Node (require) ET navigateur (script tag)
-// Pas de DOM, pas de React, pas d'état global mutable.
-// MOIS, JOURS, COMMUNE_MAP sont déclarés localement dans chaque fonction pour éviter
-// tout conflit de redéclaration avec shared.js en navigateur.
+// Fonctions pures extraites de shared.js — testables avec Node.js (node --test)
+// Ces fonctions ne dépendent ni du DOM, ni de React, ni d'un état mutable.
 
-// ── Texte ─────────────────────────────────────────────────────────────────────
+// ── Constantes partagées ───────────────────────────────────
+const MOIS  = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
+const JOURS = ['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'];
+const COMMUNE_MAP = {
+  'TEMPLE SUR LOT':'LE TEMPLE SUR LOT',
+  'VILLENEUVE-SUR-LOT':'VILLENEUVE SUR LOT',
+};
 
-function stripAccents(str) {
-  return String(str || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+// ── Communes ───────────────────────────────────────────────
+function normCommune(s){
+  if(!s)return'';
+  return s.replace(/\s*\(\d+\)\s*/g,'').trim();
+}
+function normalizeCommune(c){
+  const stripped=normCommune(String(c||'').toUpperCase());
+  return COMMUNE_MAP[stripped]||stripped||String(c||'').trim();
 }
 
-function trunc(s, n) {
-  s = String(s || '');
-  return s.length > n ? s.slice(0, n) + '…' : s;
+// ── Texte ──────────────────────────────────────────────────
+function stripAccents(str){
+  return String(str||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase();
+}
+// Libellés de graphiques : n caractères au plus, « … » compris.
+function trunc(s,n){
+  s=String(s||'');
+  return s.length>n?s.slice(0,n-1)+'…':s;
+}
+function htmlEsc(s){
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
-// ── Communes ──────────────────────────────────────────────────────────────────
-
-function normCommune(s) {
-  if (!s) return '';
-  return s.replace(/\s*\(\d+\)\s*/g, '').trim();
+// ── Dates ──────────────────────────────────────────────────
+function todayLocal(){
+  const d=new Date();
+  return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
-
-function normalizeCommune(c) {
-  const _map = {'TEMPLE SUR LOT':'LE TEMPLE SUR LOT','VILLENEUVE-SUR-LOT':'VILLENEUVE SUR LOT'};
-  return _map[String(c || '').trim()] || String(c || '').trim();
-}
-
-// ── Dates ─────────────────────────────────────────────────────────────────────
-
-function normalizeDate(val) {
-  if (!val) return '';
-  const s = String(val).trim();
-  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
-  if (/^\d{4}-\d{2}-\d{2}T/.test(s)) return s.split('T')[0];
-  const m = s.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
-  if (m) return `${m[3]}-${m[2]}-${m[1]}`;
+function normalizeDate(val){
+  if(!val)return'';
+  const s=String(val).trim();
+  if(/^\d{4}-\d{2}-\d{2}$/.test(s))return s;
+  if(/^\d{4}-\d{2}-\d{2}T/.test(s))return s.split('T')[0];
+  const m=s.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+  if(m)return`${m[3]}-${m[2]}-${m[1]}`;
   return s;
 }
-
-function normalizeHoraire(val) {
-  if (!val) return '';
-  const s = String(val).trim();
-  const iso = s.match(/T(\d{2}:\d{2})/);
-  if (iso) return iso[1];
-  if (/^\d{1,2}[Hh]\d{2}$/.test(s)) return s.replace(/[Hh]/, ':');
-  if (/^\d{1,2}:\d{2}(:\d{2})?$/.test(s)) return s.slice(0, 5);
+function normalizeHoraire(val){
+  if(!val)return'';
+  const s=String(val).trim();
+  const iso=s.match(/T(\d{2}:\d{2})/);
+  if(iso)return iso[1];
+  if(/^\d{1,2}[Hh]\d{2}$/.test(s))return s.replace(/[Hh]/,':');
+  if(/^\d{1,2}:\d{2}(:\d{2})?$/.test(s))return s.slice(0,5);
   return s;
 }
-
-function fmtDate(d) {
-  if (!d) return '';
+function fmtDate(d){
+  if(!d)return'';
   // normalizeDate tronque un éventuel suffixe ISO datetime (T10:00:00.000Z) —
   // GAS peut renvoyer ce format pour une colonne Date non explicitement
-  // formatée côté serveur.
-  d = normalizeDate(d);
-  const _j = ['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'];
-  const [y, m, j] = d.split('-');
-  const jour = _j[new Date(parseInt(y, 10), parseInt(m, 10) - 1, parseInt(j, 10)).getDay()];
-  return `${jour} ${j}/${m}/${y}`;
+  // formatée côté serveur (v11.33 : date_retour_materiel notamment).
+  d=normalizeDate(d);
+  const[y,m,j]=d.split('-');
+  const jour=JOURS[new Date(parseInt(y,10),parseInt(m,10)-1,parseInt(j,10)).getDay()];
+  return`${jour} ${j}/${m}/${y}`;
+}
+function addJoursIso(d,n){
+  if(!d)return'';
+  const[y,m,j]=d.split('-').map(Number);
+  const dt=new Date(y,m-1,j+n);
+  return`${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;
+}
+function fmtCardDate(d){
+  if(!d)return{day:'',month:'',jour:''};
+  const[y,m,j]=d.split('-');
+  const jour=JOURS[new Date(parseInt(y,10),parseInt(m,10)-1,parseInt(j,10)).getDay()];
+  return{day:j,month:MOIS[parseInt(m,10)-1],jour};
 }
 
-function addJoursIso(d, n) {
-  if (!d) return '';
-  const [y, m, j] = d.split('-').map(Number);
-  const dt = new Date(y, m - 1, j + n);
-  return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
+// ── Export ICS ─────────────────────────────────────────────
+function escapeICS(s){
+  return String(s||'').replace(/\\/g,'\\\\').replace(/;/g,'\\;').replace(/,/g,'\\,').replace(/\n/g,'\\n');
 }
-
-function fmtCardDate(d) {
-  if (!d) return { day: '', month: '', jour: '' };
-  const _j = ['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'];
-  const _m = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
-  const [y, m, j] = d.split('-');
-  const jour = _j[new Date(parseInt(y, 10), parseInt(m, 10) - 1, parseInt(j, 10)).getDay()];
-  return { day: j, month: _m[parseInt(m, 10) - 1], jour };
-}
-
-function todayLocal() {
-  const now = new Date();
-  const y = now.getFullYear();
-  const m = String(now.getMonth() + 1).padStart(2, '0');
-  const d = String(now.getDate()).padStart(2, '0');
-  return `${y}-${m}-${d}`;
-}
-
-// ── Matériel ──────────────────────────────────────────────────────────────────
-
-function normalizeMat(s) {
-  return stripAccents(String(s || '')).replace(/\s+/g, '').replace(/s$/, '');
-}
-
-function matIncludes(arr, m) {
-  const nm = normalizeMat(m);
-  return (arr || []).some(a => normalizeMat(a) === nm);
-}
-
-// ── Export ICS ────────────────────────────────────────────────────────────────
-
-function escapeICS(s) {
-  return String(s || '').replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\n/g, '\\n');
-}
-
-function foldICSLine(line) {
-  if (line.length <= 75) return line;
-  const c = [line.slice(0, 75)];
-  let i = 75;
-  while (i < line.length) { c.push(' ' + line.slice(i, i + 74)); i += 74; }
+function foldICSLine(line){
+  if(line.length<=75)return line;
+  const c=[];
+  c.push(line.slice(0,75));
+  let i=75;
+  while(i<line.length){c.push(' '+line.slice(i,i+74));i+=74;}
   return c.join('\r\n');
 }
-
-function parseHoraireICS(h) {
-  const s = String(h || '09H00').toUpperCase().replace('H', ':');
-  const p = s.split(':');
-  return { hh: String(parseInt(p[0] || 9, 10)).padStart(2, '0'), mm: String(parseInt(p[1] || 0, 10)).padStart(2, '0') };
+function parseHoraireICS(h){
+  const s=String(h||'09H00').toUpperCase().replace('H',':');
+  const p=s.split(':');
+  return{hh:String(parseInt(p[0]||9,10)).padStart(2,'0'),mm:String(parseInt(p[1]||0,10)).padStart(2,'0')};
 }
-
-function parseDateICS(d) {
-  const m = String(d || '').match(/^(\d{4})-(\d{2})-(\d{2})/);
-  return m ? { y: m[1], mo: m[2], j: m[3] } : null;
+function parseDateICS(d){
+  const m=String(d||'').match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return m?{y:m[1],mo:m[2],j:m[3]}:null;
 }
-
-function buildICS(evts) {
-  const out = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Ateliers Numerique 47//FR', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH'];
-  for (const e of evts) {
-    const pd = parseDateICS(e.date); if (!pd) continue;
-    const { hh, mm } = parseHoraireICS(e.horaire);
-    const startH = parseInt(hh, 10);
-    const dts = `${pd.y}${pd.mo}${pd.j}T${hh}${mm}00`;
+function buildICS(evts){
+  const out=['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Ateliers Numerique 47//FR','CALSCALE:GREGORIAN','METHOD:PUBLISH'];
+  for(const e of evts){
+    const pd=parseDateICS(e.date);if(!pd)continue;
+    const{hh,mm}=parseHoraireICS(e.horaire);
+    const startH=parseInt(hh,10);
+    const dts=`${pd.y}${pd.mo}${pd.j}T${hh}${mm}00`;
     let dte;
-    if (startH < 23) {
-      dte = `${pd.y}${pd.mo}${pd.j}T${String(startH + 1).padStart(2, '0')}${mm}00`;
-    } else {
-      const next = new Date(parseInt(pd.y, 10), parseInt(pd.mo, 10) - 1, parseInt(pd.j, 10) + 1);
-      dte = `${next.getFullYear()}${String(next.getMonth() + 1).padStart(2, '0')}${String(next.getDate()).padStart(2, '0')}T000000`;
-    }
-    const summary  = escapeICS([e.thematique, e.commune].filter(Boolean).join(' | '));
-    const location = escapeICS([e.lieu, e.commune].filter(Boolean).join(', '));
-    const descParts = [
-      e.conseiller  && 'Conseiller : '  + e.conseiller,
-      e.orienteur   && 'Orienteur : '   + e.orienteur,
-      e.statut      && 'Statut : '      + e.statut,
-      e.public      && 'Public : '      + e.public,
-      (e.inscrits !== '' && e.inscrits != null) && 'Inscrits : ' + e.inscrits,
-      (e.presents !== '' && e.presents != null) && 'Présents : ' + e.presents,
-      e.remarques   && 'Remarques : '   + e.remarques,
+    if(startH<23){dte=`${pd.y}${pd.mo}${pd.j}T${String(startH+1).padStart(2,'0')}${mm}00`;}
+    else{const next=new Date(parseInt(pd.y,10),parseInt(pd.mo,10)-1,parseInt(pd.j,10)+1);dte=`${next.getFullYear()}${String(next.getMonth()+1).padStart(2,'0')}${String(next.getDate()).padStart(2,'0')}T000000`;}
+    const summary=escapeICS([e.thematique,e.commune].filter(Boolean).join(' | '));
+    const location=escapeICS([e.lieu,e.commune].filter(Boolean).join(', '));
+    const descParts=[
+      e.conseiller&&'Conseiller : '+e.conseiller,
+      e.orienteur&&'Orienteur : '+e.orienteur,
+      e.statut&&'Statut : '+e.statut,
+      e.public&&'Public : '+e.public,
+      (e.inscrits!==''&&e.inscrits!=null)&&'Inscrits : '+e.inscrits,
+      (e.presents!==''&&e.presents!=null)&&'Présents : '+e.presents,
+      e.remarques&&'Remarques : '+e.remarques,
     ].filter(Boolean);
-    out.push('BEGIN:VEVENT', 'DTSTART:' + dts, 'DTEND:' + dte, 'SUMMARY:' + summary);
-    if (location)       out.push('LOCATION:' + location);
-    if (descParts.length) out.push('DESCRIPTION:' + escapeICS(descParts.join('\n')));
-    out.push('UID:' + e._id + '@ateliers-newgen', 'END:VEVENT');
+    out.push('BEGIN:VEVENT','DTSTART:'+dts,'DTEND:'+dte,'SUMMARY:'+summary);
+    if(location)out.push('LOCATION:'+location);
+    if(descParts.length)out.push('DESCRIPTION:'+escapeICS(descParts.join('\n')));
+    out.push('UID:'+e._id+'@ateliers-newgen','END:VEVENT');
   }
   out.push('END:VCALENDAR');
-  return out.map(foldICSLine).join('\r\n');
+  return out.map(foldICSLine).join('\r\n') + '\r\n';
 }
-
-// ── Compatible Node (tests) ET navigateur (script tag) ────────────────────────
 
 // Sortie compacte du Journal, à coller dans une conversation avec Claude.
 // Coller 200 lignes brutes coûte cher et noie l'information : ce qui sert au
@@ -169,23 +142,22 @@ function resumeLogsTexte(logs, appli){
   if(!gas.length) return 'JOURNAL ' + appli + ' : aucun appel serveur enregistré.';
   var lus = [];
   gas.forEach(function(l){
-    // Le suffixe « (file N s) » est optionnel : les lignes journalisees avant
-    // le 22/09/2026 ne l'ont pas, et elles doivent rester lisibles.
-    var m = l.msg.match(/^(?:GAS|API) (\S+) #(\S+) — (.+) en ([\d.]+) s(?: \(file ([\d.]+) s\))?$/);
+    // Suffixe « (file N s) » toléré : lignes journalisées du 22 au 23/09/2026.
+    var m = l.msg.match(/^(?:GAS|API) (\S+) #(\S+) — (.+) en ([\d.]+) s(?: \(file [\d.]+ s\))?$/);
     if(!m) return;
     var d = l.ts ? new Date(l.ts) : null;
     lus.push({
       action: m[1], essai: m[2], motif: m[3], sec: parseFloat(m[4]),
-      file: m[5] ? parseFloat(m[5]) : 0, fileConnue: !!m[5],
-      // Un refus serveur (ok:false, motif « serveur : ») a bien ete livre :
-      // ni une perte ni un succes, compte a part (AG-004, 22/09/2026).
-      refus: m[3].indexOf('serveur') === 0,
       // 'annulé' : le jumeau a repondu, l'appel a ete arrete. Ni reussite ni
       // perte — il sort des deux comptes (AG-006).
       annule: m[3].indexOf('annulé') === 0,
-      ko: m[3].indexOf('ok') !== 0 && m[3].indexOf('serveur') !== 0 && m[3].indexOf('annulé') !== 0,
+      ko: m[3].indexOf('ok') !== 0 && m[3].indexOf('annulé') !== 0 && m[3].indexOf('serveur') !== 0,
+      // Refus serveur (ok:false, motif « serveur : ») : livre, donc ni une
+      // perte ni un succes — compte a part (AG-004, 22/09/2026).
+      refus: m[3].indexOf('serveur') === 0,
       // Le doublon d'une lecture porte le numero de son jumeau suivi de 'b'
-      // (gasLectureDoublee, shared.js, depuis le 23/09/2026).
+      // (gasLectureDoublee, shared.js). C'est la seule trace du doublage dans
+      // le journal, et elle suffit a le mesurer — voir plus bas.
       doublon: /b$/.test(m[2]),
       heure: l.t || (d ? d.toLocaleTimeString('fr-FR') : '?'),
       h: d ? ('0' + d.getHours()).slice(-2) : '??',
@@ -195,7 +167,7 @@ function resumeLogsTexte(logs, appli){
   if(!lus.length) return 'JOURNAL ' + appli + ' : ' + gas.length + ' lignes d\'appel, aucune au format attendu.';
   var ko = lus.filter(function(x){ return x.ko; });
   var refus = lus.filter(function(x){ return x.refus; });
-  var okSec = lus.filter(function(x){ return !x.ko && !x.refus && !x.annule; }).map(function(x){ return x.sec; }).sort(function(a,b){ return a-b; });
+  var okSec = lus.filter(function(x){ return !x.ko && !x.annule && !x.refus; }).map(function(x){ return x.sec; }).sort(function(a,b){ return a-b; });
   var med = okSec.length ? okSec[Math.floor(okSec.length/2)] : 0;
   var p90 = okSec.length ? okSec[Math.min(okSec.length-1, Math.floor(okSec.length*0.9))] : 0;
   var perdu = ko.reduce(function(a,x){ return a + x.sec; }, 0);
@@ -215,39 +187,44 @@ function resumeLogsTexte(logs, appli){
     + refus.slice(0, 5).map(function(x){ return x.heure + ' ' + x.action + ' ' + x.motif; }).join(' | '));
   l.push('durees livrees : mediane ' + med.toFixed(1) + 's | p90 ' + p90.toFixed(1) + 's');
   l.push('temps passe a attendre des reponses mortes : ' + Math.round(perdu) + 's');
-  // Attente en file : mesuree depuis le 22/09/2026 seulement. Sans ce chiffre
-  // le total ci-dessus est un plancher — il ignore le temps passe a attendre
-  // son tour avant meme que l'appel parte (AG-005).
-  var avecFile = lus.filter(function(x){ return x.fileConnue; });
-  if(avecFile.length){
-    var fileTot = avecFile.reduce(function(a,x){ return a + x.file; }, 0);
-    var fileMax = avecFile.reduce(function(a,x){ return Math.max(a, x.file); }, 0);
-    l.push('temps passe en file avant de partir : ' + Math.round(fileTot) + 's'
-      + ' (pire cas ' + fileMax.toFixed(1) + 's, sur ' + avecFile.length + '/' + lus.length + ' appels mesures)');
-  }else{
-    l.push('temps passe en file : non mesure (journal anterieur au 22/09/2026, ou file retiree le 23/09/2026)');
-  }
-  // ── Doublage (depuis le 23/09/2026) ──
-  // Quand l'un des deux appels aboutit, l'autre est annule et journalise
-  // « annulé ». Chaque ligne « #Nb ok » est une lecture sauvee : le doublon ne
-  // part qu'apres GAS_HEDGE_MS, s'il gagne c'est que l'original se taisait.
+  // ── Ce que rapporte le doublage, et pourquoi le taux ci-dessus trompe ──
+  // Quand l'un des deux appels aboutit, gasLectureDoublee ANNULE l'autre, et
+  // un appel annule n'est pas journalise (shared.js, branche ctrl.inutile).
+  // Consequence, relevee le 22/09/2026 : si le doublon gagne, l'original
+  // perdu DISPARAIT du journal. Le taux de pertes affiche ci-dessus est donc
+  // SOUS-ESTIME ici, alors qu'il est complet sur ateliers-cd47_NextStep, qui
+  // ne double pas. Ne jamais comparer les deux taux directement.
+  // En contrepartie, chaque ligne « #Nb ok » est une lecture que le doublage a
+  // sauvee : le doublon n'est lance qu'au bout de GAS_HEDGE_MS, et s'il gagne
+  // c'est que l'original n'avait toujours pas repondu.
   var doublons = lus.filter(function(x){ return x.doublon; });
   if(doublons.length){
     var sauves = doublons.filter(function(x){ return !x.ko && !x.annule && !x.refus; }).length;
     var dAnnules = doublons.filter(function(x){ return x.annule; }).length;
+    // « non annules » et non « partis » : un doublon annule par un original
+    // tardif ne comptait pas, ce qui rendait ce taux incomparable a celui du
+    // banc, calcule lui sur ok/(ok+ko+annules) — AG-006, amendements 2 et 3.
     l.push('doublons non annules : ' + (doublons.length - dAnnules)
       + ' — ' + sauves + ' ont sauve la lecture, '
       + (doublons.length - dAnnules - sauves) + ' en echec'
       + (dAnnules ? '  (+' + dAnnules + ' annules, le jumeau avait repondu)' : ''));
-    // Le taux de sauvetage suit ~ 1 - pertes ambiantes (AG-006) : a lire avec
-    // le taux de pertes du meme releve, jamais seul.
+    // Le taux de sauvetage n'est pas une constante de la strategie : si les
+    // pertes etaient independantes, un doublon reussirait avec la probabilite
+    // 1 - p. Le rapport des deux dit lequel des deux modeles colle :
+    // proche de 1 = pertes independantes, nettement < 1 = pertes correlees
+    // dans le temps, et c'est la que le doublage rapporte le moins.
     var base = doublons.length - dAnnules;
     if(base){
       var tauxSauv = sauves / base;
       var attendu = 1 - (ko.length / reels.length);
       l.push('  taux de sauvetage ' + Math.round(tauxSauv*100) + '%'
-        + ' vs ' + Math.round(attendu*100) + '% attendu si les pertes etaient independantes');
+        + ' vs ' + Math.round(attendu*100) + '% attendu si les pertes etaient independantes'
+        + (attendu > 0 ? '  (rapport ' + (tauxSauv/attendu).toFixed(2) + ')' : ''));
+      l.push('  a lire avec le taux de pertes du meme releve, jamais seul :'
+        + ' il suit 1 - pertes, ce n est pas une constante du doublage');
     }
+  }else{
+    l.push('doublons non annules : aucun — toutes les lectures ont repondu avant le doublage');
   }
   l.push('');
   l.push('par action (perdus/total) : ' + grouper('action'));
@@ -256,8 +233,7 @@ function resumeLogsTexte(logs, appli){
     l.push('');
     l.push('echecs' + (ko.length > 25 ? ' (25 derniers sur ' + ko.length + ')' : '') + ' :');
     ko.slice(0, 25).forEach(function(x){
-      l.push('  ' + x.jour + ' ' + x.heure + '  ' + x.action + ' #' + x.essai + '  ' + x.motif + '  ' + x.sec.toFixed(1) + 's'
-        + (x.file ? '  + ' + x.file.toFixed(1) + 's de file' : ''));
+      l.push('  ' + x.jour + ' ' + x.heure + '  ' + x.action + ' #' + x.essai + '  ' + x.motif + '  ' + x.sec.toFixed(1) + 's');
     });
   }
   return l.join('\n');
@@ -353,6 +329,17 @@ function migrerLocalStorage(store) {
 }
 if (typeof window !== 'undefined') {
   try { migrerLocalStorage(window.localStorage); } catch (e) {}
+}
+
+// ── Anomalie de chiffres : plus de présents que d'inscrits ───────────────────
+// Repris de l'ancienne « Vérification cohérence » de l'Admin (retirée le
+// 25/09/2026) : seul de ses contrôles que l'onglet Anomalies ne faisait pas.
+// Ici et non dans logic.js : NEWGEN ne charge pas logic.js dans ses pages.
+// Un champ vide ou non numérique n'est pas une anomalie de chiffres.
+function presentsSuperieursInscrits(e) {
+  const txt = v => String(v == null ? '' : v).trim();
+  if (!/^\d+$/.test(txt(e && e.presents)) || !/^\d+$/.test(txt(e && e.inscrits))) return false;
+  return parseInt(txt(e.presents), 10) > parseInt(txt(e.inscrits), 10);
 }
 
 // Ordre de l'Historique : date (sens choisi par l'utilisateur), puis, pour
@@ -451,13 +438,21 @@ function kpiHistorique(liste) {
   return k;
 }
 
+
+// ── Matériel (déplacé de shared.js le 26/09/2026, AG-015 lot 0) ─────────────
+// Versions exécutées par NEWGEN, reprises telles quelles. NextStep a les
+// siennes (utils.js) : écart à aligner au lot 1, pas ici.
+function normalizeMat(s){return stripAccents(s).replace(/\s+/g,'').replace(/s$/,'');}
+// Le format « a|b » (époque GAS) est accepté : l'API renvoie des tableaux
+// (api/lib/api.php:339), mais une chaîne rendait « aucun conflit » en silence
+// — logic.test.js l'exigeait d'une version que les pages n'exécutaient pas.
+function matIncludes(arr,m){if(typeof arr==='string')arr=arr.split('|').filter(Boolean);if(!Array.isArray(arr))return false;const nm=normalizeMat(m);return arr.some(x=>x===m||normalizeMat(x)===nm);}
 if (typeof module !== 'undefined') {
-  module.exports = {
-    stripAccents, trunc,
-    normCommune, normalizeCommune,
-    normalizeDate, normalizeHoraire, fmtDate, fmtCardDate, todayLocal, addJoursIso,
+  module.exports={
     normalizeMat, matIncludes,
-    escapeICS, foldICSLine, parseHoraireICS, parseDateICS, buildICS,
+    normCommune,normalizeCommune,stripAccents,htmlEsc,trunc,
+    normalizeDate,normalizeHoraire,fmtDate,fmtCardDate,todayLocal,addJoursIso,
+    escapeICS,foldICSLine,parseHoraireICS,parseDateICS,buildICS,
     resumeLogsTexte,
     suppressionAboutie,
     anneesListe,
@@ -470,5 +465,6 @@ if (typeof module !== 'undefined') {
   conflitsDeLEntree,
   matierePanneau,
   ordiSansClasseMobile,
+    presentsSuperieursInscrits,
   };
 }

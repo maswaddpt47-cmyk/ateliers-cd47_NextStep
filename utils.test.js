@@ -26,7 +26,7 @@ describe('stripAccents', () => {
 
 // ── trunc ─────────────────────────────────────────────────────────────────────
 describe('trunc', () => {
-  it('tronque à n caractères avec …',  () => assert.equal(trunc('abcdef', 4), 'abcd…'));
+  it('tronque à n caractères, « … » compris',  () => assert.equal(trunc('abcdef', 4), 'abc…'));
   it('ne tronque pas si assez court',  () => assert.equal(trunc('abc', 10), 'abc'));
   it('null → chaîne vide',             () => assert.equal(trunc(null, 5), ''));
 });
@@ -41,7 +41,7 @@ describe('normCommune', () => {
 // ── normalizeCommune ──────────────────────────────────────────────────────────
 describe('normalizeCommune', () => {
   it('applique le COMMUNE_MAP',        () => assert.equal(normalizeCommune('VILLENEUVE-SUR-LOT'), 'VILLENEUVE SUR LOT'));
-  it('retourne la valeur telle quelle si absente du map', () => assert.equal(normalizeCommune('Agen'), 'Agen'));
+  it('met en majuscules et retire le code « (47) »', () => assert.equal(normalizeCommune('Agen (47)'), 'AGEN'));
   it('null → chaîne vide',             () => assert.equal(normalizeCommune(null), ''));
 });
 
@@ -155,7 +155,8 @@ describe('buildICS', () => {
     assert.ok(ics.startsWith('BEGIN:VCALENDAR'));
     assert.ok(ics.includes('BEGIN:VEVENT'));
     assert.ok(ics.includes('END:VEVENT'));
-    assert.ok(ics.endsWith('END:VCALENDAR'));
+    // RFC 5545 : chaque ligne se termine par CRLF, la dernière aussi.
+    assert.ok(ics.endsWith('END:VCALENDAR\r\n'));
   });
   it('ignore les événements sans date', () => {
     const ics = buildICS([{ _id: 'x', date: '', thematique: 'Test' }]);
@@ -200,7 +201,9 @@ describe('resumeLogsTexte', () => {
   //    trouver le BON « en N s » et ne pas se laisser prendre par le suffixe ;
   //  - les lignes deja dans le localStorage des conseillers n'ont pas ce
   //    suffixe, et doivent rester lisibles.
-  it('lit l attente en file, sans casser les lignes anterieures', () => {
+  // La file d'attente client a vécu du 22 au 23/09/2026 : ses lignes portent
+  // un suffixe « (file N s) » qui ne doit ni les faire ignorer ni amputer le motif.
+  it('lit les lignes à suffixe « (file N s) » du 22-23/09/2026', () => {
     const ts = (h, m, sec) => new Date(2026, 8, 22, h, m, sec).getTime();
     const avecFile = [
       { t: '12:19:43', ts: ts(12,19,43), type: 'err',
@@ -209,16 +212,8 @@ describe('resumeLogsTexte', () => {
         msg: 'GAS saveEntry #2 — ok en 1.4 s (file 12.1 s)' },
     ];
     const txt = resumeLogsTexte(avecFile, 'NEXTSTEP');
-    assert.match(txt, /temps passe en file avant de partir : 36s/);
-    assert.match(txt, /pire cas 24\.3s, sur 2\/2 appels mesures/);
-    // Le motif n'a pas ete ampute par le suffixe.
-    assert.match(txt, /bloqué — abandonné après 12s  12\.0s  \+ 24\.3s de file/);
-
-    // Format d'avant : aucune attente connue, et on le dit plutot que
-    // d'afficher 0 s, qui se lirait comme « la file ne coute rien ».
-    const txtAncien = resumeLogsTexte(JOURNAL, 'NEXTSTEP');
-    assert.match(txtAncien, /temps passe en file : non mesure/);
-    assert.doesNotMatch(txtAncien, /avant de partir/);
+    assert.doesNotMatch(txt, /aucune au format attendu/);
+    assert.match(txt, /bloqué — abandonné après 12s  12\.0s/);
   });
 
   // Un refus serveur (ok:false) a ete LIVRE : le compter comme perte ferait

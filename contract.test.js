@@ -1,6 +1,6 @@
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
-const { normalizeMateriel, STATUTS_VALIDES } = require('./logic.js');
+const STATUTS_VALIDES = ['Planifié', 'Réalisé', 'Annulé', 'Reporté', 'Non réalisé'];
 const { normalizeDate } = require('./utils.js');
 
 // Modèle canonique d'une entrée envoyée à l'API GAS via saveEntry
@@ -53,15 +53,6 @@ describe('materiel', () => {
   it('est une string, jamais un Array',    () => {
     assert.equal(typeof buildEntry().materiel, 'string');
     assert.ok(!Array.isArray(buildEntry().materiel));
-  });
-  it('normalizeMateriel(Array) → pipe-string', () => {
-    assert.equal(normalizeMateriel(['Videoprojecteur', 'Tablette']), 'Videoprojecteur|Tablette');
-  });
-  it('normalizeMateriel([]) → chaîne vide',     () => assert.equal(normalizeMateriel([]), ''));
-  it('séparateur est | (jamais virgule, jamais espace)', () => {
-    const m = normalizeMateriel(['A', 'B', 'C']);
-    assert.ok(!m.includes(','));
-    assert.ok(m.includes('|'));
   });
 });
 
