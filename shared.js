@@ -3886,34 +3886,75 @@ function VueBingo({entries}){
   );
 }
 
-// Détail communes du Dashboard, triable en touchant l'en-tête d'une colonne
-// (demande de l'utilisateur, 26/09/2026). Commune : A→Z d'abord ; colonnes
-// chiffrées : du plus grand au plus petit d'abord ; second appui = inverse.
-function TableCommunes({fd}){
-  const[tri,setTri]=React.useState({col:'commune',sens:1});
-  const lignes=React.useMemo(()=>{
-    const m={};
-    fd.forEach(d=>{const c=normCommune(d.commune);if(!c)return;const x=m[c]||(m[c]={commune:c,ateliers:0,presents:0,inscrits:0});x.ateliers++;if(d.statut==='Réalisé'){x.presents+=parseInt(d.presents)||0;x.inscrits+=parseInt(d.inscrits)||0;}});
-    return Object.values(m);
-  },[fd]);
-  const triees=[...lignes].sort((a,b)=>{
-    const va=a[tri.col],vb=b[tri.col];
-    const c=tri.col==='commune'?String(va).localeCompare(String(vb),'fr'):(va-vb);
-    return c?c*tri.sens:a.commune.localeCompare(b.commune,'fr');
-  });
-  const COLS=[['commune','Commune'],['ateliers','Ateliers'],['presents','Présents'],['inscrits','Inscrits']];
-  function trier(col){setTri(t=>t.col===col?{col,sens:-t.sens}:{col,sens:col==='commune'?1:-1});}
-  return CE('table',{style:{width:'100%',borderCollapse:'collapse',fontSize:11}},
-    CE('thead',null,CE('tr',null,
-      COLS.map(([k,h])=>CE('th',{key:k,onClick:()=>trier(k),title:'Trier',style:{padding:'6px 8px',textAlign:'left',fontWeight:700,color:tri.col===k?'#1e3a8a':'#6b7280',borderBottom:'2px solid #e5e7eb',fontSize:10,cursor:'pointer',userSelect:'none',whiteSpace:'nowrap'}},h,tri.col===k?(tri.sens===1?' ▲':' ▼'):''))
-    )),
-    CE('tbody',null,
-      triees.map(x=>CE('tr',{key:x.commune,style:{borderBottom:'1px solid #f0f4f8'}},
-        CE('td',{style:{padding:'6px 8px',fontWeight:600}},x.commune),
-        CE('td',{style:{padding:'6px 8px'}},x.ateliers),
-        CE('td',{style:{padding:'6px 8px',color:'#16a34a',fontWeight:600}},x.presents),
-        CE('td',{style:{padding:'6px 8px',color:'#2563eb'}},x.inscrits)
-      ))
+// Détail communes du Dashboard (index ET admin), triable par colonne.
+// Nom unique depuis le 26/09/2026 : une seconde « TableCommunes » dans
+// admin_app.js remplaçait en silence celle-ci sur la page Admin
+// (signalé par scripts/parite.js). Version de l'Admin retenue (validée par
+// l'utilisateur) ; communes regroupées par normCommune, présents et inscrits
+// sur les réalisés (kpiHistorique).
+function TableCommunesDashboard({fd}){
+  const[sortKey,setSortKey]=React.useState('ateliers');
+  const[sortDir,setSortDir]=React.useState(-1); // -1 desc, 1 asc
+
+  function handleSort(key){
+    if(sortKey===key) setSortDir(d=>d*-1);
+    else{setSortKey(key);setSortDir(-1);}
+  }
+
+  const communes=[...new Set(fd.map(d=>normCommune(d.commune)).filter(Boolean))].map(c=>{
+    const r=fd.filter(d=>normCommune(d.commune)===c);
+    const rl=r.filter(d=>d.statut==='Réalisé').length;
+    const ins=kpiHistorique(r).inscrits;
+    const pre=kpiHistorique(r).presents;
+    const tp=ins?Math.round(pre/ins*100):0;
+    return{name:c,ateliers:r.length,realises:rl,inscrits:ins,presents:pre,presence:tp};
+  }).sort((a,b)=>sortDir*(a[sortKey]>b[sortKey]?1:a[sortKey]<b[sortKey]?-1:0));
+
+  const COLS=[
+    {key:'name',     label:'Commune'},
+    {key:'ateliers', label:'Atl.'},
+    {key:'realises', label:'Réal.'},
+    {key:'inscrits', label:'Inscrits'},
+    {key:'presents', label:'Présents'},
+    {key:'presence', label:'Présence'},
+  ];
+
+  function ThSort({col}){
+    const active=sortKey===col.key;
+    const arrow=active?(sortDir===-1?'↓':'↑'):'↕';
+    return CE('th',{
+      onClick:()=>handleSort(col.key),
+      style:{padding:'7px 8px',textAlign:'left',fontWeight:700,
+        color:active?'#2563EB':'#6b7280',borderBottom:'2px solid '+(active?'#2563EB':'#e5e7eb'),
+        fontSize:10,whiteSpace:'nowrap',cursor:'pointer',userSelect:'none',
+        background:active?'#eff6ff':'#f9fafb',transition:'all .15s'}
+    },
+      CE('span',null,col.label),
+      CE('span',{style:{marginLeft:4,opacity:active?1:.4,fontSize:9}},arrow)
+    );
+  }
+
+  return CE('div',{style:{overflowX:'auto'}},
+    CE('table',{style:{width:'100%',borderCollapse:'collapse',fontSize:11}},
+      CE('thead',null,CE('tr',null,COLS.map(col=>CE(ThSort,{key:col.key,col})))),
+      CE('tbody',null,communes.map((c,i)=>{
+        const tpColor=c.presence>70?'#16a34a':c.presence>40?'#d97706':'#ef4444';
+        return CE('tr',{key:c.name,style:{background:i%2?'#f9fafb':'#fff'}},
+          CE('td',{style:{padding:'6px 8px',fontWeight:600,fontSize:10}},c.name.slice(0,18)),
+          CE('td',{style:{padding:'6px 8px'}},c.ateliers),
+          CE('td',{style:{padding:'6px 8px',color:'#16a34a',fontWeight:600}},c.realises),
+          CE('td',{style:{padding:'6px 8px'}},c.inscrits),
+          CE('td',{style:{padding:'6px 8px'}},c.presents),
+          CE('td',{style:{padding:'6px 8px'}},
+            CE('div',{style:{display:'flex',alignItems:'center',gap:5}},
+              CE('div',{style:{height:5,width:36,background:'#f3f4f6',borderRadius:3}},
+                CE('div',{style:{height:5,borderRadius:3,width:c.presence+'%',background:tpColor}})
+              ),
+              CE('span',{style:{fontSize:10,fontWeight:700,color:tpColor}},c.presence+'%')
+            )
+          )
+        );
+      }))
     )
   );
 }
@@ -4309,7 +4350,7 @@ function VuePowerBI({entries, conseillers: conseillersList}){
 
         CE(CardPBI,{title:'Détail communes'},
           CE('div',{style:{overflowX:'auto'}},
-            CE(TableCommunes,{fd})
+            CE(TableCommunesDashboard,{fd})
           )
         )
       ),
