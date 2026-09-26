@@ -487,106 +487,88 @@ function FadeItem({children,delay=0,style={}}){
 // l'API, jeton dans le corps) ; une réponse {auth:true} déclenche
 // « ateliers:auth-expiree ».
 const API_PHP_URL = 'https://ateliers-numeriques.alwaysdata.net/api/index.php';
+// Un onglet resté sur ?backend=gas l'avait mémorisé : on l'efface.
+try{ sessionStorage.removeItem('ateliers_backend'); }catch(_){}
+// Adresse et corps d'un appel : POST vers l'API (action dans l'URL pour lire
+// les journaux, le reste dans le corps).
+// Lien « mot de passe oublié » : la page s'ouvre en mode API par défaut.
 window.RETOUR_REINIT_SUFFIXE = '';
 window.requeteServeur = function(params){
   const token = window.authToken && window.authToken.get();
   if(token && !params.has('token')) params.set('token', token);
   return {url:`${API_PHP_URL}?action=${encodeURIComponent(params.get('action')||'')}`, corps:params.toString()};
 };
-// ── Politique d'appel GAS : un seul appel, jamais de retry sur simple lenteur ─
-// Fait mesuré (Network + onglet Logs, en production) : /exec met 12 à 16 s à
-// répondre en temps d'exécution réel — « exec?action=getConfig… 15.87 s »,
-// « exec?action=getAll… 12.63 s ». Ce n'est pas un cold start (le script n'a
-// pas le temps de se rendormir entre deux appels rapprochés) : GAS répond à
-// cette vitesse de façon systématique, très probablement parce que le
-// classeur est relu en entier sans cache côté serveur (voir les correctifs
-// GAS transmis séparément).
+// ── Politique d'appel GAS ──────────────────────────────────────────────────
+// MESURÉ le 18/09/2026 (journal Admin, PC et Android, 221 ateliers) : la
+// livraison Apps Script est BIMODALE, pas lente. Livrée, une réponse arrive en
+// 1 à 3 s (getAll 1.1 s, getComptes 1.8 s, checkPassword 2.7 s). Perdue, elle
+// part en HTTP 404 ou en blocage au bout de 26 à 35 s — or un 404 authentique
+// revient en ~200 ms, et l'exécution doGet correspondante dure moins de 2 s
+// côté serveur. Un 404 à 27 s veut dire que la réponse N'EXISTE PLUS : elle
+// s'est perdue sur la redirection /exec → googleusercontent.
 //
-// Erreur corrigée ici, dans le code lui-même : la version précédente doublait
-// chaque appel lent en supposant qu'il restait coincé sur une redirection
-// morte. Sur un appel qui met simplement 12-16 s à s'exécuter, doubler ne
-// fait qu'ajouter un deuxième appel réseau identique — sans aucune garantie
-// qu'il revienne plus vite, et avec plusieurs onglets ouverts, chacun avec
-// son propre rafraîchissement automatique, le volume total d'appels grossit
-// à chaque doublage. C'est le « de plus en plus lent » observé.
+// D'où toute la politique ci-dessous, et son interdit central :
+// NE JAMAIS RALLONGER CES PLAFONDS. Attendre ne récupère aucune réponse
+// perdue, ça ne fait qu'allonger l'écran d'attente — à 35 s, une connexion a
+// été relevée à 84 s, dont 51 d'attente pure sur des appels déjà morts.
+// Les valeurs et les comportements sont verrouillés par e2e/reseau.spec.js : si
+// un de ses cas échoue, c'est qu'on est en train de refaire l'erreur.
 //
-// Règle désormais : un seul appel réseau, sans limite de temps côté client
-// (attendre 16 s ne coûte rien si c'est le temps réel qu'il faut). On ne
-// retente QUE sur un échec de transport franc — fetch() qui lève une
-// exception avant même d'atteindre Google (réseau coupé, DNS, etc.) — jamais
-// parce que la réponse met du temps à arriver. Toute réponse HTTP, même une
-// erreur, s'affiche avec un bouton Réessayer manuel : aucun deuxième appel ne
-// part sans que l'utilisateur ne le demande.
-// Observé en production (Network) : deux phénomènes distincts coexistent.
-//   1. /exec (redirection 302) met 12-16 s — c'est le temps d'exécution GAS
-//      réel, systématique, qu'aucun retry ne peut raccourcir.
-//   2. La livraison du contenu ensuite (302 → …/echo) a SES PROPRES ratés
-//      ponctuels, indépendants de la durée d'exécution : un même appel a été
-//      vu échouer en 404 après 25,8 s puis réussir en 280 ms à la tentative
-//      suivante. C'est ce second phénomène, et uniquement lui, qui justifie
-//      un retry — en séquence (jamais en parallèle : on attend l'échec avant
-//      de retenter, pour ne jamais avoir deux appels en vol en même temps).
-//
-// MISE À JOUR 18/09/2026 — le point 1 ci-dessus est démenti par la mesure.
-// Le Journal client montre le même getAll à 32,3 s puis à 1,1 s quatorze
-// secondes plus tard, et un getAll de 221 ateliers servi en 2,3 s : quand la
-// réponse arrive, elle arrive vite. Le cache serveur ajouté côté GAS fait son
-// travail, et l'exécution n'est pas le goulot — c'est le phénomène 2, la
-// livraison, qui domine. Le bon réflexe face à un raté de livraison est donc
-// de couper tôt et de redemander, pas de patienter — voir les plafonds
-// ci-dessous.
+// Lectures  : coupées tôt, plusieurs tentatives, et appel DOUBLÉ passé un
+//             délai plutôt que d'attendre un échec (une exécution GAS de plus
+//             coûte 1 à 3 s, pas 30).
+// Écritures : mêmes plafonds courts, mais SÉQUENTIELLES et jamais doublées.
+//             Rejouer est sûr (actionSaveEntry retrouve sa ligne par _id,
+//             toujours généré côté client — vérifié en production), mais deux
+//             appels EN PARALLÈLE pourraient tous deux conclure « ligne
+//             absente » et faire chacun leur appendRow.
 const GAS_RETRYABLE_HTTP = [404, 408, 429, 500, 502, 503, 504];
-
-// ── Plafonds et tentatives — politique portée d'ATELIERS_NEWGEN ────────────
-// Mesuré sur NEWGEN le 18/09/2026 (journal Admin, PC et Android, 221 ateliers,
-// même backend Apps Script) : le comportement est BIMODAL, pas « lent ».
-//
-//   Livraison réussie          Livraison ratée
-//   getAll ok en 1,1 s         getAll HTTP 404 en 27,3 s
-//   getComptes ok en 1,8 s     getConfig HTTP 404 en 29,8 s
-//   checkPassword ok en 2,7 s  getAll abandonné après 35 s
-//
-// Un 404 authentique revient en ~200 ms. Un 404 au bout de 27 s signifie que
-// la réponse a été PERDUE en chemin, pas qu'elle arrive en retard : au-delà
-// d'une dizaine de secondes, continuer d'attendre ne la fera jamais venir.
-//
-// D'où des plafonds courts. L'ancien plafond de 35 s transformait chaque
-// livraison ratée en 35 s d'écran d'attente : NEWGEN a relevé 84 s pour une
-// connexion, dont 51 d'attente pure sur des appels déjà morts. Couper tôt et
-// redemander est strictement meilleur que patienter.
-const GAS_TIMEOUT_LECTURE_MS      = 12000;
-const GAS_TIMEOUT_ECRITURE_MS     = 12000;
-const GAS_TIMEOUT_ECRITURE_LOT_MS = 25000;  // saveMany : N entrées dans la même exécution
-
-// Les écritures sont plafonnées aussi court que les lectures : rejouer une
-// écriture est sûr ici. Le client génère toujours _id avant l'envoi et
-// actionSaveEntry retrouve la ligne par cet _id pour la remplacer au lieu
-// d'en créer une seconde (vérifié en production sur NEWGEN le 18/09/2026 :
-// saveEntry #1 abandonné, #2 réussi, aucun doublon dans la feuille).
+const GAS_TIMEOUT_LECTURE_MS  = 12000;
+// Écriture simple : même plafond qu'une lecture. Le 20 s d'origine était
+// calibré sur le cas le plus lourd (saveMany), alors qu'un saveEntry répond
+// en 2 à 4 s quand la livraison passe (18/09/2026 : 2.8 s et 3.5 s en
+// production). Résultat, une écriture perdue coûtait 20 s d'attente avant
+// même la première reprise. Rejouer est sans danger : actionSaveEntry
+// retrouve sa ligne par _id et la remplace.
+const GAS_TIMEOUT_ECRITURE_MS = 12000;
+// saveMany écrit N ateliers d'affilée, chacun avec sa lecture de feuille :
+// légitimement long, et le couper trop tôt ferait repartir tout le lot.
+const GAS_TIMEOUT_ECRITURE_LOT_MS = 25000;
+const GAS_ACTIONS_LOT = new Set(['saveMany']);
+// Actions qui MODIFIENT l'état côté GAS. C'est la couche réseau qui décide,
+// à partir du nom de l'action, et non l'appelant via une option : une
+// écriture n'est jamais doublée (deux appels en parallèle pourraient tous
+// deux conclure « ligne absente » et faire chacun leur appendRow), et faire
+// dépendre cette garantie d'un `{ecriture:true}` que l'appelant doit penser
+// à passer, c'est la faire reposer sur la vigilance. Un futur
+// `gasAppel(url,'saveEntry')` écrit sans l'option aurait été doublé, donc
+// susceptible de créer un atelier en double.
+// Repris d'ateliers-cd47_NextStep (GAS_ACTIONS_ECRITURE), qui avait placé la
+// décision au bon endroit dès le départ.
+// À ne pas confondre avec WRITE_ACTIONS plus bas, qui répond à une autre
+// question — « faut-il joindre un token ? » : getLogs exige un token sans
+// rien modifier, logLogin écrit une ligne sans exiger de token.
 const GAS_ACTIONS_ECRITURE = new Set([
-  'saveEntry','saveMany','delete','saveLists','saveConfig','setConfig',
-  'saveVisibility','saveColors','saveEmails','saveCompte',
-  'resetPassword','setPassword','selfSetPassword','logLogin',
-  // Mot de passe oublié (AG-013) : jamais doublés (deux mails sinon).
+  'saveEntry','saveMany','delete',
+  'saveLists','saveConfig','setConfig','saveVisibility','saveColors',
+  'saveEmails','saveCompte','resetPassword','setPassword','selfSetPassword',
+  // Écrivent une ligne dans Logs_Connexion : doubler fabriquerait de fausses
+  // connexions dans le journal.
+  'logLogin','logAccesIndex',
+  // Mot de passe oublié (AG-013) : doubler enverrait deux mails et
+  // consommerait deux fois le quota de 3 demandes par heure.
   'demanderReinit','reinitMotDePasse',
   // Corbeille et copie à la demande (AG-014) : écritures, jamais doublées.
   'restaurerCorbeille','copieMaintenant'
 ]);
-const GAS_ACTIONS_LOT = new Set(['saveMany']);
-
-// Lectures : 3 tentatives, pause courte — ce n'est pas un serveur saturé
-// qu'il faudrait ménager, c'est une livraison à rejouer.
-// Écritures : 2 tentatives, pause plus longue pour laisser retomber un appel
-// encore en vol.
+const GAS_HEDGE_MS            = 7000;   // délai avant de doubler une lecture
 const GAS_TENTATIVES_LECTURE  = 3;
 const GAS_TENTATIVES_ECRITURE = 2;
-const GAS_PAUSE_LECTURE_MS    = 300;
-const GAS_PAUSE_ECRITURE_MS   = 1000;
+const GAS_PAUSE_LECTURE_MS    = 300;    // inutile d'attendre : ce n'est pas une file d'attente
+const GAS_PAUSE_ECRITURE_MS   = 1000;   // laisse retomber une écriture encore en vol
+const GAS_BUDGET_TOTAL_MS     = 45000;  // au-delà, on rend la main (bouton Réessayer)
 
-// Au-delà, on rend la main plutôt que de laisser l'attente s'allonger : un
-// bouton Réessayer vaut mieux qu'un écran qui tourne.
-const GAS_BUDGET_TOTAL_MS = 45000;
-
+// Plafond d'un appel selon son régime : lecture, écriture, ou lot d'écritures.
 function gasPlafond(action, ecriture){
   if(!ecriture) return GAS_TIMEOUT_LECTURE_MS;
   return GAS_ACTIONS_LOT.has(action) ? GAS_TIMEOUT_ECRITURE_LOT_MS : GAS_TIMEOUT_ECRITURE_MS;
@@ -595,43 +577,27 @@ function gasPlafond(action, ecriture){
 // Journal consultable : window.__gasLog, et console pour le suivi en direct.
 window.__gasLog = [];
 
-// `file` : attente en file d'attente avant le départ du fetch. La file a été
-// retirée le 23/09/2026 ; le paramètre reste pour ne pas casser la lecture
-// des journaux anciens, il n'est plus jamais renseigné.
-window.logGas = function(action, attempt, ms, issue, file){
-  const e = {t:new Date().toLocaleTimeString('fr-FR'), action, attempt, ms:Math.round(ms), issue:issue||'ok', file:Math.round(file||0)};
+window.logGas = function(action, attempt, ms, issue){
+  const e = {t:new Date().toLocaleTimeString('fr-FR'), action, attempt, ms:Math.round(ms), issue:issue||'ok'};
   window.__gasLog.push(e);
   if(window.__gasLog.length > 200) window.__gasLog.shift();
-  // Seuil 100 ms : sous cette valeur la file n'a rien retenu, l'afficher
-  // ajouterait « (file 0.0 s) » sur chaque ligne sans rien apprendre.
-  const suffixe = e.file >= 100 ? ` (file ${(e.file/1000).toFixed(1)} s)` : '';
-  const txt = `[GAS] ${action} #${attempt} — ${e.issue} en ${(ms/1000).toFixed(1)} s${suffixe}`;
+  const txt = `[GAS] ${action} #${attempt} — ${e.issue} en ${(ms/1000).toFixed(1)} s`;
   if(issue) console.warn(txt); else console.info(txt);
   if(window.gasLogHook){ try{ window.gasLogHook(e); }catch(_){} }
 };
 
-// ── Plus de file d'attente : lectures doublées (porté de NEWGEN le 23/09/2026)
-// La file (_gasQueue, un seul appel en vol) testait l'hypothèse « le
-// parallélisme fait perdre les réponses ». Tranché le 22/09/2026 par le banc
-// (249 salves en alternance, McNemar χ² = 10,32) : la file laissait 18 % des
-// connexions échouer et 10 % dépasser 60 s, les lectures doublées 4 % et
-// aucune. Le parallélisme coûte bien quelques points de pertes, mais un appel
-// mort en tête de file bloquait tous les suivants 12 s (relevé du 23/09 à
-// 08:55 : checkPassword parti après 11,8 s de file). La file ne protégeait
-// pas non plus les écritures : c'est le verrou GAS (v10.15.0) qui le fait.
-// Détail : CHANTIERS.md §1, AGORA d'ATELIERS_NEWGEN (AG-003, AG-006).
-
 // Un seul appel réseau, journalisé. reessayable=true seulement pour un échec
 // de transport (jamais atteint Google) ou un refus immédiat (429/503).
-// ctrlFourni : AbortController de l'appelant quand il veut pouvoir annuler
-// l'appel (doublage : dès que l'un des deux répond, l'autre n'a plus lieu
-// d'être). ctrl.inutile marqué avant l'annulation évite de journaliser en
-// rouge un appel qu'on a sciemment arrêté.
-window.gasUnAppel = async function(url, action, numero, plafond, ctrlFourni, corps){
-  const limite = plafond || GAS_TIMEOUT_LECTURE_MS;
+// ctrl : AbortController fourni par l'appelant quand il veut pouvoir annuler
+// l'appel lui-même (cas du doublage : dès que l'un des deux répond, l'autre
+// n'a plus lieu d'être). Marquer ctrl.inutile avant d'annuler évite de
+// journaliser en rouge un appel qu'on a sciemment arrêté.
+// corps : chaîne form-urlencoded → POST (mode API) ; absent → GET (GAS).
+window.gasUnAppel = async function(url, action, numero, timeoutMs, ctrlFourni, corps){
+  const plafond = timeoutMs || GAS_TIMEOUT_LECTURE_MS;
   const t0 = Date.now();
   const ctrl = ctrlFourni || new AbortController();
-  const chien = setTimeout(()=>ctrl.abort(), limite);
+  const chien = setTimeout(()=>ctrl.abort(), plafond);
   let res;
   try{
     res = await fetch(url, corps
@@ -639,15 +605,20 @@ window.gasUnAppel = async function(url, action, numero, plafond, ctrlFourni, cor
       : {signal:ctrl.signal});
   }catch(err){
     if(ctrl.inutile){
-      // Le jumeau a répondu : ce n'est PAS un échec. Journalisé sous un motif
-      // distinct, que resumeLogsTexte sort des deux comptes et que le journal
-      // Admin affiche en neutre (AG-006 : sans cette ligne, le taux de
-      // sauvetage n'avait pas le même dénominateur que celui du banc).
+      // Le jumeau a répondu : ce n'est PAS un échec. Journalisé quand même
+      // depuis le 22/09/2026 (AG-006), sous un motif distinct que
+      // resumeLogsTexte exclut des pertes et admin_app affiche en neutre.
+      // Pourquoi : sans cette ligne, un doublon annulé est invisible, et le
+      // taux de sauvetage de la production se calcule sur ok/(ok+ko) alors que
+      // celui du banc se calcule sur ok/(ok+ko+annulés) — deux définitions
+      // comparées l'une à l'autre pendant une journée entière. Le motif reste
+      // distinct de 'ok' pour ne pas gonfler les réussites : l'appel n'a rien
+      // rapporté, c'est son jumeau qui a servi.
       logGas(action, numero, Date.now()-t0, 'annulé — le jumeau a répondu');
       throw Object.assign(new Error('doublon inutile'), {reessayable:false, inutile:true});
     }
     if(ctrl.signal.aborted){
-      logGas(action, numero, Date.now()-t0, `bloqué — abandonné après ${limite/1000}s`);
+      logGas(action, numero, Date.now()-t0, `bloqué — abandonné après ${plafond/1000}s`);
       throw Object.assign(new Error('timeout'), {reessayable:true});
     }
     logGas(action, numero, Date.now()-t0, 'réseau : '+err.message);
@@ -675,30 +646,35 @@ window.gasUnAppel = async function(url, action, numero, plafond, ctrlFourni, cor
   // resumeLogsTexte le compte a part.
   const refus = data && data.ok === false ? 'serveur : ' + (data.error || 'refus') : undefined;
   logGas(action, numero, Date.now()-t0, refus);
+  // Jeton refusé par l'API : retour à l'écran de connexion (AG-011).
   if(data && data.auth === true){
     try{ window.dispatchEvent(new Event('ateliers:auth-expiree')); }catch(_){}
   }
   return data;
 };
 
-// Délai avant de doubler une lecture. Une réponse saine arrive en 1-3 s : un
-// appel muet à 7 s n'est pas en train de calculer, sa réponse est perdue en
-// chemin. Valeur mesurée par le banc de NEWGEN, même backend Apps Script.
-const GAS_HEDGE_MS = 7000;
-
 // Lecture doublée : lance l'appel, et s'il n'a toujours rien renvoyé au bout
 // de GAS_HEDGE_MS, en lance un second en parallèle sans attendre l'échec du
-// premier. Le premier qui répond gagne, l'autre est annulé. On ne rejette que
-// si TOUS les appels partis ont échoué (sinon on abandonnerait sur un 404
-// rapide pendant qu'un doublon est encore en route).
+// premier. Le premier qui répond gagne, l'autre est ignoré. On ne rejette que
+// si TOUS les appels partis ont échoué (sinon on abandonnerait à 3 s sur un
+// 404 pendant qu'un doublon est encore en route).
+// Pourquoi doubler plutôt que d'attendre : un appel qui n'a pas répondu en 7 s
+// n'est pas en train de calculer (les réponses saines arrivent en 1-3 s), sa
+// réponse est perdue en chemin — le relancer est le seul moyen d'en obtenir
+// une, et attendre son abandon ne fait qu'ajouter le délai du plafond.
 function gasLectureDoublee(url, action, numero, plafond, corps){
   return new Promise((resolve, reject)=>{
     let termine=false, partis=1, echecs=0, derniere=null;
     let minuteurDoublon=null;
     const ctrls=[];
-    // Dès qu'un des deux aboutit, l'autre est annulé au lieu de courir jusqu'à
-    // son plafond (sinon : une ligne rouge « bloqué » pour un appel réussi, et
-    // une exécution GAS consommée pour rien — NEWGEN, 18/09/2026).
+    // Dès qu'un des deux aboutit, l'autre n'a plus d'objet : on l'annule au
+    // lieu de le laisser courir jusqu'à son plafond. Sans ça, un doublon parti
+    // à 7 s continuait après la réponse du premier et finissait par écrire
+    // « bloqué — abandonné après 12s » dans le journal — une ligne rouge pour
+    // un appel qui avait réussi (observé le 18/09/2026 à 23:04:23), plus une
+    // exécution GAS consommée pour rien.
+    // `sauf` = le contrôleur de l'appel qui vient d'aboutir : son fetch est
+    // déjà terminé, l'annuler n'aurait aucun effet utile.
     const arreterLesAutres=(sauf)=>{
       ctrls.forEach(c=>{ if(c!==sauf && !c.signal.aborted){ c.inutile=true; c.abort(); } });
     };
@@ -717,8 +693,6 @@ function gasLectureDoublee(url, action, numero, plafond, corps){
       gasUnAppel(url, action, num, plafond, ctrl, corps).then(d=>gagner(d, ctrl), perdre);
     };
     lancer(numero);
-    // Le doublon porte le numéro de son jumeau suivi de « b » : c'est ce que
-    // resumeLogsTexte lit pour compter les lectures sauvées.
     minuteurDoublon=setTimeout(()=>{
       if(termine)return;
       partis=2;
@@ -727,25 +701,36 @@ function gasLectureDoublee(url, action, numero, plafond, corps){
   });
 }
 
-// Lectures qu'on ne double JAMAIS : checkPassword incrémente un compteur
-// d'échecs côté GAS (5 = blocage 15 min). Deux appels espacés de 7 s le
-// verraient l'un après l'autre : un mot de passe mal tapé compterait double,
-// précisément les jours où le réseau va mal. Les écritures (dont logLogin)
-// ne sont jamais doublées non plus : elles sont dans GAS_ACTIONS_ECRITURE.
+// Lectures qu'on ne double JAMAIS, bien qu'elles ne modifient pas d'atelier :
+//  - checkPassword incrémente un compteur d'échecs (5 = blocage 15 min). Deux
+//    appels espacés de 7 s le voient l'un après l'autre : un mot de passe mal
+//    tapé compterait double et bloquerait le compte après 3 saisies au lieu
+//    de 5, précisément les jours où le réseau va mal.
+//  - logLogin / logAccesIndex ajoutent une ligne dans Logs_Connexion : doubler
+//    fabriquerait de fausses connexions dans le journal.
+// logLogin et logAccesIndex n'ont plus à figurer ici : elles sont désormais
+// déclarées dans GAS_ACTIONS_ECRITURE, et une écriture n'est jamais doublée.
 const GAS_SANS_DOUBLON = new Set(['checkPassword']);
+// Les actions de journalisation ont d'abord été limitées à une seule
+// tentative, au motif que personne n'attend leur résultat. Mauvais arbitrage,
+// visible dès le premier relevé (18/09/2026 22:32:21 : « logLogin bloqué —
+// abandonné après 12s ») : cette connexion n'a jamais été écrite dans
+// Logs_Connexion. Personne n'attend ce résultat, mais la traçabilité des
+// accès en dépend. Elles suivent donc le régime normal de reprise — sans
+// doublage (ci-dessus), et en arrière-plan, donc sans coût perçu.
 
-// ── Politique de reprise, partagée par apiFetch et fetchAll ────────────────
-// apiFetch et rawGetAll recopiaient la même boucle, avec des plafonds qui
-// divergeaient à chaque retouche. Une seule implémentation, deux régimes.
+// Politique d'appel unique, partagée par apiFetch, fetchAll et fetchConfig —
+// les trois recopiaient jusqu'ici la même logique de reprise, avec des
+// plafonds qui divergeaient à chaque retouche.
+// Le régime (lecture doublée / écriture séquentielle) se déduit de l'action
+// via GAS_ACTIONS_ECRITURE — l'appelant n'a rien à déclarer, donc rien à
+// oublier.
 window.gasAppel = async function(url, action, corps){
   const ecriture   = GAS_ACTIONS_ECRITURE.has(action);
   const plafond    = gasPlafond(action, ecriture);
   const pause      = ecriture ? GAS_PAUSE_ECRITURE_MS   : GAS_PAUSE_LECTURE_MS;
-  const tentatives = ecriture ? GAS_TENTATIVES_ECRITURE : GAS_TENTATIVES_LECTURE;
-  // Le régime se déduit de l'action : l'appelant n'a rien à déclarer, donc
-  // rien à oublier. Une écriture n'est JAMAIS doublée (deux appendRow
-  // concurrents = atelier en double).
   const doubler    = !ecriture && !GAS_SANS_DOUBLON.has(action);
+  const tentatives = ecriture ? GAS_TENTATIVES_ECRITURE : GAS_TENTATIVES_LECTURE;
   const t0 = Date.now();
   let derniere = null;
   for(let n=1; n<=tentatives; n++){
@@ -755,10 +740,10 @@ window.gasAppel = async function(url, action, corps){
         : await gasUnAppel(url, action, n, plafond, undefined, corps);
     }catch(err){
       derniere = err;
-      // Erreur définitive (403, réponse non-JSON, déploiement cassé, erreur
-      // métier renvoyée par GAS) : insister ne changera rien.
+      // Erreur définitive (403, réponse non-JSON, déploiement cassé) : insister
+      // ne changera rien, on rend la main tout de suite.
       if(!err.reessayable) break;
-      // Budget épuisé : un bouton Réessayer vaut mieux qu'une attente qui
+      // Budget épuisé : mieux vaut un bouton Réessayer qu'une attente qui
       // s'allonge sans fin.
       if(n < tentatives && Date.now()-t0 + pause >= GAS_BUDGET_TOTAL_MS) break;
       if(n < tentatives) await new Promise(r=>setTimeout(r, pause));
@@ -828,10 +813,9 @@ function ChoixAnnees({value,onChange,className,title}){
 
 // Chargement d'un script à la demande, une seule fois même si plusieurs
 // actions le réclament en même temps. Sert aux grosses librairies qui ne
-// servent qu'à un clic (export PDF, xlsx...) et qui n'ont donc rien à faire
-// dans le <head>, où elles retardent l'affichage de la page pour tout le
-// monde, y compris ceux qui n'exporteront jamais rien. Porté depuis
-// ATELIERS_NEWGEN le 20/09/2026.
+// servent qu'à un clic (xlsxstyle.js : 414 Ko, 138 Ko compressés) et qui
+// n'ont donc rien à faire dans le <head>, où elles retardent l'affichage de
+// la page pour tout le monde, y compris ceux qui n'exporteront jamais rien.
 window.__scriptsCharges = window.__scriptsCharges || {};
 window.chargerScriptUneFois = function(src){
   if(window.__scriptsCharges[src]) return window.__scriptsCharges[src];
@@ -957,7 +941,7 @@ const COMMUNES = [
   'LE TEMPLE SUR LOT','MONCLAR','NERAC','Ste-Bazeille',
   "Saint Pardoux d'Isaac",'TONNEINS',"TOURNONS D'AGENAIS",'VILLENEUVE SUR LOT'
 ];
-// Normalise un nom de commune : retire le code postal, uniformise la casse
+// ──────────────────────────────────────────────────────────
 const COMMUNES_GPS = {
   // ── Communes du CD47 ──
   'AGEN':{lat:44.2004,lng:0.6213},
@@ -1007,7 +991,14 @@ const PUBLICS_DEFAULT = [
   'Autres'
 ];
 const MATERIELS_DEFAULT = ['Videoprojecteur','Ecran','Classe mobile','Boitier 4G','Tablette','Scanner','Multiprise','Ordinateur'];
-// normalizeMat et matIncludes \u2192 utils.js
+// normalizeMat, matIncludes → utils.js ; matériel et prêts (filterMaterielsVisibles,
+// conflits, périodes, totaux, STOCK_ORDINATEURS) → logic.js, chargé par les deux
+// pages depuis le 26/09/2026 (AG-015, lot 0). Il n'en existait jusque-là qu'une
+// copie ici, que les pages exécutaient, pendant que les tests testaient logic.js.
+// let (pas const) : écrasée par la config (materielsCaches renvoyé par getAll)
+// dans loadData.
+let MATERIELS_CACHES=[];
+
 
 let STATUTS     = [...STATUTS_DEFAULT];
 let CONSEILLERS = [...CONSEILLERS_DEFAULT];
@@ -1020,11 +1011,9 @@ const NAV_DEFAULT_COLOR = '#197d89';
 let CONSEILLER_COLORS = {'Cynthia Pineau':'#7C3AED','Corentin Tual':'#2563EB','Michel Aswad':'#059669','Eva Capelle':'#DB2777'};
 function conseillerColor(c){return(c&&CONSEILLER_COLORS[c])||'#6B7280';}
 function applyColors(colors){if(colors&&typeof colors==='object')Object.assign(CONSEILLER_COLORS,colors);}
-// periodePretMateriel → logic.js (chargé avant en navigateur). Affichage
-// uniquement : une seule date si prélèvement=retour, sinon une plage.
+
 function fmtPeriode(debut,fin){return debut===fin?fmtDate(debut):fmtDate(debut)+' → '+fmtDate(fin);}
-// MOIS, JOURS, fmtDate, fmtCardDate, todayLocal, stripAccents,
-// normalizeDate, normalizeHoraire, normalizeCommune, COMMUNE_MAP → utils.js
+// todayLocal() en heure locale (évite le bug UTC après 22h/23h en France)
 const isPasse = e=>e.date<todayLocal()&&e.statut==='Réalisé';
 const isRetard = e=>e.statut==='Planifié'&&e.date<todayLocal();
 const genId = ()=>`atelier_${Date.now()}_${Math.random().toString(36).slice(2,7)}`;
@@ -1049,15 +1038,6 @@ function showToast(msg,ok=true){
   clearTimeout(_toastTimer);_toastTimer=setTimeout(()=>{t.style.opacity='0';},3500);
 }
 
-// ── Auth admin : token généré par checkPassword côté GAS, stocké en
-// sessionStorage. Avant ce correctif, aucune vérification n'existait côté
-// serveur sur les actions admin (saveConfig, resetPassword, getLogs...) —
-// seulement à l'écran dans admin_app.js, donc contournable en appelant
-// l'URL /exec directement avec les bons paramètres. apiFetch envoie ce
-// token sur les actions listées dans ADMIN_ONLY_ACTIONS ci-dessous ; GAS le
-// vérifie une fois le correctif backend déployé (avant ça, un token absent
-// est simplement ignoré par l'ancien GAS, donc rien ne casse pendant la
-// transition).
 // ── Politique de mot de passe (auto-choisi par un conseiller) ───
 // 12 caractères min., majuscule, minuscule, chiffre, caractère spécial.
 // Ne s'applique pas au mot de passe par défaut (cd47+prénom) généré par
@@ -1083,11 +1063,10 @@ const REINIT_CHAMP={width:'100%',padding:'10px 14px',border:'1px solid var(--bor
 const REINIT_BTN={width:'100%',padding:'11px',background:'#1e3a8a',color:'#fff',border:'none',borderRadius:8,fontSize:14,fontWeight:700,cursor:'pointer'};
 const REINIT_LIEN={background:'none',border:'none',color:'#1e3a8a',cursor:'pointer',fontSize:12,textDecoration:'underline',padding:0};
 
-// Repère visible de la version (demande de l'utilisateur, 25/09/2026) :
-// distinguer d'un coup d'œil la version Alwaysdata de l'ancienne (GAS).
+// Repère visible du serveur (demande de l'utilisateur, 25/09/2026).
 window.VERSION_APPLI = 'Version 2 — serveur Alwaysdata';
 function MentionVersion(){
-  return CE('p',{className:'mention-version',style:{fontSize:11,color:'#94a3b8',textAlign:'center',margin:'14px 0 0'}},window.VERSION_APPLI);
+  return CE('p',{className:'mention-version',style:{fontSize:11,color:'#94a3b8',textAlign:'center',margin:'14px 0 0',fontWeight:400}},window.VERSION_APPLI);
 }
 
 function LienMotDePasseOublie({conseiller}){
@@ -1152,6 +1131,22 @@ function VueReinitMotDePasse({jeton,onFini}){
   );
 }
 
+// ── Helper login : à appeler après un checkPassword réussi ──────
+// Stocke le token et le rôle en sessionStorage pour apiFetch
+window.onLoginSuccess = function(conseiller, res){
+  if(res && res.token){
+    window.authToken.set(res.token);
+    window.authToken.setRole(res.role || 'user');
+    sessionStorage.setItem('gs_conseiller', conseiller);
+    // Pas de logLogin : checkPassword journalise déjà la connexion.
+  }
+};
+window.onLogout = function(){
+  window.authToken.clear();
+};
+
+// ── API — AbortController + token auth (GET uniquement — GAS ne supporte pas CORS preflight POST) ──
+// ── Jeton de session, en sessionStorage (propre à l'onglet) ──────────
 window.authToken = {
   get()  { return sessionStorage.getItem('gs_token') || null; },
   set(t) { sessionStorage.setItem('gs_token', t); },
@@ -1164,79 +1159,44 @@ window.authToken = {
     if(t){
       try{ fetch(`${API_PHP_URL}?action=logout`, {method:'POST', keepalive:true, headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:'token='+encodeURIComponent(t)}).catch(()=>{}); }catch(_){}
     }
-    sessionStorage.removeItem('gs_token'); sessionStorage.removeItem('gs_role');
+    sessionStorage.removeItem('gs_token'); sessionStorage.removeItem('gs_role'); sessionStorage.removeItem('gs_conseiller');
   },
-  getRole()  { return sessionStorage.getItem('gs_role') || 'user'; },
-  setRole(r) { sessionStorage.setItem('gs_role', r); }
-};
-window.onLoginSuccess = function(conseiller, res){
-  if(res && res.token){
-    window.authToken.set(res.token);
-    window.authToken.setRole(res.role || 'user');
-    // checkPassword journalise déjà la connexion côté API, logLogin
-    // n'y fait plus rien — l'appel n'est plus envoyé.
-    if(false) setTimeout(function(){
-      window.apiFetch && window.apiFetch('logLogin',{
-        conseiller: conseiller,
-        role: res.role || 'user',
-        userAgent: navigator.userAgent,
-        source: window.location.pathname.indexOf('admin.html') > -1 ? 'admin.html' : 'index.html'
-      }).catch(function(){});
-    }, 0);
-  }
-};
-window.onLogout = function(){
-  window.authToken.clear();
+  getRole()   { return sessionStorage.getItem('gs_role') || 'user'; },
+  setRole(r)  { sessionStorage.setItem('gs_role', r); }
 };
 
-// ── API — reprise sur échec de livraison (voir la politique d'appel GAS) ──
 (function(){
-  // Actions admin qui exigent un token vérifié côté GAS. saveEntry/saveMany/
-  // delete restent hors de cette liste : Index les utilise sans jamais
-  // passer par un écran de connexion.
-  const ADMIN_ONLY_ACTIONS = new Set([
-    'saveLists','saveConfig','setConfig',
-    'saveVisibility','saveColors','saveEmails',
-    'saveCompte','resetPassword','setPassword',
-    'getLogs','getCorbeille','restaurerCorbeille','etatSauvegardes','copieMaintenant'
-  ]);
-
+  // Le jeton part avec toutes les actions (requeteServeur l'ajoute) : c'est
+  // l'API qui décide de ce que chaque rôle peut faire. Plafonds et reprises :
+  // gasAppel, qui déduit seul le régime du nom de l'action.
   window.apiFetch = async function apiFetch(action, body={}){
     const params = new URLSearchParams({action});
-    // Passe source=admin pour que le GAS ignore le mode maintenance
-    if(window.location.pathname.indexOf('admin.html') > -1){
-      params.set('source', 'admin');
-    }
-    // Le token est attaché dès qu'il existe, quelle que soit l'action —
-    // index.html a désormais un login (comme admin.html), donc un token en
-    // sessionStorage dès qu'un conseiller est connecté. Vérifié côté GAS
-    // (sans condition de source) pour saveEntry/saveMany/delete.
-    const token = window.authToken.get();
-    if(token) params.set('token', token);
+    // source=admin : l'API laisse l'admin travailler pendant une maintenance.
+    if(window.location.pathname.indexOf('admin.html') > -1) params.set('source', 'admin');
     if(body && Object.keys(body).length){
       Object.entries(body).forEach(([k,v])=>{
         params.set(k, typeof v==='object' ? JSON.stringify(v) : v);
       });
     }
     const {url, corps} = window.requeteServeur(params);
-    return gasAppel(url, action, corps);
+    return window.gasAppel(url, action, corps);
   };
 })();
 
 // ── getAll partagé : un seul appel réseau par année ────────────────────────
-// admin.html lançait 3 getAll simultanés au chargement (préchauffage du
-// formulaire de login + liste des conseillers du dropdown + loadData) : au
-// mieux 3 exécutions GAS pour la même donnée, au pire les 3 timeouts de
-// loadData (25/30/35 s) qui expirent en même temps → « Google Sheets ne
-// répond pas après 3 tentatives ». Vérifié depuis via le panneau Exécutions
-// Apps Script : GAS ne sérialise pas ses exécutions (deux doGet démarrés à
-// 1s d'intervalle s'y chevauchent) — la dédup ci-dessous reste justifiée
-// (3 appels réseau pour la même donnée est un gaspillage dans tous les cas),
-// mais pas pour la raison initialement supposée.
+// admin.html lançait plusieurs getAll simultanés au chargement (liste des
+// conseillers du dropdown + loadData, en plus du préchauffage) : au mieux
+// plusieurs exécutions GAS pour la même donnée, au pire les timeouts de
+// loadData qui expirent tous ensemble → « Google Sheets ne répond pas après
+// 3 tentatives ». Vérifié depuis via le panneau Exécutions Apps Script : GAS
+// ne sérialise pas ses exécutions (deux doGet démarrés à 1s d'intervalle s'y
+// chevauchent) — la dédup ci-dessous reste justifiée (plusieurs appels
+// réseau pour la même donnée est un gaspillage dans tous les cas), mais pas
+// pour la raison initialement supposée.
 //
 // fetchAll() garantit un seul appel en vol par année et sert un cache court :
-// le préchauffage du login devient un vrai prefetch dont loadData réutilise
-// le résultat après connexion.
+// le préchauffage de l'écran de login devient un vrai prefetch dont loadData
+// réutilise le résultat après connexion.
 (function(){
   const TTL_MS = 45000;      // fenêtre pendant laquelle le prefetch reste valable
   const cache  = new Map();  // année → {promise, inflight, ts}
@@ -1249,16 +1209,13 @@ window.onLogout = function(){
     params.set(String(year).indexOf(',')>=0 ? 'years' : 'year', String(year));
     if(source) params.set('source', source);
     const req = window.requeteServeur(params);
-    const data = await gasAppel(req.url, 'getAll', req.corps);
-    // Le mode maintenance n'est pas une erreur, c'est un état que le serveur
-    // rapporte : il sort de _getAllFrais avec {ok:false, maintenance:true,
-    // msg}. Le renvoyer tel quel évite un appel getConfig dédié côté client
-    // — l'information voyage déjà dans cette réponse. (source=admin le
-    // court-circuite côté GAS : l'admin doit pouvoir travailler pendant une
-    // maintenance, c'est lui qui l'a activée.)
+    const data = await window.gasAppel(req.url, 'getAll', req.corps);
+    // Maintenance : GAS répond {ok:false, maintenance:true, msg} aux appels
+    // non-admin (_actionGetAllFresh). Ce n'est pas une panne mais une réponse
+    // valide — la traiter en erreur affichait « Erreur serveur » au lieu du
+    // message prévu. C'est aussi ce qui permet à Index de connaître l'état de
+    // maintenance sans un getConfig dédié.
     if(data && data.maintenance) return data;
-    // Toute autre réponse ok:false est une vraie erreur serveur. On ne la
-    // rejoue pas : ce n'est pas un problème de livraison.
     if(!data || !data.ok) throw new Error((data && data.error) || 'Erreur serveur');
     // Plusieurs années demandées, mais le GAS en ligne ne connaît pas encore
     // years= : il ne renvoie que l'année en cours, sans le dire. On le dit à
@@ -1285,6 +1242,37 @@ window.onLogout = function(){
   };
 
   window.invalidateFetchAll = function(){ cache.clear(); };
+})();
+
+// ── getConfig partagé : un seul appel réseau, réutilisé par tous les
+// composants qui en ont besoin. Contrairement à getAll, getConfig n'avait
+// aucune déduplication : jusqu'à 4 composants (hint login, maintenance,
+// rappels_actifs, check maintenance Index) déclenchaient chacun leur propre
+// aller-retour GAS pour la même info au même instant — inutilement, puisque
+// c'est toujours la même donnée. Logs de prod : des getConfig abandonnés à
+// 35s ou résolus en 27s juste après un login par ailleurs réussi.
+(function(){
+  const TTL_MS = 30000;
+  let cache = null; // {promise, inflight, ts}
+
+  async function rawGetConfig(){
+    const req = window.requeteServeur(new URLSearchParams({action:'getConfig'}));
+    const data = await window.gasAppel(req.url, 'getConfig', req.corps);
+    if(!data || !data.ok) throw new Error((data && data.error) || 'Erreur serveur');
+    return data;
+  }
+
+  // force:true = ignore le cache terminé. Un appel déjà en vol est toujours réutilisé.
+  window.fetchConfig = function fetchConfig(opts){
+    const o = opts || {};
+    if(cache && (cache.inflight || (!o.force && Date.now()-cache.ts < TTL_MS))) return cache.promise;
+    const entry = {inflight:true, ts:Date.now(), promise:null};
+    entry.promise = rawGetConfig()
+      .then(data=>{ entry.inflight=false; entry.ts=Date.now(); return data; })
+      .catch(err=>{ cache=null; throw err; });
+    cache = entry;
+    return entry.promise;
+  };
 })();
 async function loadCommunes47(){
   if(COMMUNES_47_CACHE)return COMMUNES_47_CACHE;
