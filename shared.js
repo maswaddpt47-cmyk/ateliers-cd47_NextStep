@@ -2197,7 +2197,7 @@ function VueHistorique({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
   const[panelStatut,setPanelStatut]=React.useState('');
   const[panelInscrits,setPanelInscrits]=React.useState('');
   const[panelPresents,setPanelPresents]=React.useState('');
-  const[panelThematique,setPanelThematique]=React.useState('');
+  const[panelThematique,setPanelThematique]=React.useState('');const[panelDate,setPanelDate]=React.useState('');const[panelHoraire,setPanelHoraire]=React.useState('');const[panelNbOrdi,setPanelNbOrdi]=React.useState('');const[panelPublic,setPanelPublic]=React.useState('');
   const[panelNote,setPanelNote]=React.useState('');
   const[saving,setSaving]=React.useState(false);
   const[confirmDel,setConfirmDel]=React.useState(null);
@@ -2250,13 +2250,13 @@ function VueHistorique({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
   const kpi=React.useMemo(()=>kpiHistorique(sansStatut),[sansStatut]);
   const nRetard=entries.filter(e=>isRetard(e)&&(filtConseiller==='Tous'||e.conseiller===filtConseiller)).length;
 
-  function openPanel(e){setPanel(e);setPanelStatut(e.statut);setPanelInscrits(e.inscrits===undefined||e.inscrits===''?'':String(e.inscrits));setPanelPresents(e.presents===undefined||e.presents===''?'':String(e.presents));setPanelThematique(e.thematique||'');setPanelNote(e.remarques||'');}
+  function openPanel(e){setPanel(e);setPanelStatut(e.statut);setPanelInscrits(e.inscrits===undefined||e.inscrits===''?'':String(e.inscrits));setPanelPresents(e.presents===undefined||e.presents===''?'':String(e.presents));setPanelThematique(e.thematique||'');setPanelNote(e.remarques||'');setPanelDate(normalizeDate(e.date)||'');setPanelHoraire(normalizeHoraire(e.horaire)||'');setPanelNbOrdi(e.nb_ordinateurs===undefined||e.nb_ordinateurs===''||e.nb_ordinateurs===null?'':String(e.nb_ordinateurs));setPanelPublic(e.public||'');}
   function closePanel(){setPanel(null);}
 
   async function savePanel(){
-    if(!panel)return;setSaving(true);
+    if(!panel)return;if(!panelDate){showToast('❌ Date requise',false);return;}setSaving(true);
     try{
-      const updated={...panel,statut:panelStatut,inscrits:panelInscrits===''?'':parseInt(panelInscrits)||0,presents:panelPresents===''?'':parseInt(panelPresents)||0,thematique:panelThematique,remarques:panelNote};
+      const updated={...panel,statut:panelStatut,inscrits:panelInscrits===''?'':parseInt(panelInscrits)||0,presents:panelPresents===''?'':parseInt(panelPresents)||0,thematique:panelThematique,date:panelDate,horaire:panelHoraire,ampm:panelHoraire!==(normalizeHoraire(panel.horaire)||'')?(ampmDepuisHoraire(panelHoraire)||panel.ampm):panel.ampm,public:panelPublic,nb_ordinateurs:panelNbOrdi===''?'':parseInt(panelNbOrdi)||0,remarques:panelNote};
       const res=await apiFetch('saveEntry',{entry:updated});
       if(!res.ok)throw new Error(res.error);
       showToast('✅ Mis à jour');closePanel();entreeSauvegardee(updated, onRefresh);
@@ -2416,17 +2416,14 @@ function VueHistorique({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
             )
           ),
           CE('div',{style:{fontSize:13,fontWeight:700,color:'#1a202c',marginBottom:8}},panel.thematique),
-          CE('div',{className:'sp-info-row'},CE('span',null,'Date'),CE('span',null,fmtDate(panel.date),' ',panel.horaire)),
           CE('div',{className:'sp-info-row'},CE('span',null,'Commune'),CE('span',null,panel.commune)),
           CE('div',{className:'sp-info-row'},CE('span',null,'Lieu'),CE('span',null,panel.lieu)),
           panel.orienteur&&CE('div',{className:'sp-info-row'},CE('span',null,'Orienteur'),CE('span',null,panel.orienteur)),
-          CE('div',{className:'sp-info-row'},CE('span',null,'Public'),CE('span',null,panel.public)),
           CE('div',{className:'sp-info-row'},CE('span',null,'Conseiller'),CE('span',{style:{color:conseillerColor(panel.conseiller),fontWeight:700}},panel.conseiller)),panel.co_animateur&&CE('div',{className:'sp-info-row'},CE('span',null,'Co-animateur'),CE('span',{style:{color:conseillerColor(panel.co_animateur),fontWeight:700}},panel.co_animateur)),
           panel.materiel&&panel.materiel.length>0&&CE('div',{style:{marginTop:10,marginBottom:4}},
             CE('div',{style:{fontSize:11,fontWeight:700,color:'#718096',marginBottom:4}},'MATÉRIEL'),
             panel.materiel.map(m=>CE('span',{key:m,className:'mat-chip'},m))
           ),
-          parseInt(panel.nb_ordinateurs)>0&&CE('div',{className:'sp-info-row'},CE('span',null,'Ordinateurs prêtés'),CE('span',null,panel.nb_ordinateurs)),
           parseInt(panel.nb_ordinateurs)>0&&(panel.date_prelevement_materiel||panel.date_retour_materiel)&&CE('div',{className:'sp-info-row'},CE('span',null,'Période de prêt'),CE('span',null,fmtPeriode(periodePretMateriel(panel).debut,periodePretMateriel(panel).fin))),
           CE('hr',{style:{border:'none',borderTop:'1px solid #e2e8f0',margin:'12px 0'}}),
           CE('div',{className:'sp-field'},CE('label',null,'Statut *'),
@@ -2436,8 +2433,22 @@ function VueHistorique({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
             CE('input',{type:'number',min:0,value:panelInscrits,onChange:e=>setPanelInscrits(e.target.value),style:{width:'100%',padding:'8px 10px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:13},placeholder:'0'})),
           CE('div',{className:'sp-field'},CE('label',null,'Nombre de présents'),
             CE('input',{type:'number',min:0,value:panelPresents,onChange:e=>setPanelPresents(e.target.value),style:{width:'100%',padding:'8px 10px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:13},placeholder:'0'})),
+          // Modifiables ici depuis le 26/09/2026 (demande de l'utilisateur) :
+          // date, horaire (AM/PM recalculé s'il change), public, ordinateurs ;
+          // thématique en auto-proposition comme dans le formulaire.
+          CE('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}},
+            CE('div',{className:'sp-field'},CE('label',null,'Date *'),
+              CE('input',{type:'date',value:panelDate,onChange:e=>setPanelDate(e.target.value),style:{width:'100%',padding:'8px 10px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:13}})),
+            CE('div',{className:'sp-field'},CE('label',null,'Horaire'),
+              CE('input',{type:'time',value:panelHoraire,onChange:e=>setPanelHoraire(e.target.value),style:{width:'100%',padding:'8px 10px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:13}}))),
+          CE('div',{className:'sp-field'},CE('label',null,'Type de public'),
+            CE('select',{value:panelPublic,onChange:e=>setPanelPublic(e.target.value),style:{width:'100%',padding:'8px 10px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:13}},
+              CE('option',{value:''},'—'),
+              [...PUBLICS,...(panelPublic&&!PUBLICS.includes(panelPublic)?[panelPublic]:[])].map(x=>CE('option',{key:x,value:x},x)))),
+          CE('div',{className:'sp-field'},CE('label',null,"Ordinateurs prêtés"),
+            CE('input',{type:'number',min:0,value:panelNbOrdi,onChange:e=>setPanelNbOrdi(e.target.value),style:{width:'100%',padding:'8px 10px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:13},placeholder:'0'})),
           CE('div',{className:'sp-field'},CE('label',null,'Thématique'),
-            CE('input',{type:'text',value:panelThematique,onChange:e=>setPanelThematique(e.target.value),style:{width:'100%',padding:'8px 10px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:13}})),
+            CE(ComboThematique,{value:panelThematique,onChange:setPanelThematique,entries:entries})),
           CE('div',{className:'sp-field'},CE('label',null,'Remarques'),
             CE('textarea',{value:panelNote,onChange:e=>setPanelNote(e.target.value),rows:3,placeholder:'Ajouter une note…',style:{width:'100%',padding:'8px 10px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:13,resize:'vertical'}}))
         ),
@@ -2485,7 +2496,7 @@ function VueCalendrier({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
   const[panelStatut,setPanelStatut]=React.useState('');
   const[panelInscrits,setPanelInscrits]=React.useState('');
   const[panelPresents,setPanelPresents]=React.useState('');
-  const[panelThematique,setPanelThematique]=React.useState('');
+  const[panelThematique,setPanelThematique]=React.useState('');const[panelDate,setPanelDate]=React.useState('');const[panelHoraire,setPanelHoraire]=React.useState('');const[panelNbOrdi,setPanelNbOrdi]=React.useState('');const[panelPublic,setPanelPublic]=React.useState('');
   const[panelNote,setPanelNote]=React.useState('');
   const[saving,setSaving]=React.useState(false);
   const[confirmDel,setConfirmDel]=React.useState(null);
@@ -2537,12 +2548,12 @@ function VueCalendrier({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
   function goToday(){setCalDate(new Date(today.getFullYear(),today.getMonth(),1));setExpandDay(null);}
 
   // Panel
-  function openPanel(e){setPanel(e);setPanelStatut(e.statut);setPanelInscrits(e.inscrits===undefined||e.inscrits===''?'':String(e.inscrits));setPanelPresents(e.presents===undefined||e.presents===''?'':String(e.presents));setPanelThematique(e.thematique||'');setPanelNote(e.remarques||'');}
+  function openPanel(e){setPanel(e);setPanelStatut(e.statut);setPanelInscrits(e.inscrits===undefined||e.inscrits===''?'':String(e.inscrits));setPanelPresents(e.presents===undefined||e.presents===''?'':String(e.presents));setPanelThematique(e.thematique||'');setPanelNote(e.remarques||'');setPanelDate(normalizeDate(e.date)||'');setPanelHoraire(normalizeHoraire(e.horaire)||'');setPanelNbOrdi(e.nb_ordinateurs===undefined||e.nb_ordinateurs===''||e.nb_ordinateurs===null?'':String(e.nb_ordinateurs));setPanelPublic(e.public||'');}
   function closePanel(){setPanel(null);}
   async function savePanel(){
-    if(!panel)return;setSaving(true);
+    if(!panel)return;if(!panelDate){showToast('❌ Date requise',false);return;}setSaving(true);
     try{
-      const updated={...panel,statut:panelStatut,inscrits:panelInscrits===''?'':parseInt(panelInscrits)||0,presents:panelPresents===''?'':parseInt(panelPresents)||0,thematique:panelThematique,remarques:panelNote};
+      const updated={...panel,statut:panelStatut,inscrits:panelInscrits===''?'':parseInt(panelInscrits)||0,presents:panelPresents===''?'':parseInt(panelPresents)||0,thematique:panelThematique,date:panelDate,horaire:panelHoraire,ampm:panelHoraire!==(normalizeHoraire(panel.horaire)||'')?(ampmDepuisHoraire(panelHoraire)||panel.ampm):panel.ampm,public:panelPublic,nb_ordinateurs:panelNbOrdi===''?'':parseInt(panelNbOrdi)||0,remarques:panelNote};
       const res=await apiFetch('saveEntry',{entry:updated});
       if(!res.ok)throw new Error(res.error);
       showToast('✅ Mis à jour');closePanel();entreeSauvegardee(updated, onRefresh);
@@ -2640,17 +2651,14 @@ function VueCalendrier({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
             )
           ),
           CE('div',{style:{fontSize:13,fontWeight:700,color:'#1a202c',marginBottom:8}},panel.thematique),
-          CE('div',{className:'sp-info-row'},CE('span',null,'Date'),CE('span',null,fmtDate(panel.date),' ',panel.horaire)),
           CE('div',{className:'sp-info-row'},CE('span',null,'Commune'),CE('span',null,panel.commune)),
           CE('div',{className:'sp-info-row'},CE('span',null,'Lieu'),CE('span',null,panel.lieu)),
           panel.orienteur&&CE('div',{className:'sp-info-row'},CE('span',null,'Orienteur'),CE('span',null,panel.orienteur)),
-          CE('div',{className:'sp-info-row'},CE('span',null,'Public'),CE('span',null,panel.public)),
           CE('div',{className:'sp-info-row'},CE('span',null,'Conseiller'),CE('span',{style:{color:conseillerColor(panel.conseiller),fontWeight:700}},panel.conseiller)),panel.co_animateur&&CE('div',{className:'sp-info-row'},CE('span',null,'Co-animateur'),CE('span',{style:{color:conseillerColor(panel.co_animateur),fontWeight:700}},panel.co_animateur)),
           panel.materiel&&panel.materiel.length>0&&CE('div',{style:{marginTop:10,marginBottom:4}},
             CE('div',{style:{fontSize:11,fontWeight:700,color:'#718096',marginBottom:4}},'MATÉRIEL'),
             panel.materiel.map(m=>CE('span',{key:m,className:'mat-chip'},m))
           ),
-          parseInt(panel.nb_ordinateurs)>0&&CE('div',{className:'sp-info-row'},CE('span',null,'Ordinateurs prêtés'),CE('span',null,panel.nb_ordinateurs)),
           parseInt(panel.nb_ordinateurs)>0&&(panel.date_prelevement_materiel||panel.date_retour_materiel)&&CE('div',{className:'sp-info-row'},CE('span',null,'Période de prêt'),CE('span',null,fmtPeriode(periodePretMateriel(panel).debut,periodePretMateriel(panel).fin))),
           CE('hr',{style:{border:'none',borderTop:'1px solid #e2e8f0',margin:'12px 0'}}),
           CE('div',{className:'sp-field'},CE('label',null,'Statut *'),
@@ -2660,8 +2668,22 @@ function VueCalendrier({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
             CE('input',{type:'number',min:0,value:panelInscrits,onChange:e=>setPanelInscrits(e.target.value),style:{width:'100%',padding:'8px 10px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:13},placeholder:'0'})),
           CE('div',{className:'sp-field'},CE('label',null,'Nombre de présents'),
             CE('input',{type:'number',min:0,value:panelPresents,onChange:e=>setPanelPresents(e.target.value),style:{width:'100%',padding:'8px 10px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:13},placeholder:'0'})),
+          // Modifiables ici depuis le 26/09/2026 (demande de l'utilisateur) :
+          // date, horaire (AM/PM recalculé s'il change), public, ordinateurs ;
+          // thématique en auto-proposition comme dans le formulaire.
+          CE('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}},
+            CE('div',{className:'sp-field'},CE('label',null,'Date *'),
+              CE('input',{type:'date',value:panelDate,onChange:e=>setPanelDate(e.target.value),style:{width:'100%',padding:'8px 10px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:13}})),
+            CE('div',{className:'sp-field'},CE('label',null,'Horaire'),
+              CE('input',{type:'time',value:panelHoraire,onChange:e=>setPanelHoraire(e.target.value),style:{width:'100%',padding:'8px 10px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:13}}))),
+          CE('div',{className:'sp-field'},CE('label',null,'Type de public'),
+            CE('select',{value:panelPublic,onChange:e=>setPanelPublic(e.target.value),style:{width:'100%',padding:'8px 10px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:13}},
+              CE('option',{value:''},'—'),
+              [...PUBLICS,...(panelPublic&&!PUBLICS.includes(panelPublic)?[panelPublic]:[])].map(x=>CE('option',{key:x,value:x},x)))),
+          CE('div',{className:'sp-field'},CE('label',null,"Ordinateurs prêtés"),
+            CE('input',{type:'number',min:0,value:panelNbOrdi,onChange:e=>setPanelNbOrdi(e.target.value),style:{width:'100%',padding:'8px 10px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:13},placeholder:'0'})),
           CE('div',{className:'sp-field'},CE('label',null,'Thématique'),
-            CE('input',{type:'text',value:panelThematique,onChange:e=>setPanelThematique(e.target.value),style:{width:'100%',padding:'8px 10px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:13}})),
+            CE(ComboThematique,{value:panelThematique,onChange:setPanelThematique,entries:entries})),
           CE('div',{className:'sp-field'},CE('label',null,'Remarques'),
             CE('textarea',{value:panelNote,onChange:e=>setPanelNote(e.target.value),rows:3,placeholder:'Ajouter une note…',style:{width:'100%',padding:'8px 10px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:13,resize:'vertical'}}))
         ),
