@@ -961,7 +961,7 @@ function VueCorbeille(){
     CE('h2',{style:{marginTop:0}},'🗑️ Corbeille'),
     CE('p',{style:{fontSize:12,color:'var(--text-2,#718096)',marginTop:0}},
       'Les ateliers supprimés sont gardés '+jours+' jours, puis effacés définitivement. « Restaurer » remet l\'atelier tel qu\'il était au moment de sa suppression, avec son numéro. Un conseiller qui a supprimé un atelier par erreur passe par un administrateur.'),
-    err&&CE('p',{style:{color:'#c53030',fontSize:13}},err+(window.BACKEND_PHP?'':' (corbeille disponible avec le serveur Alwaysdata seulement)')),
+    err&&CE('p',{style:{color:'#c53030',fontSize:13}},err),
     liste===null&&!err&&CE('p',{style:{fontSize:13}},'Chargement…'),
     liste&&liste.length===0&&CE('p',{style:{fontSize:13,color:'var(--text-2,#718096)'}},'La corbeille est vide.'),
     liste&&liste.length>0&&CE('div',{style:{overflowX:'auto'}},
@@ -1016,7 +1016,7 @@ function VueSauvegardes(){
   const td={padding:'4px 10px',fontSize:12,borderBottom:'1px solid var(--border,#f0f0f0)'};
   return CE('div',{className:'card'},
     CE('h2',{style:{marginTop:0}},'💾 Sauvegardes'),
-    err&&CE('p',{style:{color:'#c53030',fontSize:13}},err+(window.BACKEND_PHP?'':' (disponible avec le serveur Alwaysdata seulement)')),
+    err&&CE('p',{style:{color:'#c53030',fontSize:13}},err),
     etat===null&&!err&&CE('p',{style:{fontSize:13}},'Chargement…'),
     etat&&CE(React.Fragment,null,
       CE('div',{style:{display:'flex',gap:12,flexWrap:'wrap',marginBottom:14}},

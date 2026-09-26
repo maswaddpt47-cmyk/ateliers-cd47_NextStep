@@ -481,21 +481,12 @@ function FadeItem({children,delay=0,style={}}){
   return CE('div',{style:{opacity:v?1:0,transition:'opacity .6s ease',...style}},children);
 }
 
-// window.GS_URL_OVERRIDE : bascule optionnelle vers une URL Apps Script de
-// test (déploiement séparé, isolé de la production), utilisée uniquement par
-// index2.html (sandbox) pour tester selfSetPassword sans risquer le
-// déploiement de production. index.html/admin.html ne définissent jamais
-// cette variable : GS_URL vaut donc toujours l'URL de production pour eux,
-// comportement strictement inchangé.
 // ── Serveur : API Alwaysdata depuis la bascule du 25/09/2026 ───────────────
 // (refonte GAS → PHP + MySQL, AG-009 / AG-011, dépôt ATELIERS_NEWGEN, dossier
-// api/). Plus aucun appel au GAS : GS_URL pointe volontairement vers une
-// adresse morte, pour qu'un appel direct oublié échoue au lieu d'écrire dans
-// le classeur abandonné. Tout passe par requeteServeur (POST vers l'API, jeton
-// dans le corps) ; une réponse {auth:true} déclenche « ateliers:auth-expiree ».
-const GS_URL = 'about:blank#plus-de-gas';
+// api/). Plus aucun appel au GAS : tout passe par requeteServeur (POST vers
+// l'API, jeton dans le corps) ; une réponse {auth:true} déclenche
+// « ateliers:auth-expiree ».
 const API_PHP_URL = 'https://ateliers-numeriques.alwaysdata.net/api/index.php';
-window.BACKEND_PHP = true;
 window.RETOUR_REINIT_SUFFIXE = '';
 window.requeteServeur = function(params){
   const token = window.authToken && window.authToken.get();
@@ -1103,7 +1094,6 @@ function LienMotDePasseOublie({conseiller}){
   const[ouvert,setOuvert]=React.useState(false);
   const[envoi,setEnvoi]=React.useState(false);
   const[msg,setMsg]=React.useState(null); // {ok,texte}
-  if(!window.BACKEND_PHP) return null;
   async function envoyer(){
     setEnvoi(true);setMsg(null);
     try{
@@ -1171,7 +1161,7 @@ window.authToken = {
     // même si la page se ferme. Sans réponse attendue : oublier le jeton ici
     // ne doit jamais dépendre du réseau.
     const t = sessionStorage.getItem('gs_token');
-    if(t && window.BACKEND_PHP){
+    if(t){
       try{ fetch(`${API_PHP_URL}?action=logout`, {method:'POST', keepalive:true, headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:'token='+encodeURIComponent(t)}).catch(()=>{}); }catch(_){}
     }
     sessionStorage.removeItem('gs_token'); sessionStorage.removeItem('gs_role');
