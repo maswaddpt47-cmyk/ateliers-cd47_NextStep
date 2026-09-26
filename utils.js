@@ -355,6 +355,26 @@ if (typeof window !== 'undefined') {
   try { migrerLocalStorage(window.localStorage); } catch (e) {}
 }
 
+// Ordre de l'Historique : date (sens choisi par l'utilisateur), puis, pour
+// une même date, orienteur puis horaire — toujours croissants. Sans ça, deux
+// ateliers du même jour sortaient dans l'ordre d'enregistrement (demande de
+// l'utilisateur, 26/09/2026). Orienteur vide en dernier.
+function comparerHistorique(a, b, sens) {
+  const s = sens === -1 ? -1 : 1;
+  const da = (a && a.date) || '', db = (b && b.date) || '';
+  if (da !== db) return da < db ? -s : s;
+  const oa = String((a && a.orienteur) || '').trim(), ob = String((b && b.orienteur) || '').trim();
+  if (oa !== ob) {
+    if (!oa) return 1;
+    if (!ob) return -1;
+    const c = oa.localeCompare(ob, 'fr', { sensitivity: 'base' });
+    if (c) return c;
+  }
+  const h = e => String((e && e.horaire) || '').trim().replace(/^(\d):/, '0$1:');
+  const ha = h(a), hb = h(b);
+  return ha < hb ? -1 : ha > hb ? 1 : 0;
+}
+
 if (typeof module !== 'undefined') {
   module.exports = {
     stripAccents, trunc,
@@ -368,5 +388,6 @@ if (typeof module !== 'undefined') {
     anneeReference,
     anneeIncluse,
   lsKey, migrerLocalStorage, LS_A_MIGRER,
+  comparerHistorique,
   };
 }

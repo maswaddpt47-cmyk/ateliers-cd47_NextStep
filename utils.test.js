@@ -12,6 +12,7 @@ const {
   anneeReference,
   anneeIncluse,
   lsKey, migrerLocalStorage,
+  comparerHistorique,
 } = require('./utils.js');
 
 // ── stripAccents ──────────────────────────────────────────────────────────────
@@ -331,5 +332,21 @@ describe('années chargées', () => {
     assert.equal(anneeReference(`${c-2},${c-1}`), String(c-1));
     assert.equal(anneeIncluse('2026,2027', '2027-03-15'), true);
     assert.equal(anneeIncluse('2026', '2027-03-15'), false);
+  });
+});
+
+// ── comparerHistorique ─────────────────────────────────────
+describe('comparerHistorique', () => {
+  const liste = [
+    { _id: 'a', date: '2026-11-02', horaire: '15:00', orienteur: 'Cité Scolaire - Collège Jean Monnet' },
+    { _id: 'b', date: '2026-11-02', horaire: '9:30',  orienteur: 'Convergence' },
+    { _id: 'c', date: '2026-11-02', horaire: '14:00', orienteur: 'Cité Scolaire - Collège Jean Monnet' },
+    { _id: 'd', date: '2026-10-05', horaire: '09:30', orienteur: '' },
+  ];
+  it('même date : orienteur puis horaire, quel que soit l\'ordre d\'enregistrement', () => {
+    assert.deepEqual([...liste].sort((x, y) => comparerHistorique(x, y, 1)).map(e => e._id), ['d', 'c', 'a', 'b']);
+  });
+  it('date décroissante : les dates s\'inversent, pas l\'ordre à l\'intérieur d\'un jour', () => {
+    assert.deepEqual([...liste].sort((x, y) => comparerHistorique(x, y, -1)).map(e => e._id), ['c', 'a', 'b', 'd']);
   });
 });
