@@ -411,3 +411,17 @@ describe('conflitsDeLEntree', () => {
     assert.deepEqual([deplace.ordi.length, deplace.mobile.length], [0, 0]);
   });
 });
+
+// ── matierePanneau (case Classe mobile du panneau latéral) ─────────────────
+describe('matierePanneau', () => {
+  const { matierePanneau } = require('./utils.js');
+  it('cocher ajoute la Classe mobile une seule fois, décocher la retire, le reste est gardé', () => {
+    assert.deepEqual(matierePanneau({ materiel: ['Ordinateur'] }, true), ['Ordinateur', 'Classe mobile']);
+    assert.deepEqual(matierePanneau({ materiel: ['Classe mobile', 'Ordinateur'] }, true), ['Ordinateur', 'Classe mobile']);
+    assert.deepEqual(matierePanneau({ materiel: ['classe mobiles', 'Ordinateur'] }, false), ['Ordinateur']);
+  });
+  it('accepte le texte « a|b » et un matériel absent', () => {
+    assert.deepEqual(matierePanneau({ materiel: 'Ordinateur|Classe mobile' }, false), ['Ordinateur']);
+    assert.deepEqual(matierePanneau({}, true), ['Classe mobile']);
+  });
+});

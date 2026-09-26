@@ -396,6 +396,17 @@ function ampmDepuisHoraire(h) {
 // total. Reportés + Non réalisés regroupés en « autres ». Inscrits et présents
 // comptés sur les seuls ateliers réalisés : le taux de présence n'a de sens
 // que pour un atelier qui a eu lieu.
+// Matériel d'un atelier d'après la case « Classe mobile » du panneau latéral
+// (26/09/2026) : ajoute ou retire la Classe mobile, garde le reste. Accepte
+// une liste ou un texte « a|b ». Renvoie toujours une liste.
+function matierePanneau(entree, mobile) {
+  const norm = x => String(x).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, '').replace(/s$/, '');
+  const brut = entree && entree.materiel;
+  const mat = Array.isArray(brut) ? brut : String(brut || '').split('|').map(x => x.trim()).filter(Boolean);
+  const sans = mat.filter(m => norm(m) !== 'classemobile');
+  return mobile ? [...sans, 'Classe mobile'] : sans;
+}
+
 // Conflits de matériel où figurerait un atelier modifié, avant de
 // l'enregistrer (panneau latéral de l'Historique et du Calendrier, 26/09/2026 :
 // date et ordinateurs y sont modifiables, sans passer par le formulaire).
@@ -446,5 +457,6 @@ if (typeof module !== 'undefined') {
   ampmDepuisHoraire,
   kpiHistorique,
   conflitsDeLEntree,
+  matierePanneau,
   };
 }
