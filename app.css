@@ -499,3 +499,18 @@
 
 /* Filtre banner */
 [data-theme="dark"] .filtre-banner              { background: #0c1a2e; border-color: #1d4ed8; color: #93c5fd; }
+
+/* Noms de variables de NEWGEN (26/09/2026, parité AG-015) : le code commun
+   aux deux applis les emploie. Ici ils pointent sur la palette NextStep. */
+:root {
+  --surface: var(--bg2); --surface-2: var(--bg3);
+  --text-2: var(--text2); --text-3: #a0aec0;
+  --info: #1b4fd6; --ok: #15803d; --warn: #9e4408; --err: #b82b20;
+  --primary: #1e3a8a;
+  --shadow-panel: 0 2px 4px rgba(12,36,48,.06),0 10px 28px rgba(12,36,48,.11);
+}
+[data-theme="dark"] {
+  --text-3: #64748b;
+  --info: #93c5fd; --ok: #4ade80; --warn: #fb923c; --err: #fca5a5;
+  --primary: #93c5fd;
+}

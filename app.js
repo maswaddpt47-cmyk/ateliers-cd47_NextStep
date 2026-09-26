@@ -18,25 +18,25 @@ var VIEW_META_F = {
 };
 
 function MaintenanceScreen({msg}){
-  return CE('div',{style:{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',minHeight:'100vh',background:'#f0f4f8',fontFamily:"'Segoe UI',sans-serif",textAlign:'center',gap:12}},
-    CE('div',{style:{background:'#fff',borderRadius:14,padding:'40px 48px',boxShadow:'0 4px 24px rgba(30,58,138,.10)',maxWidth:420,width:'90%'}},
+  return CE('div',{style:{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',minHeight:'100vh',background:'var(--bg)',fontFamily:"'Segoe UI',sans-serif",textAlign:'center',gap:12}},
+    CE('div',{style:{background:'var(--surface)',borderRadius:14,padding:'40px 48px',boxShadow:'var(--shadow-panel)',maxWidth:420,width:'90%'}},
       CE('div',{style:{fontSize:52,marginBottom:12}},'🔧'),
-      CE('div',{style:{fontSize:22,fontWeight:800,color:'#1e3a8a',marginBottom:8}},'Maintenance en cours'),
-      CE('div',{style:{fontSize:13,color:'#718096',lineHeight:1.6,marginBottom:20}},msg||"L'application est temporairement indisponible. Merci de votre patience."),
+      CE('div',{style:{fontSize:22,fontWeight:800,color:'var(--info)',marginBottom:8}},'Maintenance en cours'),
+      CE('div',{style:{fontSize:13,color:'var(--text-2)',lineHeight:1.6,marginBottom:20}},msg||"L'application est temporairement indisponible. Merci de votre patience."),
       CE('div',{style:{display:'inline-block',background:'#fef9c3',color:'#92400e',fontSize:12,fontWeight:700,padding:'4px 14px',borderRadius:20,border:'1px solid #fcd34d'}},'⏳ Mise à jour en cours'),
-      CE('div',{style:{fontSize:12,color:'#a0aec0',marginTop:16}},'Contactez l\'administrateur pour plus d\'infos.')
+      CE('div',{style:{fontSize:12,color:'var(--text-3)',marginTop:16}},'Contactez l\'administrateur pour plus d\'infos.')
     )
   );
 }
 
 // ── VueAccueilStatic — dropdown CONUM fixe (landing) ─────────
-function VueAccueilStatic({onChoix}){
-  const CONUM_STATIC = [...CONSEILLERS_DEFAULT];
+function VueAccueilStatic({onChoix,conseillers}){
+  const CONUM_STATIC = conseillers&&conseillers.length?conseillers:[...CONSEILLERS_DEFAULT];
   const[choix,setChoix]=React.useState('');
   return CE('div',{className:'accueil-wrap'},
     CE('div',{className:'accueil-card'},
       CE('div',{className:'accueil-logo'},'🖥️'),
-      CE('div',{className:'accueil-title'},'Ateliers Inclusion Numérique — NextStep'),
+      CE('div',{className:'accueil-title'},'Ateliers Inclusion Numérique — '+NOM_APPLI),
       CE('div',{className:'accueil-sub'},'Conseil Départemental du Lot-et-Garonne'),
       CE('label',{className:'accueil-label'},'Qui êtes-vous ?'),
       CE('select',{className:'accueil-select',value:choix,onChange:e=>setChoix(e.target.value)},
@@ -130,7 +130,8 @@ function VueLoginIndex({conseillers,onSuccess}){
       const res=await apiFetch('checkPassword',{conseiller,password:pwd,userAgent:navigator.userAgent,source:'index.html'});
       if(res.ok){
         setFailCount(0);setLockUntil(0);
-        // doit_changer : mot de passe provisoire de l'API (resetPassword).
+        // doit_changer : mot de passe provisoire donné par l'API (resetPassword
+        // tire un mot de passe aléatoire, plus cd47+prénom).
         if(res.doit_changer||pwd.trim()===defaultPwdIndex(conseiller)){
           setPendingRes(res);
           setMustChangePwd(true);
@@ -182,7 +183,7 @@ function VueLoginIndex({conseillers,onSuccess}){
   return CE('div',{className:'accueil-wrap'},
     CE('div',{className:'accueil-card'},
       CE('div',{className:'accueil-logo'},'🖥️'),
-      CE('div',{className:'accueil-title'},'Ateliers Inclusion Numérique — NextStep'),
+      CE('div',{className:'accueil-title'},'Ateliers Inclusion Numérique — '+NOM_APPLI),
       CE('div',{className:'accueil-sub'},'Conseil Départemental du Lot-et-Garonne'),
       isLocked
         ? CE('div',{style:{textAlign:'center',padding:'28px 0'}},
@@ -205,7 +206,7 @@ function VueLoginIndex({conseillers,onSuccess}){
               CE('input',{
                 type:showNewPwd?'text':'password',placeholder:'Nouveau mot de passe',value:newPwd,
                 onChange:e=>setNewPwd(e.target.value),
-                style:{width:'100%',padding:'10px 40px 10px 14px',border:'1px solid #e2e8f0',borderRadius:8,fontSize:14,outline:'none',boxSizing:'border-box'}
+                style:{width:'100%',padding:'10px 40px 10px 14px',border:'1px solid var(--border)',borderRadius:8,fontSize:14,outline:'none',boxSizing:'border-box',background:'var(--surface)',color:'var(--text)'}
               }),
               CE('button',{onClick:()=>setShowNewPwd(s=>!s),style:{position:'absolute',right:10,top:'50%',transform:'translateY(-50%)',background:'none',border:'none',cursor:'pointer',fontSize:16,color:'#718096',padding:0}},showNewPwd?'🙈':'👁️')
             ),
@@ -214,7 +215,7 @@ function VueLoginIndex({conseillers,onSuccess}){
                 type:showNewPwd?'text':'password',placeholder:'Confirmer',value:newPwd2,
                 onChange:e=>setNewPwd2(e.target.value),
                 onKeyDown:e=>e.key==='Enter'&&handleChangePwd(),
-                style:{width:'100%',padding:'10px 40px 10px 14px',border:'1px solid #e2e8f0',borderRadius:8,fontSize:14,outline:'none',boxSizing:'border-box'}
+                style:{width:'100%',padding:'10px 40px 10px 14px',border:'1px solid var(--border)',borderRadius:8,fontSize:14,outline:'none',boxSizing:'border-box',background:'var(--surface)',color:'var(--text)'}
               }),
               CE('button',{onClick:()=>setShowNewPwd(s=>!s),style:{position:'absolute',right:10,top:'50%',transform:'translateY(-50%)',background:'none',border:'none',cursor:'pointer',fontSize:16,color:'#718096',padding:0}},showNewPwd?'🙈':'👁️')
             ),
@@ -233,7 +234,7 @@ function VueLoginIndex({conseillers,onSuccess}){
                 type:show?'text':'password',placeholder:'Mot de passe',value:pwd,
                 onChange:e=>setPwd(e.target.value),
                 onKeyDown:e=>e.key==='Enter'&&handleSubmit(),
-                style:{width:'100%',padding:'10px 40px 10px 14px',border:'1px solid #e2e8f0',borderRadius:8,fontSize:14,outline:'none',boxSizing:'border-box'}
+                style:{width:'100%',padding:'10px 40px 10px 14px',border:'1px solid var(--border)',borderRadius:8,fontSize:14,outline:'none',boxSizing:'border-box',background:'var(--surface)',color:'var(--text)'}
               }),
               CE('button',{onClick:()=>setShow(s=>!s),style:{position:'absolute',right:10,top:'50%',transform:'translateY(-50%)',background:'none',border:'none',cursor:'pointer',fontSize:16,color:'#718096',padding:0}},show?'🙈':'👁️')
             ),
@@ -671,7 +672,7 @@ function App(){
                   );
                 })
               ),
-              CE(VueAccueilStatic,{onChoix:handleChoixConseiller})
+              CE(VueAccueilStatic,{onChoix:handleChoixConseiller,conseillers:lists.conseillers})
             )
       ),
       CE('div',{id:'toast',className:'toast',style:{opacity:0}})

@@ -847,6 +847,10 @@ function ChoixAnnees({value,onChange,className,title}){
 window.__scriptsCharges = window.__scriptsCharges || {};
 window.chargerScriptUneFois = function(src){
   if(window.__scriptsCharges[src]) return window.__scriptsCharges[src];
+  // Déjà dans le <head> de la page, quel que soit son ?v= (NextStep charge
+  // xlsxstyle.js dans admin.html) : rien à recharger.
+  const base=src.split('?')[0];
+  if([...document.scripts].some(sc=>(sc.getAttribute('src')||'').split('?')[0]===base)) return (window.__scriptsCharges[src]=Promise.resolve());
   window.__scriptsCharges[src] = new Promise((resolve,reject)=>{
     const s=document.createElement('script');
     s.src=src;
@@ -4388,8 +4392,6 @@ function VueAgendaSemaine({entries,onEdit,onDelete,onDuplicate,canDelete,initCon
   filtered.forEach(e=>{if(slots[e.date])slots[e.date][isAM(e)?'AM':'PM'].push(e);});
 
   // ── Libellés ────────────────────────────────────────────────
-  const MOIS=['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
-  const JOURS=['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'];
   const MOIS_LONG=['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
   function fmtWeekLabel(){
     const d1=weekDays[0];const d5=weekDays[4];
@@ -4415,7 +4417,7 @@ function VueAgendaSemaine({entries,onEdit,onDelete,onDuplicate,canDelete,initCon
       key:e._id,
       onClick:()=>setSelectedEntry(e),
       style:{
-        background:'#fff',borderRadius:8,borderLeft:`4px solid ${color}`,
+        background:'var(--surface)',borderRadius:8,borderLeft:`4px solid ${color}`,
         padding:'6px 8px',marginBottom:4,cursor:'pointer',
         boxShadow:'0 1px 4px rgba(0,0,0,.09)',fontSize:11,
         transition:'box-shadow .15s, transform .12s',
@@ -4426,11 +4428,11 @@ function VueAgendaSemaine({entries,onEdit,onDelete,onDuplicate,canDelete,initCon
         CE('span',{style:{width:6,height:6,borderRadius:'50%',background:statColor,flexShrink:0,display:'inline-block'}}),
         CE('span',{style:{fontWeight:700,color,fontSize:10,flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}},e.conseiller||'—')
       ),
-      CE('div',{style:{fontWeight:600,color:'#1a202c',lineHeight:1.25,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',marginBottom:1}},
+      CE('div',{style:{fontWeight:600,color:'var(--text)',lineHeight:1.25,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',marginBottom:1}},
         e.thematique||e.commune||'—'),
-      e.commune&&e.thematique&&CE('div',{style:{color:'#718096',fontSize:10,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}},e.commune),
-      e.orienteur&&CE('div',{title:'Orienteur',style:{color:'#718096',fontSize:10,fontStyle:'italic',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}},'🤝 '+e.orienteur),
-      e.horaire&&CE('div',{style:{color:'#a0aec0',fontSize:10,marginTop:1}},e.horaire),
+      e.commune&&e.thematique&&CE('div',{style:{color:'var(--text-2)',fontSize:10,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}},e.commune),
+      e.orienteur&&CE('div',{title:'Orienteur',style:{color:'var(--text-2)',fontSize:10,fontStyle:'italic',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}},'🤝 '+e.orienteur),
+      e.horaire&&CE('div',{style:{color:'var(--text-3)',fontSize:10,marginTop:1}},e.horaire),
       retard&&CE('div',{style:{color:'#dc2626',fontSize:9,fontWeight:700,marginTop:2,animation:'blink-retard 1.4s ease-in-out infinite'}},'⚠ À mettre à jour')
     );
   }

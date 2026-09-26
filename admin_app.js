@@ -42,16 +42,8 @@ function AdminLogin({onLogin,savedName,onResetProfil,conseillers:conseillersProp
     setConseiller(c=>base.includes(c)?c:'');
   },[base.join(',')]);
 
-  // Préchargement des ateliers en parallèle de la saisie du mot de passe :
-  // getAll ne dépend pas d'un jeton, rien n'empêche de le lancer avant que
-  // checkPassword ait répondu. Sans ça, Historique attendait le plein
-  // aller-retour de checkPassword avant même de commencer son propre
-  // chargement — même défaut que celui corrigé sur l'Index, ici entre
-  // l'authentification et les données plutôt qu'entre la maintenance et les
-  // données. loadData (après connexion) réutilise ce résultat via fetchAll,
-  // qui dédoublonne : aucun getAll supplémentaire n'est déclenché.
-  // Labo : getAll exige un jeton côté API (AG-011) — plus de préchargement
-  // avant connexion, il ne ferait qu'un appel refusé.
+  // Rien n'est préchargé avant la connexion : getAll et getConfig exigent un
+  // jeton (AG-011).
 
   // Tick du countdown
   React.useEffect(()=>{
@@ -90,13 +82,15 @@ function AdminLogin({onLogin,savedName,onResetProfil,conseillers:conseillersProp
       if(res.ok){
         if((res.role||'user')!=='admin'&&(res.role||'user')!=='superviseur'){
           setErr('⛔ Accès refusé — réservé aux administrateurs.');
-          return;
+          setLoading(false);return;
         }
         setFailCount(0);setLockUntil(0);
-        window.onLoginSuccess&&window.onLoginSuccess(conseiller,res);
-        touchSession();onLogin(res.role,conseiller);
+        touchSession();
+        window.onLoginSuccess(conseiller, res);
+        onLogin(res.role||'user',conseiller);
       }else if(/Admin non autorisé/.test(res.error||'')){
-        // Interrupteur « accès Admin » coupé : le mot de passe était bon.
+        // Interrupteur « accès Admin » coupé (mode API) : le mot de passe
+        // était bon, ce n'est pas une tentative ratée.
         setErr('⛔ '+res.error+'.');
       }else{
         const nf=failCount+1;
@@ -117,7 +111,7 @@ function AdminLogin({onLogin,savedName,onResetProfil,conseillers:conseillersProp
 
   return CE('div',{className:'login-wrap'},
     CE('div',{className:'login-card'},
-      CE('h2',null,'🔐 Accès Admin NextStep'),
+      CE('h2',null,'🔐 Accès Admin '+NOM_APPLI),
       isLocked
         ? CE('div',{style:{textAlign:'center',padding:'28px 0'}},
             CE('div',{style:{fontSize:44,marginBottom:10}},'🔒'),
@@ -127,8 +121,8 @@ function AdminLogin({onLogin,savedName,onResetProfil,conseillers:conseillersProp
           )
         : CE(React.Fragment,null,
             CE('div',{style:{marginBottom:10}},
-              CE('label',{style:{fontSize:12,fontWeight:600,color:'#4a5568',display:'block',marginBottom:4}},'Conseiller'),
-              CE('select',{value:conseiller,onChange:e=>setConseiller(e.target.value),style:{width:'100%',padding:'10px 14px',border:'1px solid #e2e8f0',borderRadius:8,fontSize:14,outline:'none',boxSizing:'border-box',background:'#fff'}},
+              CE('label',{style:{fontSize:12,fontWeight:600,color:'var(--text-2)',display:'block',marginBottom:4}},'Conseiller'),
+              CE('select',{value:conseiller,onChange:e=>setConseiller(e.target.value),style:{width:'100%',padding:'10px 14px',border:'1px solid var(--border)',borderRadius:8,fontSize:14,outline:'none',boxSizing:'border-box',background:'var(--surface)',color:'var(--text)'}},
                 CE('option',{value:''},'— Choisir votre nom —'),
                 base.map(c=>CE('option',{key:c,value:c},c))
               )
@@ -138,13 +132,13 @@ function AdminLogin({onLogin,savedName,onResetProfil,conseillers:conseillersProp
                 type:show?'text':'password',placeholder:'Mot de passe',value:pwd,
                 onChange:e=>setPwd(e.target.value),
                 onKeyDown:e=>e.key==='Enter'&&handleSubmit(),
-                style:{width:'100%',padding:'10px 40px 10px 14px',border:'1px solid #e2e8f0',borderRadius:8,fontSize:14,outline:'none',boxSizing:'border-box'}
+                style:{width:'100%',padding:'10px 40px 10px 14px',border:'1px solid var(--border)',borderRadius:8,fontSize:14,outline:'none',boxSizing:'border-box',background:'var(--surface)',color:'var(--text)'}
               }),
               CE('button',{onClick:()=>setShow(s=>!s),style:{position:'absolute',right:10,top:'50%',transform:'translateY(-50%)',background:'none',border:'none',cursor:'pointer',fontSize:16,color:'#718096',padding:0}},show?'🙈':'👁️')
             ),
             err&&CE('p',{style:{color:'#c53030',fontSize:13,marginBottom:8}},err),
             hint&&!err&&CE('p',{style:{color:'#718096',fontSize:12,marginBottom:8,display:'flex',alignItems:'center',gap:6}},CE('span',{className:'spinner',style:{width:12,height:12,borderWidth:2}}),hint),
-            CE('button',{onClick:handleSubmit,disabled:loading||!conseiller||!pwd.trim(),style:{width:'100%',padding:'11px',background:'#1e3a8a',color:'#fff',border:'none',borderRadius:8,fontSize:14,fontWeight:700,cursor:loading?'progress':'pointer'}},loading?'Vérification…':'Connexion'),
+            CE('button',{onClick:handleSubmit,disabled:loading||!conseiller||!pwd.trim(),style:{width:'100%',padding:'11px',background:'#1e3a8a',color:'#fff',border:'none',borderRadius:8,fontSize:14,fontWeight:700,cursor:'pointer'}},loading?'Vérification…':'Connexion'),
             CE(LienMotDePasseOublie,{conseiller}),
             CE(MentionVersion)
           )
@@ -1126,7 +1120,7 @@ function VueLogs(){
 }
 
 // ── VueAdmin override ──────────────────────────────────────
-function VueAdminV10({entries,onRefresh,addLog,conseillersList,onSaveColors,annee,adminConseiller}){
+function VueAdminV10({entries,onRefresh,addLog,conseillersList,onSaveColors,annee,adminConseiller,initialVisibility}){
   const adminRef=React.useRef(null);
   React.useEffect(()=>{
     if(!adminRef.current)return;
@@ -1136,7 +1130,7 @@ function VueAdminV10({entries,onRefresh,addLog,conseillersList,onSaveColors,anne
       setTimeout(()=>{el.style.opacity='1';el.style.transform='translateY(0)';},i*100+30);
     });
   },[]);
-  const[visibility,setVisibility]=React.useState(null);
+  const[visibility,setVisibility]=React.useState(initialVisibility||null);
   const[visSaving,setVisSaving]=React.useState(false);
   const[colorDraft,setColorDraft]=React.useState({...CONSEILLER_COLORS});
   const[colorSaving,setColorSaving]=React.useState(false);
@@ -1147,12 +1141,14 @@ function VueAdminV10({entries,onRefresh,addLog,conseillersList,onSaveColors,anne
   const[tlRunning,setTlRunning]=React.useState(false);
   const[tlLogs,setTlLogs]=React.useState([]);
   const[lastExport,setLastExport]=React.useState(null);
+  const[icsOrienteur,setIcsOrienteur]=React.useState('');
+  const[pdfOrienteur,setPdfOrienteur]=React.useState('');
   function addTlLog(msg,type='info'){setTlLogs(l=>[...l,{msg,type,t:new Date().toLocaleTimeString('fr-FR')}]);}
   function changeMoisDeb(v){localStorage.setItem(lsKey('cal_moisDeb'),v);setMoisDeb(v);setLastExport(null);}
   function changeMoisFin(v){localStorage.setItem(lsKey('cal_moisFin'),v);setMoisFin(v);setLastExport(null);}
-  const VIS_ITEMS=[{key:'saisie',label:'✏️ Saisie',sub:'Formulaire de saisie'},{key:'historique',label:'📋 Historique',sub:'Liste des ateliers'},{key:'agenda',label:'🗓️ Agenda',sub:'Planning hebdo AM/PM'},{key:'calendrier',label:'📅 Calendrier',sub:'Vue calendrier mensuelle'},{key:'dashboard',label:'📊 Dashboard',sub:'Synthèse · Graphiques · Territoire'},{key:'carte',label:'🗺️ Carte',sub:'Carte des communes'},{key:'bingo',label:'🎯 Bingo',sub:'Vue par commune'},{key:'roadmap',label:'🛣️ Roadmap',sub:'Timeline & densité'},{key:'anomalies',label:'⚠️ Anomalies',sub:'Champs manquants & communes invalides'}];
+  const VIS_ITEMS=[{key:'saisie',label:'✏️ Saisie',sub:'Formulaire de saisie'},{key:'historique',label:'📋 Historique',sub:'Liste des ateliers'},{key:'agenda',label:'🗓️ Agenda',sub:'Planning hebdo AM/PM'},{key:'calendrier',label:'📅 Calendrier',sub:'Vue calendrier mensuelle'},{key:'dashboard',label:'📊 Dashboard',sub:'Synthèse · Graphiques · Territoire'},{key:'carte',label:'🗺️ Carte',sub:'Carte des communes'},{key:'bingo',label:'🎯 Bingo',sub:'Vue par commune'},{key:'roadmap',label:'🛣️ Roadmap',sub:'Timeline & densité'},{key:'gestion_ordi',label:'🖥️ Gestion ordi',sub:'Conflits Classe mobile & stock ordinateurs'},{key:'anomalies',label:'⚠️ Anomalies',sub:'Champs manquants & communes invalides'}];
 
-  React.useEffect(()=>{apiFetch('getVisibility').then(res=>{if(res.ok)setVisibility(res.visibility);}).catch(()=>{});},[]);
+  React.useEffect(()=>{if(initialVisibility)return;apiFetch('getVisibility').then(res=>{if(res.ok)setVisibility(res.visibility);}).catch(()=>{});},[]);
   React.useEffect(()=>{setColorDraft(d=>{const draft={...CONSEILLER_COLORS,...d};(conseillersList||[]).forEach(c=>{if(!draft[c])draft[c]='#6B7280';});return draft;});},[conseillersList]);
 
   async function handleSaveColors(){
@@ -1193,6 +1189,10 @@ function VueAdminV10({entries,onRefresh,addLog,conseillersList,onSaveColors,anne
       const cons=conseillersList||[];
       addTlLog(`→ ${cons.length} conseillers : ${cons.join(', ')}`);
       if(df.length===0)throw new Error('Aucun atelier trouvé pour cette période. Vérifiez l\'année et les mois sélectionnés.');
+      // xlsxstyle.js (414 Ko) n'est plus dans le <head> d'admin.html : il ne
+      // sert qu'ici et à l'import, deux actions sur clic. Le charger à la
+      // demande rend l'ouverture d'Admin plus légère pour tout le monde.
+      await window.chargerScriptUneFois('xlsxstyle.js?v=1');
       const wb=window.generateCalendrier(df,yr,months,cons,addTlLog);
       const outData=XLSX.write(wb,{type:'base64',bookType:'xlsx'});
       const fileName=`Calendrier_ateliers_${yr}.xlsx`;
@@ -1204,6 +1204,34 @@ function VueAdminV10({entries,onRefresh,addLog,conseillersList,onSaveColors,anne
     finally{setTlRunning(false);}
   }
 
+  // ── Export PDF partenaire ─────────────────────────────────
+  function handlePrintPDF(){
+    const filtered=(pdfOrienteur?entries.filter(e=>(e.orienteur||'').trim()===pdfOrienteur):entries).filter(e=>e.date).sort((a,b)=>String(a.date).localeCompare(String(b.date)));
+    if(!filtered.length){showToast('Aucun atelier trouvé pour ce partenaire',false);return;}
+    const title=pdfOrienteur?'Ateliers — '+pdfOrienteur:'Ateliers numériques — Tous partenaires';
+    const rows=filtered.map(e=>`<tr><td>${htmlEsc(fmtDate(e.date))}</td><td>${htmlEsc(e.horaire)}</td><td>${htmlEsc(e.statut)}</td><td>${htmlEsc(e.thematique)}</td><td>${htmlEsc(e.commune)}</td><td>${htmlEsc(e.lieu)}</td><td>${htmlEsc(e.orienteur)}</td><td>${htmlEsc(e.conseiller)}</td><td>${htmlEsc(String(e.inscrits??''))}</td><td>${htmlEsc(String(e.presents??''))}</td></tr>`).join('');
+    const html=`<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><title>${htmlEsc(title)}</title><style>body{font-family:Arial,sans-serif;font-size:10px;margin:20px;}h2{font-size:14px;color:#1e3a8a;margin-bottom:4px;}p.sub{color:#718096;font-size:9px;margin-bottom:12px;}table{width:100%;border-collapse:collapse;}th{background:#1e3a8a;color:#fff;padding:5px 7px;text-align:left;font-size:9px;}td{border:1px solid #e2e8f0;padding:4px 7px;vertical-align:top;}tr:nth-child(even) td{background:#f7fafc;}@page{margin:15mm;}</style></head><body><h2>${htmlEsc(title)}</h2><p class="sub">${filtered.length} ateliers — Imprimé le ${new Date().toLocaleDateString('fr-FR')}</p><table><thead><tr><th>Date</th><th>Horaire</th><th>Statut</th><th>Thématique</th><th>Commune</th><th>Lieu</th><th>Orienteur</th><th>Conseiller</th><th>Inscrits</th><th>Présents</th></tr></thead><tbody>${rows}</tbody></table><script>window.print();<\/script></body></html>`;
+    const w=window.open('','_blank');if(!w){showToast('Autorisez les popups pour ce site',false);return;}
+    w.document.write(html);w.document.close();
+    addLog('Export PDF partenaire "'+(pdfOrienteur||'Tous')+'" — '+filtered.length+' ateliers','ok');
+  }
+
+  // ── Export ICS partenaire ─────────────────────────────────
+  const allOrienteurs=React.useMemo(()=>[...new Set(entries.map(e=>(e.orienteur||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b)),[entries]);
+
+  function handleExportICS(){
+    const filtered=(icsOrienteur?entries.filter(e=>(e.orienteur||'').trim()===icsOrienteur):entries).filter(e=>e.date).sort((a,b)=>String(a.date).localeCompare(String(b.date)));
+    if(!filtered.length){showToast('Aucun atelier trouvé pour ce partenaire',false);return;}
+    const icsContent=buildICS(filtered);
+    const blob=new Blob([icsContent],{type:'text/calendar;charset=utf-8'});
+    const url=URL.createObjectURL(blob);
+    const safeName=(icsOrienteur||'Tous_partenaires').replace(/[^a-zA-Z0-9_\-]/g,'_');
+    const a=document.createElement('a');a.href=url;a.download='Ateliers_'+safeName+'.ics';document.body.appendChild(a);a.click();document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast('✅ Calendrier "'+(icsOrienteur||'tous partenaires')+'" téléchargé ('+filtered.length+' ateliers)');
+    addLog('Export ICS partenaire "'+(icsOrienteur||'Tous')+'" — '+filtered.length+' ateliers','ok');
+  }
+
   const[maintenanceOn,setMaintenanceOn]=React.useState(false);
   const[maintenanceMsg,setMaintenanceMsg]=React.useState('');
   const[maintenanceSaving,setMaintenanceSaving]=React.useState(false);
@@ -1211,7 +1239,7 @@ function VueAdminV10({entries,onRefresh,addLog,conseillersList,onSaveColors,anne
   const[stockOrdiDraft,setStockOrdiDraft]=React.useState(STOCK_ORDINATEURS);
   const[stockOrdiSaving,setStockOrdiSaving]=React.useState(false);
   React.useEffect(()=>{
-    apiFetch('getConfig').then(res=>{
+    fetchConfig().then(res=>{
       if(res.ok&&res.config){
         setMaintenanceOn(res.config['maintenance']==='true');setMaintenanceMsg(res.config['maintenance_msg']||'');
         if(res.config['stock_ordinateurs'])setStockOrdiDraft(parseInt(res.config['stock_ordinateurs'])||STOCK_ORDINATEURS);
@@ -1219,17 +1247,6 @@ function VueAdminV10({entries,onRefresh,addLog,conseillersList,onSaveColors,anne
       setMaintenanceLoaded(true);
     }).catch(()=>setMaintenanceLoaded(true));
   },[]);
-  async function handleSaveMaintenance(newState){
-    setMaintenanceSaving(true);
-    try{
-      await apiFetch('setConfig',{key:'maintenance',value:String(newState)});
-      await apiFetch('setConfig',{key:'maintenance_msg',value:maintenanceMsg});
-      setMaintenanceOn(newState);
-      showToast(newState?'🔧 Maintenance activée':'✅ Application remise en ligne');
-      addLog('Maintenance '+(newState?'activée':'désactivée'),'ok');
-    }catch(err){showToast('❌ '+err.message,false);}
-    finally{setMaintenanceSaving(false);}
-  }
   async function handleSaveStockOrdi(){
     const n=parseInt(stockOrdiDraft);
     if(!n||n<1){showToast('⚠️ Nombre invalide',false);return;}
@@ -1241,6 +1258,17 @@ function VueAdminV10({entries,onRefresh,addLog,conseillersList,onSaveColors,anne
       addLog('Stock ordinateurs → '+n,'ok');
     }catch(err){showToast('❌ '+err.message,false);}
     finally{setStockOrdiSaving(false);}
+  }
+  async function handleSaveMaintenance(newState){
+    setMaintenanceSaving(true);
+    try{
+      await apiFetch('setConfig',{key:'maintenance',value:String(newState)});
+      await apiFetch('setConfig',{key:'maintenance_msg',value:maintenanceMsg});
+      setMaintenanceOn(newState);
+      showToast(newState?'🔧 Maintenance activée':'✅ Application remise en ligne');
+      addLog('Maintenance '+(newState?'activée':'désactivée'),'ok');
+    }catch(err){showToast('❌ '+err.message,false);}
+    finally{setMaintenanceSaving(false);}
   }
   const STATUT_COLOR={'Planifié':'#9683EC','Réalisé':'#70AD47','Annulé':'#FF5050','Non réalisé':'#FFC000','Reporté':'#ED7D31'};
 
@@ -1275,15 +1303,6 @@ function VueAdminV10({entries,onRefresh,addLog,conseillersList,onSaveColors,anne
         CE('button',{className:'btn btn-primary',style:{marginTop:16},onClick:handleSaveVisibility,disabled:visSaving},visSaving?'…':'💾 Enregistrer la visibilité')
       ),
 
-      CE('div',{className:'admin-section'},
-        CE('h3',null,'🖥️ Stock ordinateurs'),
-        CE('p',{style:{fontSize:12,color:'#4a5568',marginBottom:16}},"Nombre d'ordinateurs disponibles pour le prêt aux participants — utilisé par la Frise du parc et les conflits de stock (Anomalies BDD)."),
-        CE('div',{style:{display:'flex',alignItems:'center',gap:10}},
-          CE('input',{type:'number',min:1,value:stockOrdiDraft,onChange:e=>setStockOrdiDraft(e.target.value),style:{width:90,padding:'8px 12px',border:'1.5px solid #e2e8f0',borderRadius:8,fontSize:14,fontWeight:700,textAlign:'center'}}),
-          CE('button',{onClick:handleSaveStockOrdi,disabled:stockOrdiSaving,style:{padding:'8px 16px',background:'#1e3a8a',color:'#fff',border:'none',borderRadius:6,fontSize:12,fontWeight:600,cursor:'pointer'}},stockOrdiSaving?'…':'💾 Enregistrer')
-        )
-      ),
-
       CE('div',{className:'admin-section',style:{border:'2px solid '+(maintenanceOn?'#dc2626':'#e2e8f0'),background:maintenanceOn?'#fff5f5':'#fff'}},
         CE('h3',null,'🔧 Mode Maintenance'),
         CE('p',{style:{fontSize:12,color:'#4a5568',marginBottom:16}},"Activez pour bloquer l'accès à l'interface conseiller."),
@@ -1303,6 +1322,15 @@ function VueAdminV10({entries,onRefresh,addLog,conseillersList,onSaveColors,anne
             CE('input',{type:'text',value:maintenanceMsg,onChange:e=>setMaintenanceMsg(e.target.value),placeholder:'Ex: Retour dans 10 minutes.',style:{width:'100%',padding:'8px 12px',border:'1.5px solid #e2e8f0',borderRadius:8,fontSize:13,boxSizing:'border-box'}}),
             CE('button',{onClick:()=>handleSaveMaintenance(maintenanceOn),disabled:maintenanceSaving,style:{marginTop:8,padding:'6px 16px',background:'#1e3a8a',color:'#fff',border:'none',borderRadius:6,fontSize:12,fontWeight:600,cursor:'pointer'}},maintenanceSaving?'…':'💾 Sauver le message')
           )
+        )
+      ),
+
+      CE('div',{className:'admin-section'},
+        CE('h3',null,'🖥️ Stock ordinateurs'),
+        CE('p',{style:{fontSize:12,color:'#4a5568',marginBottom:16}},"Nombre d'ordinateurs disponibles pour le prêt aux participants — utilisé par l'onglet Gestion ordi pour détecter les dépassements de stock."),
+        CE('div',{style:{display:'flex',alignItems:'center',gap:10}},
+          CE('input',{type:'number',min:1,value:stockOrdiDraft,onChange:e=>setStockOrdiDraft(e.target.value),style:{width:90,padding:'8px 12px',border:'1.5px solid #e2e8f0',borderRadius:8,fontSize:14,fontWeight:700,textAlign:'center'}}),
+          CE('button',{onClick:handleSaveStockOrdi,disabled:stockOrdiSaving,style:{padding:'8px 16px',background:'#1e3a8a',color:'#fff',border:'none',borderRadius:6,fontSize:12,fontWeight:600,cursor:'pointer'}},stockOrdiSaving?'…':'💾 Enregistrer')
         )
       ),
       CE('div',{className:'admin-section'},
@@ -1327,6 +1355,38 @@ function VueAdminV10({entries,onRefresh,addLog,conseillersList,onSaveColors,anne
         lastExport&&CE('div',{style:{marginTop:10,padding:'10px 14px',background:'#f0fff4',border:'1px solid #9ae6b4',borderRadius:8,display:'flex',alignItems:'center',gap:10,fontSize:13}},
           CE('span',null,'📎 Si le téléchargement ne s\'est pas lancé :'),
           CE('a',{href:lastExport.url,download:lastExport.name,style:{color:'#276749',fontWeight:700,textDecoration:'underline'}},lastExport.name)
+        )
+      ),
+      CE('div',{className:'admin-section'},
+        CE('h3',null,'📆 Export Partenaire (.ics)'),
+        CE('p',{style:{fontSize:12,color:'#4a5568',marginBottom:14}},'Génère un fichier calendrier (.ics) importable dans Google Calendar, Outlook ou Apple Calendar.'),
+        CE('div',{style:{display:'flex',gap:12,alignItems:'flex-end',flexWrap:'wrap',marginBottom:12}},
+          CE('div',{style:{flex:1,minWidth:200}},
+            CE('label',{style:{display:'block',fontSize:12,fontWeight:600,color:'#4a5568',marginBottom:4}},'Partenaire (orienteur)'),
+            CE('select',{value:icsOrienteur,onChange:e=>setIcsOrienteur(e.target.value),style:{width:'100%',padding:'8px 10px',border:'1.5px solid #e2e8f0',borderRadius:8,fontSize:13}},
+              CE('option',{value:''},'— Tous les partenaires —'),
+              allOrienteurs.map(o=>CE('option',{key:o,value:o},o))
+            )
+          ),
+          CE('button',{className:'btn btn-primary',onClick:handleExportICS,disabled:!entries.filter(e=>e.date).length,style:{whiteSpace:'nowrap'}},'📥 Télécharger .ics')
+        ),
+        CE('div',{style:{fontSize:12,color:'#718096',background:'#f7fafc',border:'1px solid #e2e8f0',borderRadius:8,padding:'8px 12px'}},
+          CE('span',{style:{fontWeight:600}},'Comment utiliser : '),
+          'Google Calendar → Autres agendas → Importer. Outlook → Fichier → Ouvrir. Apple Calendar → double-clic sur le fichier.'
+        )
+      ),
+      CE('div',{className:'admin-section'},
+        CE('h3',null,'🖨️ Export Partenaire (PDF)'),
+        CE('p',{style:{fontSize:12,color:'#4a5568',marginBottom:14}},'Génère une fiche imprimable avec le listing des ateliers par partenaire. Ouvre une fenêtre d\'impression.'),
+        CE('div',{style:{display:'flex',gap:12,alignItems:'flex-end',flexWrap:'wrap',marginBottom:12}},
+          CE('div',{style:{flex:1,minWidth:200}},
+            CE('label',{style:{display:'block',fontSize:12,fontWeight:600,color:'#4a5568',marginBottom:4}},'Partenaire (orienteur)'),
+            CE('select',{value:pdfOrienteur,onChange:e=>setPdfOrienteur(e.target.value),style:{width:'100%',padding:'8px 10px',border:'1.5px solid #e2e8f0',borderRadius:8,fontSize:13}},
+              CE('option',{value:''},'— Tous les partenaires —'),
+              allOrienteurs.map(o=>CE('option',{key:o,value:o},o))
+            )
+          ),
+          CE('button',{className:'btn btn-danger',onClick:handlePrintPDF,disabled:!entries.filter(e=>e.date).length,style:{whiteSpace:'nowrap'}},'🖨️ Imprimer / PDF')
         )
       ),
       CE(ChangerMotDePasse,{adminConseiller}),

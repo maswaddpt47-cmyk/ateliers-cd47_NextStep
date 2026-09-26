@@ -291,6 +291,9 @@ if (typeof window !== 'undefined') window.suppressionAboutie = suppressionAbouti
 // thème, l'année filtrée, le minuteur d'inactivité et le cache d'ateliers.
 // Toute clé de stockage passe désormais par lsKey().
 const APP_NS = 'nextstep';
+// Nom affiché dans les titres (connexion, accueil) : le code des écrans est
+// identique dans les deux applis, seul APP_NS les distingue.
+const NOM_APPLI = APP_NS === 'newgen' ? 'NewGen' : 'NextStep';
 function lsKey(k) { return APP_NS + ':' + k; }
 
 // Migration unique depuis les clés d'avant le cloisonnement, pour ne pas
