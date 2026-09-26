@@ -411,7 +411,7 @@ test('cycle — réponse perdue mais ateliers dans la feuille : succès affiché
   await page.locator('input[placeholder="Thème de la séance"]').first().fill('TBD');
 
   await page.getByText(/💾 Créer \d+ atelier/).click();
-  await expect(page.getByText(/confirmé dans le classeur/)).toBeVisible({ timeout:10000 });
+  await expect(page.getByText(/confirmé après vérification/)).toBeVisible({ timeout:10000 });
   expect(lots.length, 'un seul envoi : aucun second clic nécessaire').toBe(1);
   expect(verifs).toBe(1);
 });
