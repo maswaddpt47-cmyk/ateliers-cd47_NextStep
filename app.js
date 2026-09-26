@@ -295,7 +295,9 @@ function App(){
     // Labo : getComptes public rend les noms (sans état) et la maintenance.
     apiFetch('getComptes').then(res=>{
       if(!res.ok||!res.comptes) return;
-      const noms=res.comptes.map(c=>c.conseiller).filter(Boolean);
+      // Superviseurs absents d'Index : l'API les écarte déjà ; ce filtre couvre
+      // le cas d'une session admin encore ouverte (liste complète, avec rôle).
+      const noms=res.comptes.filter(c=>c.role!=='superviseur').map(c=>c.conseiller).filter(Boolean);
       if(noms.length>0) setLoginConseillers(noms);
       if(res.maintenance) setMaintenance({msg:res.maintenance_msg||''});
     }).catch(()=>{});
