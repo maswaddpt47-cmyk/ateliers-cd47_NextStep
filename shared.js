@@ -2172,6 +2172,137 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
 }
 
 // ═══════════════════════════════════════════════════════════
+// PANNEAU ATELIER — volet latéral commun (Historique, Calendrier, Agenda)
+// Extrait le 26/09/2026 : il existait en deux copies, et l'Agenda en
+// demandait une troisième (demande de l'utilisateur).
+// ═══════════════════════════════════════════════════════════
+function PanneauAtelier({panel,onClose,entries,onEntryUpdated,onRefresh,onEdit,onDuplicate,canDelete,onAskDelete}){
+  const[panelStatut,setPanelStatut]=React.useState('');
+  const[panelInscrits,setPanelInscrits]=React.useState('');
+  const[panelPresents,setPanelPresents]=React.useState('');
+  const[panelThematique,setPanelThematique]=React.useState('');
+  const[panelDate,setPanelDate]=React.useState('');
+  const[panelHoraire,setPanelHoraire]=React.useState('');
+  const[panelNbOrdi,setPanelNbOrdi]=React.useState('');
+  const[panelPublic,setPanelPublic]=React.useState('');
+  const[panelMobile,setPanelMobile]=React.useState(false);
+  const[panelPrelev,setPanelPrelev]=React.useState('');
+  const[panelRetour,setPanelRetour]=React.useState('');
+  const[panelNote,setPanelNote]=React.useState('');
+  const[saving,setSaving]=React.useState(false);
+  // Réinitialise les champs à chaque atelier ouvert (ce que faisait openPanel).
+  React.useEffect(()=>{if(!panel)return;const e=panel;setPanelStatut(e.statut);setPanelInscrits(e.inscrits===undefined||e.inscrits===''?'':String(e.inscrits));setPanelPresents(e.presents===undefined||e.presents===''?'':String(e.presents));setPanelThematique(e.thematique||'');setPanelNote(e.remarques||'');setPanelDate(normalizeDate(e.date)||'');setPanelHoraire(normalizeHoraire(e.horaire)||'');setPanelNbOrdi(e.nb_ordinateurs===undefined||e.nb_ordinateurs===''||e.nb_ordinateurs===null?'':String(e.nb_ordinateurs));setPanelPublic(e.public||'');setPanelMobile(matIncludes(e.materiel,'Classe mobile'));setPanelPrelev(normalizeDate(e.date_prelevement_materiel)||'');setPanelRetour(normalizeDate(e.date_retour_materiel)||'');},[panel]);
+  const closePanel=onClose;
+  async function savePanel(){
+    if(!panel)return;if(!panelDate){showToast('❌ Date requise',false);return;}if(panelMobile&&!(parseInt(panelNbOrdi)>0)){showToast('❌ Ordinateurs prêtés requis avec la Classe mobile',false);return;}setSaving(true);
+    try{
+      const updated={...panel,statut:panelStatut,inscrits:panelInscrits===''?'':parseInt(panelInscrits)||0,presents:panelPresents===''?'':parseInt(panelPresents)||0,thematique:panelThematique,date:panelDate,horaire:panelHoraire,ampm:panelHoraire!==(normalizeHoraire(panel.horaire)||'')?(ampmDepuisHoraire(panelHoraire)||panel.ampm):panel.ampm,public:panelPublic,nb_ordinateurs:panelMobile?(panelNbOrdi===''?'':parseInt(panelNbOrdi)||0):'',date_prelevement_materiel:panelMobile?panelPrelev:'',date_retour_materiel:panelMobile?panelRetour:'',remarques:panelNote,materiel:matierePanneau(panel,panelMobile).join('|')};
+      const res=await apiFetch('saveEntry',{entry:updated});
+      if(!res.ok)throw new Error(res.error);
+      showToast('✅ Mis à jour');closePanel();
+      // GAS vient de confirmer l'écriture : relancer un getAll complet pour
+      // relire ce qu'on a écrit soi-même faisait payer deux allers-retours au
+      // lieu d'un, et le second au pire tarif (actionSaveEntry invalide le
+      // cache getAll juste avant, donc la relecture repart de la feuille).
+      // On applique la même entrée localement, comme le fait déjà la création
+      // d'atelier. `materiel` repart en tableau, et c'est celui qui vient
+      // d'être enregistré (case Classe mobile comprise) — panel.materiel, qui
+      // servait ici, réaffichait l'ancien jusqu'au rechargement (26/09/2026).
+      // Le prochain rechargement réel (auto 5 min, changement d'année, bouton
+      // Rafraîchir) resynchronise avec la feuille.
+      // onEntryUpdated (NEWGEN) ou, à défaut, entreeSauvegardee (les deux applis).
+      const loc={...updated,materiel:matierePanneau(panel,panelMobile)};
+      if(onEntryUpdated) onEntryUpdated(loc); else entreeSauvegardee(loc,onRefresh);
+    }catch(err){showToast('❌ '+err.message,false);}
+    finally{setSaving(false);}
+  }
+  return CE(React.Fragment,null,
+    panel&&CE('div',{className:'side-panel-overlay',onClick:closePanel}),
+    CE('div',{className:'side-panel'+(panel?' open':'')},
+      panel&&CE(React.Fragment,null,
+        CE('div',{className:'side-panel-header'},
+          CE('h3',null,'Détail / Mise à jour'),
+          CE('button',{onClick:closePanel,style:{background:'none',border:'none',fontSize:18,cursor:'pointer',color:'#718096'}},'✕')
+        ),
+        CE('div',{className:'side-panel-body'},
+          // v9.0 : Flux de clôture rapide — toujours visible
+          CE('div',{className:'cloture-banner',style:{background:isRetard(panel)?'#fffbeb':'#f0f4ff',borderColor:isRetard(panel)?'#fcd34d':'#bfdbfe'}},
+            CE('div',{className:'cloture-title',style:{color:isRetard(panel)?'#92400e':'#1e3a8a'}},isRetard(panel)?'⚠️ Atelier passé — à clôturer':'⚡ Changement rapide de statut'),
+            CE('div',{className:'cloture-btns'},
+              CLOTURE_PRESETS.map(p=>CE('button',{key:p.statut,className:'cloture-btn',style:{background:p.bg,color:p.color,outline:panelStatut===p.statut?'2px solid #1e3a8a':'none'},onClick:()=>setPanelStatut(p.statut)},p.label))
+            )
+          ),
+          CE('div',{style:{fontSize:13,fontWeight:700,color:'#1a202c',marginBottom:8}},panel.thematique),
+          CE('div',{className:'sp-info-row'},CE('span',null,'Commune'),CE('span',null,panel.commune)),
+          CE('div',{className:'sp-info-row'},CE('span',null,'Lieu'),CE('span',null,panel.lieu)),
+          panel.orienteur&&CE('div',{className:'sp-info-row'},CE('span',null,'Orienteur'),CE('span',null,panel.orienteur)),
+          CE('div',{className:'sp-info-row'},CE('span',null,'Conseiller'),CE('span',{style:{color:conseillerColor(panel.conseiller),fontWeight:700}},panel.conseiller)),panel.co_animateur&&CE('div',{className:'sp-info-row'},CE('span',null,'Co-animateur'),CE('span',{style:{color:conseillerColor(panel.co_animateur),fontWeight:700}},panel.co_animateur)),
+          panel.materiel&&panel.materiel.length>0&&CE('div',{style:{marginTop:10,marginBottom:4}},
+            CE('div',{style:{fontSize:11,fontWeight:700,color:'#718096',marginBottom:4}},'MATÉRIEL'),
+            panel.materiel.map(m=>CE('span',{key:m,className:'mat-chip'},m))
+          ),
+          CE('hr',{style:{border:'none',borderTop:'1px solid #e2e8f0',margin:'12px 0'}}),
+          CE('div',{className:'sp-field'},CE('label',null,'Statut *'),
+            CE('select',{value:panelStatut,onChange:e=>setPanelStatut(e.target.value),style:{width:'100%',padding:'8px 10px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:13}},
+              STATUTS.map(s=>CE('option',{key:s,value:s},s)))),
+          CE('div',{className:'sp-field'},CE('label',null,"Nombre d'inscrits"),
+            CE('input',{type:'number',min:0,value:panelInscrits,onChange:e=>setPanelInscrits(e.target.value),style:{width:'100%',padding:'8px 10px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:13},placeholder:'0'})),
+          CE('div',{className:'sp-field'},CE('label',null,'Nombre de présents'),
+            CE('input',{type:'number',min:0,value:panelPresents,onChange:e=>setPanelPresents(e.target.value),style:{width:'100%',padding:'8px 10px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:13},placeholder:'0'})),
+          // Modifiables ici depuis le 26/09/2026 (demande de l'utilisateur) :
+          // date, horaire (AM/PM recalculé s'il change), public, ordinateurs ;
+          // thématique en auto-proposition comme dans le formulaire.
+          CE('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}},
+            CE('div',{className:'sp-field'},CE('label',null,'Date *'),
+              CE('input',{type:'date',value:panelDate,onChange:e=>setPanelDate(e.target.value),style:{width:'100%',padding:'8px 10px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:13}})),
+            CE('div',{className:'sp-field'},CE('label',null,'Horaire'),
+              CE('input',{type:'time',value:panelHoraire,onChange:e=>setPanelHoraire(e.target.value),style:{width:'100%',padding:'8px 10px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:13}}))),
+          CE('div',{className:'sp-field'},CE('label',null,'Type de public'),
+            CE('select',{value:panelPublic,onChange:e=>setPanelPublic(e.target.value),style:{width:'100%',padding:'8px 10px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:13}},
+              CE('option',{value:''},'—'),
+              [...PUBLICS,...(panelPublic&&!PUBLICS.includes(panelPublic)?[panelPublic]:[])].map(x=>CE('option',{key:x,value:x},x)))),
+          // Classe mobile : case comme dans le formulaire ; le nombre
+          // d'ordinateurs n'apparaît (et ne compte) que si elle est cochée.
+          CE('label',{style:{display:'flex',alignItems:'center',justifyContent:'flex-start',gap:8,fontSize:13,fontWeight:600,cursor:'pointer',margin:'4px 0',width:'auto'}},
+            CE('input',{type:'checkbox',checked:panelMobile,onChange:e=>setPanelMobile(e.target.checked),style:{width:18,height:18,margin:0,flex:'none'}}),CE('span',null,'Classe mobile')),
+          panelMobile&&CE('div',{className:'sp-field'},CE('label',null,"Ordinateurs prêtés *"),
+            CE('input',{type:'number',min:1,max:10,value:panelNbOrdi,onChange:e=>setPanelNbOrdi(e.target.value),style:{width:'100%',padding:'8px 10px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:13},placeholder:'Ex : 4'})),
+          // Facultatives, comme dans le formulaire : sans elles le prêt ne
+          // couvre que le jour de l'atelier (periodePretMateriel).
+          panelMobile&&CE('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}},
+            CE('div',{className:'sp-field'},CE('label',null,'Prélèvement ordi'),
+              CE('input',{type:'date',value:panelPrelev,onChange:e=>setPanelPrelev(e.target.value),style:{width:'100%',padding:'8px 10px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:13}})),
+            CE('div',{className:'sp-field'},CE('label',null,'Retour ordi'),
+              CE('input',{type:'date',value:panelRetour,onChange:e=>setPanelRetour(e.target.value),style:{width:'100%',padding:'8px 10px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:13}}))),
+          parseInt(panel.nb_ordinateurs)>0&&(panel.date_prelevement_materiel||panel.date_retour_materiel)&&CE('div',{className:'sp-info-row'},CE('span',null,'Période de prêt'),CE('span',null,fmtPeriode(periodePretMateriel(panel).debut,periodePretMateriel(panel).fin))),
+          // Conflit de matériel si l'on enregistre (26/09/2026) : même contrôle
+          // que l'onglet Anomalies, sur l'atelier tel qu'il sera enregistré.
+          (()=>{const c=typeof conflitsDeLEntree==='function'?conflitsDeLEntree(entries,{...panel,date:panelDate,horaire:panelHoraire,ampm:panelHoraire!==(normalizeHoraire(panel.horaire)||'')?(ampmDepuisHoraire(panelHoraire)||panel.ampm):panel.ampm,materiel:matierePanneau(panel,panelMobile),nb_ordinateurs:panelMobile?(panelNbOrdi===''?'':parseInt(panelNbOrdi)||0):'',date_prelevement_materiel:panelMobile?panelPrelev:'',date_retour_materiel:panelMobile?panelRetour:''},typeof findOrdinateursConflicts==='function'?findOrdinateursConflicts:null,typeof findMobileClassConflicts==='function'?findMobileClassConflicts:null):{ordi:[],mobile:[]};
+            if(!c.ordi.length&&!c.mobile.length)return null;
+            return CE('div',{style:{background:'#fff7ed',border:'1px solid #fed7aa',borderRadius:8,padding:'8px 10px',fontSize:12,color:'#9a3412',display:'flex',flexDirection:'column',gap:4}},
+              CE('strong',null,'⚠️ Conflit de matériel si vous enregistrez :'),
+              c.ordi.map(g=>CE('div',{key:'o'+g.date},'🖥️ '+fmtPeriode(g.date,g.dateFin)+' : '+g.total+' ordinateurs demandés sur '+STOCK_ORDINATEURS+' en stock')),
+              c.mobile.map(g=>CE('div',{key:'m'+g.date},'📦 '+fmtDate(g.date)+' : Classe mobile aussi réservée par '+[...new Set(g.entries.filter(x=>x._id!==panel._id).map(x=>x.conseiller))].join(', '))),
+              CE('div',{style:{color:'#6b7280'}},'Enregistrement possible : à régler ensuite dans Gestion ordi ou Anomalies.'));})(),
+          CE('div',{className:'sp-field'},CE('label',null,'Thématique'),
+            CE(ComboThematique,{value:panelThematique,onChange:setPanelThematique,entries:entries})),
+          CE('div',{className:'sp-field'},CE('label',null,'Remarques'),
+            CE('textarea',{value:panelNote,onChange:e=>setPanelNote(e.target.value),rows:3,placeholder:'Ajouter une note…',style:{width:'100%',padding:'8px 10px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:13,resize:'vertical'}}))
+        ),
+        CE('div',{className:'side-panel-footer',style:{flexDirection:'column',gap:8}},
+          CE('button',{className:'btn btn-primary',style:{width:'100%',padding:'12px',fontSize:15,fontWeight:700,background:'#16a34a',borderColor:'#16a34a'},onClick:savePanel,disabled:saving},saving?'…':'💾 Enregistrer'),
+          CE('div',{style:{display:'flex',gap:6}},
+            canDelete&&onAskDelete&&CE('button',{className:'btn btn-danger btn-sm',onClick:()=>{onAskDelete(panel);closePanel();}},'Supprimer'),
+            onDuplicate&&CE('button',{className:'btn btn-secondary btn-sm',style:{background:'#eff6ff',color:'#1d4ed8',border:'1px solid #bfdbfe'},onClick:()=>{onDuplicate(panel);closePanel();}},'📋 Dupliquer'),
+            CE('button',{className:'btn btn-secondary btn-sm',style:{flex:1},onClick:()=>{onEdit(panel._id);closePanel();}},'Éditer complet')
+          )
+        )
+      )
+    )
+  );
+}
+
+// ═══════════════════════════════════════════════════════════
 // VUE HISTORIQUE — v9.0 : duplication + flux de clôture
 // ═══════════════════════════════════════════════════════════
 function VueHistorique({entries,onEdit,onDelete,onRefresh,onDuplicate,initConseiller,onResetConseiller,canDelete,onChangeConseiller}){
@@ -2188,11 +2319,11 @@ function VueHistorique({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
   const[dateFrom,setDateFrom]=React.useState('');
   const[dateTo,setDateTo]=React.useState('');
   const[panel,setPanel]=React.useState(null);
-  const[panelStatut,setPanelStatut]=React.useState('');
-  const[panelInscrits,setPanelInscrits]=React.useState('');
-  const[panelPresents,setPanelPresents]=React.useState('');
-  const[panelThematique,setPanelThematique]=React.useState('');const[panelDate,setPanelDate]=React.useState('');const[panelHoraire,setPanelHoraire]=React.useState('');const[panelNbOrdi,setPanelNbOrdi]=React.useState('');const[panelPublic,setPanelPublic]=React.useState('');const[panelMobile,setPanelMobile]=React.useState(false);const[panelPrelev,setPanelPrelev]=React.useState('');const[panelRetour,setPanelRetour]=React.useState('');
-  const[panelNote,setPanelNote]=React.useState('');
+  
+  
+  
+  
+  
   const[saving,setSaving]=React.useState(false);
   const[confirmDel,setConfirmDel]=React.useState(null);
   const[suppressionEnCours,setSuppressionEnCours]=React.useState(false);
@@ -2244,19 +2375,9 @@ function VueHistorique({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
   const kpi=React.useMemo(()=>kpiHistorique(sansStatut),[sansStatut]);
   const nRetard=entries.filter(e=>isRetard(e)&&(filtConseiller==='Tous'||e.conseiller===filtConseiller)).length;
 
-  function openPanel(e){setPanel(e);setPanelStatut(e.statut);setPanelInscrits(e.inscrits===undefined||e.inscrits===''?'':String(e.inscrits));setPanelPresents(e.presents===undefined||e.presents===''?'':String(e.presents));setPanelThematique(e.thematique||'');setPanelNote(e.remarques||'');setPanelDate(normalizeDate(e.date)||'');setPanelHoraire(normalizeHoraire(e.horaire)||'');setPanelNbOrdi(e.nb_ordinateurs===undefined||e.nb_ordinateurs===''||e.nb_ordinateurs===null?'':String(e.nb_ordinateurs));setPanelPublic(e.public||'');setPanelMobile(matIncludes(e.materiel,'Classe mobile'));setPanelPrelev(normalizeDate(e.date_prelevement_materiel)||'');setPanelRetour(normalizeDate(e.date_retour_materiel)||'');}
+  function openPanel(e){setPanel(e);}
   function closePanel(){setPanel(null);}
 
-  async function savePanel(){
-    if(!panel)return;if(!panelDate){showToast('❌ Date requise',false);return;}if(panelMobile&&!(parseInt(panelNbOrdi)>0)){showToast('❌ Ordinateurs prêtés requis avec la Classe mobile',false);return;}setSaving(true);
-    try{
-      const updated={...panel,statut:panelStatut,inscrits:panelInscrits===''?'':parseInt(panelInscrits)||0,presents:panelPresents===''?'':parseInt(panelPresents)||0,thematique:panelThematique,date:panelDate,horaire:panelHoraire,ampm:panelHoraire!==(normalizeHoraire(panel.horaire)||'')?(ampmDepuisHoraire(panelHoraire)||panel.ampm):panel.ampm,public:panelPublic,materiel:matierePanneau(panel,panelMobile),nb_ordinateurs:panelMobile?(panelNbOrdi===''?'':parseInt(panelNbOrdi)||0):'',date_prelevement_materiel:panelMobile?panelPrelev:'',date_retour_materiel:panelMobile?panelRetour:'',remarques:panelNote};
-      const res=await apiFetch('saveEntry',{entry:updated});
-      if(!res.ok)throw new Error(res.error);
-      showToast('✅ Mis à jour');closePanel();entreeSauvegardee(updated, onRefresh);
-    }catch(err){showToast('❌ '+err.message,false);}
-    finally{setSaving(false);}
-  }
 
   function resetFiltres(){setSearch('');setDSearch('');setFiltStatut('Planifié');setFiltMois('Tous');setFiltCommune('Toutes');setFiltConseiller('Tous');setFiltPublic([]);setDateFrom('');setDateTo('');window._newIdsFilter=null;if(onResetConseiller)onResetConseiller();}
 
@@ -2395,88 +2516,7 @@ function VueHistorique({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
       ));
     })),
     // Side panel overlay
-    panel&&CE('div',{className:'side-panel-overlay',onClick:closePanel}),
-    CE('div',{className:'side-panel'+(panel?' open':'')},
-      panel&&CE(React.Fragment,null,
-        CE('div',{className:'side-panel-header'},
-          CE('h3',null,'Détail / Mise à jour'),
-          CE('button',{onClick:closePanel,style:{background:'none',border:'none',fontSize:18,cursor:'pointer',color:'#718096'}},'✕')
-        ),
-        CE('div',{className:'side-panel-body'},
-          // v9.0 : Flux de clôture rapide — toujours visible
-          CE('div',{className:'cloture-banner',style:{background:isRetard(panel)?'#fffbeb':'#f0f4ff',borderColor:isRetard(panel)?'#fcd34d':'#bfdbfe'}},
-            CE('div',{className:'cloture-title',style:{color:isRetard(panel)?'#92400e':'#1e3a8a'}},isRetard(panel)?'⚠️ Atelier passé — à clôturer':'⚡ Changement rapide de statut'),
-            CE('div',{className:'cloture-btns'},
-              CLOTURE_PRESETS.map(p=>CE('button',{key:p.statut,className:'cloture-btn',style:{background:p.bg,color:p.color,outline:panelStatut===p.statut?'2px solid #1e3a8a':'none'},onClick:()=>setPanelStatut(p.statut)},p.label))
-            )
-          ),
-          CE('div',{style:{fontSize:13,fontWeight:700,color:'#1a202c',marginBottom:8}},panel.thematique),
-          CE('div',{className:'sp-info-row'},CE('span',null,'Commune'),CE('span',null,panel.commune)),
-          CE('div',{className:'sp-info-row'},CE('span',null,'Lieu'),CE('span',null,panel.lieu)),
-          panel.orienteur&&CE('div',{className:'sp-info-row'},CE('span',null,'Orienteur'),CE('span',null,panel.orienteur)),
-          CE('div',{className:'sp-info-row'},CE('span',null,'Conseiller'),CE('span',{style:{color:conseillerColor(panel.conseiller),fontWeight:700}},panel.conseiller)),panel.co_animateur&&CE('div',{className:'sp-info-row'},CE('span',null,'Co-animateur'),CE('span',{style:{color:conseillerColor(panel.co_animateur),fontWeight:700}},panel.co_animateur)),
-          panel.materiel&&panel.materiel.length>0&&CE('div',{style:{marginTop:10,marginBottom:4}},
-            CE('div',{style:{fontSize:11,fontWeight:700,color:'#718096',marginBottom:4}},'MATÉRIEL'),
-            panel.materiel.map(m=>CE('span',{key:m,className:'mat-chip'},m))
-          ),
-          CE('hr',{style:{border:'none',borderTop:'1px solid #e2e8f0',margin:'12px 0'}}),
-          CE('div',{className:'sp-field'},CE('label',null,'Statut *'),
-            CE('select',{value:panelStatut,onChange:e=>setPanelStatut(e.target.value),style:{width:'100%',padding:'8px 10px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:13}},
-              STATUTS.map(s=>CE('option',{key:s,value:s},s)))),
-          CE('div',{className:'sp-field'},CE('label',null,"Nombre d'inscrits"),
-            CE('input',{type:'number',min:0,value:panelInscrits,onChange:e=>setPanelInscrits(e.target.value),style:{width:'100%',padding:'8px 10px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:13},placeholder:'0'})),
-          CE('div',{className:'sp-field'},CE('label',null,'Nombre de présents'),
-            CE('input',{type:'number',min:0,value:panelPresents,onChange:e=>setPanelPresents(e.target.value),style:{width:'100%',padding:'8px 10px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:13},placeholder:'0'})),
-          // Modifiables ici depuis le 26/09/2026 (demande de l'utilisateur) :
-          // date, horaire (AM/PM recalculé s'il change), public, ordinateurs ;
-          // thématique en auto-proposition comme dans le formulaire.
-          CE('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}},
-            CE('div',{className:'sp-field'},CE('label',null,'Date *'),
-              CE('input',{type:'date',value:panelDate,onChange:e=>setPanelDate(e.target.value),style:{width:'100%',padding:'8px 10px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:13}})),
-            CE('div',{className:'sp-field'},CE('label',null,'Horaire'),
-              CE('input',{type:'time',value:panelHoraire,onChange:e=>setPanelHoraire(e.target.value),style:{width:'100%',padding:'8px 10px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:13}}))),
-          CE('div',{className:'sp-field'},CE('label',null,'Type de public'),
-            CE('select',{value:panelPublic,onChange:e=>setPanelPublic(e.target.value),style:{width:'100%',padding:'8px 10px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:13}},
-              CE('option',{value:''},'—'),
-              [...PUBLICS,...(panelPublic&&!PUBLICS.includes(panelPublic)?[panelPublic]:[])].map(x=>CE('option',{key:x,value:x},x)))),
-          // Classe mobile : case comme dans le formulaire ; le nombre
-          // d'ordinateurs n'apparaît (et ne compte) que si elle est cochée.
-          CE('label',{style:{display:'flex',alignItems:'center',justifyContent:'flex-start',gap:8,fontSize:13,fontWeight:600,cursor:'pointer',margin:'4px 0',width:'auto'}},
-            CE('input',{type:'checkbox',checked:panelMobile,onChange:e=>setPanelMobile(e.target.checked),style:{width:18,height:18,margin:0,flex:'none'}}),CE('span',null,'Classe mobile')),
-          panelMobile&&CE('div',{className:'sp-field'},CE('label',null,"Ordinateurs prêtés *"),
-            CE('input',{type:'number',min:1,max:10,value:panelNbOrdi,onChange:e=>setPanelNbOrdi(e.target.value),style:{width:'100%',padding:'8px 10px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:13},placeholder:'Ex : 4'})),
-          // Facultatives, comme dans le formulaire : sans elles le prêt ne
-          // couvre que le jour de l'atelier (periodePretMateriel).
-          panelMobile&&CE('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}},
-            CE('div',{className:'sp-field'},CE('label',null,'Prélèvement ordi'),
-              CE('input',{type:'date',value:panelPrelev,onChange:e=>setPanelPrelev(e.target.value),style:{width:'100%',padding:'8px 10px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:13}})),
-            CE('div',{className:'sp-field'},CE('label',null,'Retour ordi'),
-              CE('input',{type:'date',value:panelRetour,onChange:e=>setPanelRetour(e.target.value),style:{width:'100%',padding:'8px 10px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:13}}))),
-          parseInt(panel.nb_ordinateurs)>0&&(panel.date_prelevement_materiel||panel.date_retour_materiel)&&CE('div',{className:'sp-info-row'},CE('span',null,'Période de prêt'),CE('span',null,fmtPeriode(periodePretMateriel(panel).debut,periodePretMateriel(panel).fin))),
-          // Conflit de matériel si l'on enregistre (26/09/2026) : même contrôle
-          // que l'onglet Anomalies, sur l'atelier tel qu'il sera enregistré.
-          (()=>{const c=typeof conflitsDeLEntree==='function'?conflitsDeLEntree(entries,{...panel,date:panelDate,horaire:panelHoraire,ampm:panelHoraire!==(normalizeHoraire(panel.horaire)||'')?(ampmDepuisHoraire(panelHoraire)||panel.ampm):panel.ampm,materiel:matierePanneau(panel,panelMobile),nb_ordinateurs:panelMobile?(panelNbOrdi===''?'':parseInt(panelNbOrdi)||0):'',date_prelevement_materiel:panelMobile?panelPrelev:'',date_retour_materiel:panelMobile?panelRetour:''},typeof findOrdinateursConflicts==='function'?findOrdinateursConflicts:null,typeof findMobileClassConflicts==='function'?findMobileClassConflicts:null):{ordi:[],mobile:[]};
-            if(!c.ordi.length&&!c.mobile.length)return null;
-            return CE('div',{style:{background:'#fff7ed',border:'1px solid #fed7aa',borderRadius:8,padding:'8px 10px',fontSize:12,color:'#9a3412',display:'flex',flexDirection:'column',gap:4}},
-              CE('strong',null,'⚠️ Conflit de matériel si vous enregistrez :'),
-              c.ordi.map(g=>CE('div',{key:'o'+g.date},'🖥️ '+fmtPeriode(g.date,g.dateFin)+' : '+g.total+' ordinateurs demandés sur '+STOCK_ORDINATEURS+' en stock')),
-              c.mobile.map(g=>CE('div',{key:'m'+g.date},'📦 '+fmtDate(g.date)+' : Classe mobile aussi réservée par '+[...new Set(g.entries.filter(x=>x._id!==panel._id).map(x=>x.conseiller))].join(', '))),
-              CE('div',{style:{color:'#6b7280'}},'Enregistrement possible : à régler ensuite dans Gestion ordi ou Anomalies.'));})(),
-          CE('div',{className:'sp-field'},CE('label',null,'Thématique'),
-            CE(ComboThematique,{value:panelThematique,onChange:setPanelThematique,entries:entries})),
-          CE('div',{className:'sp-field'},CE('label',null,'Remarques'),
-            CE('textarea',{value:panelNote,onChange:e=>setPanelNote(e.target.value),rows:3,placeholder:'Ajouter une note…',style:{width:'100%',padding:'8px 10px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:13,resize:'vertical'}}))
-        ),
-        CE('div',{className:'side-panel-footer',style:{flexDirection:'column',gap:8}},
-          CE('button',{className:'btn btn-primary',style:{width:'100%',padding:'12px',fontSize:15,fontWeight:700,background:'#16a34a',borderColor:'#16a34a'},onClick:savePanel,disabled:saving},saving?'…':'💾 Enregistrer'),
-          CE('div',{style:{display:'flex',gap:6}},
-            canDelete&&CE('button',{className:'btn btn-danger btn-sm',onClick:()=>{setConfirmDel(panel);closePanel();}},'Supprimer'),
-            onDuplicate&&CE('button',{className:'btn btn-secondary btn-sm',style:{background:'#eff6ff',color:'#1d4ed8',border:'1px solid #bfdbfe'},onClick:()=>{onDuplicate(panel);closePanel();}},'📋 Dupliquer'),
-            CE('button',{className:'btn btn-secondary btn-sm',style:{flex:1},onClick:()=>onEdit(panel._id)},'Éditer complet')
-          )
-        )
-      )
-    ),
+    CE(PanneauAtelier,{panel,onClose:closePanel,entries,onRefresh,onEdit,onDuplicate,canDelete,onAskDelete:p=>setConfirmDel(p)}),
     // Confirmation suppression
     confirmDel&&CE('div',{style:{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:1000}},
       CE('div',{className:'card',style:{width:360}},
@@ -2510,11 +2550,11 @@ function VueCalendrier({entries,onEdit,onDelete,onRefresh,onEntryUpdated,onDupli
   const[filtPublic,setFiltPublic]=React.useState('Tous');
   const[filtresOpen,setFiltresOpen]=React.useState(false);
   const[panel,setPanel]=React.useState(null);
-  const[panelStatut,setPanelStatut]=React.useState('');
-  const[panelInscrits,setPanelInscrits]=React.useState('');
-  const[panelPresents,setPanelPresents]=React.useState('');
-  const[panelThematique,setPanelThematique]=React.useState('');const[panelDate,setPanelDate]=React.useState('');const[panelHoraire,setPanelHoraire]=React.useState('');const[panelNbOrdi,setPanelNbOrdi]=React.useState('');const[panelPublic,setPanelPublic]=React.useState('');const[panelMobile,setPanelMobile]=React.useState(false);const[panelPrelev,setPanelPrelev]=React.useState('');const[panelRetour,setPanelRetour]=React.useState('');
-  const[panelNote,setPanelNote]=React.useState('');
+  
+  
+  
+  
+  
   const[saving,setSaving]=React.useState(false);
   const[confirmDel,setConfirmDel]=React.useState(null);
   const[suppressionEnCours,setSuppressionEnCours]=React.useState(false);
@@ -2566,31 +2606,8 @@ function VueCalendrier({entries,onEdit,onDelete,onRefresh,onEntryUpdated,onDupli
   function goToday(){setCalDate(new Date(today.getFullYear(),today.getMonth(),1));setExpandDay(null);}
 
   // Panel
-  function openPanel(e){setPanel(e);setPanelStatut(e.statut);setPanelInscrits(e.inscrits===undefined||e.inscrits===''?'':String(e.inscrits));setPanelPresents(e.presents===undefined||e.presents===''?'':String(e.presents));setPanelThematique(e.thematique||'');setPanelNote(e.remarques||'');setPanelDate(normalizeDate(e.date)||'');setPanelHoraire(normalizeHoraire(e.horaire)||'');setPanelNbOrdi(e.nb_ordinateurs===undefined||e.nb_ordinateurs===''||e.nb_ordinateurs===null?'':String(e.nb_ordinateurs));setPanelPublic(e.public||'');setPanelMobile(matIncludes(e.materiel,'Classe mobile'));setPanelPrelev(normalizeDate(e.date_prelevement_materiel)||'');setPanelRetour(normalizeDate(e.date_retour_materiel)||'');}
+  function openPanel(e){setPanel(e);}
   function closePanel(){setPanel(null);}
-  async function savePanel(){
-    if(!panel)return;if(!panelDate){showToast('❌ Date requise',false);return;}if(panelMobile&&!(parseInt(panelNbOrdi)>0)){showToast('❌ Ordinateurs prêtés requis avec la Classe mobile',false);return;}setSaving(true);
-    try{
-      const updated={...panel,statut:panelStatut,inscrits:panelInscrits===''?'':parseInt(panelInscrits)||0,presents:panelPresents===''?'':parseInt(panelPresents)||0,thematique:panelThematique,date:panelDate,horaire:panelHoraire,ampm:panelHoraire!==(normalizeHoraire(panel.horaire)||'')?(ampmDepuisHoraire(panelHoraire)||panel.ampm):panel.ampm,public:panelPublic,nb_ordinateurs:panelMobile?(panelNbOrdi===''?'':parseInt(panelNbOrdi)||0):'',date_prelevement_materiel:panelMobile?panelPrelev:'',date_retour_materiel:panelMobile?panelRetour:'',remarques:panelNote,materiel:matierePanneau(panel,panelMobile).join('|')};
-      const res=await apiFetch('saveEntry',{entry:updated});
-      if(!res.ok)throw new Error(res.error);
-      showToast('✅ Mis à jour');closePanel();
-      // GAS vient de confirmer l'écriture : relancer un getAll complet pour
-      // relire ce qu'on a écrit soi-même faisait payer deux allers-retours au
-      // lieu d'un, et le second au pire tarif (actionSaveEntry invalide le
-      // cache getAll juste avant, donc la relecture repart de la feuille).
-      // On applique la même entrée localement, comme le fait déjà la création
-      // d'atelier. `materiel` repart en tableau, et c'est celui qui vient
-      // d'être enregistré (case Classe mobile comprise) — panel.materiel, qui
-      // servait ici, réaffichait l'ancien jusqu'au rechargement (26/09/2026).
-      // Le prochain rechargement réel (auto 5 min, changement d'année, bouton
-      // Rafraîchir) resynchronise avec la feuille.
-      // onEntryUpdated (NEWGEN) ou, à défaut, entreeSauvegardee (les deux applis).
-      const loc={...updated,materiel:matierePanneau(panel,panelMobile)};
-      if(onEntryUpdated) onEntryUpdated(loc); else entreeSauvegardee(loc,onRefresh);
-    }catch(err){showToast('❌ '+err.message,false);}
-    finally{setSaving(false);}
-  }
 
   // KPIs mois
   const kpi=React.useMemo(()=>{
@@ -2678,87 +2695,7 @@ function VueCalendrier({entries,onEdit,onDelete,onRefresh,onEntryUpdated,onDupli
       )
     ),
     // ── Side panel ──
-    panel&&CE('div',{className:'side-panel-overlay',onClick:closePanel}),
-    CE('div',{className:'side-panel'+(panel?' open':'')},
-      panel&&CE(React.Fragment,null,
-        CE('div',{className:'side-panel-header'},
-          CE('h3',null,'Détail / Mise à jour'),
-          CE('button',{onClick:closePanel,style:{background:'none',border:'none',fontSize:18,cursor:'pointer',color:'#718096'}},'✕')
-        ),
-        CE('div',{className:'side-panel-body'},
-          CE('div',{className:'cloture-banner',style:{background:isRetard(panel)?'#fffbeb':'#f0f4ff',borderColor:isRetard(panel)?'#fcd34d':'#bfdbfe'}},
-            CE('div',{className:'cloture-title',style:{color:isRetard(panel)?'#92400e':'#1e3a8a'}},isRetard(panel)?'⚠️ Atelier passé — à clôturer':'⚡ Changement rapide de statut'),
-            CE('div',{className:'cloture-btns'},
-              CLOTURE_PRESETS.map(p=>CE('button',{key:p.statut,className:'cloture-btn',style:{background:p.bg,color:p.color,outline:panelStatut===p.statut?'2px solid #1e3a8a':'none'},onClick:()=>setPanelStatut(p.statut)},p.label))
-            )
-          ),
-          CE('div',{style:{fontSize:13,fontWeight:700,color:'#1a202c',marginBottom:8}},panel.thematique),
-          CE('div',{className:'sp-info-row'},CE('span',null,'Commune'),CE('span',null,panel.commune)),
-          CE('div',{className:'sp-info-row'},CE('span',null,'Lieu'),CE('span',null,panel.lieu)),
-          panel.orienteur&&CE('div',{className:'sp-info-row'},CE('span',null,'Orienteur'),CE('span',null,panel.orienteur)),
-          CE('div',{className:'sp-info-row'},CE('span',null,'Conseiller'),CE('span',{style:{color:conseillerColor(panel.conseiller),fontWeight:700}},panel.conseiller)),panel.co_animateur&&CE('div',{className:'sp-info-row'},CE('span',null,'Co-animateur'),CE('span',{style:{color:conseillerColor(panel.co_animateur),fontWeight:700}},panel.co_animateur)),
-          panel.materiel&&panel.materiel.length>0&&CE('div',{style:{marginTop:10,marginBottom:4}},
-            CE('div',{style:{fontSize:11,fontWeight:700,color:'#718096',marginBottom:4}},'MATÉRIEL'),
-            panel.materiel.map(m=>CE('span',{key:m,className:'mat-chip'},m))
-          ),
-          CE('hr',{style:{border:'none',borderTop:'1px solid #e2e8f0',margin:'12px 0'}}),
-          CE('div',{className:'sp-field'},CE('label',null,'Statut *'),
-            CE('select',{value:panelStatut,onChange:e=>setPanelStatut(e.target.value),style:{width:'100%',padding:'8px 10px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:13}},
-              STATUTS.map(s=>CE('option',{key:s,value:s},s)))),
-          CE('div',{className:'sp-field'},CE('label',null,"Nombre d'inscrits"),
-            CE('input',{type:'number',min:0,value:panelInscrits,onChange:e=>setPanelInscrits(e.target.value),style:{width:'100%',padding:'8px 10px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:13},placeholder:'0'})),
-          CE('div',{className:'sp-field'},CE('label',null,'Nombre de présents'),
-            CE('input',{type:'number',min:0,value:panelPresents,onChange:e=>setPanelPresents(e.target.value),style:{width:'100%',padding:'8px 10px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:13},placeholder:'0'})),
-          // Modifiables ici depuis le 26/09/2026 (demande de l'utilisateur) :
-          // date, horaire (AM/PM recalculé s'il change), public, ordinateurs ;
-          // thématique en auto-proposition comme dans le formulaire.
-          CE('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}},
-            CE('div',{className:'sp-field'},CE('label',null,'Date *'),
-              CE('input',{type:'date',value:panelDate,onChange:e=>setPanelDate(e.target.value),style:{width:'100%',padding:'8px 10px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:13}})),
-            CE('div',{className:'sp-field'},CE('label',null,'Horaire'),
-              CE('input',{type:'time',value:panelHoraire,onChange:e=>setPanelHoraire(e.target.value),style:{width:'100%',padding:'8px 10px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:13}}))),
-          CE('div',{className:'sp-field'},CE('label',null,'Type de public'),
-            CE('select',{value:panelPublic,onChange:e=>setPanelPublic(e.target.value),style:{width:'100%',padding:'8px 10px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:13}},
-              CE('option',{value:''},'—'),
-              [...PUBLICS,...(panelPublic&&!PUBLICS.includes(panelPublic)?[panelPublic]:[])].map(x=>CE('option',{key:x,value:x},x)))),
-          // Classe mobile : case comme dans le formulaire ; le nombre
-          // d'ordinateurs n'apparaît (et ne compte) que si elle est cochée.
-          CE('label',{style:{display:'flex',alignItems:'center',justifyContent:'flex-start',gap:8,fontSize:13,fontWeight:600,cursor:'pointer',margin:'4px 0',width:'auto'}},
-            CE('input',{type:'checkbox',checked:panelMobile,onChange:e=>setPanelMobile(e.target.checked),style:{width:18,height:18,margin:0,flex:'none'}}),CE('span',null,'Classe mobile')),
-          panelMobile&&CE('div',{className:'sp-field'},CE('label',null,"Ordinateurs prêtés *"),
-            CE('input',{type:'number',min:1,max:10,value:panelNbOrdi,onChange:e=>setPanelNbOrdi(e.target.value),style:{width:'100%',padding:'8px 10px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:13},placeholder:'Ex : 4'})),
-          // Facultatives, comme dans le formulaire : sans elles le prêt ne
-          // couvre que le jour de l'atelier (periodePretMateriel).
-          panelMobile&&CE('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}},
-            CE('div',{className:'sp-field'},CE('label',null,'Prélèvement ordi'),
-              CE('input',{type:'date',value:panelPrelev,onChange:e=>setPanelPrelev(e.target.value),style:{width:'100%',padding:'8px 10px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:13}})),
-            CE('div',{className:'sp-field'},CE('label',null,'Retour ordi'),
-              CE('input',{type:'date',value:panelRetour,onChange:e=>setPanelRetour(e.target.value),style:{width:'100%',padding:'8px 10px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:13}}))),
-          parseInt(panel.nb_ordinateurs)>0&&(panel.date_prelevement_materiel||panel.date_retour_materiel)&&CE('div',{className:'sp-info-row'},CE('span',null,'Période de prêt'),CE('span',null,fmtPeriode(periodePretMateriel(panel).debut,periodePretMateriel(panel).fin))),
-          // Conflit de matériel si l'on enregistre (26/09/2026) : même contrôle
-          // que l'onglet Anomalies, sur l'atelier tel qu'il sera enregistré.
-          (()=>{const c=typeof conflitsDeLEntree==='function'?conflitsDeLEntree(entries,{...panel,date:panelDate,horaire:panelHoraire,ampm:panelHoraire!==(normalizeHoraire(panel.horaire)||'')?(ampmDepuisHoraire(panelHoraire)||panel.ampm):panel.ampm,materiel:matierePanneau(panel,panelMobile),nb_ordinateurs:panelMobile?(panelNbOrdi===''?'':parseInt(panelNbOrdi)||0):'',date_prelevement_materiel:panelMobile?panelPrelev:'',date_retour_materiel:panelMobile?panelRetour:''},typeof findOrdinateursConflicts==='function'?findOrdinateursConflicts:null,typeof findMobileClassConflicts==='function'?findMobileClassConflicts:null):{ordi:[],mobile:[]};
-            if(!c.ordi.length&&!c.mobile.length)return null;
-            return CE('div',{style:{background:'#fff7ed',border:'1px solid #fed7aa',borderRadius:8,padding:'8px 10px',fontSize:12,color:'#9a3412',display:'flex',flexDirection:'column',gap:4}},
-              CE('strong',null,'⚠️ Conflit de matériel si vous enregistrez :'),
-              c.ordi.map(g=>CE('div',{key:'o'+g.date},'🖥️ '+fmtPeriode(g.date,g.dateFin)+' : '+g.total+' ordinateurs demandés sur '+STOCK_ORDINATEURS+' en stock')),
-              c.mobile.map(g=>CE('div',{key:'m'+g.date},'📦 '+fmtDate(g.date)+' : Classe mobile aussi réservée par '+[...new Set(g.entries.filter(x=>x._id!==panel._id).map(x=>x.conseiller))].join(', '))),
-              CE('div',{style:{color:'#6b7280'}},'Enregistrement possible : à régler ensuite dans Gestion ordi ou Anomalies.'));})(),
-          CE('div',{className:'sp-field'},CE('label',null,'Thématique'),
-            CE(ComboThematique,{value:panelThematique,onChange:setPanelThematique,entries:entries})),
-          CE('div',{className:'sp-field'},CE('label',null,'Remarques'),
-            CE('textarea',{value:panelNote,onChange:e=>setPanelNote(e.target.value),rows:3,placeholder:'Ajouter une note…',style:{width:'100%',padding:'8px 10px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:13,resize:'vertical'}}))
-        ),
-        CE('div',{className:'side-panel-footer',style:{flexDirection:'column',gap:8}},
-          CE('button',{className:'btn btn-primary',style:{width:'100%',padding:'12px',fontSize:15,fontWeight:700,background:'#16a34a',borderColor:'#16a34a'},onClick:savePanel,disabled:saving},saving?'…':'💾 Enregistrer'),
-          CE('div',{style:{display:'flex',gap:6}},
-            canDelete&&CE('button',{className:'btn btn-danger btn-sm',onClick:()=>{setConfirmDel(panel);closePanel();}},'Supprimer'),
-            onDuplicate&&CE('button',{className:'btn btn-secondary btn-sm',style:{background:'#eff6ff',color:'#1d4ed8',border:'1px solid #bfdbfe'},onClick:()=>{onDuplicate(panel);closePanel();}},'📋 Dupliquer'),
-            CE('button',{className:'btn btn-secondary btn-sm',style:{flex:1},onClick:()=>onEdit(panel._id)},'Éditer complet')
-          )
-        )
-      )
-    ),
+    CE(PanneauAtelier,{panel,onClose:closePanel,entries,onEntryUpdated,onRefresh,onEdit,onDuplicate,canDelete,onAskDelete:p=>setConfirmDel(p)}),
     confirmDel&&CE('div',{style:{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:1000}},
       CE('div',{className:'card',style:{width:360}},
         CE('h2',null,'🗑️ Confirmer la suppression'),
@@ -4478,41 +4415,6 @@ function VueAgendaSemaine({entries,onEdit,onDelete,onDuplicate,canDelete,initCon
     );
   }
 
-  // ── Side panel ──────────────────────────────────────────────
-  function SidePanel(){
-    if(!selectedEntry)return null;
-    const e=selectedEntry;const color=conseillerColor(e.conseiller);
-    return CE(React.Fragment,null,
-      CE('div',{className:'side-panel-overlay',onClick:()=>setSelectedEntry(null)}),
-      CE('div',{className:'side-panel open'},
-        CE('div',{className:'side-panel-header'},
-          CE('h3',{style:{fontSize:14}},e.thematique||e.commune||'Atelier'),
-          CE('button',{onClick:()=>setSelectedEntry(null),style:{background:'none',border:'none',cursor:'pointer',fontSize:18,color:'#718096',padding:0}},'✕')
-        ),
-        CE('div',{className:'side-panel-body'},
-          CE('div',{className:'sp-field'},CE('label',null,'Statut'),badgePill(e.statut,isRetard(e))),
-          CE('div',{className:'sp-field'},CE('label',null,'Conseiller'),CE('div',{style:{fontWeight:700,color,fontSize:13}},e.conseiller||'—')),
-          CE('div',{className:'sp-field'},CE('label',null,'Date & Créneau'),
-            CE('div',{style:{fontWeight:600}},fmtDate(e.date)+(e.horaire?' — '+e.horaire:'')+(e.ampm?' ('+e.ampm+')':''))),
-          CE('div',{className:'sp-field'},CE('label',null,'Commune'),CE('div',null,e.commune||'—')),
-          CE('div',{className:'sp-field'},CE('label',null,'Thématique'),CE('div',null,e.thematique||'—')),
-          e.orienteur&&CE('div',{className:'sp-field'},CE('label',null,'Orienteur'),CE('div',null,e.orienteur)),CE('div',{className:'sp-field'},CE('label',null,'Matériels'),CE('div',{style:{fontSize:12,color:(e.materiel&&e.materiel.length>0)?'inherit':'#a0aec0'}},(e.materiel&&e.materiel.length>0)?e.materiel.join(', '):'—')),
-          (e.inscrits||e.presents)&&CE('div',{className:'sp-field'},CE('label',null,'Participants'),
-            CE('div',null,(e.presents||'—')+' présents / '+(e.inscrits||'—')+' inscrits')),
-          e.public&&CE('div',{className:'sp-field'},CE('label',null,'Public'),CE('div',null,e.public)),
-          e.remarques&&CE('div',{className:'sp-field'},CE('label',null,'Remarques'),
-            CE('div',{style:{fontSize:12,color:'#4a5568',fontStyle:'italic',lineHeight:1.5}},e.remarques))
-        ),
-        CE('div',{className:'side-panel-footer'},
-          onEdit&&CE('button',{className:'btn btn-primary btn-sm',onClick:()=>{onEdit(e._id);setSelectedEntry(null);}},'✏️ Modifier'),
-          onDuplicate&&CE('button',{className:'btn btn-secondary btn-sm',onClick:()=>{onDuplicate(e);setSelectedEntry(null);}},'📋 Dupliquer'),
-          canDelete&&CE('button',{className:'btn btn-danger btn-sm',
-            onClick:()=>{setConfirmDel({id:e._id,label:`${fmtDate(e.date)} — ${e.thematique||e.commune||e._id}`});setSelectedEntry(null);}
-          },'🗑️ Supprimer')
-        )
-      )
-    );
-  }
 
   return CE('div',null,
     CE('div',{className:'card'},
@@ -4615,7 +4517,9 @@ function VueAgendaSemaine({entries,onEdit,onDelete,onDuplicate,canDelete,initCon
       )
     ),
 
-    CE(SidePanel,null),
+    // Même volet que l'Historique (modifiable), demande de l'utilisateur 26/09/2026.
+    CE(PanneauAtelier,{panel:selectedEntry,onClose:()=>setSelectedEntry(null),entries,onEdit,onDuplicate,canDelete,
+      onAskDelete:e=>setConfirmDel({id:e._id,label:`${fmtDate(e.date)} — ${e.thematique||e.commune||e._id}`})}),
 
     confirmDel&&CE(ConfirmModal,{
       item:confirmDel,
