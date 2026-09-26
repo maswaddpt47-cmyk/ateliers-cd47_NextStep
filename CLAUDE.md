@@ -30,14 +30,14 @@ Extrait du guide de collaboration multi-projets, adapté pour ce dépôt.
 8. Après toute reprise de session ou résumé de contexte, relire l'état réel du fichier concerné avant de le modifier ou de le renvoyer — ne jamais présumer qu'un correctif précédent est encore en place.
 8bis. Utiliser des dates explicites (JJ/MM ou JJ/MM/AAAA) plutôt que des termes relatifs ("hier", "aujourd'hui", "la semaine dernière", "demain") : la perception du temps de Claude vient d'un contexte injecté en début de session, pas d'une horloge en temps réel — elle devient peu fiable sur une session qui s'étale sur plusieurs jours ou plusieurs reprises.
 9. Avant de pousser un changement visuel (CSS/layout), vérifier mentalement les interactions connues à risque (stacking context, overflow, position sticky/fixed) sur les zones sensibles existantes.
-10. Sur tout problème réseau/GAS qui dure plus de 3 itérations : demander une capture Network DevTools ou les Exécutions GAS avant de continuer à supposer.
-11. Vérifier l'état exact du déploiement GAS (version + URL active dans `shared.js` → `GS_URL`) en début de session dès qu'un bug réseau est signalé.
+10. Sur tout problème réseau qui dure plus de 3 itérations : demander une capture Network DevTools ou le journal Admin avant de continuer à supposer.
+11. Dès qu'un bug réseau ou serveur est signalé, vérifier d'abord que le dernier `deploy-api.yml` d'ATELIERS_NEWGEN a réussi et à quelle heure.
 
 14. **Doser les tests à leur valeur, pas à la prudence.** La suite Playwright coûte du temps et des jetons à chaque lancement : la lancer une seule fois, juste avant le commit, jamais à chaque étape intermédiaire. Les suites Node (`utils`, `logic`, `contract`, `reseau`), elles, tournent en quelques secondes — les lancer librement. Écrire un ou deux tests ciblés par correctif, pas quatre à six ; réserver la contre-preuve — celle qui rejoue l'implémentation fautive — aux pièges réellement subtils, ceux qu'on remettrait sans s'en apercevoir.
 15. **Les tests ne trouvent pas les défauts de sens.** Ils vérifient des calculs et des états, pas ce qu'un écran est censé signifier : un affichage peut calculer juste et raconter faux. Un test écrit après coup empêche la régression, il ne découvre rien. Ne jamais présenter une suite verte comme une garantie que l'affichage est correct, ni s'en servir pour décharger l'utilisateur du contrôle visuel.
 16. **Un harnais de vérification qui échoue est du gaspillage, pas de la prudence.** Avant de conclure à une anomalie, éliminer d'abord l'instrument : générateur de données mal distribué, page non chargée, mauvaise sélection. Réutiliser un harnais qui a déjà fonctionné plutôt que le réécrire à chaque fois.
 
-17. **Le rendu se vérifie à ton œil, pas par un test.** Un changement de rendu pur (couleur, libellé, position, CSS, mise en page) ne justifie ni test ni capture : dire quoi regarder et laisser l'utilisateur confirmer coûte moins cher et voit mieux. La ligne de partage est **rendu / calcul**, pas visible / invisible — un calcul, un filtre ou un format de données garde son test ciblé, parce que l'œil ne contrôle que le cas affiché ce jour-là : une régression sur une combinaison de valeurs rare passera inaperçue. Playwright ne se lance que si le changement touche ce qu'il couvre vraiment (démarrage, appels GAS, chemin d'écriture, `sw.js`) ; pour le reste la CI au push suffit, comme le dit déjà la section Tests. Capture avant/après à la demande, pas par défaut.
+17. **Le rendu se vérifie à ton œil, pas par un test.** Un changement de rendu pur (couleur, libellé, position, CSS, mise en page) ne justifie ni test ni capture : dire quoi regarder et laisser l'utilisateur confirmer coûte moins cher et voit mieux. La ligne de partage est **rendu / calcul**, pas visible / invisible — un calcul, un filtre ou un format de données garde son test ciblé, parce que l'œil ne contrôle que le cas affiché ce jour-là : une régression sur une combinaison de valeurs rare passera inaperçue. Playwright ne se lance que si le changement touche ce qu'il couvre vraiment (démarrage, appels serveur, chemin d'écriture, `sw.js`) ; pour le reste la CI au push suffit, comme le dit déjà la section Tests. Capture avant/après à la demande, pas par défaut.
 
 18. **Toute modification des interfaces se fait sur NEWGEN *et* NextStep** (demande de l'utilisateur, 26/09/2026) : les deux applis partagent la même API et la même base depuis la bascule du 25/09/2026. Un changement fait sur une seule est l'exception, annoncée comme telle au moment du choix. En fin de livraison, dire en une ligne ce qui est en ligne sur chacune (commit, `?v=`) pour que l'utilisateur sache quoi recharger.
 
@@ -50,7 +50,7 @@ Extrait du guide de collaboration multi-projets, adapté pour ce dépôt.
 
 1. Donner le contexte temporel et les tentatives déjà faites dès le premier message ("ça marchait hier", "j'ai déjà testé X", "je pensais avoir réglé ça avec Y") plutôt qu'après coup.
 2. Pour un bug visuel, "bizarre" ou réseau, ajouter une ligne de description du symptôme précis, une capture annotée ou le Network DevTools plutôt qu'une formule vague.
-3. Signaler explicitement en début de message tout changement d'état fait hors session (redéploiement GAS, changement d'URL, config, branche renommée, settings modifiés).
+3. Signaler explicitement en début de message tout changement d'état fait hors session (déploiement de l'API, changement d'URL, config, branche renommée, settings modifiés).
 4. Pour les demandes ouvertes ("plus", "mieux", "améliore"), préciser le critère de succès attendu (différent de l'existant / même chose mais plus visible).
 5. Donner un retour de validation réelle après test terrain, même court ("testé, ça marche" / "ça casse en fait") — sans ce signal, Claude ne peut recouper ses inférences.
 6. Quand on revient en arrière, préciser ce qui est conservé vs jeté — "on revient à hier" sans liste efface du travail potentiellement utile.
@@ -70,7 +70,7 @@ terminé (formulaire, export, nouvel appel API, stockage, authentification).
 Checklist condensée :
 - **RGPD** : minimisation des champs collectés, base légale de la collecte,
   durée de conservation/purge, droits des personnes (accès/rectification/
-  suppression), sous-traitants et hébergement (GAS, CDN — hors UE ?), données
+  suppression), sous-traitants et hébergement (hébergeur, CDN — hors UE ?), données
   sensibles, traçabilité des traitements.
 - **Sécurité** : pas de secret/clé/token en clair dans le code ou poussé sur
   le repo, action sensible protégée par authentification réelle, échanges en
@@ -135,11 +135,11 @@ manifeste, ni `apple-touch-icon`, ni enregistrement de service worker.
 - `index.html` — page principale conseillers
 - `admin.html` — page admin
 - Serveur — **API PHP + MySQL chez Alwaysdata depuis la bascule du
-  25/09/2026** (`window.BACKEND_PHP`, `window.requeteServeur` dans
-  `shared.js`). Le code de l'API vit dans **ATELIERS_NEWGEN** (`api/`,
-  déployé par `deploy-api.yml`), pas ici : tout changement côté serveur se
-  fait là-bas. `GS_URL` est neutralisée ; `gas/` n'est plus qu'une archive,
-  et `e2e/appels.test.js` échoue si un appel à `script.google.com` revient.
+  25/09/2026** (`window.requeteServeur` dans `shared.js`). Le code de l'API
+  vit dans **ATELIERS_NEWGEN** (`api/`, déployé par `deploy-api.yml`), pas
+  ici : tout changement côté serveur se fait là-bas. `gas/` n'est plus
+  qu'une archive, et `e2e/appels.test.js` échoue si un appel à
+  `script.google.com` revient.
 
 ## Tests
 
@@ -147,9 +147,9 @@ manifeste, ni `apple-touch-icon`, ni enregistrement de service worker.
 |---|---|
 | `node --test utils.test.js` | `utils.js` — dates, texte, parsing, ICS |
 | `node --test logic.test.js` | `logic.js` — KPI, validation, filtres |
-| `node --test contract.test.js` | format des données envoyées à GAS |
+| `node --test contract.test.js` | format des données envoyées à l'API |
 | `node --test reseau.test.js` | plafonds, tentatives, budget — garde-fou contre le rallongement des timeouts |
-| `npx playwright test --reporter=line` | `e2e/smoke.test.js` (les deux pages s'ouvrent, chaque onglet répond) et `e2e/appels.test.js` (nombre d'appels GAS émis, journal Admin multi-onglets) |
+| `npx playwright test --reporter=line` | `e2e/smoke.test.js` (les deux pages s'ouvrent, chaque onglet répond) et `e2e/appels.test.js` (nombre d'appels émis, journal Admin multi-onglets) |
 
 Playwright exige `npm ci` et un Chromium (préinstallé en local, sinon
 `npx playwright install chromium`).
@@ -162,7 +162,7 @@ Playwright exige `npm ci` et un Chromium (préinstallé en local, sinon
 - `utils.js`, `logic.js` ou le format entry modifiés → les suites Node.
 - Effets de démarrage d'`app.js`/`admin_app.js`, chemin d'écriture
   (`saveEntry` → application locale) ou `addLog` modifiés →
-  **`e2e/appels.test.js`**. Chaque appel GAS rétabli au démarrage se paie sur
+  **`e2e/appels.test.js`**. Chaque appel rétabli au démarrage se paie sur
   le terrain : c'est ce fichier qui empêche de le réintroduire sans s'en
   apercevoir.
 - Changement mineur (texte, style, élément UI sans logique) → la CI relance
@@ -176,60 +176,21 @@ Playwright exige `npm ci` et un Chromium (préinstallé en local, sinon
 - Ne jamais supprimer ni désactiver un test pour faire passer un commit.
 - **La CI bloque le déploiement si un test échoue.**
 
-## GAS — règles critiques
+## Couche d'appel — règles héritées de l'époque Google, toujours valables
 
-> **Historique depuis la bascule du 25/09/2026** : le client ne parle plus
-> au GAS. Les plafonds ci-dessous restent en vigueur (le client les
-> applique aussi à l'API) ; le reste documente l'ancien serveur.
+Google Apps Script est coupé depuis le 25/09/2026. Les mesures qui fondent
+ces règles (pertes de livraison, doublage) sont dans l'historique git de
+`CHANTIERS.md`. Les noms `GAS_*`, `gasAppel`, `__gasLog` sont restés dans le
+code : ils désignent la couche d'appel, plus Google.
 
-- Toutes les actions passent par `doGet` (GET uniquement, pas POST) — les
-  Exécutions Apps Script listent donc uniquement `doGet` (et `keepAlive` pour
-  le déclencheur horaire) comme nom de fonction, jamais `checkPassword`,
-  `getAll`, etc. Pour retrouver un appel précis, comparer les horodatages
-  avec le Journal client (`window.__gasLog`), pas filtrer par nom d'action.
-- `ContentService` n'a pas de `.setHeader()` — CORS automatique
-- Paramètre mot de passe : `password` (pas `pwd`)
-- Dates retournées : `yyyy-MM-dd` pour `date`, `HH:mm` pour `horaire`
-
-### Plafonds d'appel — ne jamais les rallonger
-
-Le comportement de la livraison Apps Script est **bimodal**, pas « lent » :
-une réponse livrée arrive en 1 à 3 s, une réponse perdue part en HTTP 404 ou
-en blocage au bout de 20-35 s. Un 404 authentique revient en ~200 ms — un 404
-au bout de 27 s veut dire que la réponse **ne viendra jamais**.
-
-Conséquence, apprise deux fois (NEWGEN les 18/09/2026, puis NextStep le même
-jour) : **rallonger un plafond côté client ne récupère aucune réponse, il ne
-fait qu'allonger l'écran d'attente.** NEWGEN a relevé 84 s pour une connexion,
-dont 51 d'attente pure sur des appels déjà morts ; NextStep a porté son pire
-cas à ~146 s en passant un plafond de 35 s à 4 tentatives.
-
-Plafonds actuels : **12 s en lecture, 12 s en écriture, 25 s pour `saveMany`**,
-3 tentatives en lecture, 2 en écriture, budget total 45 s.
-Verrouillés par `reseau.test.js` — si un test de ce fichier échoue, c'est
-qu'on est en train de refaire l'erreur.
-
-Rejouer une écriture est sûr : le client génère `_id` avant l'envoi et
-`actionSaveEntry` retrouve la ligne par cet `_id` au lieu d'en créer une
-seconde. En revanche une écriture n'est **jamais doublée**
-(`GAS_ACTIONS_ECRITURE`, verrouillé par `reseau.test.js` et
-`e2e/appels.test.js`). La sérialisation des écritures n'est garantissable
-que **côté serveur** : c'est le verrou GAS (`_avecVerrouEcriture`, v10.15.0),
-pas le client — la file d'attente client a été retirée le 23/09/2026, et elle
-ne voyait de toute façon ni un second onglet ni un second conseiller.
-
-### Limite connue — latence de livraison indépendante du temps d'exécution
-
-Confirmé les 15-16/09/2026 (captures croisées Journal client + Exécutions
-Apps Script, sur Index puis sur Admin) : des appels (`checkPassword`,
-`getComptes`) mesurés à 23-25 s côté navigateur, alors que l'exécution
-`doGet` correspondante (même horodatage) dure moins de 2 s côté serveur.
-L'écart se situe dans l'acheminement de la réponse après exécution
-(redirection `/exec`), pas dans le script — Google Workspace ne signalait
-aucun incident sur Apps Script à ce moment-là. Ce n'est pas corrigible par
-une modification du code GAS ou frontend : c'est une limite de fiabilité de
-la couche de livraison des Web Apps Apps Script, à mitiger (retries côté
-client, message d'attente) plutôt qu'à "réparer". Ne pas rouvrir un audit de
-contention/appels redondants sans avoir d'abord recoupé Journal client vs
-Exécutions sur le créneau concerné — si l'exécution serveur est rapide,
-inutile de chercher la cause côté code.
+- **Ne jamais rallonger les plafonds** : 12 s en lecture et en écriture, 25 s
+  pour `saveMany`, 3 tentatives en lecture, 2 en écriture, budget total 45 s.
+  Attendre ne récupère aucune réponse perdue, ça allonge l'écran d'attente
+  (~146 s de pire cas relevés ici le 18/09/2026). Verrouillé par
+  `reseau.test.js`.
+- **Une écriture n'est jamais doublée** (`GAS_ACTIONS_ECRITURE`, verrouillé
+  par `reseau.test.js` et `e2e/appels.test.js`). La rejouer est sûr : l'`_id`
+  vient du client et l'API remplace la ligne existante.
+- **Aucun appel superflu au démarrage ni après une écriture** : vérifier que
+  l'info ne voyage pas déjà dans `getAll` ; les écritures s'appliquent
+  localement. `e2e/appels.test.js` échoue si un appel supprimé réapparaît.
