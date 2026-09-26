@@ -1,6 +1,8 @@
 # Chantiers en cours — Ateliers CD47 NextStep
 
-État au **22/09/2026**, commit de référence `13c0acb`.
+État au **26/09/2026**. Les restes d'après-migration (communs aux deux
+projets) sont tenus dans `ATELIERS_NEWGEN/CHANTIERS.md`, section « Chantier
+« Refonte d'architecture » clos ».
 Fichier transitoire : à mettre à jour à chaque avancée, à supprimer quand tout
 est soldé. Ce n'est pas de la documentation permanente (cf.
 `MD-LIB/hygiene-instructions.md`).
@@ -346,136 +348,14 @@ ce jour, mais c'est la même cause. Correction : préfixer ces clés comme pour
 le journal, en migrant l'existant pour ne pas réinitialiser les préférences
 des conseillers.
 
-## 2. Chantier conditionnel — proxy pour supprimer la perte
+## 2 à 7. Sans objet depuis la bascule du 25/09/2026
 
-**Recoupement client/serveur du 22/09/2026, 13h46-13h52** — le premier sur
-NextStep depuis le 16/09, et le premier avec un journal cloisonné, donc
-attribuable sans doute possible.
-
-| Journal client | Exécution Apps Script |
-|---|---|
-| 13:51:44 `getAll #1` — bloqué à 13,0 s | 13:51:45 `doGet` — **0,577 s**, Terminée |
-| 13:51:58 `getAll #2` — bloqué à 13,0 s | 13:51:59 `doGet` — **0,567 s**, Terminée |
-| 13:52:28 `getAll #1` — bloqué à 12,8 s | 13:52:29 `doGet` — **0,797 s**, Terminée |
-
-Les 18 exécutions du créneau aboutissent toutes en moins de 3 s. **Le script
-fait son travail, la réponse ne parvient jamais au navigateur.** Relevé
-d'ensemble : 13 pertes sur 33 appels (39 %), 161 s d'attente sur des réponses
-mortes, 55 % de pertes sur la tranche de 13h.
-
-Ce créneau élimine trois causes envisagées sur le moment, à ne pas réexaminer
-sans élément nouveau :
-- **une édition manuelle du classeur** faite juste avant (un recalcul ou une
-  contention allongerait l'exécution, or elle reste sous 3 s) ;
-- **le quota Apps Script**, que le banc consommait au même moment sur l'autre
-  backend — un quota épuisé ferait échouer les exécutions, elles aboutissent
-  toutes ;
-- **le changement de conseiller dans Historique**, qui n'émet aucun appel
-  réseau (aucun `useEffect` ne dépend de `adminConseiller`).
-
-C'est l'argument le plus net dont on dispose pour le proxy : rien côté client
-ni côté script ne peut récupérer une réponse perdue après exécution.
-
-**Mais l'urgence est retombée le 22/09** : la série du banc donne 30-38 % de
-pertes par appel — dans la fourchette qui justifiait le proxy — et seulement
-**4 % d'échecs ressentis** une fois les lectures doublées, sous le seuil des
-15 % en dessous duquel il n'y a rien à construire. Le doublage d'abord (§1),
-le proxy ensuite et sans urgence : ce qui resterait à gagner, c'est la
-latence, pas la fiabilité.
-
-
-Si la mesure confirme un taux de pertes élevé des deux côtés, la couche de
-reprise a atteint sa limite et le sujet devient : appeler GAS **côté serveur**
-pour que la redirection `/exec → googleusercontent` soit suivie depuis un
-datacenter plutôt que depuis un mobile.
-
-Bloqué par la même question que sur NEWGEN : hébergement PHP/HTTPS
-disponible ? Aucune trace dans les repos (recherche du 20/09/2026), les dépôts
-sont publics et sur GitHub Pages. Alternative : Cloudflare Workers, avec la
-réserve RGPD d'un sous-traitant américain supplémentaire.
-
-## 3. ⚠️ Sécurité — endpoints accessibles sans token
-
-Même situation que sur NEWGEN, à vérifier ici dans `gas/GAS_NEXTSTEP.js` :
-`getAll`, `getComptes` et `getConfig` accessibles sans token, avec l'URL
-`/exec` en clair dans `shared.js` d'un dépôt public. Chantier séparé,
-impliquant un redéploiement GAS manuel.
-
-## 4. ⚠️ PWA — le rechargement forcé n'existe plus, et le HTML n'est pas versionné
-
-**Non vérifié à ce jour.** Depuis le 19/09/2026 les deux pages sont
-installables. En mode installé (`display: standalone`) il n'y a plus de barre
-d'adresse, donc **plus de Ctrl+F5**. Or le `?v=N` protège les scripts et les
-styles, **pas `index.html` lui-même** : un HTML resté en cache continue de
-référencer les anciennes versions, sans recours simple pour l'utilisateur.
-
-Toutes les vérifications de déploiement faites jusqu'ici reposaient sur
-« les `?v=` s'en chargent » — vrai en navigateur, plus forcément en PWA
-installée.
-
-La mesure a été tentée le 20/09/2026 depuis l'environnement de session, mais
-le proxy réseau y refuse `maswaddpt47-cmyk.github.io` (403 sur CONNECT). À
-faire depuis un poste ayant accès :
-
-```bash
-curl -sS -I https://maswaddpt47-cmyk.github.io/ateliers-cd47_NextStep/index.html | grep -i cache-control
-```
-
-Un `max-age` de quelques minutes et le problème se résorbe seul ; un `max-age`
-long demande une stratégie **avant** que l'équipe n'installe massivement.
-Sortie de secours en attendant : désinstaller/réinstaller, ou vider les
-données du site. Après un déploiement important, s'assurer qu'au moins une
-personne en mode PWA reçoit le correctif sans manipulation.
-
-## 5. Côté Google Apps Script — déploiement manuel requis
-
-Aucun n'est bloquant, tous supposent un accès à l'éditeur Apps Script.
-
-- **Fuite de tokens `PropertiesService`** — *ce n'est pas de la performance,
-  c'est une panne annoncée.* `_generateToken` écrit `token_<uuid>` sans purge
-  globale ; la suppression n'a lieu que si un token expiré est rejoué. Au
-  plafond de 500 Ko, `setProperty` lève une exception et **plus personne ne
-  peut se connecter**. Vérification en une ligne dans l'éditeur :
-  ```js
-  Logger.log(Object.keys(PropertiesService.getScriptProperties().getProperties()).length)
-  ```
-  Au-delà de ~2000, prévoir une purge + déclencheur quotidien.
-- **`actionSaveMany` en un seul passage.** Aujourd'hui N × (lecture des
-  en-têtes + `getLastRow` + `appendRow` + log + purge de cache). Lourd sur une
-  saisie en lot de 8-10 séances, et aucun correctif frontend ne l'atteint.
-
-## 6. Portages restants entre les deux projets
-
-**NEWGEN → NextStep** : `xlsx` chargé au clic (`chargerScriptUneFois`) plutôt
-que bloquant dans le `<head>` ; `sandbox.test.js`.
-
-**NextStep → NEWGEN** : ne rien lancer de lourd avant la connexion (NEWGEN
-émet encore `getComptes` + `getAll(force:true)` au montage) ; premier
-chargement sans `force:true`.
-
-⚠️ **Vu sur NEWGEN le 21/09/2026** : là-bas, la logique du stock matériel
-est dupliquée entre `logic.js` (testé) et `shared.js` (servi aux pages).
-NextStep n'a pas ce défaut — `shared.js` consomme `logic.js` — mais c'est
-l'illustration concrète du risque que la piste ci-dessous vise à supprimer.
-
-**Piste de fond** : extraire la couche d'appel GAS dans un `gas-client.js`
-copié à l'identique dans les deux dépôts, avec un test qui échoue si les
-copies divergent. La divergence s'est déjà payée deux fois le 18/09/2026 — un
-correctif réinventé d'un côté, une erreur déjà apprise réintroduite de
-l'autre. Pas de build, pas de package.
-
-## 7. Autres vérifications terrain PWA en attente (19/09/2026)
-
-En complément du §4 (cache HTML) — deux points encore jamais vérifiés en
-dehors des tests automatisés, qui ne peuvent pas les couvrir :
-
-- **Installabilité** : confirmer sur un Android réel que "Installer
-  l'application" apparaît bien pour `index.html` et `admin.html`, pas
-  seulement "Créer un raccourci".
-- **Lisibilité des couleurs de la Frise du parc** : les barres de
-  `FriseMateriel` (`shared.js`) sont colorées par conum depuis le 19/09 —
-  pas de vérification visuelle du contraste texte/fond pour chaque
-  conseiller existant.
+Retirés le 26/09/2026 (texte complet dans l'historique git de ce fichier) :
+proxy pour la perte des réponses GAS (remplacé par l'API Alwaysdata), points
+d'accès GAS sans jeton et correctifs Apps Script (GAS coupé), PWA et cache
+du HTML (plus de PWA depuis AG-012), portages GAS entre les deux projets
+(les deux parlent désormais à la même API). Seul reste pertinent : la
+lisibilité des couleurs de la Frise du parc, jamais vérifiée à l'œil.
 
 ---
 
