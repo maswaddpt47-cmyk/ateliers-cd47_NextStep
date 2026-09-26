@@ -407,6 +407,17 @@ function matierePanneau(entree, mobile) {
   return mobile ? [...sans, 'Classe mobile'] : sans;
 }
 
+// Anomalie : des ordinateurs prêtés saisis sans « Classe mobile » cochée
+// (26/09/2026). Ce nombre n'est compté nulle part dans le stock : à corriger
+// (cocher la case, ou vider le nombre).
+function ordiSansClasseMobile(e) {
+  if (!e || !(parseInt(e.nb_ordinateurs, 10) > 0)) return false;
+  const liste = Array.isArray(e.materiel) ? e.materiel
+    : String(e.materiel || '').split('|').map(x => x.trim()).filter(Boolean);
+  // matierePanneau(…, false) retire la Classe mobile : rien de retiré = absente.
+  return matierePanneau(e, false).length === liste.length;
+}
+
 // Conflits de matériel où figurerait un atelier modifié, avant de
 // l'enregistrer (panneau latéral de l'Historique et du Calendrier, 26/09/2026 :
 // date et ordinateurs y sont modifiables, sans passer par le formulaire).
@@ -458,5 +469,6 @@ if (typeof module !== 'undefined') {
   kpiHistorique,
   conflitsDeLEntree,
   matierePanneau,
+  ordiSansClasseMobile,
   };
 }

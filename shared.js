@@ -3727,12 +3727,13 @@ function VueAnomalies({entries,onEdit,communes:communesProp,apiFetch,showToast,a
       }
       // Présents > inscrits : contrôle repris de l'Admin (ménage du 25/09/2026).
       const chiffres=typeof presentsSuperieursInscrits==='function'&&presentsSuperieursInscrits(e);
-      if(champsVides.length===0&&!communeInvalide&&!chiffres)return null;
-      return{e,champsVides,communeInvalide,communeSugg,chiffres};
+      const ordiSansMobile=typeof ordiSansClasseMobile==='function'&&ordiSansClasseMobile(e);
+      if(champsVides.length===0&&!communeInvalide&&!chiffres&&!ordiSansMobile)return null;
+      return{e,champsVides,communeInvalide,communeSugg,chiffres,ordiSansMobile};
     }).filter(Boolean);
   },[entries,communes]);
   const anomaliesFiltrees=filtreConum==='Tous'?anomalies:anomalies.filter(a=>a.e.conseiller===filtreConum||a.e.co_animateur===filtreConum);
-  const filtered=filter==='manquants'?anomaliesFiltrees.filter(a=>a.champsVides.length>0):filter==='communes'?anomaliesFiltrees.filter(a=>a.communeInvalide):filter==='chiffres'?anomaliesFiltrees.filter(a=>a.chiffres):anomaliesFiltrees;
+  const filtered=filter==='manquants'?anomaliesFiltrees.filter(a=>a.champsVides.length>0):filter==='communes'?anomaliesFiltrees.filter(a=>a.communeInvalide):filter==='chiffres'?anomaliesFiltrees.filter(a=>a.chiffres):filter==='ordi'?anomaliesFiltrees.filter(a=>a.ordiSansMobile):anomaliesFiltrees;
   async function handleSaveCommune(entry,valeur){
     if(!valeur||!valeur.trim())return;
     setSaving(entry._id);
@@ -3744,7 +3745,7 @@ function VueAnomalies({entries,onEdit,communes:communesProp,apiFetch,showToast,a
     }catch(err){if(showToast)showToast('⚠️ Erreur : '+err.message);}
     setSaving(null);
   }
-  const nbTotal=anomaliesFiltrees.length,nbManquants=anomaliesFiltrees.filter(a=>a.champsVides.length>0).length,nbCommunes=anomaliesFiltrees.filter(a=>a.communeInvalide).length,nbChiffres=anomaliesFiltrees.filter(a=>a.chiffres).length;
+  const nbTotal=anomaliesFiltrees.length,nbManquants=anomaliesFiltrees.filter(a=>a.champsVides.length>0).length,nbCommunes=anomaliesFiltrees.filter(a=>a.communeInvalide).length,nbChiffres=anomaliesFiltrees.filter(a=>a.chiffres).length,nbOrdi=anomaliesFiltrees.filter(a=>a.ordiSansMobile).length;
   const conumsList=['Tous',...Array.from(new Set(anomalies.map(a=>a.e.conseiller).filter(Boolean))).sort()];
   return CE('div',{className:'card',style:{maxWidth:900,margin:'0 auto'}},
     CE('div',{style:{display:'flex',alignItems:'center',gap:12,marginBottom:16}},
@@ -3770,6 +3771,10 @@ function VueAnomalies({entries,onEdit,communes:communesProp,apiFetch,showToast,a
       CE('div',{style:{background:'#ffedd5',borderRadius:8,padding:'8px 14px',flex:'1',minWidth:120,cursor:'pointer',border:filter==='chiffres'?'2px solid #ea580c':'2px solid transparent'},onClick:()=>setFilter('chiffres')},
         CE('div',{style:{fontSize:20,fontWeight:700,color:'#c2410c'}},nbChiffres),
         CE('div',{style:{fontSize:11,color:'#7c2d12'}},'Présents > inscrits')
+      ),
+      CE('div',{style:{background:'#e0f2fe',borderRadius:8,padding:'8px 14px',flex:'1',minWidth:120,cursor:'pointer',border:filter==='ordi'?'2px solid #0284c7':'2px solid transparent'},onClick:()=>setFilter('ordi')},
+        CE('div',{style:{fontSize:20,fontWeight:700,color:'#0369a1'}},nbOrdi),
+        CE('div',{style:{fontSize:11,color:'#0c4a6e'}},'Ordinateurs sans Classe mobile')
       )
     ),
     CE('div',{className:'chip-bar',style:{marginBottom:12}},
@@ -3782,7 +3787,7 @@ function VueAnomalies({entries,onEdit,communes:communesProp,apiFetch,showToast,a
           'Aucune anomalie dans cette catégorie'
         )
       :CE('div',{style:{display:'flex',flexDirection:'column',gap:8}},
-          filtered.map(({e,champsVides,communeInvalide,communeSugg,chiffres})=>{
+          filtered.map(({e,champsVides,communeInvalide,communeSugg,chiffres,ordiSansMobile})=>{
             const corrVal=corrections[e._id]?.commune!==undefined?corrections[e._id].commune:(communeSugg||e.commune||'');
             const estCorrige=saved[e._id];
             return CE('div',{key:e._id,style:{background:estCorrige?'#f0fdf4':'#fff',border:'1px solid '+(estCorrige?'#86efac':'#e5e7eb'),borderRadius:8,padding:'10px 14px'}},
@@ -3791,6 +3796,8 @@ function VueAnomalies({entries,onEdit,communes:communesProp,apiFetch,showToast,a
                 estCorrige&&CE('span',{style:{fontSize:11,color:'#16a34a',fontWeight:600}},'✅ Corrigé'),
                 onEdit&&CE('button',{onClick:()=>onEdit(e._id),style:{fontSize:11,padding:'2px 8px',borderRadius:4,border:'1px solid #3b82f6',background:'#eff6ff',color:'#1d4ed8',cursor:'pointer'}},'✏️ Ouvrir')
               ),
+              ordiSansMobile&&CE('div',{style:{fontSize:11,color:'#0369a1',fontWeight:600,marginBottom:6}},
+                '🖥️ '+e.nb_ordinateurs+' ordinateur(s) prêté(s) sans « Classe mobile » cochée : non compté(s) dans le stock — ✏️ Ouvrir pour cocher la case ou vider le nombre'),
               chiffres&&CE('div',{style:{fontSize:11,color:'#c2410c',fontWeight:600,marginBottom:(champsVides.length>0||communeInvalide)?6:0}},
                 '📊 '+e.presents+' présent(s) pour '+e.inscrits+' inscrit(s) — à corriger via ✏️ Ouvrir'),
               champsVides.length>0&&CE('div',{style:{marginBottom:communeInvalide?6:0}},

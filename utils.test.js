@@ -425,3 +425,18 @@ describe('matierePanneau', () => {
     assert.deepEqual(matierePanneau({}, true), ['Classe mobile']);
   });
 });
+
+// ── ordiSansClasseMobile (onglet Anomalies) ────────────────────────────────
+describe('ordiSansClasseMobile', () => {
+  const { ordiSansClasseMobile } = require('./utils.js');
+  it('signale un nombre d\'ordinateurs sans la case Classe mobile', () => {
+    assert.equal(ordiSansClasseMobile({ nb_ordinateurs: 5, materiel: [] }), true);
+    assert.equal(ordiSansClasseMobile({ nb_ordinateurs: '5', materiel: 'Ordinateur' }), true);
+  });
+  it('rien si la case est cochée ou si le nombre est vide/nul', () => {
+    assert.equal(ordiSansClasseMobile({ nb_ordinateurs: 5, materiel: ['Classe mobile'] }), false);
+    assert.equal(ordiSansClasseMobile({ nb_ordinateurs: 5, materiel: 'Ordinateur|classe mobiles' }), false);
+    assert.equal(ordiSansClasseMobile({ nb_ordinateurs: '', materiel: [] }), false);
+    assert.equal(ordiSansClasseMobile({ nb_ordinateurs: 0, materiel: [] }), false);
+  });
+});
