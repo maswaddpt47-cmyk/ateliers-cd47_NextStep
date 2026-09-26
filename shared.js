@@ -3067,8 +3067,8 @@ function VueGraphiques({entries}){
   const byMoisTx={};filtered.forEach(e=>{const m=e.date?e.date.slice(0,7):'?';if(m<'2000'||m>=todayYM)return;if(!byMoisTx[m])byMoisTx[m]={realises:0,total:0};if(['Réalisé','Annulé','Non réalisé','Reporté'].includes(e.statut))byMoisTx[m].total++;if(e.statut==='Réalisé')byMoisTx[m].realises++;});
   const dataTxRealisation=Object.keys(byMoisTx).sort().map(k=>({label:fmtML(k),value:byMoisTx[k].total>0?Math.round(byMoisTx[k].realises/byMoisTx[k].total*100):0}));
 
-  // 2. Comparaison N vs N-1
-  const cmpYear=new Date().getFullYear();const prevCmpYear=cmpYear-1;
+  // 2. Comparaison N vs N-1 — year derived from entries (most recent réalisé), never hardcoded
+  const cmpYear=entries.reduce((mx,e)=>e.statut==='Réalisé'&&e.date?Math.max(mx,parseInt(e.date.slice(0,4))||0):mx,new Date().getFullYear());const prevCmpYear=cmpYear-1;
   const byMoisCmp={};entries.forEach(e=>{if(e.statut!=='Réalisé')return;const yr=e.date?parseInt(e.date.slice(0,4)):0;if(yr!==cmpYear&&yr!==prevCmpYear)return;const mo=e.date.slice(5,7);if(!byMoisCmp[mo])byMoisCmp[mo]={curr:0,prev:0};if(yr===cmpYear)byMoisCmp[mo].curr++;else byMoisCmp[mo].prev++;});
   const CMP_MOIS=['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
   const dataCmpCurr=Array.from({length:12},(_,i)=>{const m=String(i+1).padStart(2,'0');return byMoisCmp[m]?byMoisCmp[m].curr:0;});
@@ -3827,7 +3827,7 @@ function VueBingo({entries}){
   const[selected,setSelected]=React.useState(null);
   const communes=React.useMemo(()=>{
     const byC={};
-    entries.forEach(e=>{const c=normCommune(e.commune)||'Inconnue';if(!byC[c])byC[c]={total:0,realises:0,annules:0,ateliers:[]};byC[c].total++;if(e.statut==='Réalisé')byC[c].realises++;if(e.statut==='Annulé')byC[c].annules++;byC[c].ateliers.push(e);});
+    entries.forEach(e=>{const c=normalizeCommune(e.commune)||'Inconnue';if(!byC[c])byC[c]={total:0,realises:0,annules:0,ateliers:[]};byC[c].total++;if(e.statut==='Réalisé')byC[c].realises++;if(e.statut==='Annulé')byC[c].annules++;byC[c].ateliers.push(e);});
     return Object.entries(byC).sort((a,b)=>b[1].total-a[1].total).map(([nom,d])=>({nom,total:d.total,realises:d.realises,annules:d.annules,pct:d.total>0?Math.round(d.realises/d.total*100):0,ateliers:[...d.ateliers].sort((a,b)=>a.date>b.date?1:-1)}));
   },[entries]);
   function getCircleColor(pct){if(pct>=70)return{stroke:'#22c55e',text:'#166534',bg:'#dcfce7'};if(pct>=40)return{stroke:'#f97316',text:'#9a3412',bg:'#ffedd5'};return{stroke:'#3b82f6',text:'#1d4ed8',bg:'#dbeafe'};}

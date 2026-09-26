@@ -1091,7 +1091,7 @@ function VueLogs(){
   return CE('div',{className:'card'},
     CE('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:16,flexWrap:'wrap',gap:8}},
       CE('h2',{style:{margin:0}},'🔐 Logs de connexion'),
-      CE('div',{style:{display:'flex',gap:6,flexWrap:'wrap'}},
+      CE('div',{style:{display:'flex',gap:6,alignItems:'center',flexWrap:'wrap'}},
         CE('button',{onClick:()=>fetchLogs(true),disabled:loading,style:{fontSize:11,padding:'3px 10px',borderRadius:6,cursor:'pointer',border:'1px solid #e2e8f0',background:'#f8fafc',color:'#4a5568'}},loading?'…':'🔄 Actualiser'),
         CE('select',{value:conseillerFilter,onChange:e=>setConseillerFilter(e.target.value),style:{fontSize:11,padding:'3px 8px',borderRadius:6,cursor:'pointer',border:'1px solid #e2e8f0',background:'#f8fafc',color:'#4a5568'}},
           CE('option',{value:'all'},'Tous les conseillers'),
@@ -1114,7 +1114,7 @@ function VueLogs(){
               CE('td',{style:{padding:'6px 10px',borderBottom:'1px solid #f0f0f0'}},CE('span',{style:{display:'inline-block',padding:'2px 8px',borderRadius:10,fontSize:11,fontWeight:600,background:'#f1f5f9',color:'#475569',fontFamily:'monospace'}},l.action||'—')),
               CE('td',{style:{padding:'6px 10px',borderBottom:'1px solid #f0f0f0',fontWeight:600}},l.conseiller||'—'),
               CE('td',{style:{padding:'6px 10px',borderBottom:'1px solid #f0f0f0'}},CE('span',{style:{display:'inline-block',padding:'2px 8px',borderRadius:10,fontSize:11,fontWeight:700,background:l.role==='admin'?'#ede9fe':'#dbeafe',color:l.role==='admin'?'#6d28d9':'#1d4ed8'}},l.role||'—')),
-              CE('td',{style:{padding:'6px 10px',borderBottom:'1px solid #f0f0f0'}},CE('span',{style:{display:'inline-block',padding:'2px 8px',borderRadius:10,fontSize:11,fontWeight:600,background:l.source==='admin.html'?'#fef3c7':l.source?'#f0fdf4':'#f1f5f9',color:l.source==='admin.html'?'#92400e':l.source?'#166534':'#94a3b8'}},l.source||'—')),
+              CE('td',{style:{padding:'6px 10px',borderBottom:'1px solid #f0f0f0'}},CE('span',{style:{display:'inline-block',padding:'2px 8px',borderRadius:10,fontSize:11,fontWeight:600,background:l.source==='admin.html'?'#fef3c7':l.source?'#dbeafe':'#f1f5f9',color:l.source==='admin.html'?'#92400e':l.source?'#1d4ed8':'#94a3b8'}},l.source||'—')),
               CE('td',{style:{padding:'6px 10px',borderBottom:'1px solid #f0f0f0'}},CE('span',{style:{display:'inline-block',padding:'2px 8px',borderRadius:10,fontSize:11,fontWeight:700,background:l.success?'#dcfce7':'#fee2e2',color:l.success?'#166534':'#991b1b'}},l.success?'✅ Succès':'❌ Échec')),
               CE('td',{style:{padding:'6px 10px',borderBottom:'1px solid #f0f0f0',textAlign:'center',color:l.tentatives>0?'#dc2626':'#9ca3af',fontWeight:l.tentatives>0?700:400}},l.tentatives||0),
               CE('td',{style:{padding:'6px 10px',borderBottom:'1px solid #f0f0f0',fontSize:10,color:'#9ca3af',maxWidth:200,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}},l.user_agent||'—')
