@@ -1019,7 +1019,14 @@ function VueSauvegardes(){
         tuile('Copie de nuit (Alwaysdata, 03:00)',age(derniere&&derniere.date)<26,affDate(derniere&&derniere.date),
           (etat.copies||[]).length+' copie(s) gardée(s), '+etat.jours+' jours'),
         tuile('Copie chiffrée hors site (04:15)',age(etat.chiffree)<26,affDate(etat.chiffree),
-          'Dépôt GitHub privé, lisible avec la clé privée seulement')
+          CE(React.Fragment,null,'Dépôt GitHub privé, lisible avec la clé privée seulement',CE('br'),
+            // Relance à la main si GitHub a pris du retard (26/09/2026) : sur la
+            // page ouverte, « Run workflow ». Un lien, pas d'appel : aucun jeton
+            // GitHub à stocker sur le serveur (choix de l'utilisateur).
+            CE('a',{href:'https://github.com/maswaddpt47-cmyk/ateliers-backups/actions/workflows/copie.yml',target:'_blank',rel:'noopener',
+              style:{display:'inline-block',marginTop:8,padding:'4px 10px',fontSize:12,fontWeight:700,borderRadius:6,textDecoration:'none',
+                     border:'1px solid '+(age(etat.chiffree)<26?'#166534':'#991b1b'),color:age(etat.chiffree)<26?'#166534':'#fff',background:age(etat.chiffree)<26?'transparent':'#991b1b'}},
+              '▶ Relancer sur GitHub')))
       ),
       CE('button',{disabled:copie,onClick:copierMaintenant,style:{padding:'8px 16px',fontSize:13,fontWeight:700,background:'#1e3a8a',color:'#fff',border:'none',borderRadius:8,cursor:copie?'progress':'pointer'}},
         copie?'Copie en cours…':'💾 Faire une copie maintenant'),
