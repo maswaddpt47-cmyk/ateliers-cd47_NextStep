@@ -435,3 +435,15 @@ describe('ordiSansClasseMobile', () => {
     assert.equal(ordiSansClasseMobile({ nb_ordinateurs: 0, materiel: [] }), false);
   });
 });
+
+describe('visibiliteEffective', () => {
+  it('une clé absente vaut la même chose sur Index et dans l\'Admin (28/09/2026)', () => {
+    const { visibiliteEffective } = require('./utils.js');
+    const v = visibiliteEffective({ saisie: true });
+    assert.equal(v.gestion_ordi, true);
+    assert.equal(v.agenda, false);
+    assert.equal(visibiliteEffective({ gestion_ordi: false }).gestion_ordi, false);
+    assert.equal(visibiliteEffective({ gestion_ordi: 'false' }).gestion_ordi, false);
+    assert.equal(visibiliteEffective(null).historique, true);
+  });
+});

@@ -1061,7 +1061,7 @@ function VueAdminV10({entries,onRefresh,addLog,conseillersList,onSaveColors,anne
       setTimeout(()=>{el.style.opacity='1';el.style.transform='translateY(0)';},i*100+30);
     });
   },[]);
-  const[visibility,setVisibility]=React.useState(initialVisibility||null);
+  const[visibility,setVisibility]=React.useState(initialVisibility?visibiliteEffective(initialVisibility):null);
   const[visSaving,setVisSaving]=React.useState(false);
   const[colorDraft,setColorDraft]=React.useState({...CONSEILLER_COLORS});
   const[colorSaving,setColorSaving]=React.useState(false);
@@ -1079,7 +1079,7 @@ function VueAdminV10({entries,onRefresh,addLog,conseillersList,onSaveColors,anne
   function changeMoisFin(v){localStorage.setItem(lsKey('cal_moisFin'),v);setMoisFin(v);setLastExport(null);}
   const VIS_ITEMS=[{key:'saisie',label:'✏️ Saisie',sub:'Formulaire de saisie'},{key:'historique',label:'📋 Historique',sub:'Liste des ateliers'},{key:'agenda',label:'🗓️ Agenda',sub:'Planning hebdo AM/PM'},{key:'calendrier',label:'📅 Calendrier',sub:'Vue calendrier mensuelle'},{key:'dashboard',label:'📊 Dashboard',sub:'Synthèse · Graphiques · Territoire'},{key:'carte',label:'🗺️ Carte',sub:'Carte des communes'},{key:'bingo',label:'🎯 Bingo',sub:'Vue par commune'},{key:'roadmap',label:'🛣️ Roadmap',sub:'Timeline & densité'},{key:'gestion_ordi',label:'🖥️ Gestion ordi',sub:'Conflits Classe mobile & stock ordinateurs'},{key:'anomalies',label:'⚠️ Anomalies',sub:'Champs manquants & communes invalides'}];
 
-  React.useEffect(()=>{if(initialVisibility)return;apiFetch('getVisibility').then(res=>{if(res.ok)setVisibility(res.visibility);}).catch(()=>{});},[]);
+  React.useEffect(()=>{if(initialVisibility)return;apiFetch('getVisibility').then(res=>{if(res.ok)setVisibility(visibiliteEffective(res.visibility));}).catch(()=>{});},[]);
   React.useEffect(()=>{setColorDraft(d=>{const draft={...CONSEILLER_COLORS,...d};(conseillersList||[]).forEach(c=>{if(!draft[c])draft[c]='#6B7280';});return draft;});},[conseillersList]);
 
   async function handleSaveColors(){

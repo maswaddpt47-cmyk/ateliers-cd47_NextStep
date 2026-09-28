@@ -450,8 +450,20 @@ function normalizeMat(s){return stripAccents(s).replace(/\s+/g,'').replace(/s$/,
 // (api/lib/api.php:339), mais une chaîne rendait « aucun conflit » en silence
 // — logic.test.js l'exigeait d'une version que les pages n'exécutaient pas.
 function matIncludes(arr,m){if(typeof arr==='string')arr=arr.split('|').filter(Boolean);if(!Array.isArray(arr))return false;const nm=normalizeMat(m);return arr.some(x=>x===m||normalizeMat(x)===nm);}
+// ── Visibilité des onglets d'Index (28/09/2026) ─────────────────────────────
+// Une seule table de valeurs par défaut pour Index ET l'Admin : une clé absente
+// de la config enregistrée valait « visible » sur Index et « masqué » dans
+// l'Admin (Gestion ordi affiché sur Index alors que l'Admin le montrait coupé).
+function visibiliteEffective(v){
+  const defaut={saisie:true,historique:true,dashboard:true,carte:true,bingo:true,calendrier:false,agenda:false,roadmap:false,gestion_ordi:true,anomalies:false};
+  const res=Object.assign({},defaut);
+  if(v&&typeof v==='object')Object.keys(v).forEach(k=>{const x=v[k];res[k]=!(x===false||x===0||x===''||x==null||String(x).toLowerCase()==='false');});
+  return res;
+}
+
 if (typeof module !== 'undefined') {
   module.exports={
+    visibiliteEffective,
     normalizeMat, matIncludes,
     normCommune,normalizeCommune,stripAccents,htmlEsc,trunc,
     normalizeDate,normalizeHoraire,fmtDate,fmtCardDate,todayLocal,addJoursIso,

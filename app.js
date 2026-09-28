@@ -260,7 +260,7 @@ function App(){
   const[editingId,setEditingId]    = React.useState(null);
   const[prefillData,setPrefillData] = React.useState(null);
   const[annee,setAnneeState]       = React.useState(()=>localStorage.getItem(lsKey('f_annee'))||String(new Date().getFullYear()));
-  const[visibility,setVisibility]   = React.useState({saisie:true,historique:true,dashboard:true,carte:true,bingo:true,calendrier:false,agenda:false,roadmap:false,gestion_ordi:true});
+  const[visibility,setVisibility]   = React.useState(visibiliteEffective({}));
   const[lists,setLists]            = React.useState({
     statuts:[...STATUTS_DEFAULT],conseillers:[...CONSEILLERS_DEFAULT],
     publics:[...PUBLICS_DEFAULT],materiels:[...MATERIELS_DEFAULT]
@@ -425,7 +425,7 @@ function App(){
         };
         setLists(nl);STATUTS=[...nl.statuts];CONSEILLERS=[...nl.conseillers];PUBLICS=[...nl.publics];MATERIELS=[...nl.materiels];
       }
-      if(data.visibility)setVisibility(v=>({...v,...data.visibility}));
+      if(data.visibility)setVisibility(visibiliteEffective(data.visibility));
       if(data.conseiller_colors)applyColors(data.conseiller_colors);
       // L'API rend la forme NEWGEN (materielsCaches), pas materiels_masques.
       if(Array.isArray(data.materielsCaches)){setMaterielsMasques(data.materielsCaches);MATERIELS_CACHES=data.materielsCaches;}
