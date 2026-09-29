@@ -1,6 +1,6 @@
 # Chantiers en cours — Ateliers CD47 NextStep
 
-État au **27/09/2026**. NextStep (équipe) et NEWGEN (utilisateur) parlent à
+État au **29/09/2026**. NextStep (équipe) et NEWGEN (utilisateur) parlent à
 la même API Alwaysdata et à la même base depuis la bascule du 25/09/2026 :
 **les restes communs** (relève du journal le 30/09, audit trimestriel avant
 le 01/10, sauvegardes, sécurité ; base Google supprimée le 29/09) et les
