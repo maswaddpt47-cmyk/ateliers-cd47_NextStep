@@ -524,6 +524,8 @@ window.RETOUR_REINIT_SUFFIXE = '';
 window.requeteServeur = function(params){
   const token = window.authToken && window.authToken.get();
   if(token && !params.has('token')) params.set('token', token);
+  // Site d'origine, noté au journal (les deux applis partagent l'API, 30/09/2026).
+  if(!params.has('site')) params.set('site', APP_NS);
   return {url:`${API_PHP_URL}?action=${encodeURIComponent(params.get('action')||'')}`, corps:params.toString()};
 };
 // ── Politique d'appel GAS ──────────────────────────────────────────────────

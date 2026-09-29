@@ -849,6 +849,7 @@ const LOGS_COLONNES=[
   {label:'Conseiller',key:'conseiller'},
   {label:'Rôle',key:'role'},
   {label:'Via',key:'source'},
+  {label:'Site',key:'site'},
   {label:'Résultat',key:'success'},
   {label:'Tentatives',key:'tentatives'},
   {label:'Appareil',key:'user_agent'}
@@ -1042,6 +1043,7 @@ function VueLogs(){
               CE('td',{style:{padding:'6px 10px',borderBottom:'1px solid #f0f0f0',fontWeight:600}},l.conseiller||'—'),
               CE('td',{style:{padding:'6px 10px',borderBottom:'1px solid #f0f0f0'}},CE('span',{style:{display:'inline-block',padding:'2px 8px',borderRadius:10,fontSize:11,fontWeight:700,background:l.role==='admin'?'#ede9fe':l.role==='superviseur'?'#fef3c7':l.role?'#dbeafe':'#f3f4f6',color:l.role==='admin'?'#6d28d9':l.role==='superviseur'?'#92400e':l.role?'#1d4ed8':'#9ca3af'}},({admin:'Admin',superviseur:'Superviseur',user:'Conseiller'})[l.role]||l.role||'—')),
               CE('td',{style:{padding:'6px 10px',borderBottom:'1px solid #f0f0f0'}},CE('span',{style:{display:'inline-block',padding:'2px 8px',borderRadius:10,fontSize:11,fontWeight:600,background:l.source==='admin.html'?'#fef3c7':l.source?'#dbeafe':'#f1f5f9',color:l.source==='admin.html'?'#92400e':l.source?'#1d4ed8':'#94a3b8'}},l.source||'—')),
+              CE('td',{style:{padding:'6px 10px',borderBottom:'1px solid #f0f0f0'}},CE('span',{style:{display:'inline-block',padding:'2px 8px',borderRadius:10,fontSize:11,fontWeight:600,background:l.site==='nextstep'?'#e0f2fe':l.site==='newgen'?'#f3e8ff':'#f1f5f9',color:l.site==='nextstep'?'#0369a1':l.site==='newgen'?'#7e22ce':'#94a3b8'}},({nextstep:'NextStep',newgen:'NEWGEN'})[l.site]||'—')),
               CE('td',{style:{padding:'6px 10px',borderBottom:'1px solid #f0f0f0'}},CE('span',{style:{display:'inline-block',padding:'2px 8px',borderRadius:10,fontSize:11,fontWeight:700,background:l.success?'#dcfce7':'#fee2e2',color:l.success?'#166534':'#991b1b'}},l.success?'✅ Succès':'❌ Échec')),
               CE('td',{style:{padding:'6px 10px',borderBottom:'1px solid #f0f0f0',textAlign:'center',color:l.tentatives>0?'#dc2626':'#9ca3af',fontWeight:l.tentatives>0?700:400}},l.tentatives||0),
               CE('td',{style:{padding:'6px 10px',borderBottom:'1px solid #f0f0f0',fontSize:10,color:'#9ca3af',maxWidth:200,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}},l.user_agent||'—')
