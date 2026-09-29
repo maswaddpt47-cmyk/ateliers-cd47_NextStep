@@ -250,6 +250,8 @@ function VueLoginIndex({conseillers,onSuccess}){
 function App(){
   const[authed,setAuthed]          = React.useState(()=>!!window.authToken.get());
   const[view,setView]              = React.useState('accueil');
+  // Usage des onglets : compteur anonyme, envoyé en un lot (shared.js).
+  React.useEffect(()=>{ if(authed&&window.compterOnglet) window.compterOnglet('index',view); },[view,authed]);
   const[entries,setEntries]        = React.useState([]);
   const[loading,setLoading]        = React.useState(true);
   const[error,setError]            = React.useState(null);

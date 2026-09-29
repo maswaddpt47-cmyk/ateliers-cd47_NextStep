@@ -5183,3 +5183,63 @@ function VueDashboardTabs({entries, conseillers}){
     tab==='powerbi'    && CE(VuePowerBI,{entries,conseillers})
   );
 }
+
+// ── Usage des onglets (29/09/2026) ─────────────────────────────────────────
+// Compteurs ANONYMES d'ouverture des onglets, pour savoir lesquels servent
+// (décision de l'utilisateur : pas de suivi nominatif). Aucun appel pendant
+// l'utilisation : un seul envoi groupé quand la page passe en arrière-plan ou
+// se ferme (sendBeacon). Le serveur ne garde que jour, site, page, onglet.
+(function(){
+  let page = null, vues = {};
+  window.compterOnglet = function(p, onglet){
+    if(!onglet || onglet === 'accueil' || !window.authToken || !window.authToken.get()) return;
+    page = p; vues[onglet] = (vues[onglet] || 0) + 1;
+  };
+  function envoyer(){
+    if(!page || !Object.keys(vues).length || !navigator.sendBeacon || !window.requeteServeur) return;
+    const params = new URLSearchParams({action:'usageOnglets', site:APP_NS, page, vues:JSON.stringify(vues)});
+    const {url, corps} = window.requeteServeur(params);
+    try{ if(navigator.sendBeacon(url, new Blob([corps], {type:'application/x-www-form-urlencoded'}))) vues = {}; }catch(_){}
+  }
+  document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState === 'hidden') envoyer(); });
+  window.addEventListener('pagehide', envoyer);
+})();
+
+// Tableau de l'Admin (onglet Connexions) : ouvertures par onglet sur les 12
+// dernières semaines, par site. Anonyme : aucune colonne « qui ».
+function VueUsageOnglets(){
+  const[usage,setUsage] = React.useState(null);
+  const[erreur,setErreur] = React.useState('');
+  React.useEffect(()=>{
+    window.apiFetch('getUsageOnglets').then(r=>{ if(r && r.ok) setUsage(r.usage||[]); else setErreur((r&&r.error)||'Lecture impossible'); })
+      .catch(e=>setErreur(String(e&&e.message||e)));
+  },[]);
+  const lignes = React.useMemo(()=>{
+    const m = {};
+    (usage||[]).forEach(u=>{
+      const k = u.page+'|'+u.onglet;
+      if(!m[k]) m[k] = {page:u.page, onglet:u.onglet, newgen:0, nextstep:0, total:0};
+      m[k][u.site] = (m[k][u.site]||0) + u.vues; m[k].total += u.vues;
+    });
+    return Object.values(m).sort((a,b)=>b.total-a.total);
+  },[usage]);
+  const cell = {padding:'6px 10px', borderBottom:'1px solid var(--border,#e2e8f0)', fontSize:13};
+  const num = Object.assign({}, cell, {textAlign:'right', fontVariantNumeric:'tabular-nums'});
+  return CE('div',{className:'card', style:{marginBottom:16}},
+    CE('h2',null,'📊 Usage des onglets — 12 dernières semaines'),
+    CE('p',{style:{fontSize:12, color:'var(--text2,#718096)', margin:'0 0 10px'}},
+      'Nombre d’ouvertures de chaque onglet, sans nom ni heure (compteurs anonymes, depuis le 29/09/2026).'),
+    erreur ? CE('p',{style:{color:'#b91c1c', fontSize:13}},erreur)
+    : usage===null ? CE('p',{style:{fontSize:13}},'Chargement…')
+    : !lignes.length ? CE('p',{style:{fontSize:13}},'Pas encore de données.')
+    : CE('div',{style:{overflowX:'auto'}},CE('table',{style:{width:'100%', borderCollapse:'collapse'}},
+        CE('thead',null,CE('tr',null,
+          ['Onglet','Page','NextStep','NEWGEN','Total'].map((t,i)=>CE('th',{key:t, style:Object.assign({}, i>1?num:cell, {fontWeight:700})},t)))),
+        CE('tbody',null, lignes.map(l=>CE('tr',{key:l.page+l.onglet},
+          CE('td',{style:cell},l.onglet.replace(/_/g,' ')),
+          CE('td',{style:cell},l.page==='admin'?'Admin':'Index'),
+          CE('td',{style:num},l.nextstep||'—'),
+          CE('td',{style:num},l.newgen||'—'),
+          CE('td',{style:Object.assign({}, num, {fontWeight:700})},l.total))))))
+  );
+}

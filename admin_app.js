@@ -173,6 +173,8 @@ function App(){
   const[jetonReinit,setJetonReinit]= React.useState(()=>window.jetonReinitUrl());
   const[adminConseiller,setAdminConseiller]= React.useState(()=>localStorage.getItem(lsKey('adm_conseiller'))||'');
   const[view,setView]           = React.useState('historique');
+  // Usage des onglets : compteur anonyme, envoyé en un lot (shared.js).
+  React.useEffect(()=>{ if(auth&&window.compterOnglet) window.compterOnglet('admin',view); },[view,auth]);
   const[entries,setEntries]= React.useState([]);
   const[loading,setLoading]= React.useState(true);
   const[error,setError]    = React.useState(null);
@@ -653,7 +655,7 @@ const LOGS_KEY = lsKey('adm_logs');
           view==='gestion_ordi'&&CE(VueGestionOrdi,{entries,onEdit:(id)=>{setEditingId(id);setPrefillData(null);setView('saisie');}}),
 
           view==='admin'&&role==='admin'&&CE(VueAdmin,{entries,onRefresh:()=>loadData(),addLog,conseillersList:lists.conseillers,onSaveColors:(c)=>{applyColors(c);},annee:anneeReference(annee),adminConseiller}),
-          view==='logs_connexion'&&(role==='admin'||role==='superviseur')&&CE(VueLogs,null),
+          view==='logs_connexion'&&(role==='admin'||role==='superviseur')&&CE(React.Fragment,null,CE(VueUsageOnglets,null),CE(VueLogs,null)),
           view==='corbeille'&&(role==='admin'||role==='superviseur')&&CE(VueCorbeille,null),
           view==='sauvegardes'&&(role==='admin'||role==='superviseur')&&CE(VueSauvegardes,null),
           view==='logs'&&CE('div',{className:'card'},
