@@ -133,3 +133,11 @@ version qui l'introduit :
 À la date du dernier commit touchant ce fichier, l'état exact du
 déploiement réel (confirmé par l'utilisateur ou en attente de test) est
 précisé dans le message de commit.
+
+## Version en ligne chez Google au moment de la suppression (29/09/2026)
+
+Code relevé dans l'éditeur Apps Script par l'utilisateur le 29/09/2026, juste
+avant la suppression de la base Google : **v10.21.0 (en-tête « PAS ENCORE DÉPLOYÉE »)**, identique au commit `b8b96c7`
+(en-tête et lignes caractéristiques comparés ; retrouver le texte exact avec
+`git show b8b96c7:gas/GAS_NEXTSTEP.js`). Le fichier courant de ce dossier est plus récent
+(v10.22.0, jamais déployé).
