@@ -139,8 +139,9 @@ manifeste, ni `apple-touch-icon`, ni enregistrement de service worker.
 - Serveur — **API PHP + MySQL chez Alwaysdata depuis la bascule du
   25/09/2026** (`window.requeteServeur` dans `shared.js`). Le code de l'API
   vit dans **ATELIERS_NEWGEN** (`api/`, déployé par `deploy-api.yml`), pas
-  ici : tout changement côté serveur se fait là-bas. `gas/` n'est plus
-  qu'une archive, et `e2e/appels.test.js` échoue si un appel à
+  ici : tout changement côté serveur se fait là-bas. L'ancien code Google
+  Apps Script est retiré (30/09/2026) ; version qui tournait en ligne :
+  `git show b8b96c7:gas/`. `e2e/appels.test.js` échoue si un appel à
   `script.google.com` revient.
 
 ## Tests
