@@ -499,8 +499,80 @@ function nouveautesNonVues(liste, vu) {
   return (liste || []).filter(n => n && Number(n.id) > v).length;
 }
 
+// ── Périodicité de la saisie par cycle (01/10/2026) ─────────────────────────
+// Calcul en UTC pur (dates ISO AAAA-MM-JJ) : aucun changement d'heure ne peut
+// décaler une séance d'un jour.
+function _isoUTC(t) { return new Date(t).toISOString().slice(0, 10); }
+function _tUTC(iso) { const [a, m, j] = iso.split('-').map(Number); return Date.UTC(a, m - 1, j); }
+// Dimanche de Pâques (algorithme grégorien anonyme), en ms UTC.
+function _paques(a) {
+  const b = a % 19, c = Math.floor(a / 100), d = a % 100, e = Math.floor(c / 4), f = c % 4,
+    g = Math.floor((c + 8) / 25), h = Math.floor((c - g + 1) / 3), i = (19 * b + c - e - h + 15) % 30,
+    k = Math.floor(d / 4), l = d % 4, m = (32 + 2 * f + 2 * k - i - l) % 7,
+    n = Math.floor((b + 11 * i + 22 * m) / 451), mois = Math.floor((i + m - 7 * n + 114) / 31),
+    jour = ((i + m - 7 * n + 114) % 31) + 1;
+  return Date.UTC(a, mois - 1, jour);
+}
+// Jours fériés français (métropole) d'une année : { 'AAAA-MM-JJ': libellé }.
+function joursFeries(a) {
+  const J = 86400000, p = _paques(a), r = {};
+  [['01-01', 'Jour de l\'an'], ['05-01', 'Fête du travail'], ['05-08', 'Victoire 1945'],
+   ['07-14', 'Fête nationale'], ['08-15', 'Assomption'], ['11-01', 'Toussaint'],
+   ['11-11', 'Armistice'], ['12-25', 'Noël']].forEach(([md, l]) => { r[a + '-' + md] = l; });
+  r[_isoUTC(p + J)] = 'Lundi de Pâques';
+  r[_isoUTC(p + 39 * J)] = 'Ascension';
+  r[_isoUTC(p + 50 * J)] = 'Lundi de Pentecôte';
+  return r;
+}
+// Dates d'un cycle. o = { debut, mode:'hebdo'|'mensuel', intervalle, jours:[0-6]
+// (hebdo, 0 = dimanche), rang:1-4 ou -1 = dernier, jourSemaine:0-6 (mensuel),
+// nb (fin après N séances) ou jusquau (date de fin incluse), sauterFeries, max }.
+// Rend { dates, feries:[{date,libelle}] }. Un férié sauté ne compte pas
+// dans les N séances.
+function genererDatesCycle(o) {
+  const J = 86400000, res = { dates: [], feries: [] };
+  if (!o || !/^\d{4}-\d{2}-\d{2}$/.test(o.debut || '')) return res;
+  const max = Math.min(o.max || 52, 52), iv = Math.max(1, parseInt(o.intervalle) || 1);
+  const nb = parseInt(o.nb) || 0, fin = /^\d{4}-\d{2}-\d{2}$/.test(o.jusquau || '') ? _tUTC(o.jusquau) : null;
+  if (!nb && fin === null) return res;
+  const t0 = _tUTC(o.debut), cacheF = {};
+  const ferie = t => { const a = new Date(t).getUTCFullYear(); return (cacheF[a] = cacheF[a] || joursFeries(a))[_isoUTC(t)]; };
+  // Renvoie false quand le cycle est terminé.
+  const prendre = t => {
+    if (t < t0) return true;
+    if (fin !== null && t > fin) return false;
+    const f = o.sauterFeries ? ferie(t) : '';
+    if (f) { res.feries.push({ date: _isoUTC(t), libelle: f }); return true; }
+    res.dates.push(_isoUTC(t));
+    return !(nb && res.dates.length >= nb) && res.dates.length < max;
+  };
+  if (o.mode === 'mensuel') {
+    const js = parseInt(o.jourSemaine), rang = parseInt(o.rang);
+    if (!(js >= 0 && js <= 6) || ![1, 2, 3, 4, -1].includes(rang)) return res;
+    const d0 = new Date(t0);
+    for (let k = 0; k < 600; k += iv) {
+      const a = d0.getUTCFullYear(), m = d0.getUTCMonth() + k;
+      let t;
+      if (rang === -1) { t = Date.UTC(a, m + 1, 0); while (new Date(t).getUTCDay() !== js) t -= J; }
+      else { t = Date.UTC(a, m, 1); while (new Date(t).getUTCDay() !== js) t += J; t += (rang - 1) * 7 * J; }
+      if (!prendre(t)) break;
+    }
+    return res;
+  }
+  const jours = (o.jours || []).map(Number).filter(j => j >= 0 && j <= 6);
+  if (!jours.length) return res;
+  // Semaines du lundi au dimanche, à partir de celle de la première date.
+  const lundi0 = t0 - ((new Date(t0).getUTCDay() + 6) % 7) * J;
+  const ordre = jours.map(j => (j + 6) % 7).sort((x, y) => x - y);
+  for (let s = 0; s < 600; s += iv) {
+    for (const dec of ordre) if (!prendre(lundi0 + (s * 7 + dec) * J)) return res;
+  }
+  return res;
+}
+
 if (typeof module !== 'undefined') {
   module.exports={
+    genererDatesCycle, joursFeries,
     nouveautesNonVues,
     visibiliteEffective,
     normalizeMat, matIncludes,

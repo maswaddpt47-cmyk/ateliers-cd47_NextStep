@@ -1796,6 +1796,15 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
   // Dupliquer une séance juste en dessous (01/10/2026) : deux groupes le même
   // jour, l'un après l'autre (G1 14 h, G2 15 h). L'horaire est vidé pour être
   // ressaisi, sinon deux ateliers identiques partent sans qu'on s'en aperçoive.
+  // Lignes produites par l'encart Périodicité ; remplace le tableau, après
+  // confirmation s'il contient déjà des saisies.
+  function genererLignes(dates,horaire,thematique){
+    const remplies=lotRows.filter(r=>r.date||r.horaire||(r.thematique||'').trim()).length;
+    if(remplies&&!window.confirm(`Remplacer les ${remplies} ligne(s) déjà saisie(s) par ${dates.length} séance(s) ?`))return false;
+    setLotRows(dates.map(d=>({...emptyRow(),date:d,horaire:horaire||'',ampm:ampmDepuisHoraire(horaire)||'',thematique:thematique||''})));
+    setLotRowErrors({});
+    return true;
+  }
   function dupRow(id){setLotRows(r=>{const i=r.findIndex(x=>x.id===id);if(i<0)return r;return[...r.slice(0,i+1),{...r[i],id:genId(),horaire:'',ampm:''},...r.slice(i+1)];});}
   function setRow(id,k,v){const a=k==='horaire'?ampmDepuisHoraire(v):'';setLotRows(r=>r.map(x=>x.id===id?{...x,[k]:v,...(a?{ampm:a}:{})}:x));setLotRowErrors(er=>({...er,[id]:{...(er[id]||{}),[k]:'',...(a?{ampm:''}:{})}}));}
 
@@ -2146,6 +2155,7 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
       // Tableau des dates
       CE('div',{style:secStyle},
         CE('div',{style:{fontSize:13,fontWeight:700,color:ac,marginBottom:12}},'📅 Dates du cycle'),
+        CE(PeriodiciteCycle,{entries,ac,acLight,onGenerer:genererLignes}),
         lotRows.map((row)=>{
           const rErr=lotRowErrors[row.id]||{};
           const hasErr=Object.values(rErr).some(v=>v);
@@ -5298,7 +5308,72 @@ const NOUVEAUTES=[
   {id:1,date:'2026-10-01',titre:'Votre nom proposé d\'office',texte:'Écran conseillers : à la création d\'un atelier, le champ Conseiller est déjà rempli avec votre nom. Il reste modifiable pour saisir pour un collègue.'},
   {id:2,date:'2026-10-01',titre:'Statut proposé selon la date',texte:'À la saisie, une date passée propose « Réalisé », une date à venir « Planifié ». Vous pouvez toujours choisir un autre statut.'},
   {id:4,date:'2026-10-01',titre:'Dupliquer une séance dans un cycle',texte:'Saisie par cycle : le bouton ⧉ au bout d\'une ligne la recopie juste en dessous, horaire vide. Pratique pour deux groupes le même jour (G1 de 14 h, G2 de 15 h) : il ne reste qu\'à taper l\'horaire.'},
+  {id:5,date:'2026-10-01',titre:'Périodicité dans la saisie par cycle',texte:'Saisie par cycle : le bouton « 🔁 Générer les dates par périodicité » remplit le tableau comme un rendez-vous Outlook — chaque semaine ou toutes les N semaines (un ou plusieurs jours), ou chaque mois (« le 2e mardi »), jusqu\'à un nombre de séances ou une date. Les jours fériés sont sautés. Chaque ligne reste modifiable ensuite.'},
 ];
+
+// ═══════════════════════════════════════════════════════════
+// PÉRIODICITÉ — encart de la saisie par cycle (01/10/2026)
+// Génère les lignes du tableau des dates, à la manière d'Outlook ; chaque
+// ligne reste modifiable ensuite. Calcul : genererDatesCycle (utils.js).
+// ═══════════════════════════════════════════════════════════
+const JOURS_COURTS=[{j:1,l:'Lun'},{j:2,l:'Mar'},{j:3,l:'Mer'},{j:4,l:'Jeu'},{j:5,l:'Ven'},{j:6,l:'Sam'}];
+const JOURS_LONGS=['dimanche','lundi','mardi','mercredi','jeudi','vendredi','samedi'];
+function PeriodiciteCycle({entries,ac,acLight,onGenerer}){
+  const[ouvert,setOuvert]=React.useState(false);
+  const[p,setP]=React.useState({debut:'',horaire:'',thematique:'',mode:'hebdo',intervalle:1,jours:[],rang:2,jourSemaine:2,typeFin:'nb',nb:6,jusquau:'',sauterFeries:true});
+  const maj=(k,v)=>setP(x=>{
+    const n={...x,[k]:v};
+    // Le jour de la première séance est proposé d'office (comme Outlook).
+    if(k==='debut'&&v){const js=new Date(v+'T12:00:00').getDay();if(!x.jours.length)n.jours=[js];n.jourSemaine=js;n.rang=Math.min(Math.ceil(parseInt(v.slice(8),10)/7),4);}
+    return n;
+  });
+  const basculerJour=j=>setP(x=>({...x,jours:x.jours.includes(j)?x.jours.filter(y=>y!==j):[...x.jours,j]}));
+  const res=genererDatesCycle({...p,nb:p.typeFin==='nb'?p.nb:0,jusquau:p.typeFin==='date'?p.jusquau:''});
+  const champ={padding:'7px 9px',border:'2px solid #e2e8f0',borderRadius:8,fontSize:13,background:'#f8fafc',outline:'none',boxSizing:'border-box'};
+  const lbl=t=>CE('span',{style:{fontSize:10,fontWeight:700,color:'#718096',textTransform:'uppercase',letterSpacing:'.06em',display:'block',marginBottom:3}},t);
+  const puce=(actif,txt,onClick,key)=>CE('button',{key,type:'button',onClick,style:{padding:'6px 10px',borderRadius:8,border:`2px solid ${actif?ac:'#e2e8f0'}`,background:actif?acLight:'#fff',color:actif?ac:'#718096',fontWeight:700,fontSize:12,cursor:'pointer'}},txt);
+  if(!ouvert)return CE('button',{type:'button',onClick:()=>setOuvert(true),style:{display:'flex',alignItems:'center',justifyContent:'center',gap:6,padding:10,background:'#fff',border:`2px solid ${ac}`,borderRadius:10,cursor:'pointer',fontSize:13,color:ac,fontWeight:700,width:'100%',marginBottom:12}},'🔁 Générer les dates par périodicité');
+  return CE('div',{style:{border:`2px solid ${ac}`,borderRadius:10,padding:12,marginBottom:12,background:'#fff'}},
+    CE('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10}},
+      CE('span',{style:{fontSize:13,fontWeight:700,color:ac}},'🔁 Périodicité'),
+      CE('button',{type:'button',onClick:()=>setOuvert(false),'aria-label':'Fermer',style:{background:'none',border:'none',fontSize:16,cursor:'pointer',color:'#718096'}},'×')),
+    // Première séance
+    CE('div',{className:'sf-ligne-2',style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:10}},
+      CE('div',null,lbl('Première séance *'),CE('input',{type:'date',value:p.debut,onChange:e=>maj('debut',e.target.value),style:{...champ,width:'100%'}})),
+      CE('div',null,lbl('Horaire'),CE('input',{type:'time',value:p.horaire,onChange:e=>maj('horaire',e.target.value),style:{...champ,width:'100%'}}))),
+    CE('div',{style:{marginBottom:10}},lbl('Thématique (la même pour toutes les séances)'),
+      CE(ComboThematiqueFixed,{value:p.thematique,onChange:v=>maj('thematique',v),entries})),
+    // Rythme
+    CE('div',{style:{display:'flex',gap:6,marginBottom:8,flexWrap:'wrap'}},
+      puce(p.mode==='hebdo','Hebdomadaire',()=>maj('mode','hebdo'),'h'),
+      puce(p.mode==='mensuel','Mensuel',()=>maj('mode','mensuel'),'m')),
+    p.mode==='hebdo'?CE('div',{style:{marginBottom:10}},
+      CE('div',{style:{display:'flex',alignItems:'center',gap:6,fontSize:13,marginBottom:6,flexWrap:'wrap'}},'Toutes les',
+        CE('input',{type:'number',min:1,max:8,value:p.intervalle,onChange:e=>maj('intervalle',e.target.value),style:{...champ,width:56,textAlign:'center'}}),'semaine(s), le :'),
+      CE('div',{style:{display:'flex',gap:6,flexWrap:'wrap'}},JOURS_COURTS.map(d=>puce(p.jours.includes(d.j),d.l,()=>basculerJour(d.j),d.j))))
+    :CE('div',{style:{display:'flex',alignItems:'center',gap:6,fontSize:13,marginBottom:10,flexWrap:'wrap'}},'Le',
+      CE('select',{value:p.rang,onChange:e=>maj('rang',parseInt(e.target.value)),style:champ},
+        [[1,'1er'],[2,'2e'],[3,'3e'],[4,'4e'],[-1,'dernier']].map(([v,t])=>CE('option',{key:v,value:v},t))),
+      CE('select',{value:p.jourSemaine,onChange:e=>maj('jourSemaine',parseInt(e.target.value)),style:champ},
+        [1,2,3,4,5,6].map(j=>CE('option',{key:j,value:j},JOURS_LONGS[j]))),
+      'tous les',
+      CE('input',{type:'number',min:1,max:12,value:p.intervalle,onChange:e=>maj('intervalle',e.target.value),style:{...champ,width:56,textAlign:'center'}}),'mois'),
+    // Fin
+    CE('div',{style:{display:'flex',alignItems:'center',gap:6,fontSize:13,marginBottom:6,flexWrap:'wrap'}},
+      puce(p.typeFin==='nb','Fin après',()=>maj('typeFin','nb'),'fn'),
+      p.typeFin==='nb'&&CE(React.Fragment,null,CE('input',{type:'number',min:1,max:52,value:p.nb,onChange:e=>maj('nb',e.target.value),style:{...champ,width:56,textAlign:'center'}}),'séances'),
+      puce(p.typeFin==='date','Fin le',()=>maj('typeFin','date'),'fd'),
+      p.typeFin==='date'&&CE('input',{type:'date',value:p.jusquau,onChange:e=>maj('jusquau',e.target.value),style:champ})),
+    CE('label',{style:{display:'flex',alignItems:'center',gap:6,fontSize:13,marginBottom:10,cursor:'pointer'}},
+      CE('input',{type:'checkbox',checked:p.sauterFeries,onChange:e=>maj('sauterFeries',e.target.checked)}),'Sauter les jours fériés'),
+    // Aperçu + génération
+    CE('div',{style:{fontSize:12,color:'#4a5568',marginBottom:8}},
+      res.dates.length?`${res.dates.length} séance(s) : du ${fmtDate(res.dates[0])} au ${fmtDate(res.dates[res.dates.length-1])}`:'Renseignez la première séance, le rythme et la fin.',
+      res.feries.length>0&&CE('div',{style:{color:'#b7791f',marginTop:2}},'Fériés sautés : '+res.feries.map(f=>`${fmtDate(f.date)} (${f.libelle})`).join(', ')),
+      res.dates.length>=52&&CE('div',{style:{color:'#c53030',marginTop:2}},'Limité à 52 séances.')),
+    CE('button',{type:'button',disabled:!res.dates.length,onClick:()=>{if(onGenerer(res.dates,p.horaire,p.thematique))setOuvert(false);},style:{padding:'10px 18px',border:'none',borderRadius:10,cursor:res.dates.length?'pointer':'not-allowed',fontSize:13,fontWeight:700,color:'#fff',background:res.dates.length?ac:'#94a3b8'}},`Générer ${res.dates.length||''} ligne(s)`)
+  );
+}
 
 function lireNouveautesVues(){try{return parseInt(localStorage.getItem(lsKey('nouveautes_vues')))||0;}catch(_){return 0;}}
 // [nombre non vues, marquer tout comme vu]

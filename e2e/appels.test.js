@@ -498,3 +498,24 @@ test('admin — Déconnexion envoie logout avec le jeton', async ({ page }) => {
   await page.waitForTimeout(300);
   expect(logouts, 'un logout, avec le jeton de la session').toEqual(['jeton-de-test']);
 });
+
+test('cycle — la périodicité remplit le tableau des dates', async ({ page }) => {
+  await instrumenter(page);
+  await page.goto('/index.html');
+  const selectConseiller = page.locator('select').first();
+  await expect(selectConseiller.locator('option', { hasText:'Michel Aswad' })).toHaveCount(1, { timeout:10000 });
+  await selectConseiller.selectOption('Michel Aswad');
+  await page.fill('input[type="password"]', 'test');
+  await page.getByText('🔓 Connexion', { exact:true }).click();
+  await page.waitForSelector('.sidebar-btn', { timeout:10000 });
+  await page.locator('.sidebar-btn', { hasText:'Nouveau' }).first().click();
+  await page.mouse.move(1000, 400);
+  await page.getByText('🔄 Saisie par cycle').click();
+  await page.getByText('🔁 Générer les dates par périodicité').click();
+  // Mercredi 04/11/2026, 4 séances : le 11/11 (férié) est sauté.
+  await page.getByText('Première séance *').locator('..').locator('input[type="date"]').fill('2026-11-04');
+  await page.locator('input[type="number"][max="52"]').fill('4');
+  await page.getByRole('button', { name: 'Générer 4 ligne(s)' }).click();
+  const dates = await page.locator('input[type="date"]').evaluateAll(els => els.map(e => e.value).filter(Boolean));
+  expect(dates).toEqual(['2026-11-04', '2026-11-18', '2026-11-25', '2026-12-02']);
+});

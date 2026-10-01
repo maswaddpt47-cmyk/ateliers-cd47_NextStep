@@ -9,6 +9,7 @@ const {
   resumeLogsTexte,
   suppressionAboutie,
   nouveautesNonVues,
+  genererDatesCycle, joursFeries,
   anneesListe,
   anneeReference,
   anneeIncluse,
@@ -495,5 +496,38 @@ describe('nouveautesNonVues', () => {
   it('valeur stockée absente ou illisible = tout est à lire', () => {
     assert.equal(nouveautesNonVues(l, null), 3);
     assert.equal(nouveautesNonVues(l, 'abc'), 3);
+  });
+});
+
+describe('genererDatesCycle', () => {
+  it('hebdomadaire : chaque mercredi, 4 séances', () => {
+    const r = genererDatesCycle({ debut: '2026-10-07', mode: 'hebdo', intervalle: 1, jours: [3], nb: 4 });
+    assert.deepEqual(r.dates, ['2026-10-07', '2026-10-14', '2026-10-21', '2026-10-28']);
+  });
+  it('toutes les 2 semaines, lundi et jeudi, jusqu\'à une date', () => {
+    const r = genererDatesCycle({ debut: '2026-10-05', mode: 'hebdo', intervalle: 2, jours: [1, 4], jusquau: '2026-10-22' });
+    assert.deepEqual(r.dates, ['2026-10-05', '2026-10-08', '2026-10-19', '2026-10-22']);
+  });
+  it('un jour coché avant la première date de la semaine n\'est pas pris', () => {
+    const r = genererDatesCycle({ debut: '2026-10-07', mode: 'hebdo', jours: [1, 3], nb: 2 });
+    assert.deepEqual(r.dates, ['2026-10-07', '2026-10-12']);
+  });
+  it('fériés sautés sans compter dans les N séances (11/11, Ascension 2027)', () => {
+    const r = genererDatesCycle({ debut: '2026-11-04', mode: 'hebdo', jours: [3], nb: 3, sauterFeries: true });
+    assert.deepEqual(r.dates, ['2026-11-04', '2026-11-18', '2026-11-25']);
+    assert.deepEqual(r.feries, [{ date: '2026-11-11', libelle: 'Armistice' }]);
+    assert.equal(joursFeries(2027)['2027-05-06'], 'Ascension');
+    assert.equal(joursFeries(2027)['2027-03-29'], 'Lundi de Pâques');
+  });
+  it('mensuel : 2e mardi et dernier vendredi', () => {
+    assert.deepEqual(genererDatesCycle({ debut: '2026-10-01', mode: 'mensuel', rang: 2, jourSemaine: 2, nb: 3 }).dates,
+      ['2026-10-13', '2026-11-10', '2026-12-08']);
+    assert.deepEqual(genererDatesCycle({ debut: '2026-10-01', mode: 'mensuel', rang: -1, jourSemaine: 5, nb: 2 }).dates,
+      ['2026-10-30', '2026-11-27']);
+  });
+  it('plafond de 52 séances, et rien sans fin ni jour', () => {
+    assert.equal(genererDatesCycle({ debut: '2026-01-05', mode: 'hebdo', jours: [1, 2, 3, 4, 5], nb: 200 }).dates.length, 52);
+    assert.deepEqual(genererDatesCycle({ debut: '2026-10-07', mode: 'hebdo', jours: [3] }).dates, []);
+    assert.deepEqual(genererDatesCycle({ debut: '2026-10-07', mode: 'hebdo', jours: [], nb: 3 }).dates, []);
   });
 });
