@@ -5297,7 +5297,6 @@ function VueUsageOnglets(){
 const NOUVEAUTES=[
   {id:1,date:'2026-10-01',titre:'Votre nom proposé d\'office',texte:'Écran conseillers : à la création d\'un atelier, le champ Conseiller est déjà rempli avec votre nom. Il reste modifiable pour saisir pour un collègue.'},
   {id:2,date:'2026-10-01',titre:'Statut proposé selon la date',texte:'À la saisie, une date passée propose « Réalisé », une date à venir « Planifié ». Vous pouvez toujours choisir un autre statut.'},
-  {id:3,date:'2026-10-01',titre:'Dashboard : l\'onglet 🗺️ devient 📈 « Bilan mensuel »',texte:'L\'onglet de synthèse du Dashboard s\'appelle désormais « Bilan mensuel ». Son contenu ne change pas : on y retrouve les pages Général, Conseillers et Territoire (carte des communes).'},
   {id:4,date:'2026-10-01',titre:'Dupliquer une séance dans un cycle',texte:'Saisie par cycle : le bouton ⧉ au bout d\'une ligne la recopie juste en dessous, horaire vide. Pratique pour deux groupes le même jour (G1 de 14 h, G2 de 15 h) : il ne reste qu\'à taper l\'horaire.'},
 ];
 
