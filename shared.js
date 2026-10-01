@@ -5313,10 +5313,18 @@ function useNouveautes(){
   return[nouveautesNonVues(NOUVEAUTES,vu),marquer];
 }
 
+// Clignotement de la pastille (demande du 01/10/2026) : animation injectée
+// ici pour ne pas toucher aux quatre feuilles de style ; coupée si le
+// système demande moins d'animations.
+if(typeof document!=='undefined'&&!document.getElementById('nouv-blink-css')){
+  const st=document.createElement('style');st.id='nouv-blink-css';
+  st.textContent='@keyframes nouvBlink{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.25;transform:scale(1.25)}}.nouv-blink{animation:nouvBlink 1.1s ease-in-out infinite}@media (prefers-reduced-motion:reduce){.nouv-blink{animation:none}}';
+  (document.head||document.documentElement).appendChild(st);
+}
 // Pastille rouge : style en ligne pour servir aux deux mises en page
 // (barre latérale NextStep, barre du haut NEWGEN) sans toucher aux CSS.
 function PastilleNouveautes({nb}){
-  return nb>0&&CE('span',{'aria-label':nb+' nouveauté(s) non lue(s)',style:{position:'absolute',top:2,right:2,minWidth:16,height:16,padding:'0 4px',borderRadius:8,background:'#dc2626',color:'#fff',fontSize:10,fontWeight:800,lineHeight:'16px',textAlign:'center',boxShadow:'0 0 0 2px rgba(255,255,255,.85)',pointerEvents:'none'}},nb);
+  return nb>0&&CE('span',{className:'nouv-blink','aria-label':nb+' nouveauté(s) non lue(s)',style:{position:'absolute',top:2,right:2,minWidth:16,height:16,padding:'0 4px',borderRadius:8,background:'#dc2626',color:'#fff',fontSize:10,fontWeight:800,lineHeight:'16px',textAlign:'center',boxShadow:'0 0 0 2px rgba(255,255,255,.85)',pointerEvents:'none'}},nb);
 }
 
 function VueNouveautes({onVu}){
