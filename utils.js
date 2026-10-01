@@ -380,6 +380,17 @@ function ampmDepuisHoraire(h) {
   return heure < 12 ? 'AM' : 'PM';
 }
 
+// Statut proposé d'après la date, tant que le conseiller n'en a pas choisi un
+// (lot 1 UX, 01/10/2026) : date passée → Réalisé, aujourd'hui ou plus tard →
+// Planifié (un atelier du jour n'a peut-être pas encore eu lieu). Date
+// illisible → '' (le statut n'est pas touché). `aujourdhui` au format
+// AAAA-MM-JJ, todayLocal() par défaut.
+function statutSelonDate(date, aujourdhui) {
+  const d = String(date == null ? '' : date);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return '';
+  return d < (aujourdhui || todayLocal()) ? 'Réalisé' : 'Planifié';
+}
+
 // Tuiles de l'Historique (demande de l'utilisateur, 26/09/2026) : calculées
 // sur la liste filtrée SANS le filtre de statut, sinon « Total » ne comptait
 // que le statut affiché et Réalisés/Annulés tombaient à 0. Pourcentages sur le
@@ -475,7 +486,7 @@ if (typeof module !== 'undefined') {
     anneeIncluse,
   lsKey, migrerLocalStorage, LS_A_MIGRER,
   comparerHistorique,
-  ampmDepuisHoraire,
+  ampmDepuisHoraire, statutSelonDate,
   kpiHistorique,
   conflitsDeLEntree,
   matierePanneau,

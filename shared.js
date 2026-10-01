@@ -369,6 +369,17 @@ tr:hover td{background:#f7fafc}
 .kpi-row{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}
 .kpi-histo{display:grid!important;grid-template-columns:repeat(6,1fr);gap:8px}
 @media(max-width:600px){.kpi-histo{grid-template-columns:repeat(3,1fr);gap:6px!important}}
+/* Formulaire de saisie sur téléphone (lot 1 UX, 01/10/2026) : les grilles
+   sont en style en ligne, d'où les !important. Date seule sur sa ligne,
+   horaire + AM/PM dessous ; un champ par ligne pour les listes. min-width:0
+   empêche les champs date/heure d'élargir la grille au-delà de l'écran. */
+@media(max-width:600px){
+  .sf-ligne-date{grid-template-columns:1fr 84px!important}
+  .sf-ligne-date>:first-child{grid-column:1/-1}
+  .sf-ligne-2,.sf-ligne-3{grid-template-columns:1fr!important}
+  .sf-ligne-date>*,.sf-ligne-2>*,.sf-ligne-3>*{min-width:0}
+  .sf-ligne-date input,.sf-ligne-date select{width:100%;min-width:0;box-sizing:border-box}
+}
 @keyframes kpiSlideUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
 .kpi-mini{flex:1;min-width:60px;background:#fff;border-radius:8px;padding:10px 8px;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,.08);animation:kpiSlideUp .38s cubic-bezier(.22,.68,0,1.2) both}
 .kpi-mini .v{font-size:22px;font-weight:800;line-height:1}
@@ -1703,12 +1714,15 @@ function ComboThematiqueFixed({value,onChange,onBlur,entries,hasError}){
 // ═══════════════════════════════════════════════════════════
 const emptyRow=()=>({id:genId(),date:'',horaire:'',ampm:'',thematique:'',inscrits:4,presents:'',date_prelevement_materiel:'',date_retour_materiel:''});
 
-function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefillData,onClearPrefill,accentColor}){
+function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefillData,onClearPrefill,accentColor,conseillerDefaut}){
   const statuts    = lists?.statuts     || STATUTS_DEFAULT;
   const conseillers= lists?.conseillers || CONSEILLERS_DEFAULT;
   const publics    = lists?.publics     || PUBLICS_DEFAULT;
   const materiels  = lists?.materiels   || MATERIELS_DEFAULT;
-  const empty={_id:'',_n:'',statut:'',date:'',horaire:'',ampm:'',orienteur:'',commune:'',lieu:'',thematique:'',inscrits:4,presents:'',public:'',conseiller:'',co_animateur:'',materiel:[],residence:'',remarques:'',nb_ordinateurs:'',date_prelevement_materiel:'',date_retour_materiel:''};
+  // Conseiller connecté proposé par défaut (lot 1 UX, 01/10/2026) : fourni par
+  // l'interface des conseillers seulement, l'Admin saisit pour les autres.
+  const consDef=conseillerDefaut&&conseillers.includes(conseillerDefaut)?conseillerDefaut:'';
+  const empty={_id:'',_n:'',statut:'',date:'',horaire:'',ampm:'',orienteur:'',commune:'',lieu:'',thematique:'',inscrits:4,presents:'',public:'',conseiller:consDef,co_animateur:'',materiel:[],residence:'',remarques:'',nb_ordinateurs:'',date_prelevement_materiel:'',date_retour_materiel:''};
 
   // ── états mode unique ──
   const[form,setForm]   = React.useState(empty);
@@ -1718,13 +1732,21 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
 
   // ── états mode lot ──
   const[modeLot,setModeLot]     = React.useState(false);
-  const[lotForm,setLotForm]     = React.useState({orienteur:'',commune:'',lieu:'',conseiller:'',co_animateur:'',public:'',materiel:[],residence:'',remarques:'',nb_ordinateurs:''});
+  const[lotForm,setLotForm]     = React.useState({orienteur:'',commune:'',lieu:'',conseiller:consDef,co_animateur:'',public:'',materiel:[],residence:'',remarques:'',nb_ordinateurs:''});
   const[lotRows,setLotRows]     = React.useState([emptyRow(),emptyRow()]);
   const[lotErrors,setLotErrors] = React.useState({});
   const[lotRowErrors,setLotRowErrors]= React.useState({});
 
   const[saving,setSaving]= React.useState(false);
   const[formError,setFormError]= React.useState('');
+
+  // Les listes arrivent après le premier rendu : poser le conseiller par
+  // défaut dès qu'il est connu, sans écraser un choix déjà fait.
+  React.useEffect(()=>{
+    if(!consDef)return;
+    setForm(f=>f.conseiller||f._id?f:{...f,conseiller:consDef});
+    setLotForm(f=>f.conseiller?f:{...f,conseiller:consDef});
+  },[consDef]);
 
   // ── chargement editingId → force mode unique ──
   React.useEffect(()=>{
@@ -1751,10 +1773,19 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
   // pas livré la réponse » = 16 lignes, chaque clic tirant de nouveaux _id.
   const idNouveauRef=React.useRef(null);
   const idsLotRef=React.useRef({});
-  function reset(){idNouveauRef.current=null;setForm(empty);setEditId(null);setIsDup(false);setErrors({});}
-  function resetLot(){idsLotRef.current={};setLotForm({orienteur:'',commune:'',lieu:'',conseiller:'',co_animateur:'',public:'',materiel:[],residence:'',remarques:'',nb_ordinateurs:''});setLotRows([emptyRow(),emptyRow()]);setLotErrors({});setLotRowErrors({});}
+  // Statut proposé selon la date tant que le conseiller n'en a pas choisi un
+  // (statutSelonDate, utils.js) ; jamais en modification d'un atelier.
+  const statutChoisiRef=React.useRef(false);
+  function reset(){idNouveauRef.current=null;statutChoisiRef.current=false;setForm(empty);setEditId(null);setIsDup(false);setErrors({});}
+  function resetLot(){idsLotRef.current={};setLotForm({orienteur:'',commune:'',lieu:'',conseiller:consDef,co_animateur:'',public:'',materiel:[],residence:'',remarques:'',nb_ordinateurs:''});setLotRows([emptyRow(),emptyRow()]);setLotErrors({});setLotRowErrors({});}
 
-  function set(k,v){const a=k==='horaire'?ampmDepuisHoraire(v):'';setForm(f=>({...f,[k]:v,...(a?{ampm:a}:{})}));setErrors(er=>({...er,[k]:'',...(a?{ampm:''}:{})}));}
+  function set(k,v){
+    if(k==='statut')statutChoisiRef.current=true;
+    const a=k==='horaire'?ampmDepuisHoraire(v):'';
+    const st=k==='date'&&!editId&&!statutChoisiRef.current?statutSelonDate(v):'';
+    setForm(f=>({...f,[k]:v,...(a?{ampm:a}:{}),...(st?{statut:st}:{})}));
+    setErrors(er=>({...er,[k]:'',...(a?{ampm:''}:{}),...(st?{statut:''}:{})}));
+  }
   function toggleMat(m){setForm(f=>{const already=matIncludes(f.materiel,m);return{...f,materiel:already?f.materiel.filter(x=>normalizeMat(x)!==normalizeMat(m)):[...f.materiel,m]};});}
   function setLot(k,v){setLotForm(f=>({...f,[k]:v}));setLotErrors(er=>({...er,[k]:''}));}
   function toggleLotMat(m){setLotForm(f=>{const already=matIncludes(f.materiel,m);return{...f,materiel:already?f.materiel.filter(x=>normalizeMat(x)!==normalizeMat(m)):[...f.materiel,m]};});}
@@ -1946,7 +1977,7 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
         })).filter(g=>g.autres.length>0)
       :[];
     return CE('div',null,
-    CE('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}},
+    CE('div',{className:'sf-ligne-2',style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}},
       CE('div',null,
         Lbl({t:'Orienteur *',err:!!errs.orienteur}),
         CE(ComboOrienteur,{value:frm.orienteur,onChange:v=>setFn('orienteur',v),entries:entries_,hasError:!!errs.orienteur}),
@@ -1961,7 +1992,7 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
       CE('input',{type:'text',style:iStyle(errs.lieu),value:frm.lieu,placeholder:'Salle, médiathèque, établissement…',onChange:e=>setFn('lieu',e.target.value)}),
       errs.lieu&&CE('span',{style:{color:'#e53e3e',fontSize:11,fontWeight:600}},errs.lieu)
     ),
-    CE('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:12,marginTop:12}},
+    CE('div',{className:'sf-ligne-3',style:{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:12,marginTop:12}},
       CE('div',null,
         Lbl({t:'Conseiller *',err:!!errs.conseiller}),
         CE('select',{style:sStyle(errs.conseiller),value:frm.conseiller,onChange:e=>setFn('conseiller',e.target.value)},
@@ -2031,8 +2062,10 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
 
   return CE('div',{'data-saisie':'1',style:{padding:'4px 0'}},
     // Badge conseiller coloré
-    accentColor&&CE('div',{style:{display:'inline-flex',alignItems:'center',gap:8,padding:'6px 14px',borderRadius:20,fontSize:12,fontWeight:700,color:'#fff',background:ac,marginBottom:14}},
-      editId?'✏️ Modifier':isDup?'📋 Duplication':modeLot?'🔄 Saisie par cycle':'⚡ Saisie One Shot'
+    // Seulement en modification ou duplication : en saisie, le bouton de
+    // bascule juste dessous dit déjà le mode (lot 1 UX, 01/10/2026).
+    accentColor&&(editId||isDup)&&CE('div',{style:{display:'inline-flex',alignItems:'center',gap:8,padding:'6px 14px',borderRadius:20,fontSize:12,fontWeight:700,color:'#fff',background:ac,marginBottom:14}},
+      editId?'✏️ Modifier':'📋 Duplication'
     ),
 
     // Toggle One Shot / Cycle
@@ -2051,7 +2084,7 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
       statutPills,
       // Date / Horaire / AM-PM
       CE('div',{style:secStyle},
-        CE('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr 80px',gap:12}},
+        CE('div',{className:'sf-ligne-date',style:{display:'grid',gridTemplateColumns:'1fr 1fr 80px',gap:12}},
           CE('div',null,
             Lbl({t:'Date *',err:!!errors.date}),
             CE('input',{type:'date',style:iStyle(errors.date),value:form.date,onChange:e=>set('date',e.target.value)}),
@@ -4094,7 +4127,7 @@ function VuePowerBI({entries, conseillers: conseillersList}){
         CE('div',{style:{width:12,height:12,background:'#1e2132',borderRadius:2}})
       ),
       CE('div',{style:{flex:1,minWidth:0}},
-        CE('span',{style:{fontSize:12,fontWeight:700,color:'#f2c811'}},'Power BI '),
+        CE('span',{style:{fontSize:12,fontWeight:700,color:'#f2c811'}},'Bilan d\'activité '),
         CE('span',{style:{fontSize:11,color:'#94a3b8'}}),'· Ateliers Inclusion Numérique'
       ),
       hasF&&CE('button',{
@@ -5164,7 +5197,7 @@ function VueDashboardTabs({entries, conseillers}){
   const TABS=[
     {id:'dashboard', ico:'🚀', label:'Synthèse'},
     {id:'graphiques', ico:'📊', label:'Analyse'},
-    {id:'powerbi',    ico:'🗺️', label:'Territoire'},
+    {id:'powerbi',    ico:'📈', label:'Bilan mensuel'},
   ];
   return CE('div',null,
     CE('div',{style:{display:'flex',borderBottom:'2px solid #e5e7eb',marginBottom:16,gap:4}},

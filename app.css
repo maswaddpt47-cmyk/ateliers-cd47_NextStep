@@ -315,6 +315,9 @@
     max-width: 52px !important; opacity: 1 !important;
     font-size: 9px !important; font-weight: 600 !important;
     text-align: center; margin-top: 2px;
+    /* Libellé sur deux lignes plutôt que tronqué (« Gestion ordi »,
+       lot 1 UX, 01/10/2026). */
+    white-space: normal !important; line-height: 1.05 !important;
   }
   .sidebar-btn.active::before { display:none; }
   .app-content {
