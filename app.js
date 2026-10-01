@@ -722,12 +722,12 @@ function App(){
       CE('div',{className:'sidebar-logo','aria-hidden':'true'},'🖥️'),
       entries.length>0&&CE('span',{className:'sidebar-count'},entries.length),
 
-      CE('div',{className:'sidebar-sep'}),
-      CE('span',{className:'sidebar-group-label'},'Action'),
+      visibility.saisie&&CE('div',{className:'sidebar-sep'}),
+      visibility.saisie&&CE('span',{className:'sidebar-group-label'},'Action'),
       sideBtn('saisie','✏️','Nouveau',visibility.saisie),
 
-      CE('div',{className:'sidebar-sep'}),
-      CE('span',{className:'sidebar-group-label'},'Voir'),
+      (visibility.historique||visibility.agenda||visibility.calendrier||visibility.carte||visibility.roadmap||visibility.gestion_ordi)&&CE('div',{className:'sidebar-sep'}),
+      (visibility.historique||visibility.agenda||visibility.calendrier||visibility.carte||visibility.roadmap||visibility.gestion_ordi)&&CE('span',{className:'sidebar-group-label'},'Voir'),
       sideBtn('historique','📋','Historique',visibility.historique),
       sideBtn('agenda','🗓️','Agenda',visibility.agenda),
       sideBtn('calendrier','📅','Calendrier',visibility.calendrier),
@@ -735,8 +735,10 @@ function App(){
       sideBtn('roadmap','🛣️','Roadmap',visibility.roadmap),
       sideBtn('gestion_ordi','🖥️','Gestion ordi',visibility.gestion_ordi),
 
-      CE('div',{className:'sidebar-sep'}),
-      CE('span',{className:'sidebar-group-label'},'Stats'),
+      // Titre de groupe masqué quand l'Admin a masqué tous ses onglets
+      // (01/10/2026 : « Stats » s'affichait seul, sans bouton dessous).
+      (visibility.dashboard||visibility.bingo)&&CE('div',{className:'sidebar-sep'}),
+      (visibility.dashboard||visibility.bingo)&&CE('span',{className:'sidebar-group-label'},'Stats'),
       sideBtn('dashboard','📊','Dashboard',visibility.dashboard),
       sideBtn('bingo','🎯','Bingo',visibility.bingo),
 
