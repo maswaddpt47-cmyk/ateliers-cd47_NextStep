@@ -171,6 +171,15 @@ test('admin — onglet Bingo sans ReferenceError', async ({ page }) => {
   expect(errs, `Bingo : ${errs.join(' | ')}`).toHaveLength(0);
 });
 
+test('admin — Nouveautés : la pastille s\'éteint une fois la rubrique ouverte', async ({ page }) => {
+  await login(page);
+  const pastille = page.getByLabel(/nouveauté\(s\) non lue\(s\)/);
+  await expect(pastille).toBeVisible();
+  const errs = await clickTab(page, 'Nouveautés');
+  expect(errs, `Nouveautés : ${errs.join(' | ')}`).toHaveLength(0);
+  await expect(pastille).toHaveCount(0);
+});
+
 test('admin — onglets Corbeille et Sauvegardes (AG-014) sans erreur', async ({ page }) => {
   await login(page);
   for (const onglet of ['Corbeille', 'Sauvegardes']) {

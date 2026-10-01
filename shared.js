@@ -5285,3 +5285,56 @@ function VueUsageOnglets(){
           CE('td',{style:Object.assign({}, num, {fontWeight:700})},l.total))))))
   );
 }
+
+// ═══════════════════════════════════════════════════════════
+// NOUVEAUTÉS — rubrique d'information de l'équipe (01/10/2026)
+// Remplace les mails d'annonce. Une entrée par changement qui modifie la
+// façon de travailler (nouveau bouton, écran, comportement) — pas les
+// correctifs invisibles. Rédigée pour l'équipe, pas en langage de commit.
+// `id` croissant, jamais réutilisé : la pastille compte les id plus grands
+// que le dernier vu sur cet appareil (nouveautesNonVues, utils.js).
+// ═══════════════════════════════════════════════════════════
+const NOUVEAUTES=[
+  {id:1,date:'2026-10-01',titre:'Votre nom proposé d\'office',texte:'Écran conseillers : à la création d\'un atelier, le champ Conseiller est déjà rempli avec votre nom. Il reste modifiable pour saisir pour un collègue.'},
+  {id:2,date:'2026-10-01',titre:'Statut proposé selon la date',texte:'À la saisie, une date passée propose « Réalisé », une date à venir « Planifié ». Vous pouvez toujours choisir un autre statut.'},
+  {id:3,date:'2026-10-01',titre:'« Territoire » devient « Bilan mensuel »',texte:'Dans le Dashboard, l\'onglet de synthèse s\'appelle désormais « Bilan mensuel ». Son contenu ne change pas.'},
+  {id:4,date:'2026-10-01',titre:'Dupliquer une séance dans un cycle',texte:'Saisie par cycle : le bouton ⧉ au bout d\'une ligne la recopie juste en dessous, horaire vide. Pratique pour deux groupes le même jour (G1 de 14 h, G2 de 15 h) : il ne reste qu\'à taper l\'horaire.'},
+];
+
+function lireNouveautesVues(){try{return parseInt(localStorage.getItem(lsKey('nouveautes_vues')))||0;}catch(_){return 0;}}
+// [nombre non vues, marquer tout comme vu]
+function useNouveautes(){
+  const[vu,setVu]=React.useState(lireNouveautesVues);
+  const marquer=React.useCallback(()=>{
+    const max=NOUVEAUTES.reduce((m,n)=>Math.max(m,n.id),0);
+    try{localStorage.setItem(lsKey('nouveautes_vues'),String(max));}catch(_){}
+    setVu(max);
+  },[]);
+  return[nouveautesNonVues(NOUVEAUTES,vu),marquer];
+}
+
+// Pastille rouge : style en ligne pour servir aux deux mises en page
+// (barre latérale NextStep, barre du haut NEWGEN) sans toucher aux CSS.
+function PastilleNouveautes({nb}){
+  return nb>0&&CE('span',{'aria-label':nb+' nouveauté(s) non lue(s)',style:{position:'absolute',top:2,right:2,minWidth:16,height:16,padding:'0 4px',borderRadius:8,background:'#dc2626',color:'#fff',fontSize:10,fontWeight:800,lineHeight:'16px',textAlign:'center',boxShadow:'0 0 0 2px rgba(255,255,255,.85)',pointerEvents:'none'}},nb);
+}
+
+function VueNouveautes({onVu}){
+  // Ce qui était non lu à l'ouverture reste marqué « Nouveau » le temps de
+  // la visite ; la pastille, elle, s'éteint tout de suite.
+  const vuAvant=React.useRef(lireNouveautesVues()).current;
+  React.useEffect(()=>{if(onVu)onVu();},[]);
+  const liste=NOUVEAUTES.slice().sort((a,b)=>b.id-a.id);
+  return CE('div',{className:'card',style:{maxWidth:760}},
+    CE('h2',{style:{margin:'0 0 4px',fontSize:18}},'🆕 Nouveautés'),
+    CE('p',{style:{margin:'0 0 16px',fontSize:13,color:'var(--text-3)'}},'Ce qui a changé dans l\'outil, du plus récent au plus ancien.'),
+    liste.map(n=>CE('div',{key:n.id,style:{padding:'12px 14px',marginBottom:10,borderRadius:10,border:'1px solid var(--border)',borderLeft:`4px solid ${n.id>vuAvant?'#dc2626':'var(--border)'}`,background:'var(--surface)'}},
+      CE('div',{style:{display:'flex',alignItems:'center',gap:8,marginBottom:4,flexWrap:'wrap'}},
+        CE('span',{style:{fontSize:12,color:'var(--text-3)',fontWeight:600}},fmtDate(n.date)),
+        n.id>vuAvant&&CE('span',{style:{fontSize:10,fontWeight:800,color:'#fff',background:'#dc2626',borderRadius:6,padding:'1px 6px'}},'Nouveau'),
+        CE('span',{style:{fontSize:14,fontWeight:700}},n.titre)
+      ),
+      CE('div',{style:{fontSize:13,lineHeight:1.5,color:'var(--text-2)'}},n.texte)
+    ))
+  );
+}

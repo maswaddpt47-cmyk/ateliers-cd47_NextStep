@@ -14,6 +14,7 @@ var VIEW_META_F = {
   roadmap:    {ico:'🛣️', label:'Roadmap',      group:'Voir'},
   gestion_ordi:{ico:'🖥️', label:'Gestion ordi', group:'Voir'},
   bingo:      {ico:'🎯',  label:'Bingo',        group:'Stats'},
+  nouveautes: {ico:'🆕',  label:'Nouveautés',   group:'Info'},
 };
 
 function MaintenanceScreen({msg}){
@@ -249,6 +250,7 @@ function VueLoginIndex({conseillers,onSuccess}){
 function App(){
   const[authed,setAuthed]          = React.useState(()=>!!window.authToken.get());
   const[view,setView]              = React.useState('accueil');
+  const[nbNouveautes,marquerNouveautes]=useNouveautes();
   // Usage des onglets : compteur anonyme, envoyé en un lot (shared.js).
   React.useEffect(()=>{ if(authed&&window.compterOnglet) window.compterOnglet('index',view); },[view,authed]);
   const[entries,setEntries]        = React.useState([]);
@@ -738,6 +740,10 @@ function App(){
       sideBtn('dashboard','📊','Dashboard',visibility.dashboard),
       sideBtn('bingo','🎯','Bingo',visibility.bingo),
 
+      CE('div',{className:'sidebar-sep'}),
+      CE('span',{className:'sidebar-group-label'},'Info'),
+      CE('div',{style:{position:'relative'}},sideBtn('nouveautes','🆕','Nouveautés'),CE(PastilleNouveautes,{nb:nbNouveautes})),
+
       CE('div',{className:'sidebar-bottom'},
         CE(ChoixAnnees,{className:'sidebar-year',value:annee,onChange:setAnnee,title:'Années chargées'}),
         CE('button',{
@@ -838,7 +844,8 @@ function App(){
           view==='carte'&&visibility.carte&&CE(VueCarte,{entries,active:view==='carte'}),
           view==='roadmap'&&visibility.roadmap&&CE(VueRoadmap,{entries,annee:anneeReference(annee),conseillers:lists.conseillers}),
           view==='gestion_ordi'&&visibility.gestion_ordi&&CE(VueGestionOrdi,{entries,onEdit:handleEdit}),
-          view==='bingo'&&visibility.bingo&&CE(VueBingo,{entries})
+          view==='bingo'&&visibility.bingo&&CE(VueBingo,{entries}),
+          view==='nouveautes'&&CE(VueNouveautes,{onVu:marquerNouveautes})
         )
       )
     ),

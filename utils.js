@@ -492,8 +492,16 @@ function visibiliteEffective(v){
   return res;
 }
 
+// Nouveautés non lues : celles dont l'id dépasse le dernier vu (rubrique
+// Nouveautés, shared.js). id croissant, jamais réutilisé.
+function nouveautesNonVues(liste, vu) {
+  const v = Number(vu) || 0;
+  return (liste || []).filter(n => n && Number(n.id) > v).length;
+}
+
 if (typeof module !== 'undefined') {
   module.exports={
+    nouveautesNonVues,
     visibiliteEffective,
     normalizeMat, matIncludes,
     normCommune,normalizeCommune,stripAccents,htmlEsc,trunc,

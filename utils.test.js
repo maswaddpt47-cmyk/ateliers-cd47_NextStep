@@ -8,6 +8,7 @@ const {
   escapeICS, foldICSLine, parseHoraireICS, parseDateICS, buildICS,
   resumeLogsTexte,
   suppressionAboutie,
+  nouveautesNonVues,
   anneesListe,
   anneeReference,
   anneeIncluse,
@@ -481,5 +482,18 @@ describe('purgerCacheAteliers', () => {
   });
   it('ne fait rien sans stockage', () => {
     assert.equal(purgerCacheAteliers(null), 0);
+  });
+});
+
+describe('nouveautesNonVues', () => {
+  const l = [{ id: 1 }, { id: 2 }, { id: 4 }];
+  it('compte les nouveautés plus récentes que la dernière vue', () => {
+    assert.equal(nouveautesNonVues(l, 0), 3);
+    assert.equal(nouveautesNonVues(l, 2), 1);
+    assert.equal(nouveautesNonVues(l, 4), 0);
+  });
+  it('valeur stockée absente ou illisible = tout est à lire', () => {
+    assert.equal(nouveautesNonVues(l, null), 3);
+    assert.equal(nouveautesNonVues(l, 'abc'), 3);
   });
 });

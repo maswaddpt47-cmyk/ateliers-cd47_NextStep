@@ -156,6 +156,7 @@ var VIEW_META = {
   dashboard:  { ico: '🚀',  label: 'Dashboard',      group: 'Analyser' },
   bingo:      { ico: '🎯',  label: 'Bingo',          group: 'Analyser' },
   anomalies:  { ico: '⚠️',  label: 'Anomalies',      group: 'Analyser' },
+  nouveautes: { ico: '🆕',  label: 'Nouveautés',     group: 'Info' },
   gestion_ordi: { ico: '🖥️', label: 'Gestion ordi',  group: 'Analyser' },
   admin:      { ico: '⚙️', label: 'Admin',          group: 'Config' },
   logs:            { ico: '📜',  label: 'Logs',        group: 'Config' },
@@ -171,6 +172,7 @@ function App(){
   const[jetonReinit,setJetonReinit]= React.useState(()=>window.jetonReinitUrl());
   const[adminConseiller,setAdminConseiller]= React.useState(()=>localStorage.getItem(lsKey('adm_conseiller'))||'');
   const[view,setView]           = React.useState('historique');
+  const[nbNouveautes,marquerNouveautes]=useNouveautes();
   // Usage des onglets : compteur anonyme, envoyé en un lot (shared.js).
   React.useEffect(()=>{ if(auth&&window.compterOnglet) window.compterOnglet('admin',view); },[view,auth]);
   const[entries,setEntries]= React.useState([]);
@@ -579,6 +581,7 @@ const LOGS_KEY = lsKey('adm_logs');
         CE('span',{className:'sidebar-btn-lbl'},'Listes')
       ),
       sideBtn('logs','📜','Logs'),
+      CE('div',{style:{position:'relative'}},sideBtn('nouveautes','🆕','Nouveautés'),CE(PastilleNouveautes,{nb:nbNouveautes})),
       role==='admin'&&sideBtn('admin','⚙️','Admin'),
       (role==='admin'||role==='superviseur')&&sideBtn('logs_connexion','🔐','Connexions'),
       (role==='admin'||role==='superviseur')&&sideBtn('corbeille','🗑️','Corbeille'),
@@ -649,6 +652,7 @@ const LOGS_KEY = lsKey('adm_logs');
           view==='carte'&&CE(VueCarte,{entries,active:view==='carte'}),
           view==='roadmap'&&CE(VueRoadmap,{entries,annee:anneeReference(annee),conseillers:lists.conseillers}),
           view==='bingo'&&CE(VueBingo,{entries}),
+          view==='nouveautes'&&CE(VueNouveautes,{onVu:marquerNouveautes}),
           view==='anomalies'&&CE(VueAnomalies,{entries,onEdit:(id)=>{setEditingId(id);setPrefillData(null);setView('saisie');},communes:window.COMMUNES_47_CACHE||[],apiFetch,showToast,addLog}),
           view==='gestion_ordi'&&CE(VueGestionOrdi,{entries,onEdit:(id)=>{setEditingId(id);setPrefillData(null);setView('saisie');}}),
 
