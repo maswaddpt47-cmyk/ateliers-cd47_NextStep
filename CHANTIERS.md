@@ -18,7 +18,7 @@ AG-003 à AG-008, ordre du jour de la bascule) a été retirée. Texte complet :
 ---
 
 ## Reste ouvert
-- **Audit du 01/10/2026 (routine) :** `admin_v14.html` (reliquat publié sur Pages) charge React/Leaflet/ECharts depuis cdnjs sans SRI et échappe au contrôle RGPD-17 (limité à `index.html`/`admin.html`). À supprimer, ou étendre le contrôle à `*.html`.
+- **Corrigé le 01/10/2026** : `admin_v14.html` (ancienne page Admin qui chargeait React/Leaflet/ECharts depuis cdnjs, relevée par la routine d'audit) retirée ; le contrôle RGPD-17 du déploiement couvre désormais toutes les pages HTML (`dafddcc`).
 
 - **Parité avec NEWGEN (AG-015)** : 4 écarts au 26/09/2026, tous voulus
   (dont l'Historique : chacun garde son design, décision du 26/09). Suivi et **ordre de push (NextStep
