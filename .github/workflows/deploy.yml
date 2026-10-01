@@ -39,7 +39,11 @@ jobs:
       # agent à chaque ouverture et pourrait servir un script modifié.
       - name: "[RGPD-17] Aucune ressource externe dans les pages"
         run: |
-          externes=$(grep -noE '(src|href)="(https?:)?//[^"]+' index.html admin.html || true)
+          # Toutes les pages publiées, pas seulement index/admin : une ancienne
+          # page oubliée (admin_v14.html, relevée par l'audit du 01/10/2026)
+          # échappait au contrôle.
+          pages=$(git ls-files '*.html' ':!vendor/**' ':!node_modules/**')
+          externes=$(grep -noE '(src|href)="(https?:)?//[^"]+' $pages || true)
           if [ -n "$externes" ]; then
             echo "::error::Ressource externe chargée par une page :"
             echo "$externes"
