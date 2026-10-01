@@ -11,7 +11,7 @@ const {
   anneesListe,
   anneeReference,
   anneeIncluse,
-  lsKey, migrerLocalStorage,
+  lsKey, migrerLocalStorage, purgerCacheAteliers,
   comparerHistorique,
   ampmDepuisHoraire, statutSelonDate,
   kpiHistorique,
@@ -458,5 +458,28 @@ describe('statutSelonDate', () => {
   it('date vide ou illisible → rien', () => {
     assert.equal(statutSelonDate('', '2026-10-01'), '');
     assert.equal(statutSelonDate('01/10/2026', '2026-10-01'), '');
+  });
+});
+
+// ── purgerCacheAteliers (audit du 01/10/2026) ──────────────
+describe('purgerCacheAteliers', () => {
+  // Faux localStorage avec length/key, comme le vrai.
+  const faire = (init) => {
+    const d = Object.assign({}, init);
+    return {
+      get length() { return Object.keys(d).length; },
+      key: (i) => Object.keys(d)[i] ?? null,
+      removeItem: (k) => { delete d[k]; },
+      _d: d,
+    };
+  };
+  it('efface toutes les copies d\'ateliers, et seulement elles', () => {
+    const st = faire({ 'newgen:ateliers_cache_2026':'x', 'newgen:ateliers_cache_2025':'x',
+      'ateliers_cache_2026':'x', 'newgen:f_dark':'1', 'ess-history':'[]', 'nextstep:f_annee':'2026' });
+    assert.equal(purgerCacheAteliers(st), 3);
+    assert.deepEqual(Object.keys(st._d).sort(), ['ess-history', 'newgen:f_dark', 'nextstep:f_annee']);
+  });
+  it('ne fait rien sans stockage', () => {
+    assert.equal(purgerCacheAteliers(null), 0);
   });
 });

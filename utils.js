@@ -330,8 +330,28 @@ function migrerLocalStorage(store) {
   try { store.setItem(lsKey(LS_MIGRATION_FAITE), String(Date.now())); } catch (e) {}
   return n;
 }
+// Copie des ateliers que NEWGEN gardait dans localStorage
+// (« ateliers_cache_<année> ») : jamais effacée, même à la déconnexion, donc
+// lisible sur un poste partagé (audit du 01/10/2026, registre RGPD fiche T3).
+// Le cache est retiré ; cette purge efface les copies restées dans les
+// navigateurs. Appelée par les deux sites : ils partagent l'origine, donc le
+// même localStorage. Clés relevées d'abord, effacées ensuite (effacer pendant
+// le parcours décale les index).
+function purgerCacheAteliers(store) {
+  if (!store) return 0;
+  var cles = [];
+  try {
+    for (var i = 0; i < store.length; i++) {
+      var k = store.key(i);
+      if (/^((newgen|nextstep):)?ateliers_cache_/.test(k)) cles.push(k);
+    }
+  } catch (e) { return 0; }
+  cles.forEach(function (k) { try { store.removeItem(k); } catch (e) {} });
+  return cles.length;
+}
 if (typeof window !== 'undefined') {
   try { migrerLocalStorage(window.localStorage); } catch (e) {}
+  try { purgerCacheAteliers(window.localStorage); } catch (e) {}
 }
 
 // ── Anomalie de chiffres : plus de présents que d'inscrits ───────────────────
@@ -484,7 +504,7 @@ if (typeof module !== 'undefined') {
     anneesListe,
     anneeReference,
     anneeIncluse,
-  lsKey, migrerLocalStorage, LS_A_MIGRER,
+  lsKey, migrerLocalStorage, LS_A_MIGRER, purgerCacheAteliers,
   comparerHistorique,
   ampmDepuisHoraire, statutSelonDate,
   kpiHistorique,
