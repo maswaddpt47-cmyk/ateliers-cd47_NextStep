@@ -1793,6 +1793,10 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
   // ── lignes du lot ──
   function addRow(){setLotRows(r=>[...r,emptyRow()]);}
   function removeRow(id){if(lotRows.length<=1)return;setLotRows(r=>r.filter(x=>x.id!==id));}
+  // Dupliquer une séance juste en dessous (01/10/2026) : deux groupes le même
+  // jour, l'un après l'autre (G1 14 h, G2 15 h). L'horaire est vidé pour être
+  // ressaisi, sinon deux ateliers identiques partent sans qu'on s'en aperçoive.
+  function dupRow(id){setLotRows(r=>{const i=r.findIndex(x=>x.id===id);if(i<0)return r;return[...r.slice(0,i+1),{...r[i],id:genId(),horaire:'',ampm:''},...r.slice(i+1)];});}
   function setRow(id,k,v){const a=k==='horaire'?ampmDepuisHoraire(v):'';setLotRows(r=>r.map(x=>x.id===id?{...x,[k]:v,...(a?{ampm:a}:{})}:x));setLotRowErrors(er=>({...er,[id]:{...(er[id]||{}),[k]:'',...(a?{ampm:''}:{})}}));}
 
   // ── validation mode unique ──
@@ -2151,12 +2155,13 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
           const lbl=(t,err)=>CE('span',{style:{fontSize:10,fontWeight:700,color:err?'#e53e3e':'#718096',textTransform:'uppercase',letterSpacing:'.06em',display:'block',marginBottom:3}},t);
           return CE('div',{key:row.id,style:{borderRadius:10,border:`1.5px solid ${hasErr?'#fc8181':acLight}`,marginBottom:6,background:hasErr?'#fff5f5':acLight,position:'relative'}},
             // Ligne 1 : Date + Horaire + AM/PM + Supprimer
-            CE('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr auto 32px',gap:8,alignItems:'end',padding:'9px 10px 8px'}},
+            CE('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr auto 32px 32px',gap:8,alignItems:'end',padding:'9px 10px 8px'}},
               CE('div',null,lbl('Date *',rErr.date),inp('date',row.date,'date',rErr.date)),
               CE('div',null,lbl('Horaire *',rErr.horaire),inp('time',row.horaire,'horaire',rErr.horaire)),
               CE('div',null,lbl('AM/PM',rErr.ampm),
                 CE('select',{value:row.ampm,onChange:e=>setRow(row.id,'ampm',e.target.value),style:{padding:'8px 6px',border:brd(rErr.ampm),borderRadius:8,fontSize:12,background:bg(rErr.ampm)}},
                   CE('option',{value:'',disabled:true},'—'),CE('option',{value:'AM'},'AM'),CE('option',{value:'PM'},'PM'))),
+              CE('button',{onClick:()=>dupRow(row.id),title:'Dupliquer cette séance (autre groupe, autre horaire)','aria-label':'Dupliquer cette séance',style:{background:'none',border:`1px solid ${acLight}`,borderRadius:6,color:ac,cursor:'pointer',fontSize:15,height:32,width:32,display:'flex',alignItems:'center',justifyContent:'center',alignSelf:'end'}},'⧉'),
               CE('button',{onClick:()=>removeRow(row.id),disabled:lotRows.length===1,style:{background:'none',border:`1px solid ${acLight}`,borderRadius:6,color:'#9b2c2c',cursor:'pointer',fontSize:15,height:32,width:32,display:'flex',alignItems:'center',justifyContent:'center',alignSelf:'end'}},'×')
             ),
             // Ligne 2 : Thématique pleine largeur
