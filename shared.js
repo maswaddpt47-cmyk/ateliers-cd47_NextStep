@@ -2824,7 +2824,9 @@ function BarChart({data,colors,height}){
   const option={
     backgroundColor:'transparent',grid:{...EC_GRID,bottom:data.length>6?68:48},
     tooltip:{trigger:'axis',...EC_TT,...EC_APN,
-      formatter:params=>{const i=params[0];const d=data[i.dataIndex];return`<b style="color:#60a5fa">${d.label}</b><br/>${i.value} atelier(s)`+(d.tip?'<br/><span style="color:#94a3b8;font-size:11px">'+d.tip+'</span>':'');}},
+      // Info-bulles et popups = HTML : toute valeur saisie (thématique, commune,
+      // orienteur, public, nom) passe par htmlEsc (audit du 01/10/2026).
+      formatter:params=>{const i=params[0];const d=data[i.dataIndex];return`<b style="color:#60a5fa">${htmlEsc(d.label)}</b><br/>${i.value} atelier(s)`+(d.tip?'<br/><span style="color:#94a3b8;font-size:11px">'+htmlEsc(d.tip)+'</span>':'');}},
     xAxis:{data:labels,...EC_AXIS_BASE,splitLine:{show:false},axisLabel:{...EC_AXIS_LABEL,rotate:data.length>5?-35:0,interval:0}},
     yAxis:{...EC_AXIS_BASE},
     series:[{type:'bar',barMaxWidth:44,
@@ -2841,7 +2843,7 @@ function LineChart({data}){
   const option={
     backgroundColor:'transparent',grid:{...EC_GRID},
     tooltip:{trigger:'axis',...EC_TT,...EC_APN,
-      formatter:params=>{const i=params[0];const d=data[i.dataIndex];return d.tip||`<b style="color:#a78bfa">${d.label}</b><br/>${i.value}`;}},
+      formatter:params=>{const i=params[0];const d=data[i.dataIndex];return d.tip?htmlEsc(d.tip):`<b style="color:#a78bfa">${htmlEsc(d.label)}</b><br/>${i.value}`;}},
     xAxis:{data:data.map(d=>d.label),...EC_AXIS_BASE,splitLine:{show:false},axisLabel:{...EC_AXIS_LABEL,rotate:data.length>8?-35:0,interval:0}},
     yAxis:{...EC_AXIS_BASE},
     series:[{type:'line',data:data.map(d=>d.value),smooth:true,symbol:'circle',symbolSize:5,
@@ -2883,7 +2885,7 @@ function RadialChart({data,colors,height=220}){
   const option={
     backgroundColor:'transparent',grid:{top:8,right:50,bottom:8,left:8,containLabel:true},
     tooltip:{trigger:'axis',...EC_TT,...EC_APN,
-      formatter:params=>{const i=params[0];const d=data[i.dataIndex];const pct=Math.round(d.value/total*100);return`<b style="color:#60a5fa">${d.label}</b><br/>${d.value} — ${pct}%`;}},
+      formatter:params=>{const i=params[0];const d=data[i.dataIndex];const pct=Math.round(d.value/total*100);return`<b style="color:#60a5fa">${htmlEsc(d.label)}</b><br/>${d.value} — ${pct}%`;}},
     xAxis:{...EC_AXIS_BASE},
     yAxis:{type:'category',data:data.map(d=>d.label),axisLabel:{...EC_AXIS_LABEL,fontSize:11},axisLine:{show:false},axisTick:{show:false},splitLine:{show:false}},
     series:[{type:'bar',barMaxWidth:32,
@@ -2901,7 +2903,7 @@ function DonutChart({data,colors,height=220}){
   const total=data.reduce((s,d)=>s+d.value,0);
   const option={
     backgroundColor:'transparent',
-    tooltip:{trigger:'item',...EC_TT,formatter:params=>`<b style="color:${params.color}">${params.name}</b><br/>${params.value} (${Math.round(params.value/total*100)}%)`},
+    tooltip:{trigger:'item',...EC_TT,formatter:params=>`<b style="color:${params.color}">${htmlEsc(params.name)}</b><br/>${params.value} (${Math.round(params.value/total*100)}%)`},
     legend:{orient:'horizontal',bottom:0,textStyle:{color:'#94a3b8',fontSize:11},icon:'circle',itemWidth:8,itemHeight:8},
     series:[{type:'pie',radius:['38%','65%'],center:['50%','46%'],
       itemStyle:{borderRadius:5,borderColor:'#1a1d27',borderWidth:3},
@@ -2960,7 +2962,7 @@ function ConseillerBarChart({entries}){
   const option={
     backgroundColor:'transparent',grid:{top:8,right:60,bottom:30,left:8,containLabel:true},
     tooltip:{trigger:'axis',...EC_TT,...EC_APN,
-      formatter:params=>{const d=data[params[0].dataIndex];return`<b style="color:#60a5fa">${d.name}</b><br/><span style="color:#22c55e">✅ Réalisés : ${d.realises}</span><br/><span style="color:#3b82f6">📅 Planifiés : ${d.planifies}</span><br/><span style="color:#ef4444">❌ Annulés : ${d.annules}</span><br/><span style="color:#a78bfa;font-weight:700">👥 Présents : ${d.presents}/${d.inscrits} — ${d.tx}%</span>`;}},
+      formatter:params=>{const d=data[params[0].dataIndex];return`<b style="color:#60a5fa">${htmlEsc(d.name)}</b><br/><span style="color:#22c55e">✅ Réalisés : ${d.realises}</span><br/><span style="color:#3b82f6">📅 Planifiés : ${d.planifies}</span><br/><span style="color:#ef4444">❌ Annulés : ${d.annules}</span><br/><span style="color:#a78bfa;font-weight:700">👥 Présents : ${d.presents}/${d.inscrits} — ${d.tx}%</span>`;}},
     legend:{data:['Réalisés','Planifiés','Annulés'],textStyle:{color:'#94a3b8',fontSize:10},bottom:0,icon:'roundRect',itemWidth:10,itemHeight:8},
     xAxis:{...EC_AXIS_BASE},
     yAxis:{type:'category',data:data.map(d=>d.name),axisLabel:{...EC_AXIS_LABEL,fontSize:11},axisLine:{show:false},axisTick:{show:false},splitLine:{show:false}},
@@ -3367,7 +3369,7 @@ function VueCarte({entries,active}){
         const mc=markerColor(pct);fillColor=mc.fill;strokeColor=mc.stroke;
       }
       const conumsList=Array.from(s.conums).join(', ')||'—';
-      const popup=`<div style="min-width:175px;font-family:'Segoe UI',sans-serif;font-size:13px"><strong style="font-size:14px;color:#1e3a8a">${commune}</strong><div style="margin:6px 0 2px;color:#4a5568">Total : ${s.total}</div><div style="color:#276749;font-weight:600">Réalisés : ${s.realises}</div><div style="color:#2a69ac;font-weight:600">Planifiés : ${s.planifies}</div><div style="color:#4a5568">Présents : ${s.presents}</div><div style="margin-top:6px;padding-top:6px;border-top:1px solid #e2e8f0;font-size:11px;color:#6b7280">Conseiller(s) :<br><strong style="color:#1e3a8a">${conumsList}</strong></div><div style="background:#e2e8f0;border-radius:4px;height:6px;margin-top:8px;overflow:hidden"><div style="background:#059669;width:${Math.max(2,pct)}%;height:100%;border-radius:4px"></div></div><div style="font-size:11px;color:#718096;margin-top:3px">${pct}% réalisé</div></div>`;
+      const popup=`<div style="min-width:175px;font-family:'Segoe UI',sans-serif;font-size:13px"><strong style="font-size:14px;color:#1e3a8a">${htmlEsc(commune)}</strong><div style="margin:6px 0 2px;color:#4a5568">Total : ${s.total}</div><div style="color:#276749;font-weight:600">Réalisés : ${s.realises}</div><div style="color:#2a69ac;font-weight:600">Planifiés : ${s.planifies}</div><div style="color:#4a5568">Présents : ${s.presents}</div><div style="margin-top:6px;padding-top:6px;border-top:1px solid #e2e8f0;font-size:11px;color:#6b7280">Conseiller(s) :<br><strong style="color:#1e3a8a">${htmlEsc(conumsList)}</strong></div><div style="background:#e2e8f0;border-radius:4px;height:6px;margin-top:8px;overflow:hidden"><div style="background:#059669;width:${Math.max(2,pct)}%;height:100%;border-radius:4px"></div></div><div style="font-size:11px;color:#718096;margin-top:3px">${pct}% réalisé</div></div>`;
       const m=L.circleMarker([g.lat,g.lng],{radius:Math.min(8+s.total*0.8,26),fillColor,color:strokeColor,weight:2,opacity:1,fillOpacity:.82}).addTo(mapRef.current).bindPopup(popup,{maxWidth:230});
       markersRef.current.push(m);
     }
