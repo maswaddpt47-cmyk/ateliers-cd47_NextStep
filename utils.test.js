@@ -552,7 +552,7 @@ describe('import Outlook (.ics)', () => {
   const r = evenementsOutlook(ICS, 'atelier', '2026-10-01');
   it('ne garde que les rendez-vous au mot-clé, journées entières exclues', () => {
     assert.ok(!r.occurrences.some(o => /Réunion|journée/.test(o.titre)));
-    assert.deepEqual(r.occurrences[0], { cle: 'AAA|2026-10-07', date: '2026-10-07', horaire: '14:00', titre: 'ATELIER Smartphone', lieu: 'Médiathèque, Agen' });
+    assert.deepEqual(r.occurrences[0], { cle: 'AAA|2026-10-07', date: '2026-10-07', horaire: '14:00', titre: 'ATELIER Smartphone', lieu: 'Médiathèque, Agen', ferie: '' });
   });
   it('développe une série : EXDATE retirée, occurrence déplacée prise une seule fois', () => {
     const tab = r.occurrences.filter(o => o.cle.startsWith('CCC')).map(o => o.date + ' ' + o.horaire);
@@ -568,5 +568,14 @@ describe('import Outlook (.ics)', () => {
     assert.equal(idOutlook('AAA|2026-10-07'), idOutlook('AAA|2026-10-07'));
     assert.notEqual(idOutlook('AAA|2026-10-07'), idOutlook('AAA|2026-10-14'));
     assert.ok(idOutlook('x'.repeat(300)).length <= 64);
+  });
+});
+
+describe('import Outlook — jours fériés', () => {
+  const ics = ['BEGIN:VCALENDAR', 'BEGIN:VEVENT', 'UID:F', 'DTSTART;TZID="Romance Standard Time":20261104T093000',
+    'RRULE:FREQ=WEEKLY;COUNT=3;BYDAY=WE', 'SUMMARY:ATELIER test', 'END:VEVENT', 'END:VCALENDAR'].join('\r\n');
+  it('occurrence un jour férié gardée et signalée', () => {
+    const o = evenementsOutlook(ics, 'atelier', '').occurrences;
+    assert.deepEqual(o.map(x => [x.date, x.ferie]), [['2026-11-04', ''], ['2026-11-11', 'Armistice'], ['2026-11-18', '']]);
   });
 });

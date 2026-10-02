@@ -640,18 +640,22 @@ function _datesSerie(debut, rrule) {
 }
 // Occurrences dont le titre contient le mot-clé (sans casse ni accents),
 // à partir de `depuis` (AAAA-MM-JJ, inclus). Rend { occurrences:[{cle, date,
-// horaire, titre, lieu}], ignores:[titre] } — ignores = séries non prises
+// horaire, titre, lieu, ferie}], ignores:[titre] } — ferie = nom du jour férié ou '' — ignores = séries non prises
 // en charge, à signaler.
 function evenementsOutlook(texte, motCle, depuis) {
   const norm = s => stripAccents(String(s || '')).toLowerCase();
   const mc = norm(motCle).trim();
   const evts = lireICS(texte).filter(e => e.debut && e.debut.horaire && (!mc || norm(e.titre).includes(mc)));
   // Une occurrence modifiée (RECURRENCE-ID) remplace celle de sa série.
+  // Jour férié (02/10/2026) : l'occurrence est gardée mais signalée, la
+  // page la propose décochée.
+  const cacheF = {};
+  const ferie = d => (cacheF[d.slice(0, 4)] = cacheF[d.slice(0, 4)] || joursFeries(+d.slice(0, 4)))[d] || '';
   const remplacees = {};
   evts.filter(e => e.recurrenceId).forEach(e => { (remplacees[e.uid] = remplacees[e.uid] || []).push(e.recurrenceId); });
   const occ = [], ignores = [];
   for (const e of evts) {
-    const ajouter = date => occ.push({ cle: e.uid + '|' + date, date, horaire: e.debut.horaire, titre: e.titre, lieu: e.lieu });
+    const ajouter = date => occ.push({ cle: e.uid + '|' + date, date, horaire: e.debut.horaire, titre: e.titre, lieu: e.lieu, ferie: ferie(date) });
     if (e.rrule && !e.recurrenceId) {
       const dates = _datesSerie(e.debut.date, e.rrule);
       if (!dates) { ignores.push(e.titre); continue; }

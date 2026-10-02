@@ -5348,7 +5348,9 @@ function ImportOutlook({entries,ac,acLight,onImporter}){
   const lieux=[...new Set(res.occurrences.map(o=>o.lieu).filter(Boolean))].sort();
   const visibles=res.occurrences.filter(o=>!lieu||o.lieu===lieu);
   const dejaLa=o=>ids.has(idOutlook(o.cle));
-  const choisis=visibles.filter(o=>coches[o.cle]!==false&&!dejaLa(o));
+  // Un rendez-vous tombant un jour férié est proposé décoché (02/10/2026).
+  const coche=o=>coches[o.cle]!==undefined?coches[o.cle]:!o.ferie;
+  const choisis=visibles.filter(o=>coche(o)&&!dejaLa(o));
   function lireFichier(f){
     if(!f)return;setNomFichier(f.name);setCoches({});setLieu('');
     const r=new FileReader();r.onload=()=>setTexte(String(r.result||''));r.readAsText(f);
@@ -5378,9 +5380,9 @@ function ImportOutlook({entries,ac,acLight,onImporter}){
     visibles.length>0&&CE('div',{style:{maxHeight:260,overflowY:'auto',border:'1px solid #e2e8f0',borderRadius:8,marginBottom:10}},
       CE('table',{style:{width:'100%',borderCollapse:'collapse'}},
         CE('tbody',null,visibles.map(o=>{const la=dejaLa(o);return CE('tr',{key:o.cle,style:{opacity:la?.5:1}},
-          CE('td',{style:cell},CE('input',{type:'checkbox',disabled:la,checked:!la&&coches[o.cle]!==false,onChange:e=>setCoches(c=>({...c,[o.cle]:e.target.checked})),'aria-label':'Importer '+o.titre})),
+          CE('td',{style:cell},CE('input',{type:'checkbox',disabled:la,checked:!la&&coche(o),onChange:e=>setCoches(c=>({...c,[o.cle]:e.target.checked})),'aria-label':'Importer '+o.titre})),
           CE('td',{style:{...cell,whiteSpace:'nowrap'}},fmtDate(o.date)+' '+o.horaire),
-          CE('td',{style:cell},o.titre,la&&CE('span',{style:{color:'#718096'}},' — déjà dans les ateliers')),
+          CE('td',{style:cell},o.titre,la&&CE('span',{style:{color:'#718096'}},' — déjà dans les ateliers'),!la&&o.ferie&&CE('span',{style:{color:'#b7791f'}},` — férié (${o.ferie}), décoché`)),
           CE('td',{style:{...cell,color:'#718096'}},o.lieu));})))),
     CE('button',{type:'button',disabled:!choisis.length,onClick:()=>{if(onImporter(choisis.map(o=>({...o,thematique:'TBD',olkId:idOutlook(o.cle)}))))setOuvert(false);},
       style:{padding:'10px 18px',border:'none',borderRadius:10,cursor:choisis.length?'pointer':'not-allowed',fontSize:13,fontWeight:700,color:'#fff',background:choisis.length?ac:'#94a3b8'}},
