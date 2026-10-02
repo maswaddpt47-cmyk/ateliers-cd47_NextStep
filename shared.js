@@ -5328,14 +5328,9 @@ const NOUVEAUTES=[
 // Lit un export .ics d'Outlook dans le navigateur (rien n'est envoyé), garde
 // les rendez-vous dont le titre contient le mot-clé, et remplit le tableau
 // des dates. Calcul : evenementsOutlook / idOutlook (utils.js).
+// Thématique toujours « TBD » (02/10/2026, demande de l'utilisateur) : le
+// titre sert à filtrer (mot-clé), pas à décrire l'atelier.
 // ═══════════════════════════════════════════════════════════
-function thematiqueDepuisTitre(titre,motCle){
-  const t=String(titre||'');const mc=String(motCle||'').trim();
-  if(!mc)return t.trim()||'TBD';
-  const i=stripAccents(t).toLowerCase().indexOf(stripAccents(mc).toLowerCase());
-  const reste=i<0?t:(t.slice(0,i)+' '+t.slice(i+mc.length));
-  return reste.replace(/^[\s:\-–|,]+|[\s:\-–|,]+$/g,'').replace(/\s{2,}/g,' ')||'TBD';
-}
 function ImportOutlook({entries,ac,acLight,onImporter}){
   const lireMc=()=>{try{return localStorage.getItem(lsKey('outlook_motcle'))||'ATELIER';}catch(_){return 'ATELIER';}};
   const[ouvert,setOuvert]=React.useState(false);
@@ -5385,7 +5380,7 @@ function ImportOutlook({entries,ac,acLight,onImporter}){
           CE('td',{style:{...cell,whiteSpace:'nowrap'}},fmtDate(o.date)+' '+o.horaire),
           CE('td',{style:cell},o.titre,la&&CE('span',{style:{color:'#718096'}},' — déjà dans les ateliers')),
           CE('td',{style:{...cell,color:'#718096'}},o.lieu));})))),
-    CE('button',{type:'button',disabled:!choisis.length,onClick:()=>{if(onImporter(choisis.map(o=>({...o,thematique:thematiqueDepuisTitre(o.titre,motCle),olkId:idOutlook(o.cle)}))))setOuvert(false);},
+    CE('button',{type:'button',disabled:!choisis.length,onClick:()=>{if(onImporter(choisis.map(o=>({...o,thematique:'TBD',olkId:idOutlook(o.cle)}))))setOuvert(false);},
       style:{padding:'10px 18px',border:'none',borderRadius:10,cursor:choisis.length?'pointer':'not-allowed',fontSize:13,fontWeight:700,color:'#fff',background:choisis.length?ac:'#94a3b8'}},
       `Remplir le tableau (${choisis.length})`)
   );
