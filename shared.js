@@ -5376,6 +5376,7 @@ const NOUVEAUTES=[
   {id:13,date:'2026-09-25',titre:'L\'orienteur affiché dans le Calendrier et l\'Agenda',texte:'Calendrier : l\'orienteur apparaît sur sa propre ligne dans chaque atelier. Agenda : une ligne « 🤝 Orienteur » sous la commune. On sait pour quel partenaire est l\'atelier sans avoir à l\'ouvrir.'},
   {id:14,date:'2026-09-25',titre:'Rappels sur votre adresse professionnelle',texte:'Les mails de rappel des ateliers dont la date est dépassée sans mise à jour du statut arrivent désormais sur votre adresse mail professionnelle, et non plus sur Gmail. Ils partent chaque matin à 8 h.'},
   {id:15,date:'2026-10-02',titre:'Supprimer plusieurs ateliers d\'un coup',texte:'Historique : filtrez la liste si besoin (orienteur, thématique, dates… par exemple pour tout un cycle), cliquez sur « ☑ Sélectionner plusieurs ateliers », cochez les ateliers ou « Tout sélectionner », puis « 🗑 Supprimer la sélection ». Seuls les ateliers cochés et affichés sont supprimés ; ils restent récupérables 30 jours par l\'administrateur, dans la Corbeille.'},
+  {id:16,date:'2026-10-02',titre:'Récupérer vous-même un atelier supprimé',texte:'Quand l\'administrateur l\'a ouverte, la Corbeille apparaît dans le menu : elle liste les ateliers supprimés depuis moins de 30 jours, avec leur numéro, statut, lieu, orienteur et public. « ↩ Restaurer » remet l\'atelier tel qu\'il était, avec son numéro, sans passer par l\'administrateur.'},
 ];
 
 // ═══════════════════════════════════════════════════════════
