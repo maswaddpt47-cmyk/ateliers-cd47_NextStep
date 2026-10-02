@@ -5375,6 +5375,7 @@ const NOUVEAUTES=[
   {id:12,date:'2026-09-26',titre:'AM/PM rempli d\'après l\'horaire',texte:'À la saisie, le champ AM/PM se remplit tout seul d\'après l\'horaire : avant 12:00 c\'est AM, à partir de 12:00 c\'est PM. Il reste modifiable.'},
   {id:13,date:'2026-09-25',titre:'L\'orienteur affiché dans le Calendrier et l\'Agenda',texte:'Calendrier : l\'orienteur apparaît sur sa propre ligne dans chaque atelier. Agenda : une ligne « 🤝 Orienteur » sous la commune. On sait pour quel partenaire est l\'atelier sans avoir à l\'ouvrir.'},
   {id:14,date:'2026-09-25',titre:'Rappels sur votre adresse professionnelle',texte:'Les mails de rappel des ateliers dont la date est dépassée sans mise à jour du statut arrivent désormais sur votre adresse mail professionnelle, et non plus sur Gmail. Ils partent chaque matin à 8 h.'},
+  {id:15,date:'2026-10-02',titre:'Supprimer tout un cycle d\'un coup',texte:'Historique : filtrez le cycle (orienteur, thématique, dates…), cliquez sur « ☑ Sélectionner plusieurs ateliers », cochez les ateliers ou « Tout sélectionner », puis « 🗑 Supprimer la sélection ». Seuls les ateliers cochés et affichés sont supprimés ; ils restent récupérables 30 jours par l\'administrateur, dans la Corbeille.'},
 ];
 
 // ═══════════════════════════════════════════════════════════
