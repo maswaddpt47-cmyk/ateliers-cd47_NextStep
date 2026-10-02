@@ -603,7 +603,7 @@ const GAS_ACTIONS_ECRITURE = new Set([
   'restaurerCorbeille','copieMaintenant',
   // Tickets (AG-016) : creerTicket est rejouable sans effet (id client), mais
   // jamais doublé en vol ; repondreTicket non plus.
-  'creerTicket','repondreTicket'
+  'creerTicket','repondreTicket','supprimerTicket'
 ]);
 const GAS_HEDGE_MS            = 7000;   // délai avant de doubler une lecture
 const GAS_TENTATIVES_LECTURE  = 3;
@@ -5624,7 +5624,7 @@ function FormulaireTicket({onglets,ongletCourant,onCree,onAnnuler}){
   );
 }
 
-function ReponseTicket({t,tickets,onMaj}){
+function ReponseTicket({t,tickets,onMaj,onSuppr}){
   const[statut,setStatut]=React.useState(t.statut==='Nouveau'?'Vu':t.statut);
   const[reponse,setReponse]=React.useState(t.reponse||'');
   const[doublon,setDoublon]=React.useState(t.doublon_de||'');
@@ -5638,6 +5638,17 @@ function ReponseTicket({t,tickets,onMaj}){
     }catch(e){showToast('❌ '+(e.message||'Erreur réseau'),false);}
     finally{setEnvoi(false);}
   }
+  // Suppression définitive (test, envoi par erreur), 02/10/2026.
+  async function supprimer(){
+    if(!window.confirm('Supprimer définitivement le ticket « '+t.titre+' » ?\n\nIl disparaît pour toute l\'équipe, sans corbeille.'))return;
+    setEnvoi(true);
+    try{
+      const r=await window.apiFetch('supprimerTicket',{_id:t.id});
+      if(r&&r.ok){showToast('🗑 Ticket supprimé');onSuppr(t.id);}
+      else showToast('❌ '+((r&&r.error)||'Erreur'),false);
+    }catch(e){showToast('❌ '+(e.message||'Erreur réseau'),false);}
+    finally{setEnvoi(false);}
+  }
   const champ={padding:'6px 8px',border:'1.5px solid var(--border,#e2e8f0)',borderRadius:6,fontSize:12,background:'var(--surface,#fff)',color:'var(--text,#1a202c)'};
   return CE('div',{style:{marginTop:10,padding:'10px 12px',borderRadius:8,background:'var(--surface-2,#f8fafc)',border:'1px dashed var(--border,#cbd5e1)'}},
     CE('div',{style:{display:'flex',gap:8,flexWrap:'wrap',alignItems:'center',marginBottom:8}},
@@ -5646,7 +5657,9 @@ function ReponseTicket({t,tickets,onMaj}){
         CE('option',{value:''},'—'),
         tickets.filter(x=>x.id!==t.id).map(x=>CE('option',{key:x.id,value:x.id},fmtDate(String(x.cree_le).slice(0,10))+' — '+x.titre))))),
     CE('textarea',{rows:3,maxLength:2000,value:reponse,onChange:e=>setReponse(e.target.value),placeholder:'Réponse visible par l\'équipe…',style:{...champ,width:'100%',boxSizing:'border-box',resize:'vertical'}}),
-    CE('button',{type:'button',disabled:envoi,onClick:enregistrer,style:{marginTop:8,padding:'6px 14px',borderRadius:6,border:'none',background:'#1e3a8a',color:'#fff',fontWeight:700,fontSize:12,cursor:'pointer'}},envoi?'…':'💾 Enregistrer'));
+    CE('div',{style:{display:'flex',gap:8,alignItems:'center',marginTop:8}},
+      CE('button',{type:'button',disabled:envoi,onClick:enregistrer,style:{padding:'6px 14px',borderRadius:6,border:'none',background:'#1e3a8a',color:'#fff',fontWeight:700,fontSize:12,cursor:'pointer'}},envoi?'…':'💾 Enregistrer'),
+      CE('button',{type:'button',disabled:envoi,onClick:supprimer,style:{marginLeft:'auto',padding:'6px 12px',borderRadius:6,border:'1.5px solid #fca5a5',background:'transparent',color:'#b91c1c',fontWeight:700,fontSize:12,cursor:'pointer'}},'🗑 Supprimer')));
 }
 
 function VueTickets({admin,onglets,ongletCourant,onVu}){
@@ -5693,7 +5706,7 @@ function VueTickets({admin,onglets,ongletCourant,onVu}){
           original&&CE('div',{style:{fontSize:12,marginTop:6,color:'var(--text-2)'}},'↪ Doublon de « '+original.titre+' » ('+original.statut+')'),
           t.reponse&&CE('div',{style:{marginTop:8,padding:'8px 10px',borderRadius:8,background:'#eff6ff',border:'1px solid #bfdbfe',fontSize:13,color:'#1e3a8a',whiteSpace:'pre-wrap'}},
             CE('div',{style:{fontSize:11,fontWeight:700,marginBottom:2}},'Réponse de '+(t.repondu_par||'l\'administrateur')+(t.repondu_le?' — '+fmtDate(String(t.repondu_le).slice(0,10)):'')),t.reponse),
-          admin&&CE(ReponseTicket,{key:t.id+t.statut,t,tickets:tickets||[],onMaj:remplacer})));
+          admin&&CE(ReponseTicket,{key:t.id+t.statut,t,tickets:tickets||[],onMaj:remplacer,onSuppr:id=>setTickets(l=>(l||[]).filter(x=>x.id!==id).map(x=>x.doublon_de===id?{...x,doublon_de:''}:x))})));
     })
   );
 }
