@@ -5327,6 +5327,7 @@ const NOUVEAUTES=[
   {id:10,date:'2026-09-26',titre:'Modifier un atelier depuis le volet latéral',texte:'Historique, Calendrier et Agenda : cliquer sur un atelier ouvre un volet où l\'on modifie directement la date, l\'horaire, le public, la Classe mobile, le nombre d\'ordinateurs et les dates de prélèvement et de retour, sans repasser par le formulaire. Une alerte s\'affiche si le matériel est déjà pris sur ce créneau.'},
   {id:11,date:'2026-09-26',titre:'Historique : filtres repliables et public à choix multiples',texte:'Historique : le bloc des filtres se replie et affiche le nombre de filtres actifs ; « Effacer » les remet tous à zéro. Le filtre public accepte plusieurs catégories à la fois (« Tout afficher » pour tout reprendre).'},
   {id:12,date:'2026-09-26',titre:'AM/PM rempli d\'après l\'horaire',texte:'À la saisie, le champ AM/PM se remplit tout seul d\'après l\'horaire : avant 12:00 c\'est AM, à partir de 12:00 c\'est PM. Il reste modifiable.'},
+  {id:13,date:'2026-09-25',titre:'L\'orienteur affiché dans le Calendrier et l\'Agenda',texte:'Calendrier : l\'orienteur apparaît sur sa propre ligne dans chaque atelier. Agenda : une ligne « 🤝 Orienteur » sous la commune. On sait pour quel partenaire est l\'atelier sans avoir à l\'ouvrir.'},
 ];
 
 // ═══════════════════════════════════════════════════════════
