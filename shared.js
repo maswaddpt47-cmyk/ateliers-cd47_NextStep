@@ -2368,6 +2368,45 @@ function PanneauAtelier({panel,onClose,entries,onEntryUpdated,onRefresh,onEdit,o
 // ═══════════════════════════════════════════════════════════
 // VUE HISTORIQUE — v9.0 : duplication + flux de clôture
 // ═══════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════
+// SÉLECTION MULTIPLE — Historique (02/10/2026)
+// Supprimer tout un cycle d'un coup : on filtre, on coche, on supprime.
+// Un appel « delete » par atelier, l'un après l'autre (jamais doublé) ;
+// chaque atelier passe par la corbeille (30 jours), comme une suppression
+// simple. Aucune donnée nouvelle en base.
+// ═══════════════════════════════════════════════════════════
+function BarreSelection({actif,setActif,sel,setSel,filtered}){
+  const[enCours,setEnCours]=React.useState('');
+  const n=filtered.filter(e=>sel.has(e._id)).length;   // cochés encore visibles
+  const bouton={padding:'6px 12px',borderRadius:8,border:'1px solid #cbd5e1',background:'#fff',cursor:'pointer',fontSize:12,fontWeight:700,color:'#334155'};
+  if(!actif)return CE('div',{style:{display:'flex',justifyContent:'flex-end',margin:'6px 0'}},
+    CE('button',{type:'button',style:bouton,onClick:()=>{setSel(new Set());setActif(true);}},'☑ Sélectionner plusieurs ateliers'));
+  async function supprimer(){
+    const ids=filtered.filter(e=>sel.has(e._id)).map(e=>e._id);
+    if(!ids.length)return;
+    if(!window.confirm(`Supprimer ${ids.length} atelier(s) ?\n\nIls restent récupérables 30 jours : l'administrateur peut les restaurer depuis la Corbeille.`))return;
+    let ok=0,ko=0;
+    for(let i=0;i<ids.length;i++){
+      setEnCours(`Suppression ${i+1}/${ids.length}…`);
+      try{
+        const res=await window.apiFetch('delete',{_id:ids[i]});
+        if(!suppressionAboutie(res))throw new Error((res&&res.error)||'Erreur');
+        if(window.__entreeSupprimee)window.__entreeSupprimee(ids[i]);
+        ok++;
+      }catch(_){ko++;}
+    }
+    setEnCours('');setSel(new Set());
+    if(ko){showToast(`⚠️ ${ok} supprimé(s), ${ko} en échec — réessayez pour ceux qui restent`,false);}
+    else{showToast(`✅ ${ok} atelier(s) supprimé(s)`);setActif(false);}
+  }
+  return CE('div',{style:{display:'flex',flexWrap:'wrap',alignItems:'center',gap:8,margin:'6px 0',padding:'8px 10px',borderRadius:10,background:'#fff7ed',border:'2px solid #fdba74',position:'sticky',top:0,zIndex:5}},
+    CE('strong',{style:{fontSize:13,color:'#9a3412'}},enCours||`${n} sélectionné(s)`),
+    CE('button',{type:'button',style:bouton,disabled:!!enCours,onClick:()=>setSel(new Set(filtered.map(e=>e._id)))},`Tout sélectionner (${filtered.length})`),
+    CE('button',{type:'button',style:bouton,disabled:!!enCours||!n,onClick:()=>setSel(new Set())},'Tout désélectionner'),
+    CE('button',{type:'button',style:{...bouton,background:n&&!enCours?'#dc2626':'#94a3b8',color:'#fff',border:'none'},disabled:!!enCours||!n,onClick:supprimer},`🗑 Supprimer la sélection (${n})`),
+    CE('button',{type:'button',style:bouton,disabled:!!enCours,onClick:()=>{setSel(new Set());setActif(false);}},'Annuler'));
+}
+
 function VueHistorique({entries,onEdit,onDelete,onRefresh,onDuplicate,initConseiller,onResetConseiller,canDelete,onChangeConseiller}){
   const[search,setSearch]=React.useState('');
   const[dSearch,setDSearch]=React.useState('');
@@ -2390,6 +2429,9 @@ function VueHistorique({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
   
   
   const[saving,setSaving]=React.useState(false);
+  const[selActif,setSelActif]=React.useState(false);
+  const[sel,setSel]=React.useState(()=>new Set());
+  const basculerSel=id=>setSel(prev=>{const n=new Set(prev);n.has(id)?n.delete(id):n.add(id);return n;});
   const[confirmDel,setConfirmDel]=React.useState(null);
   const[suppressionEnCours,setSuppressionEnCours]=React.useState(false);
 
@@ -2575,9 +2617,11 @@ function VueHistorique({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
       CE('div',{style:{fontSize:32,marginBottom:8}},'📭'),
       entries.length===0?'Aucun atelier enregistré pour cette année.':'Aucun atelier ne correspond aux filtres sélectionnés.'
     ),
+    canDelete&&CE(BarreSelection,{actif:selActif,setActif:setSelActif,sel,setSel,filtered}),
     CE('div',{className:'atelier-list'},filtered.map((e,ei)=>{
       const d=fmtCardDate(e.date);const retard=isRetard(e);const cColor=conseillerColor(e.conseiller);
-      return CE(FadeItem,{key:e._id,delay:Math.min(ei*0.05,0.5)},CE('div',{className:'atelier-card',style:{background:retard?'#fffbeb':hexToRgba(cColor,0.04),borderLeft:'none'},onClick:()=>openPanel(e)},
+      return CE(FadeItem,{key:e._id,delay:Math.min(ei*0.05,0.5)},CE('div',{className:'atelier-card',style:{background:retard?'#fffbeb':hexToRgba(cColor,0.04),borderLeft:'none'},onClick:()=>selActif?basculerSel(e._id):openPanel(e)},
+        selActif&&CE('input',{type:'checkbox',checked:sel.has(e._id),readOnly:true,'aria-label':'Sélectionner '+(e.thematique||'atelier'),style:{width:18,height:18,margin:'auto 6px auto 8px',flexShrink:0,cursor:'pointer'}}),
         CE('div',{className:'atelier-card-border',style:{background:cColor}}),
         CE('div',{className:'atelier-card-date',style:{background:hexToRgba(cColor,0.08),borderRight:`1px solid ${hexToRgba(cColor,0.2)}`}},
           CE('div',{className:'atelier-card-day'},d.day),CE('div',{className:'atelier-card-month'},d.month),

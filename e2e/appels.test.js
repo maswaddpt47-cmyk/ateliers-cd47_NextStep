@@ -543,3 +543,30 @@ test('cycle — import Outlook : seuls les rendez-vous au mot-clé remplissent l
   expect(dates).toEqual(['2099-10-07']);
   await expect(page.locator('input[type="time"]').first()).toHaveValue('14:00');
 });
+
+// Sélection multiple (02/10/2026) : supprimer un cycle = un « delete » par
+// atelier coché, jamais plus, jamais doublé.
+test('historique — sélection multiple : un appel delete par atelier coché', async ({ page }) => {
+  const second = { ...MOCK_GETALL.entries[0], _id:'e2', _n:2, horaire:'14H00', ampm:'PM' };
+  MOCK_GETALL.entries.push(second);
+  try {
+    const appels = await instrumenter(page);
+    page.on('dialog', d => d.accept());
+    await page.goto('/index.html');
+    const selectConseiller = page.locator('select').first();
+    await expect(selectConseiller.locator('option', { hasText:'Michel Aswad' })).toHaveCount(1, { timeout:10000 });
+    await selectConseiller.selectOption('Michel Aswad');
+    await page.fill('input[type="password"]', 'test');
+    await page.getByText('🔓 Connexion', { exact:true }).click();
+    await page.waitForSelector('.sidebar-btn', { timeout:10000 });
+    await page.locator('.sidebar-btn', { hasText:'Historique' }).first().click();
+    await page.getByRole('button', { name:'☑ Sélectionner plusieurs ateliers' }).click();
+    await page.getByRole('button', { name:'Tout sélectionner (2)' }).click();
+    await page.getByRole('button', { name:'🗑 Supprimer la sélection (2)' }).click();
+    await expect.poll(() => compte(appels, 'delete')).toBe(2);
+    await page.waitForTimeout(500);
+    expect(compte(appels, 'delete')).toBe(2);
+  } finally {
+    MOCK_GETALL.entries.pop();
+  }
+});
