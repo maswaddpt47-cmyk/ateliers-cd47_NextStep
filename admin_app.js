@@ -1109,14 +1109,28 @@ function VueAdminV10({entries,onRefresh,addLog,conseillersList,onSaveColors,anne
   }
 
   // ── Export PDF partenaire ─────────────────────────────────
-  function handlePrintPDF(){
-    const filtered=ateliersPartenaire(entries,pdfOrienteur,pdfDu,pdfAu,pdfStatut);
-    if(!filtered.length){showToast('Aucun atelier trouvé pour ce partenaire, ce statut et cette période',false);return;}
+  // Ateliers des années touchées par la période Du / Au (02/10/2026) :
+  // l'Admin ne garde que l'année affichée, les autres sont chargées au clic.
+  async function ateliersDesAnnees(du,au){
+    const a0=parseInt(annee)||new Date().getFullYear();
+    const de=du?parseInt(du.slice(0,4)):a0, a=au?parseInt(au.slice(0,4)):a0;
+    if(!(de<=a)||(de===a0&&a===a0))return entries;
+    const annees=[];for(let y=de;y<=Math.min(a,de+4);y++)annees.push(y);
+    const data=await fetchAll(annees.join(','),{source:'admin'});
+    return (data&&data.entries)||[];
+  }
+
+  async function handlePrintPDF(){
+    // Fenêtre ouverte avant l'attente du chargement : sinon le navigateur la bloque.
+    const w=window.open('','_blank');if(!w){showToast('Autorisez les popups pour ce site',false);return;}
+    let source;
+    try{source=await ateliersDesAnnees(pdfDu,pdfAu);}catch(e){w.close();showToast('❌ '+(e.message||'Erreur réseau'),false);return;}
+    const filtered=ateliersPartenaire(source,pdfOrienteur,pdfDu,pdfAu,pdfStatut);
+    if(!filtered.length){w.close();showToast('Aucun atelier trouvé pour ce partenaire, ce statut et cette période',false);return;}
     const periode=pdfDu||pdfAu?(pdfDu?'du '+fmtDate(pdfDu):'')+(pdfDu&&pdfAu?' ':'')+(pdfAu?'au '+fmtDate(pdfAu):''):'';
     const title=(pdfOrienteur?'Ateliers — '+pdfOrienteur:'Ateliers numériques — Tous partenaires')+(pdfStatut?' — '+pdfStatut:'')+(periode?' — '+periode:'');
     const rows=filtered.map(e=>`<tr><td>${htmlEsc(fmtDate(e.date))}</td><td>${htmlEsc(e.horaire)}</td><td>${htmlEsc(e.statut)}</td><td>${htmlEsc(e.thematique)}</td><td>${htmlEsc(e.commune)}</td><td>${htmlEsc(e.lieu)}</td><td>${htmlEsc(e.orienteur)}</td><td>${htmlEsc(e.conseiller)}</td><td>${htmlEsc(String(e.inscrits??''))}</td><td>${htmlEsc(String(e.presents??''))}</td></tr>`).join('');
     const html=`<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><title>${htmlEsc(title)}</title><style>body{font-family:Arial,sans-serif;font-size:10px;margin:20px;}h2{font-size:14px;color:#1e3a8a;margin-bottom:4px;}p.sub{color:#718096;font-size:9px;margin-bottom:12px;}table{width:100%;border-collapse:collapse;}th{background:#1e3a8a;color:#fff;padding:5px 7px;text-align:left;font-size:9px;}td{border:1px solid #e2e8f0;padding:4px 7px;vertical-align:top;}tr:nth-child(even) td{background:#f7fafc;}@page{margin:15mm;}</style></head><body><h2>${htmlEsc(title)}</h2><p class="sub">${filtered.length} ateliers — Imprimé le ${new Date().toLocaleDateString('fr-FR')}</p><table><thead><tr><th>Date</th><th>Horaire</th><th>Statut</th><th>Thématique</th><th>Commune</th><th>Lieu</th><th>Orienteur</th><th>Conseiller</th><th>Inscrits</th><th>Présents</th></tr></thead><tbody>${rows}</tbody></table><script>window.print();<\/script></body></html>`;
-    const w=window.open('','_blank');if(!w){showToast('Autorisez les popups pour ce site',false);return;}
     w.document.write(html);w.document.close();
     addLog('Export PDF partenaire "'+(pdfOrienteur||'Tous')+'" — '+filtered.length+' ateliers','ok');
   }
@@ -1124,8 +1138,10 @@ function VueAdminV10({entries,onRefresh,addLog,conseillersList,onSaveColors,anne
   // ── Export ICS partenaire ─────────────────────────────────
   const allOrienteurs=React.useMemo(()=>[...new Set(entries.map(e=>(e.orienteur||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b)),[entries]);
 
-  function handleExportICS(){
-    const filtered=ateliersPartenaire(entries,icsOrienteur,icsDu,icsAu,icsStatut);
+  async function handleExportICS(){
+    let source;
+    try{source=await ateliersDesAnnees(icsDu,icsAu);}catch(e){showToast('❌ '+(e.message||'Erreur réseau'),false);return;}
+    const filtered=ateliersPartenaire(source,icsOrienteur,icsDu,icsAu,icsStatut);
     if(!filtered.length){showToast('Aucun atelier trouvé pour ce partenaire, ce statut et cette période',false);return;}
     const icsContent=buildICS(filtered);
     const blob=new Blob([icsContent],{type:'text/calendar;charset=utf-8'});
