@@ -5596,7 +5596,7 @@ function FormulaireTicket({onglets,ongletCourant,onCree,onAnnuler}){
     setEnvoi(true);
     try{
       const r=await window.apiFetch('creerTicket',{_id:idRef.current,type,gene:type==='Bug'?gene:'',onglet,titre:titre.trim(),description:description.trim(),version:versionAppli(),appareil:appareilCourant()});
-      if(r&&r.ok){showToast('✅ Signalement envoyé, merci !');idRef.current=genIdTicket();onCree&&onCree(r.ticket);}
+      if(r&&r.ok){showToast('✅ Contribution envoyée, merci !');idRef.current=genIdTicket();onCree&&onCree(r.ticket);}
       else showToast('❌ '+((r&&r.error)||'Erreur'),false);
     }catch(e){showToast('❌ '+(e.message||'Erreur réseau')+' — réessayez, rien ne sera envoyé deux fois',false);}
     finally{setEnvoi(false);}
@@ -5665,14 +5665,14 @@ function VueTickets({admin,onglets,ongletCourant,onVu}){
   const onglet=(k,l)=>CE('button',{type:'button',onClick:()=>setFiltre(k),style:{padding:'6px 12px',borderRadius:16,fontSize:12,fontWeight:700,cursor:'pointer',border:'1.5px solid '+(filtre===k?'#1e3a8a':'var(--border,#e2e8f0)'),background:filtre===k?'#1e3a8a':'var(--surface,#fff)',color:filtre===k?'#fff':'var(--text-2,#4a5568)'}},l+' ('+nb[k]+')');
   return CE('div',{className:'card',style:{maxWidth:820}},
     CE('div',{style:{display:'flex',alignItems:'center',gap:10,flexWrap:'wrap',marginBottom:4}},
-      CE('h2',{style:{margin:0,fontSize:18,flex:1}},admin?'🎫 Tickets de l\'équipe':'💬 Signaler'),
-      !form&&CE('button',{type:'button',onClick:()=>setForm(true),style:{padding:'8px 14px',borderRadius:8,border:'none',background:'#1e3a8a',color:'#fff',fontWeight:700,fontSize:13,cursor:'pointer'}},'＋ Nouveau signalement')),
-    CE('p',{style:{margin:'0 0 12px',fontSize:13,color:'var(--text-3)'}},'Un bug, une idée d\'amélioration, une question : signalez-le ici. Toute l\'équipe voit les signalements, ce qui évite les doublons ; la réponse s\'affiche dans le ticket.'),
+      CE('h2',{style:{margin:0,fontSize:18,flex:1}},admin?'🎫 Tickets de l\'équipe':'💬 Contribuer'),
+      !form&&CE('button',{type:'button',onClick:()=>setForm(true),style:{padding:'8px 14px',borderRadius:8,border:'none',background:'#1e3a8a',color:'#fff',fontWeight:700,fontSize:13,cursor:'pointer'}},'＋ Nouvelle contribution')),
+    CE('p',{style:{margin:'0 0 12px',fontSize:13,color:'var(--text-3)'}},'Une idée, un souci, une question ? Dites-le ici pour améliorer l\'outil ensemble. Toute l\'équipe voit les contributions, ce qui évite les doublons ; la réponse s\'affiche dans le ticket.'),
     form&&CE(FormulaireTicket,{onglets,ongletCourant,onCree:t=>{remplacer(t);setForm(false);setFiltre('miens');},onAnnuler:()=>setForm(false)}),
-    CE('div',{style:{display:'flex',gap:6,flexWrap:'wrap',marginBottom:10}},onglet('ouverts','Ouverts'),onglet('miens','Mes signalements'),onglet('archives','🗄️ Archives')),
+    CE('div',{style:{display:'flex',gap:6,flexWrap:'wrap',marginBottom:10}},onglet('ouverts','Ouverts'),onglet('miens','Mes contributions'),onglet('archives','🗄️ Archives')),
     err&&CE('p',{style:{color:'#c53030',fontSize:13}},err),
     tickets===null&&!err&&CE('p',{style:{fontSize:13}},'Chargement…'),
-    tickets&&liste.length===0&&CE('p',{style:{fontSize:13,color:'var(--text-3)'}},filtre==='archives'?'Aucun ticket clos.':'Aucun signalement ici pour l\'instant.'),
+    tickets&&liste.length===0&&CE('p',{style:{fontSize:13,color:'var(--text-3)'}},filtre==='archives'?'Aucun ticket clos.':'Aucune contribution ici pour l\'instant.'),
     liste.map(t=>{
       const ico=(TICKET_TYPES.find(x=>x[0]===t.type)||['','💬'])[1];
       const ouvert=ouverts.has(t.id);

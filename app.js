@@ -15,7 +15,7 @@ var VIEW_META_F = {
   gestion_ordi:{ico:'🖥️', label:'Gestion ordi', group:'Voir'},
   bingo:      {ico:'🎯',  label:'Bingo',        group:'Stats'},
   nouveautes: {ico:'🆕',  label:'Nouveautés',   group:'Info'},
-  signaler:   {ico:'💬',  label:'Signaler',     group:'Info'},
+  signaler:   {ico:'💬',  label:'Contribuer',     group:'Info'},
 };
 
 function MaintenanceScreen({msg}){
@@ -752,7 +752,7 @@ function App(){
       CE('div',{className:'sidebar-sep'}),
       CE('span',{className:'sidebar-group-label'},'Info'),
       CE('div',{style:{position:'relative'}},sideBtn('nouveautes','🆕','Nouveautés'),CE(PastilleNouveautes,{nb:nbNouveautes})),
-      CE('div',{style:{position:'relative'}},sideBtn('signaler','💬','Signaler'),CE(PastilleNouveautes,{nb:nbTickets,libelle:'réponse(s) à vos signalements'})),
+      CE('div',{style:{position:'relative'}},sideBtn('signaler','💬','Contribuer'),CE(PastilleNouveautes,{nb:nbTickets,libelle:'réponse(s) à vos contributions'})),
 
       CE('div',{className:'sidebar-bottom'},
         CE(ChoixAnnees,{className:'sidebar-year',value:annee,onChange:setAnnee,title:'Années chargées'}),

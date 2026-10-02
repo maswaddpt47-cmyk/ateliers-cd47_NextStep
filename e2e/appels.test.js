@@ -595,8 +595,8 @@ test('signaler — un envoi : un seul creerTicket, onglet d\'origine pré-rempli
   await page.getByText('🔓 Connexion', { exact:true }).click();
   await page.waitForSelector('.sidebar-btn', { timeout:10000 });
   await page.locator('.sidebar-btn', { hasText:'Historique' }).first().click();
-  await page.locator('.sidebar-btn', { hasText:'Signaler' }).first().click();
-  await page.getByRole('button', { name:'＋ Nouveau signalement' }).click();
+  await page.locator('.sidebar-btn', { hasText:'Contribuer' }).first().click();
+  await page.getByRole('button', { name:'＋ Nouvelle contribution' }).click();
   await page.getByPlaceholder(/le Calendrier ne s'affiche pas/).fill('Historique trop lent');
   await page.locator('textarea').first().fill('Il met longtemps à s\'ouvrir.');
   await page.getByRole('button', { name:'📨 Envoyer' }).click();
