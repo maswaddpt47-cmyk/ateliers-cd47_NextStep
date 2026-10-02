@@ -59,6 +59,7 @@ function reponseGas(action) {
   if (action === 'getVisibility')  return { ok:true, visibility:MOCK_GETALL.visibility };
   if (action === 'getLogs')        return { ok:true, logs:[] };
   if (action === 'saveEntry')      return { ok:true, _id:'e1' };
+  if (action === 'getTickets')     return { ok:true, tickets:[], moi:'Michel Aswad' };
   return { ok:true };
 }
 
@@ -569,4 +570,40 @@ test('historique — sélection multiple : un appel delete par atelier coché', 
   } finally {
     MOCK_GETALL.entries.pop();
   }
+});
+
+// Signaler (AG-016) : un ticket = un seul creerTicket, jamais doublé, avec
+// l'onglet d'où l'on vient pré-rempli.
+test('signaler — un envoi : un seul creerTicket, onglet d\'origine pré-rempli', async ({ page }) => {
+  const appels = await instrumenter(page);
+  let corps = null;
+  await page.route('**/ateliers-numeriques.alwaysdata.net/**', async route => {
+    const action = new URL(route.request().url()).searchParams.get('action') || '';
+    appels.push(action);
+    if (action === 'creerTicket') {
+      corps = paramsAppel(route);
+      return route.fulfill({ status:200, contentType:'application/json', body:JSON.stringify({ ok:true, nouveau:true,
+        ticket:{ id:corps.get('_id'), cree_le:'2026-10-02 10:00:00', auteur:'Michel Aswad', type:corps.get('type'), titre:corps.get('titre'), description:corps.get('description'), statut:'Nouveau', reponse:'' } }) });
+    }
+    return route.fulfill({ status:200, contentType:'application/json', body:JSON.stringify(reponseGas(action)) });
+  });
+  await page.goto('/index.html');
+  const selectConseiller = page.locator('select').first();
+  await expect(selectConseiller.locator('option', { hasText:'Michel Aswad' })).toHaveCount(1, { timeout:10000 });
+  await selectConseiller.selectOption('Michel Aswad');
+  await page.fill('input[type="password"]', 'test');
+  await page.getByText('🔓 Connexion', { exact:true }).click();
+  await page.waitForSelector('.sidebar-btn', { timeout:10000 });
+  await page.locator('.sidebar-btn', { hasText:'Historique' }).first().click();
+  await page.locator('.sidebar-btn', { hasText:'Signaler' }).first().click();
+  await page.getByRole('button', { name:'＋ Nouveau signalement' }).click();
+  await page.getByPlaceholder(/le Calendrier ne s'affiche pas/).fill('Historique trop lent');
+  await page.locator('textarea').first().fill('Il met longtemps à s\'ouvrir.');
+  await page.getByRole('button', { name:'📨 Envoyer' }).click();
+  await expect.poll(() => compte(appels, 'creerTicket')).toBe(1);
+  await page.waitForTimeout(500);
+  expect(compte(appels, 'creerTicket')).toBe(1);
+  expect(corps.get('onglet')).toBe('Historique');
+  expect(corps.get('_id')).toMatch(/^ticket_/);
+  await expect(page.getByText('Historique trop lent')).toBeVisible();
 });

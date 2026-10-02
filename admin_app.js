@@ -163,6 +163,7 @@ var VIEW_META = {
   logs_connexion:  { ico: '🔐',  label: 'Connexions',  group: 'Config' },
   corbeille:       { ico: '🗑️',  label: 'Corbeille',   group: 'Config' },
   sauvegardes:     { ico: '💾',  label: 'Sauvegardes', group: 'Config' },
+  tickets:         { ico: '🎫',  label: 'Tickets',     group: 'Config' },
 };
 
 // ── App Admin ──────────────────────────────────────────────
@@ -173,6 +174,7 @@ function App(){
   const[adminConseiller,setAdminConseiller]= React.useState(()=>localStorage.getItem(lsKey('adm_conseiller'))||'');
   const[view,setView]           = React.useState('historique');
   const[nbNouveautes,marquerNouveautes]=useNouveautes();
+  const[nbTickets]=useTicketsPastille(true);   // tickets « Nouveau » (AG-016)
   // Usage des onglets : compteur anonyme, envoyé en un lot (shared.js).
   React.useEffect(()=>{ if(auth&&window.compterOnglet) window.compterOnglet('admin',view); },[view,auth]);
   const[entries,setEntries]= React.useState([]);
@@ -586,6 +588,7 @@ const LOGS_KEY = lsKey('adm_logs');
       (role==='admin'||role==='superviseur')&&sideBtn('logs_connexion','🔐','Connexions'),
       (role==='admin'||role==='superviseur')&&sideBtn('corbeille','🗑️','Corbeille'),
       (role==='admin'||role==='superviseur')&&sideBtn('sauvegardes','💾','Sauvegardes'),
+      (role==='admin'||role==='superviseur')&&CE('div',{style:{position:'relative'}},sideBtn('tickets','🎫','Tickets'),CE(PastilleNouveautes,{nb:nbTickets,libelle:'nouveau(x) ticket(s)'})),
 
       // Bas : sélecteur année + notifs
       CE('div',{className:'sidebar-bottom'},
@@ -660,6 +663,7 @@ const LOGS_KEY = lsKey('adm_logs');
           view==='logs_connexion'&&(role==='admin'||role==='superviseur')&&CE(React.Fragment,null,CE(VueUsageOnglets,null),CE(VueLogs,null)),
           view==='corbeille'&&(role==='admin'||role==='superviseur')&&CE(VueCorbeille,null),
           view==='sauvegardes'&&(role==='admin'||role==='superviseur')&&CE(VueSauvegardes,null),
+          view==='tickets'&&(role==='admin'||role==='superviseur')&&CE(VueTickets,{admin:true,onglets:Object.values(VIEW_META).map(m=>m.label)}),
           view==='logs'&&CE('div',{className:'card'},
             CE('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14,flexWrap:'wrap',gap:8}},
               CE('h2',{style:{margin:0}},'📜 Journal des opérations'),

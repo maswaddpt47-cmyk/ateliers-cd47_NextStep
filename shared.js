@@ -600,7 +600,10 @@ const GAS_ACTIONS_ECRITURE = new Set([
   // consommerait deux fois le quota de 3 demandes par heure.
   'demanderReinit','reinitMotDePasse',
   // Corbeille et copie à la demande (AG-014) : écritures, jamais doublées.
-  'restaurerCorbeille','copieMaintenant'
+  'restaurerCorbeille','copieMaintenant',
+  // Tickets (AG-016) : creerTicket est rejouable sans effet (id client), mais
+  // jamais doublé en vol ; repondreTicket non plus.
+  'creerTicket','repondreTicket'
 ]);
 const GAS_HEDGE_MS            = 7000;   // délai avant de doubler une lecture
 const GAS_TENTATIVES_LECTURE  = 3;
@@ -1251,7 +1254,10 @@ window.authToken = {
     if(hit && (hit.inflight || (!o.force && Date.now()-hit.ts < TTL_MS))) return hit.promise;
     const entry = {inflight:true, ts:Date.now(), promise:null};
     entry.promise = rawGetAll(year, o.source)
-      .then(data=>{ entry.inflight=false; entry.ts=Date.now(); return data; })
+      .then(data=>{ entry.inflight=false; entry.ts=Date.now();
+        // Pastilles des tickets (AG-016) : le résumé voyage dans getAll.
+        if(data && data.tickets){ window.__ticketsResume=data.tickets; try{window.dispatchEvent(new Event('ateliers:tickets'));}catch(_){} }
+        return data; })
       .catch(err=>{ cache.delete(key); throw err; });
     cache.set(key, entry);
     return entry.promise;
@@ -5531,8 +5537,164 @@ if(typeof document!=='undefined'&&!document.getElementById('nouv-blink-css')){
 }
 // Pastille rouge : style en ligne pour servir aux deux mises en page
 // (barre latérale NextStep, barre du haut NEWGEN) sans toucher aux CSS.
-function PastilleNouveautes({nb}){
-  return nb>0&&CE('span',{className:'nouv-blink','aria-label':nb+' nouveauté(s) non lue(s)',style:{position:'absolute',top:2,right:2,minWidth:16,height:16,padding:'0 4px',borderRadius:8,background:'#dc2626',color:'#fff',fontSize:10,fontWeight:800,lineHeight:'16px',textAlign:'center',boxShadow:'0 0 0 2px rgba(255,255,255,.85)',pointerEvents:'none'}},nb);
+function PastilleNouveautes({nb,libelle}){
+  return nb>0&&CE('span',{className:'nouv-blink','aria-label':nb+' '+(libelle||'nouveauté(s) non lue(s)'),style:{position:'absolute',top:2,right:2,minWidth:16,height:16,padding:'0 4px',borderRadius:8,background:'#dc2626',color:'#fff',fontSize:10,fontWeight:800,lineHeight:'16px',textAlign:'center',boxShadow:'0 0 0 2px rgba(255,255,255,.85)',pointerEvents:'none'}},nb);
+}
+
+// ═══════════════════════════════════════════════════════════
+// SIGNALER — tickets de l'équipe (02/10/2026, AG-016 amendé)
+// Bug, amélioration, question : chaque conseiller crée un ticket et voit
+// ceux de toute l'équipe (évite les doublons) ; admin et superviseur
+// répondent, changent le statut, rattachent un doublon (onglet Tickets de
+// l'Admin). Les tickets clos (Résolu, Non retenu) passent dans « Archives ».
+// L'id vient du client : un envoi rejoué ne crée pas de second ticket.
+// ═══════════════════════════════════════════════════════════
+const TICKET_TYPES=[['Bug','🐞'],['Amélioration','💡'],['Question','❓'],['Autre','💬']];
+const TICKET_GENES=['bloquant','gênant','mineur'];
+const TICKET_STATUTS=['Nouveau','Vu','En cours','Résolu','Non retenu'];
+const TICKET_COULEURS={'Nouveau':'#dc2626','Vu':'#d97706','En cours':'#2563eb','Résolu':'#16a34a','Non retenu':'#6b7280'};
+const ticketClos=t=>t.statut==='Résolu'||t.statut==='Non retenu';
+
+// Pastille : Admin = tickets « Nouveau » ; Index = réponse reçue sur un de
+// ses tickets depuis la dernière visite de la rubrique.
+function useTicketsPastille(admin){
+  const lire=()=>window.__ticketsResume||null;
+  const[res,setRes]=React.useState(lire);
+  const[lu,setLu]=React.useState(()=>{try{return localStorage.getItem(lsKey('tickets_lu'))||'';}catch(_){return '';}});
+  React.useEffect(()=>{const f=()=>setRes(lire());window.addEventListener('ateliers:tickets',f);return()=>window.removeEventListener('ateliers:tickets',f);},[]);
+  const marquer=React.useCallback(()=>{
+    const d=(window.__ticketsResume&&window.__ticketsResume.derniere_reponse)||'';
+    try{localStorage.setItem(lsKey('tickets_lu'),d);}catch(_){}
+    setLu(d);
+  },[]);
+  if(!res)return[0,marquer];
+  if(admin)return[res.nouveaux||0,marquer];
+  return[res.derniere_reponse&&res.derniere_reponse>lu?1:0,marquer];
+}
+
+function versionAppli(){
+  const sc=[...document.querySelectorAll('script[src*="shared.js"]')].map(x=>x.getAttribute('src'))[0]||'';
+  const m=sc.match(/v=(\d+)/);return (APP_NS||'')+(m?' v'+m[1]:'');
+}
+const appareilCourant=()=>{try{return window.matchMedia('(max-width: 768px)').matches?'Téléphone':'PC';}catch(_){return 'PC';}};
+const genIdTicket=()=>`ticket_${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
+
+function FormulaireTicket({onglets,ongletCourant,onCree,onAnnuler}){
+  const[type,setType]=React.useState('Bug');
+  const[gene,setGene]=React.useState('gênant');
+  const[onglet,setOnglet]=React.useState(ongletCourant||'');
+  const[titre,setTitre]=React.useState('');
+  const[description,setDescription]=React.useState('');
+  const[envoi,setEnvoi]=React.useState(false);
+  // Gardé tant que l'envoi n'a pas réussi : un nouvel essai rejoue le même
+  // ticket au lieu d'en créer un second.
+  const idRef=React.useRef(genIdTicket());
+  const champ={width:'100%',padding:'8px 10px',border:'1.5px solid var(--border,#e2e8f0)',borderRadius:8,fontSize:13,boxSizing:'border-box',background:'var(--surface,#fff)',color:'var(--text,#1a202c)'};
+  const lbl=t=>CE('div',{style:{fontSize:11,fontWeight:700,color:'var(--text-3,#718096)',margin:'10px 0 4px',textTransform:'uppercase'}},t);
+  async function envoyer(){
+    if(!titre.trim()||!description.trim()){showToast('⚠️ Titre et description requis',false);return;}
+    setEnvoi(true);
+    try{
+      const r=await window.apiFetch('creerTicket',{_id:idRef.current,type,gene:type==='Bug'?gene:'',onglet,titre:titre.trim(),description:description.trim(),version:versionAppli(),appareil:appareilCourant()});
+      if(r&&r.ok){showToast('✅ Signalement envoyé, merci !');idRef.current=genIdTicket();onCree&&onCree(r.ticket);}
+      else showToast('❌ '+((r&&r.error)||'Erreur'),false);
+    }catch(e){showToast('❌ '+(e.message||'Erreur réseau')+' — réessayez, rien ne sera envoyé deux fois',false);}
+    finally{setEnvoi(false);}
+  }
+  return CE('div',{style:{padding:'12px 14px',marginBottom:14,borderRadius:10,border:'1px solid var(--border,#e2e8f0)',background:'var(--surface-2,#f8fafc)'}},
+    lbl('Type'),
+    CE('div',{style:{display:'flex',gap:6,flexWrap:'wrap'}},TICKET_TYPES.map(([t,ico])=>CE('button',{key:t,type:'button',onClick:()=>setType(t),
+      style:{padding:'6px 12px',borderRadius:16,fontSize:13,fontWeight:600,cursor:'pointer',border:'1.5px solid '+(type===t?'#1e3a8a':'var(--border,#e2e8f0)'),background:type===t?'#1e3a8a':'var(--surface,#fff)',color:type===t?'#fff':'var(--text-2,#4a5568)'}},ico+' '+t))),
+    type==='Bug'&&CE(React.Fragment,null,lbl('Gêne'),
+      CE('div',{style:{display:'flex',gap:6,flexWrap:'wrap'}},TICKET_GENES.map(g=>CE('button',{key:g,type:'button',onClick:()=>setGene(g),
+        style:{padding:'5px 12px',borderRadius:16,fontSize:12,fontWeight:600,cursor:'pointer',border:'1.5px solid '+(gene===g?'#dc2626':'var(--border,#e2e8f0)'),background:gene===g?'#fef2f2':'var(--surface,#fff)',color:gene===g?'#991b1b':'var(--text-2,#4a5568)'}},g)))),
+    lbl('Onglet concerné'),
+    CE('select',{value:onglet,onChange:e=>setOnglet(e.target.value),style:champ},
+      CE('option',{value:''},'— Général / je ne sais pas —'),
+      (onglets||[]).map(o=>CE('option',{key:o,value:o},o))),
+    lbl('Titre'),
+    CE('input',{type:'text',maxLength:120,value:titre,onChange:e=>setTitre(e.target.value),placeholder:type==='Bug'?'Ex : le Calendrier ne s\'affiche pas':'En une phrase',style:champ}),
+    lbl('Description'),
+    CE('textarea',{rows:5,maxLength:2000,value:description,onChange:e=>setDescription(e.target.value),placeholder:type==='Bug'?'Ce que vous faisiez, ce qui s\'est passé, ce que vous attendiez.':'Votre idée, votre question…',style:{...champ,resize:'vertical'}}),
+    CE('div',{style:{fontSize:11,color:'#b45309',marginTop:4}},'⚠️ Visible par toute l\'équipe : n\'écrivez aucune donnée sur les usagers (nom, téléphone, situation…).'),
+    CE('div',{style:{display:'flex',gap:8,marginTop:12}},
+      CE('button',{type:'button',disabled:envoi,onClick:envoyer,style:{padding:'8px 18px',borderRadius:8,border:'none',background:'#1e3a8a',color:'#fff',fontWeight:700,fontSize:13,cursor:envoi?'progress':'pointer'}},envoi?'Envoi…':'📨 Envoyer'),
+      CE('button',{type:'button',onClick:onAnnuler,style:{padding:'8px 14px',borderRadius:8,border:'1px solid var(--border,#e2e8f0)',background:'var(--surface,#fff)',color:'var(--text-2,#4a5568)',fontSize:13,cursor:'pointer'}},'Annuler'))
+  );
+}
+
+function ReponseTicket({t,tickets,onMaj}){
+  const[statut,setStatut]=React.useState(t.statut==='Nouveau'?'Vu':t.statut);
+  const[reponse,setReponse]=React.useState(t.reponse||'');
+  const[doublon,setDoublon]=React.useState(t.doublon_de||'');
+  const[envoi,setEnvoi]=React.useState(false);
+  async function enregistrer(){
+    setEnvoi(true);
+    try{
+      const r=await window.apiFetch('repondreTicket',{_id:t.id,statut,reponse,doublon_de:doublon});
+      if(r&&r.ok){showToast('✅ Ticket mis à jour');onMaj(r.ticket);}
+      else showToast('❌ '+((r&&r.error)||'Erreur'),false);
+    }catch(e){showToast('❌ '+(e.message||'Erreur réseau'),false);}
+    finally{setEnvoi(false);}
+  }
+  const champ={padding:'6px 8px',border:'1.5px solid var(--border,#e2e8f0)',borderRadius:6,fontSize:12,background:'var(--surface,#fff)',color:'var(--text,#1a202c)'};
+  return CE('div',{style:{marginTop:10,padding:'10px 12px',borderRadius:8,background:'var(--surface-2,#f8fafc)',border:'1px dashed var(--border,#cbd5e1)'}},
+    CE('div',{style:{display:'flex',gap:8,flexWrap:'wrap',alignItems:'center',marginBottom:8}},
+      CE('label',{style:{fontSize:12,fontWeight:700}},'Statut ',CE('select',{value:statut,onChange:e=>setStatut(e.target.value),style:champ},TICKET_STATUTS.map(x=>CE('option',{key:x,value:x},x)))),
+      CE('label',{style:{fontSize:12,fontWeight:700}},'Doublon de ',CE('select',{value:doublon,onChange:e=>setDoublon(e.target.value),style:{...champ,maxWidth:240}},
+        CE('option',{value:''},'—'),
+        tickets.filter(x=>x.id!==t.id).map(x=>CE('option',{key:x.id,value:x.id},fmtDate(String(x.cree_le).slice(0,10))+' — '+x.titre))))),
+    CE('textarea',{rows:3,maxLength:2000,value:reponse,onChange:e=>setReponse(e.target.value),placeholder:'Réponse visible par l\'équipe…',style:{...champ,width:'100%',boxSizing:'border-box',resize:'vertical'}}),
+    CE('button',{type:'button',disabled:envoi,onClick:enregistrer,style:{marginTop:8,padding:'6px 14px',borderRadius:6,border:'none',background:'#1e3a8a',color:'#fff',fontWeight:700,fontSize:12,cursor:'pointer'}},envoi?'…':'💾 Enregistrer'));
+}
+
+function VueTickets({admin,onglets,ongletCourant,onVu}){
+  const[tickets,setTickets]=React.useState(null);
+  const[moi,setMoi]=React.useState('');
+  const[err,setErr]=React.useState('');
+  const[filtre,setFiltre]=React.useState(admin?'ouverts':'ouverts');
+  const[form,setForm]=React.useState(false);
+  const[ouverts,setOuverts]=React.useState(()=>new Set());
+  React.useEffect(()=>{if(onVu)onVu();
+    window.apiFetch('getTickets').then(r=>{if(r&&r.ok){setTickets(r.tickets||[]);setMoi(r.moi||'');}else setErr((r&&r.error)||'Erreur');})
+      .catch(e=>setErr(e.message||'Erreur réseau'));},[]);
+  const basculer=id=>setOuverts(o=>{const x=new Set(o);x.has(id)?x.delete(id):x.add(id);return x;});
+  const remplacer=t=>setTickets(l=>{const a=(l||[]).filter(x=>x.id!==t.id);return [t,...a].sort((x,y)=>String(y.cree_le).localeCompare(String(x.cree_le)));});
+  const liste=(tickets||[]).filter(t=>filtre==='archives'?ticketClos(t):filtre==='miens'?t.auteur===moi:!ticketClos(t));
+  const nb={ouverts:(tickets||[]).filter(t=>!ticketClos(t)).length,miens:(tickets||[]).filter(t=>t.auteur===moi).length,archives:(tickets||[]).filter(ticketClos).length};
+  const onglet=(k,l)=>CE('button',{type:'button',onClick:()=>setFiltre(k),style:{padding:'6px 12px',borderRadius:16,fontSize:12,fontWeight:700,cursor:'pointer',border:'1.5px solid '+(filtre===k?'#1e3a8a':'var(--border,#e2e8f0)'),background:filtre===k?'#1e3a8a':'var(--surface,#fff)',color:filtre===k?'#fff':'var(--text-2,#4a5568)'}},l+' ('+nb[k]+')');
+  return CE('div',{className:'card',style:{maxWidth:820}},
+    CE('div',{style:{display:'flex',alignItems:'center',gap:10,flexWrap:'wrap',marginBottom:4}},
+      CE('h2',{style:{margin:0,fontSize:18,flex:1}},admin?'🎫 Tickets de l\'équipe':'💬 Signaler'),
+      !form&&CE('button',{type:'button',onClick:()=>setForm(true),style:{padding:'8px 14px',borderRadius:8,border:'none',background:'#1e3a8a',color:'#fff',fontWeight:700,fontSize:13,cursor:'pointer'}},'＋ Nouveau signalement')),
+    CE('p',{style:{margin:'0 0 12px',fontSize:13,color:'var(--text-3)'}},'Un bug, une idée d\'amélioration, une question : signalez-le ici. Toute l\'équipe voit les signalements, ce qui évite les doublons ; la réponse s\'affiche dans le ticket.'),
+    form&&CE(FormulaireTicket,{onglets,ongletCourant,onCree:t=>{remplacer(t);setForm(false);setFiltre('miens');},onAnnuler:()=>setForm(false)}),
+    CE('div',{style:{display:'flex',gap:6,flexWrap:'wrap',marginBottom:10}},onglet('ouverts','Ouverts'),onglet('miens','Mes signalements'),onglet('archives','🗄️ Archives')),
+    err&&CE('p',{style:{color:'#c53030',fontSize:13}},err),
+    tickets===null&&!err&&CE('p',{style:{fontSize:13}},'Chargement…'),
+    tickets&&liste.length===0&&CE('p',{style:{fontSize:13,color:'var(--text-3)'}},filtre==='archives'?'Aucun ticket clos.':'Aucun signalement ici pour l\'instant.'),
+    liste.map(t=>{
+      const ico=(TICKET_TYPES.find(x=>x[0]===t.type)||['','💬'])[1];
+      const ouvert=ouverts.has(t.id);
+      const original=t.doublon_de&&(tickets||[]).find(x=>x.id===t.doublon_de);
+      return CE('div',{key:t.id,style:{padding:'9px 12px',marginBottom:6,borderRadius:10,border:'1px solid var(--border)',borderLeft:'4px solid '+(TICKET_COULEURS[t.statut]||'#94a3b8'),background:'var(--surface)'}},
+        CE('div',{role:'button',tabIndex:0,'aria-expanded':ouvert,onClick:()=>basculer(t.id),onKeyDown:e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();basculer(t.id);}},
+            style:{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap',cursor:'pointer',userSelect:'none'}},
+          CE('span',{style:{fontSize:12,color:'var(--text-3)',width:12}},ouvert?'▾':'▸'),
+          CE('span',{style:{fontSize:12,color:'var(--text-3)',fontWeight:600}},fmtDate(String(t.cree_le).slice(0,10))),
+          CE('span',{style:{fontSize:10,fontWeight:800,color:'#fff',background:TICKET_COULEURS[t.statut]||'#94a3b8',borderRadius:6,padding:'1px 6px'}},t.statut),
+          t.gene&&CE('span',{style:{fontSize:10,fontWeight:700,color:'#991b1b',background:'#fef2f2',borderRadius:6,padding:'1px 6px'}},t.gene),
+          CE('span',{style:{fontSize:14,fontWeight:700}},ico+' '+t.titre),
+          CE('span',{style:{fontSize:12,color:'var(--text-3)',marginLeft:'auto'}},t.auteur)),
+        ouvert&&CE('div',{style:{paddingLeft:20,marginTop:6}},
+          CE('div',{style:{fontSize:13,lineHeight:1.5,color:'var(--text-2)',whiteSpace:'pre-wrap'}},t.description),
+          CE('div',{style:{fontSize:11,color:'var(--text-3)',marginTop:6}},[t.type,t.onglet&&('onglet '+t.onglet),t.appareil,t.version].filter(Boolean).join(' · ')),
+          original&&CE('div',{style:{fontSize:12,marginTop:6,color:'var(--text-2)'}},'↪ Doublon de « '+original.titre+' » ('+original.statut+')'),
+          t.reponse&&CE('div',{style:{marginTop:8,padding:'8px 10px',borderRadius:8,background:'#eff6ff',border:'1px solid #bfdbfe',fontSize:13,color:'#1e3a8a',whiteSpace:'pre-wrap'}},
+            CE('div',{style:{fontSize:11,fontWeight:700,marginBottom:2}},'Réponse de '+(t.repondu_par||'l\'administrateur')+(t.repondu_le?' — '+fmtDate(String(t.repondu_le).slice(0,10)):'')),t.reponse),
+          admin&&CE(ReponseTicket,{key:t.id+t.statut,t,tickets:tickets||[],onMaj:remplacer})));
+    })
+  );
 }
 
 // ── Corbeille (AG-014, 25/09/2026) ─────────────────────────────────────────

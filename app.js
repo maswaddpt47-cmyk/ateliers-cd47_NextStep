@@ -15,6 +15,7 @@ var VIEW_META_F = {
   gestion_ordi:{ico:'🖥️', label:'Gestion ordi', group:'Voir'},
   bingo:      {ico:'🎯',  label:'Bingo',        group:'Stats'},
   nouveautes: {ico:'🆕',  label:'Nouveautés',   group:'Info'},
+  signaler:   {ico:'💬',  label:'Signaler',     group:'Info'},
 };
 
 function MaintenanceScreen({msg}){
@@ -251,6 +252,11 @@ function App(){
   const[authed,setAuthed]          = React.useState(()=>!!window.authToken.get());
   const[view,setView]              = React.useState('accueil');
   const[nbNouveautes,marquerNouveautes]=useNouveautes();
+  // Signaler (AG-016) : pastille si un de ses tickets a reçu une réponse ;
+  // l'onglet d'où l'on vient pré-remplit « onglet concerné ».
+  const[nbTickets,marquerTickets]=useTicketsPastille(false);
+  const ongletAvantSignaler=React.useRef('');
+  React.useEffect(()=>{if(view!=='signaler'&&VIEW_META_F[view])ongletAvantSignaler.current=VIEW_META_F[view].label;},[view]);
   // Usage des onglets : compteur anonyme, envoyé en un lot (shared.js).
   React.useEffect(()=>{ if(authed&&window.compterOnglet) window.compterOnglet('index',view); },[view,authed]);
   const[entries,setEntries]        = React.useState([]);
@@ -746,6 +752,7 @@ function App(){
       CE('div',{className:'sidebar-sep'}),
       CE('span',{className:'sidebar-group-label'},'Info'),
       CE('div',{style:{position:'relative'}},sideBtn('nouveautes','🆕','Nouveautés'),CE(PastilleNouveautes,{nb:nbNouveautes})),
+      CE('div',{style:{position:'relative'}},sideBtn('signaler','💬','Signaler'),CE(PastilleNouveautes,{nb:nbTickets,libelle:'réponse(s) à vos signalements'})),
 
       CE('div',{className:'sidebar-bottom'},
         CE(ChoixAnnees,{className:'sidebar-year',value:annee,onChange:setAnnee,title:'Années chargées'}),
@@ -849,7 +856,8 @@ function App(){
           view==='gestion_ordi'&&visibility.gestion_ordi&&CE(VueGestionOrdi,{entries,onEdit:handleEdit}),
           view==='bingo'&&visibility.bingo&&CE(VueBingo,{entries}),
           view==='corbeille'&&visibility.corbeille&&CE(VueCorbeille,null),
-          view==='nouveautes'&&CE(VueNouveautes,{onVu:marquerNouveautes})
+          view==='nouveautes'&&CE(VueNouveautes,{onVu:marquerNouveautes}),
+          view==='signaler'&&CE(VueTickets,{admin:false,onVu:marquerTickets,ongletCourant:ongletAvantSignaler.current,onglets:Object.keys(VIEW_META_F).filter(k=>k!=='signaler'&&k!=='nouveautes'&&(visibility[k]||k==='saisie')).map(k=>VIEW_META_F[k].label)})
         )
       )
     ),

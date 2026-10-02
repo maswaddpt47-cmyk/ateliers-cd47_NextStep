@@ -180,9 +180,9 @@ test('admin — Nouveautés : la pastille s\'éteint une fois la rubrique ouvert
   await expect(pastille).toHaveCount(0);
 });
 
-test('admin — onglets Corbeille et Sauvegardes (AG-014) sans erreur', async ({ page }) => {
+test('admin — onglets Corbeille, Sauvegardes (AG-014) et Tickets (AG-016) sans erreur', async ({ page }) => {
   await login(page);
-  for (const onglet of ['Corbeille', 'Sauvegardes']) {
+  for (const onglet of ['Tickets', 'Corbeille', 'Sauvegardes']) {
     const errs = await clickTab(page, onglet);
     expect(errs, `${onglet} : ${errs.join(' | ')}`).toHaveLength(0);
   }
