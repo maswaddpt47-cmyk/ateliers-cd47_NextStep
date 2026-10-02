@@ -1056,23 +1056,36 @@ function VueAdminV10({entries,onRefresh,addLog,conseillersList,onSaveColors,anne
   }
 
   // ── Export Timeline ────────────────────────────────
+  // Années de début et de fin (02/10/2026) : la période peut chevaucher deux
+  // années (sept. 2026 → juin 2027) ; les années autres que celle de l'Admin
+  // sont chargées au clic seulement. 24 mois au plus.
+  const[anDeb,setAnDeb]=React.useState(()=>parseInt(annee)||new Date().getFullYear());
+  const[anFin,setAnFin]=React.useState(()=>parseInt(annee)||new Date().getFullYear());
+  React.useEffect(()=>{const a=parseInt(annee);if(a){setAnDeb(a);setAnFin(a);}},[annee]);
+  const tlAnnees=[];for(let a=(parseInt(annee)||new Date().getFullYear())-3;a<=(parseInt(annee)||new Date().getFullYear())+2;a++)tlAnnees.push(a);
+  const tlInvalide=anDeb*12+moisDeb>anFin*12+moisFin;
+  const tlMois=React.useMemo(()=>{const l=[];let y=anDeb,m=moisDeb;while((y<anFin||(y===anFin&&m<=moisFin))&&l.length<=24){l.push({y,m});m++;if(m>12){m=1;y++;}}return l;},[anDeb,moisDeb,anFin,moisFin]);
+  const tlTropLong=tlMois.length>24;
+  const tlAutres=[...new Set(tlMois.map(x=>x.y))].filter(a=>String(a)!==String(annee));
   async function handleExport(){
     setTlRunning(true);setTlLogs([]);setLastExport(null);
     try{
-      const yr=parseInt(annee||new Date().getFullYear());
-      if(moisDeb>moisFin)throw new Error('Mois de début postérieur au mois de fin.');
-      const months=[];for(let m=moisDeb;m<=moisFin;m++)months.push(m);
-      addTlLog(`Traitement de ${entries.length} ateliers pour ${yr}…`);
+      if(tlInvalide)throw new Error('Début postérieur à la fin.');
+      if(tlTropLong)throw new Error('24 mois au plus.');
+      const annees=[...new Set(tlMois.map(x=>x.y))];
+      let source=entries;
+      if(tlAutres.length){addTlLog(`Chargement des ateliers ${annees.join(', ')}…`);const data=await fetchAll(annees.join(','),{source:'admin'});source=(data&&data.entries)||[];}
+      const cles=new Set(tlMois.map(x=>x.y+'-'+x.m));
+      addTlLog(`Traitement de ${source.length} ateliers pour ${annees.join(', ')}…`);
       const df=[];
-      for(const e of entries){
+      for(const e of source){
         if(!e.date||!e.conseiller)continue;
         const s=String(e.date).trim();let d=null;
         const mFr=s.match(/^(?:\w+\s+)?(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
         if(mFr)d=new Date(Date.UTC(parseInt(mFr[3]),parseInt(mFr[2])-1,parseInt(mFr[1])));
         if(!d){const mIso=s.match(/^(\d{4})-(\d{2})-(\d{2})/);if(mIso)d=new Date(Date.UTC(+mIso[1],+mIso[2]-1,+mIso[3]));}
         if(!d||isNaN(d.getTime()))continue;
-        if(d.getUTCFullYear()!==yr)continue;
-        if(!months.includes(d.getUTCMonth()+1))continue;
+        if(!cles.has(d.getUTCFullYear()+'-'+(d.getUTCMonth()+1)))continue;
         df.push({date:d,horaire:e.horaire||'9H00',ampm:'',conseiller:String(e.conseiller).trim(),orienteur:String(e.orienteur||'').trim()||'—',statut:String(e.statut||'').trim()});
       }
       addTlLog(`✓ ${df.length} ateliers valides`,'ok');
@@ -1083,9 +1096,10 @@ function VueAdminV10({entries,onRefresh,addLog,conseillersList,onSaveColors,anne
       // sert qu'ici et à l'import, deux actions sur clic. Le charger à la
       // demande rend l'ouverture d'Admin plus légère pour tout le monde.
       await window.chargerScriptUneFois('xlsxstyle.js?v=1');
-      const wb=window.generateCalendrier(df,yr,months,cons,addTlLog);
+      const wb=window.generateCalendrier(df,tlMois[0].y,tlMois,cons,addTlLog);
       const outData=XLSX.write(wb,{type:'base64',bookType:'xlsx'});
-      const fileName=`Calendrier_ateliers_${yr}.xlsx`;
+      const p2=n=>String(n).padStart(2,'0'),dern=tlMois[tlMois.length-1];
+      const fileName=annees.length>1?`Calendrier_ateliers_${tlMois[0].y}-${p2(tlMois[0].m)}_${dern.y}-${p2(dern.m)}.xlsx`:`Calendrier_ateliers_${annees[0]}.xlsx`;
       const dataUrl='data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,'+outData;
       setLastExport({url:dataUrl,name:fileName});
       const a=document.createElement('a');a.href=dataUrl;a.download=fileName;document.body.appendChild(a);a.click();document.body.removeChild(a);
@@ -1226,19 +1240,24 @@ function VueAdminV10({entries,onRefresh,addLog,conseillersList,onSaveColors,anne
       ),
       CE('div',{className:'admin-section'},
         CE('h3',null,'📅 Export Timeline Ateliers'),
-        CE('p',{style:{fontSize:12,color:'#4a5568',marginBottom:14}},'Génère le planning timeline directement depuis les données chargées. Année et conseillers pris depuis la sidebar.'),
-        CE('div',{style:{display:'flex',gap:12,alignItems:'flex-end',flexWrap:'wrap',marginBottom:moisDeb>moisFin?6:10}},
-          CE('div',null,CE('label',null,'Mois début'),CE('select',{value:moisDeb,onChange:e=>changeMoisDeb(+e.target.value),style:{marginTop:4}},MOIS_CAL.map((m,i)=>CE('option',{key:i,value:i+1},m)))),
-          CE('div',null,CE('label',null,'Mois fin'),CE('select',{value:moisFin,onChange:e=>changeMoisFin(+e.target.value),style:{marginTop:4}},MOIS_CAL.map((m,i)=>CE('option',{key:i,value:i+1},m)))),
-          CE('button',{className:'btn btn-success',style:{alignSelf:'flex-end'},disabled:tlRunning||moisDeb>moisFin||entries.filter(e=>e.date&&e.conseiller).length===0,onClick:handleExport},
+        CE('p',{style:{fontSize:12,color:'#4a5568',marginBottom:14}},'Génère le planning timeline des mois choisis, sur une ou deux années. Conseillers pris depuis la sidebar.'),
+        CE('div',{style:{display:'flex',gap:12,alignItems:'flex-end',flexWrap:'wrap',marginBottom:tlInvalide||tlTropLong?6:10}},
+          CE('div',null,CE('label',null,'Début'),CE('div',{style:{display:'flex',gap:6,marginTop:4}},
+            CE('select',{value:moisDeb,onChange:e=>changeMoisDeb(+e.target.value)},MOIS_CAL.map((m,i)=>CE('option',{key:i,value:i+1},m))),
+            CE('select',{value:anDeb,onChange:e=>{setAnDeb(+e.target.value);setLastExport(null);}},tlAnnees.map(a=>CE('option',{key:a,value:a},a))))),
+          CE('div',null,CE('label',null,'Fin'),CE('div',{style:{display:'flex',gap:6,marginTop:4}},
+            CE('select',{value:moisFin,onChange:e=>changeMoisFin(+e.target.value)},MOIS_CAL.map((m,i)=>CE('option',{key:i,value:i+1},m))),
+            CE('select',{value:anFin,onChange:e=>{setAnFin(+e.target.value);setLastExport(null);}},tlAnnees.map(a=>CE('option',{key:a,value:a},a))))),
+          CE('button',{className:'btn btn-success',style:{alignSelf:'flex-end'},disabled:tlRunning||tlInvalide||tlTropLong,onClick:handleExport},
             tlRunning?CE('span',null,CE('span',{className:'spinner'}),'Génération…'):'📥 Générer & Télécharger')
         ),
-        moisDeb>moisFin&&CE('p',{style:{fontSize:12,color:'#c53030',marginBottom:10}},'⚠️ Le mois de début doit être antérieur ou égal au mois de fin.'),
-        !( moisDeb>moisFin)&&CE('div',{style:{display:'flex',gap:8,marginBottom:12,flexWrap:'wrap'}},
+        (tlInvalide||tlTropLong)&&CE('p',{style:{fontSize:12,color:'#c53030',marginBottom:10}},tlInvalide?'⚠️ Le début doit être antérieur ou égal à la fin.':'⚠️ 24 mois au plus.'),
+        !(tlInvalide||tlTropLong)&&CE('div',{style:{display:'flex',gap:8,marginBottom:12,flexWrap:'wrap'}},
           CE('span',{style:{fontSize:12,background:'#ebf8ff',border:'1px solid #bee3f8',color:'#2b6cb0',borderRadius:6,padding:'3px 10px'}},
-            `📊 ${entries.filter(e=>{if(!e.date||!e.conseiller)return false;const m=String(e.date).match(/^(\d{4})-(\d{2})/);return m&&parseInt(m[1])===parseInt(annee)&&parseInt(m[2])>=moisDeb&&parseInt(m[2])<=moisFin;}).length} ateliers · ${conseillersList?conseillersList.length:0} conseillers`),
+            tlAutres.length?`📊 ${conseillersList?conseillersList.length:0} conseillers · ateliers ${tlAutres.join(', ')} chargés au clic`
+              :`📊 ${entries.filter(e=>{if(!e.date||!e.conseiller)return false;const m=String(e.date).match(/^(\d{4})-(\d{2})/);return m&&tlMois.some(x=>x.y===parseInt(m[1])&&x.m===parseInt(m[2]));}).length} ateliers · ${conseillersList?conseillersList.length:0} conseillers`),
           CE('span',{style:{fontSize:12,background:'#f0fff4',border:'1px solid #9ae6b4',color:'#276749',borderRadius:6,padding:'3px 10px'}},
-            `📅 ${MOIS_SHORT_CAL[moisDeb-1]} → ${MOIS_SHORT_CAL[moisFin-1]} ${annee}`)
+            `📅 ${MOIS_SHORT_CAL[moisDeb-1]} ${anDeb} → ${MOIS_SHORT_CAL[moisFin-1]} ${anFin}`)
         ),
         tlLogs.length>0&&CE('div',{style:{background:'#f8fafc',border:'1px solid #e2e8f0',borderRadius:8,padding:'10px 14px',maxHeight:160,overflowY:'auto',fontSize:12}},
           tlLogs.map((l,i)=>CE('div',{key:i,className:'log-entry log-'+l.type,style:{marginBottom:4}},CE('span',{className:'log-time'},l.t+' '),CE('span',null,l.msg)))

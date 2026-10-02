@@ -21,9 +21,13 @@
     if(bgHex)s.fill={fgColor:{rgb:argbOfCal(bgHex)},patternType:'solid'};return s;
   }
 
-  window.generateCalendrier=function(df,year,months,conseillers,logFn){
+  // months : numéros de mois de l'année year0, ou paires {y,m} pour une
+  // période à cheval sur deux années (02/10/2026).
+  window.generateCalendrier=function(df,year0,months,conseillers,logFn){
     const wb=XLSX.utils.book_new();
-    for(const month of months){
+    for(const mm of months){
+      const year=typeof mm==='object'?mm.y:year0;
+      const month=typeof mm==='object'?mm.m:mm;
       const monthName=MONTH_NAMES_FR_CAL[month];
       const workingDays=getWorkingDaysCal(year,month);
       const dfMonth=df.filter(r=>r.date.getUTCFullYear()===year&&r.date.getUTCMonth()+1===month);
