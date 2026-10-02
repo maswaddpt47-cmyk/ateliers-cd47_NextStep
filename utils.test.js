@@ -580,3 +580,20 @@ describe('import Outlook — jours fériés', () => {
     assert.deepEqual(o.map(x => [x.date, x.ferie]), [['2026-11-04', ''], ['2026-11-11', 'Armistice'], ['2026-11-18', '']]);
   });
 });
+
+// ── ateliersPartenaire (Export Partenaire, Admin) ──────────────────────────
+describe('ateliersPartenaire', () => {
+  const { ateliersPartenaire } = require('./utils.js');
+  const E = [
+    { _id: 'a', date: '2026-03-10', orienteur: 'CAF ' }, { _id: 'b', date: '2026-01-05', orienteur: 'CAF' },
+    { _id: 'c', date: '2026-06-30T00:00:00.000Z', orienteur: 'CAF' }, { _id: 'd', date: '2026-07-01', orienteur: 'MSA' },
+    { _id: 'e', date: '', orienteur: 'CAF' },
+  ];
+  it('bornes incluses, orienteur, tri par date, sans les ateliers non datés', () => {
+    assert.deepEqual(ateliersPartenaire(E, 'CAF', '2026-01-05', '2026-06-30').map(e => e._id), ['b', 'a', 'c']);
+    assert.deepEqual(ateliersPartenaire(E, 'CAF', '2026-03-11', '').map(e => e._id), ['c']);
+  });
+  it('sans filtre : tous les ateliers datés', () => {
+    assert.deepEqual(ateliersPartenaire(E, '', '', '').map(e => e._id), ['b', 'a', 'c', 'd']);
+  });
+});

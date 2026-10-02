@@ -439,6 +439,18 @@ function ordiSansClasseMobile(e) {
   return matierePanneau(e, false).length === liste.length;
 }
 
+// Export Partenaire (.ics et PDF, Admin) : ateliers datés d'un orienteur
+// (vide = tous), entre deux dates incluses (vide = sans borne), triés par
+// date (02/10/2026).
+function ateliersPartenaire(entries, orienteur, du, au) {
+  return (entries || []).filter(e => {
+    const d = normalizeDate(e && e.date);
+    if (!d) return false;
+    if (orienteur && String(e.orienteur || '').trim() !== orienteur) return false;
+    return (!du || d >= du) && (!au || d <= au);
+  }).sort((a, b) => normalizeDate(a.date).localeCompare(normalizeDate(b.date)));
+}
+
 // Conflits de matériel où figurerait un atelier modifié, avant de
 // l'enregistrer (panneau latéral de l'Historique et du Calendrier, 26/09/2026 :
 // date et ordinateurs y sont modifiables, sans passer par le formulaire).
@@ -700,6 +712,7 @@ if (typeof module !== 'undefined') {
   ampmDepuisHoraire, statutSelonDate,
   kpiHistorique,
   conflitsDeLEntree,
+  ateliersPartenaire,
   matierePanneau,
   ordiSansClasseMobile,
     presentsSuperieursInscrits,
