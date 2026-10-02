@@ -440,13 +440,14 @@ function ordiSansClasseMobile(e) {
 }
 
 // Export Partenaire (.ics et PDF, Admin) : ateliers datés d'un orienteur
-// (vide = tous), entre deux dates incluses (vide = sans borne), triés par
-// date (02/10/2026).
-function ateliersPartenaire(entries, orienteur, du, au) {
+// (vide = tous), entre deux dates incluses (vide = sans borne), d'un statut
+// (vide = tous), triés par date (02/10/2026).
+function ateliersPartenaire(entries, orienteur, du, au, statut) {
   return (entries || []).filter(e => {
     const d = normalizeDate(e && e.date);
     if (!d) return false;
     if (orienteur && String(e.orienteur || '').trim() !== orienteur) return false;
+    if (statut && String(e.statut || '').trim() !== statut) return false;
     return (!du || d >= du) && (!au || d <= au);
   }).sort((a, b) => normalizeDate(a.date).localeCompare(normalizeDate(b.date)));
 }

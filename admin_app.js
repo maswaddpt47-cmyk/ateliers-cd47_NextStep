@@ -1032,6 +1032,7 @@ function VueAdminV10({entries,onRefresh,addLog,conseillersList,onSaveColors,anne
   // Période des exports partenaire (02/10/2026) : vide = sans borne.
   const[icsDu,setIcsDu]=React.useState('');const[icsAu,setIcsAu]=React.useState('');
   const[pdfDu,setPdfDu]=React.useState('');const[pdfAu,setPdfAu]=React.useState('');
+  const[icsStatut,setIcsStatut]=React.useState('');const[pdfStatut,setPdfStatut]=React.useState('');
   function addTlLog(msg,type='info'){setTlLogs(l=>[...l,{msg,type,t:new Date().toLocaleTimeString('fr-FR')}]);}
   function changeMoisDeb(v){localStorage.setItem(lsKey('cal_moisDeb'),v);setMoisDeb(v);setLastExport(null);}
   function changeMoisFin(v){localStorage.setItem(lsKey('cal_moisFin'),v);setMoisFin(v);setLastExport(null);}
@@ -1095,10 +1096,10 @@ function VueAdminV10({entries,onRefresh,addLog,conseillersList,onSaveColors,anne
 
   // ── Export PDF partenaire ─────────────────────────────────
   function handlePrintPDF(){
-    const filtered=ateliersPartenaire(entries,pdfOrienteur,pdfDu,pdfAu);
-    if(!filtered.length){showToast('Aucun atelier trouvé pour ce partenaire sur cette période',false);return;}
+    const filtered=ateliersPartenaire(entries,pdfOrienteur,pdfDu,pdfAu,pdfStatut);
+    if(!filtered.length){showToast('Aucun atelier trouvé pour ce partenaire, ce statut et cette période',false);return;}
     const periode=pdfDu||pdfAu?(pdfDu?'du '+fmtDate(pdfDu):'')+(pdfDu&&pdfAu?' ':'')+(pdfAu?'au '+fmtDate(pdfAu):''):'';
-    const title=(pdfOrienteur?'Ateliers — '+pdfOrienteur:'Ateliers numériques — Tous partenaires')+(periode?' — '+periode:'');
+    const title=(pdfOrienteur?'Ateliers — '+pdfOrienteur:'Ateliers numériques — Tous partenaires')+(pdfStatut?' — '+pdfStatut:'')+(periode?' — '+periode:'');
     const rows=filtered.map(e=>`<tr><td>${htmlEsc(fmtDate(e.date))}</td><td>${htmlEsc(e.horaire)}</td><td>${htmlEsc(e.statut)}</td><td>${htmlEsc(e.thematique)}</td><td>${htmlEsc(e.commune)}</td><td>${htmlEsc(e.lieu)}</td><td>${htmlEsc(e.orienteur)}</td><td>${htmlEsc(e.conseiller)}</td><td>${htmlEsc(String(e.inscrits??''))}</td><td>${htmlEsc(String(e.presents??''))}</td></tr>`).join('');
     const html=`<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><title>${htmlEsc(title)}</title><style>body{font-family:Arial,sans-serif;font-size:10px;margin:20px;}h2{font-size:14px;color:#1e3a8a;margin-bottom:4px;}p.sub{color:#718096;font-size:9px;margin-bottom:12px;}table{width:100%;border-collapse:collapse;}th{background:#1e3a8a;color:#fff;padding:5px 7px;text-align:left;font-size:9px;}td{border:1px solid #e2e8f0;padding:4px 7px;vertical-align:top;}tr:nth-child(even) td{background:#f7fafc;}@page{margin:15mm;}</style></head><body><h2>${htmlEsc(title)}</h2><p class="sub">${filtered.length} ateliers — Imprimé le ${new Date().toLocaleDateString('fr-FR')}</p><table><thead><tr><th>Date</th><th>Horaire</th><th>Statut</th><th>Thématique</th><th>Commune</th><th>Lieu</th><th>Orienteur</th><th>Conseiller</th><th>Inscrits</th><th>Présents</th></tr></thead><tbody>${rows}</tbody></table><script>window.print();<\/script></body></html>`;
     const w=window.open('','_blank');if(!w){showToast('Autorisez les popups pour ce site',false);return;}
@@ -1110,8 +1111,8 @@ function VueAdminV10({entries,onRefresh,addLog,conseillersList,onSaveColors,anne
   const allOrienteurs=React.useMemo(()=>[...new Set(entries.map(e=>(e.orienteur||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b)),[entries]);
 
   function handleExportICS(){
-    const filtered=ateliersPartenaire(entries,icsOrienteur,icsDu,icsAu);
-    if(!filtered.length){showToast('Aucun atelier trouvé pour ce partenaire sur cette période',false);return;}
+    const filtered=ateliersPartenaire(entries,icsOrienteur,icsDu,icsAu,icsStatut);
+    if(!filtered.length){showToast('Aucun atelier trouvé pour ce partenaire, ce statut et cette période',false);return;}
     const icsContent=buildICS(filtered);
     const blob=new Blob([icsContent],{type:'text/calendar;charset=utf-8'});
     const url=URL.createObjectURL(blob);
@@ -1262,6 +1263,10 @@ function VueAdminV10({entries,onRefresh,addLog,conseillersList,onSaveColors,anne
             CE('input',{type:'date',value:icsDu,max:icsAu||undefined,onChange:e=>setIcsDu(e.target.value),style:{padding:'7px 8px',border:'1.5px solid #e2e8f0',borderRadius:8,fontSize:13}})),
           CE('div',null,CE('label',{style:{display:'block',fontSize:12,fontWeight:600,color:'#4a5568',marginBottom:4}},'Au'),
             CE('input',{type:'date',value:icsAu,min:icsDu||undefined,onChange:e=>setIcsAu(e.target.value),style:{padding:'7px 8px',border:'1.5px solid #e2e8f0',borderRadius:8,fontSize:13}})),
+          CE('div',null,CE('label',{style:{display:'block',fontSize:12,fontWeight:600,color:'#4a5568',marginBottom:4}},'Statut'),
+            CE('select',{value:icsStatut,onChange:e=>setIcsStatut(e.target.value),style:{padding:'8px 10px',border:'1.5px solid #e2e8f0',borderRadius:8,fontSize:13}},
+              CE('option',{value:''},'Tous'),
+              STATUTS.map(x=>CE('option',{key:x,value:x},x)))),
           CE('button',{className:'btn btn-primary',onClick:handleExportICS,disabled:!entries.filter(e=>e.date).length,style:{whiteSpace:'nowrap'}},'📥 Télécharger .ics')
         ),
         CE('div',{style:{fontSize:12,color:'#718096',background:'#f7fafc',border:'1px solid #e2e8f0',borderRadius:8,padding:'8px 12px'}},
@@ -1284,6 +1289,10 @@ function VueAdminV10({entries,onRefresh,addLog,conseillersList,onSaveColors,anne
             CE('input',{type:'date',value:pdfDu,max:pdfAu||undefined,onChange:e=>setPdfDu(e.target.value),style:{padding:'7px 8px',border:'1.5px solid #e2e8f0',borderRadius:8,fontSize:13}})),
           CE('div',null,CE('label',{style:{display:'block',fontSize:12,fontWeight:600,color:'#4a5568',marginBottom:4}},'Au'),
             CE('input',{type:'date',value:pdfAu,min:pdfDu||undefined,onChange:e=>setPdfAu(e.target.value),style:{padding:'7px 8px',border:'1.5px solid #e2e8f0',borderRadius:8,fontSize:13}})),
+          CE('div',null,CE('label',{style:{display:'block',fontSize:12,fontWeight:600,color:'#4a5568',marginBottom:4}},'Statut'),
+            CE('select',{value:pdfStatut,onChange:e=>setPdfStatut(e.target.value),style:{padding:'8px 10px',border:'1.5px solid #e2e8f0',borderRadius:8,fontSize:13}},
+              CE('option',{value:''},'Tous'),
+              STATUTS.map(x=>CE('option',{key:x,value:x},x)))),
           CE('button',{className:'btn btn-danger',onClick:handlePrintPDF,disabled:!entries.filter(e=>e.date).length,style:{whiteSpace:'nowrap'}},'🖨️ Imprimer / PDF')
         )
       ),

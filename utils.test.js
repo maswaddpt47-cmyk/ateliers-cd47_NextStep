@@ -593,6 +593,10 @@ describe('ateliersPartenaire', () => {
     assert.deepEqual(ateliersPartenaire(E, 'CAF', '2026-01-05', '2026-06-30').map(e => e._id), ['b', 'a', 'c']);
     assert.deepEqual(ateliersPartenaire(E, 'CAF', '2026-03-11', '').map(e => e._id), ['c']);
   });
+  it('statut', () => {
+    const S = [{ _id: 'p', date: '2026-02-01', statut: 'Planifié' }, { _id: 'r', date: '2026-01-01', statut: 'Réalisé' }];
+    assert.deepEqual(ateliersPartenaire(S, '', '', '', 'Planifié').map(e => e._id), ['p']);
+  });
   it('sans filtre : tous les ateliers datés', () => {
     assert.deepEqual(ateliersPartenaire(E, '', '', '').map(e => e._id), ['b', 'a', 'c', 'd']);
   });
