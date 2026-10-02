@@ -486,7 +486,7 @@ function matIncludes(arr,m){if(typeof arr==='string')arr=arr.split('|').filter(B
 // de la config enregistrée valait « visible » sur Index et « masqué » dans
 // l'Admin (Gestion ordi affiché sur Index alors que l'Admin le montrait coupé).
 function visibiliteEffective(v){
-  const defaut={saisie:true,historique:true,dashboard:true,carte:true,bingo:true,calendrier:false,agenda:false,roadmap:false,gestion_ordi:true,anomalies:false};
+  const defaut={saisie:true,historique:true,dashboard:true,carte:true,bingo:true,calendrier:false,agenda:false,roadmap:false,gestion_ordi:true,anomalies:false,corbeille:false};
   const res=Object.assign({},defaut);
   if(v&&typeof v==='object')Object.keys(v).forEach(k=>{const x=v[k];res[k]=!(x===false||x===0||x===''||x==null||String(x).toLowerCase()==='false');});
   return res;

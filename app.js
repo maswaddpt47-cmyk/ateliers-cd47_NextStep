@@ -726,14 +726,15 @@ function App(){
       visibility.saisie&&CE('span',{className:'sidebar-group-label'},'Action'),
       sideBtn('saisie','✏️','Nouveau',visibility.saisie),
 
-      (visibility.historique||visibility.agenda||visibility.calendrier||visibility.carte||visibility.roadmap||visibility.gestion_ordi)&&CE('div',{className:'sidebar-sep'}),
-      (visibility.historique||visibility.agenda||visibility.calendrier||visibility.carte||visibility.roadmap||visibility.gestion_ordi)&&CE('span',{className:'sidebar-group-label'},'Voir'),
+      (visibility.historique||visibility.agenda||visibility.calendrier||visibility.carte||visibility.roadmap||visibility.gestion_ordi||visibility.corbeille)&&CE('div',{className:'sidebar-sep'}),
+      (visibility.historique||visibility.agenda||visibility.calendrier||visibility.carte||visibility.roadmap||visibility.gestion_ordi||visibility.corbeille)&&CE('span',{className:'sidebar-group-label'},'Voir'),
       sideBtn('historique','📋','Historique',visibility.historique),
       sideBtn('agenda','🗓️','Agenda',visibility.agenda),
       sideBtn('calendrier','📅','Calendrier',visibility.calendrier),
       sideBtn('carte','🗺️','Carte',visibility.carte),
       sideBtn('roadmap','🛣️','Roadmap',visibility.roadmap),
       sideBtn('gestion_ordi','🖥️','Gestion ordi',visibility.gestion_ordi),
+      sideBtn('corbeille','🗑️','Corbeille',visibility.corbeille),
 
       // Titre de groupe masqué quand l'Admin a masqué tous ses onglets
       // (01/10/2026 : « Stats » s'affichait seul, sans bouton dessous).
@@ -847,6 +848,7 @@ function App(){
           view==='roadmap'&&visibility.roadmap&&CE(VueRoadmap,{entries,annee:anneeReference(annee),conseillers:lists.conseillers}),
           view==='gestion_ordi'&&visibility.gestion_ordi&&CE(VueGestionOrdi,{entries,onEdit:handleEdit}),
           view==='bingo'&&visibility.bingo&&CE(VueBingo,{entries}),
+          view==='corbeille'&&visibility.corbeille&&CE(VueCorbeille,null),
           view==='nouveautes'&&CE(VueNouveautes,{onVu:marquerNouveautes})
         )
       )
