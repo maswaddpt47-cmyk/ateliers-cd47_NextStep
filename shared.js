@@ -5378,7 +5378,6 @@ const NOUVEAUTES=[
   {id:15,date:'2026-10-02',titre:'Supprimer plusieurs ateliers d\'un coup',texte:'Historique : filtrez la liste si besoin (orienteur, thématique, dates… par exemple pour tout un cycle), cliquez sur « ☑ Sélectionner plusieurs ateliers », cochez les ateliers ou « Tout sélectionner », puis « 🗑 Supprimer la sélection ». Seuls les ateliers cochés et affichés sont supprimés ; ils restent récupérables 30 jours dans la Corbeille.'},
   {id:17,date:'2026-09-26',titre:'Conflit d\'ordinateurs signalé avant d\'enregistrer',texte:'Volet latéral (Historique, Calendrier, Agenda) : quand vous changez la date, le nombre d\'ordinateurs ou les dates de prélèvement et de retour d\'un atelier avec Classe mobile, un encadré orange prévient si le stock d\'ordinateurs est dépassé ou si la Classe mobile est déjà réservée ce jour-là par un collègue. Vous pouvez enregistrer quand même : le conflit reste visible dans « 🖥️ Gestion ordi » pour s\'arranger.'},
   {id:18,date:'2026-10-01',titre:'La rubrique Nouveautés',texte:'Les changements de l\'application sont annoncés ici, et non plus par mail. Une pastille signale les annonces que vous n\'avez pas encore lues ; elles sont classées de la plus récente à la plus ancienne.'},
-  {id:19,date:'2026-10-02',titre:'Nouveautés plus compactes',texte:'Les annonces s\'affichent repliées : cliquez sur un titre pour lire le détail, cliquez à nouveau pour le refermer. Les annonces pas encore lues gardent l\'étiquette rouge « Nouveau ».'},
 ];
 
 // ═══════════════════════════════════════════════════════════
