@@ -898,7 +898,10 @@ function VueCorbeille(){
       CE('table',{style:{width:'100%',borderCollapse:'collapse'}},
         CE('thead',null,CE('tr',null,['Atelier','Commune','Conseiller','Supprimé le','Par',''].map(h=>CE('th',{key:h,style:th},h)))),
         CE('tbody',null,liste.map(a=>CE('tr',{key:a._id},
-          CE('td',{style:td},CE('strong',null,fmtDate(a.date)+(a.horaire?' '+a.horaire:'')),' — ',a.thematique||'—'),
+          CE('td',{style:td},CE('strong',null,fmtDate(a.date)+(a.horaire?' '+a.horaire:'')),' — ',a.thematique||'—',
+            // Détails pour repérer l'atelier (02/10/2026) : numéro, statut, lieu, orienteur, public.
+            CE('div',{style:{fontSize:11,color:'var(--text-2,#718096)',marginTop:2}},
+              [a._n?'#'+a._n:'',a.statut,a.lieu?'📍 '+a.lieu:'',a.orienteur?'🤝 '+a.orienteur:'',a.public].filter(Boolean).join(' · ')||'—')),
           CE('td',{style:td},a.commune||'—'),
           CE('td',{style:td},a.conseiller||'—'),
           CE('td',{style:td},fmtDate(String(a.supprime_le).slice(0,10))+' '+String(a.supprime_le).slice(11,16)),
