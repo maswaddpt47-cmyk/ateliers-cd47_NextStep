@@ -519,3 +519,27 @@ test('cycle — la périodicité remplit le tableau des dates', async ({ page })
   const dates = await page.locator('input[type="date"]').evaluateAll(els => els.map(e => e.value).filter(Boolean));
   expect(dates).toEqual(['2026-11-04', '2026-11-18', '2026-11-25', '2026-12-02']);
 });
+
+test('cycle — import Outlook : seuls les rendez-vous au mot-clé remplissent le tableau', async ({ page }) => {
+  await instrumenter(page);
+  await page.goto('/index.html');
+  const selectConseiller = page.locator('select').first();
+  await expect(selectConseiller.locator('option', { hasText:'Michel Aswad' })).toHaveCount(1, { timeout:10000 });
+  await selectConseiller.selectOption('Michel Aswad');
+  await page.fill('input[type="password"]', 'test');
+  await page.getByText('🔓 Connexion', { exact:true }).click();
+  await page.waitForSelector('.sidebar-btn', { timeout:10000 });
+  await page.locator('.sidebar-btn', { hasText:'Nouveau' }).first().click();
+  await page.mouse.move(1000, 400);
+  await page.getByText('🔄 Saisie par cycle').click();
+  await page.getByText('📥 Importer depuis Outlook (.ics)').click();
+  const ics = ['BEGIN:VCALENDAR',
+    'BEGIN:VEVENT', 'UID:A1', 'DTSTART;TZID=Romance Standard Time:20991007T140000', 'SUMMARY:ATELIER Smartphone', 'END:VEVENT',
+    'BEGIN:VEVENT', 'UID:A2', 'DTSTART;TZID=Romance Standard Time:20991008T090000', 'SUMMARY:Réunion', 'END:VEVENT',
+    'END:VCALENDAR'].join('\r\n');
+  await page.locator('input[type="file"]').setInputFiles({ name:'agenda.ics', mimeType:'text/calendar', buffer:Buffer.from(ics) });
+  await page.getByRole('button', { name:'Remplir le tableau (1)' }).click();
+  const dates = await page.locator('input[type="date"]').evaluateAll(els => els.map(e => e.value).filter(Boolean));
+  expect(dates).toEqual(['2099-10-07']);
+  await expect(page.locator('input[type="time"]').first()).toHaveValue('14:00');
+});

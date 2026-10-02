@@ -10,6 +10,7 @@ const {
   suppressionAboutie,
   nouveautesNonVues,
   genererDatesCycle, joursFeries,
+  evenementsOutlook, idOutlook,
   anneesListe,
   anneeReference,
   anneeIncluse,
@@ -529,5 +530,43 @@ describe('genererDatesCycle', () => {
     assert.equal(genererDatesCycle({ debut: '2026-01-05', mode: 'hebdo', jours: [1, 2, 3, 4, 5], nb: 200 }).dates.length, 52);
     assert.deepEqual(genererDatesCycle({ debut: '2026-10-07', mode: 'hebdo', jours: [3] }).dates, []);
     assert.deepEqual(genererDatesCycle({ debut: '2026-10-07', mode: 'hebdo', jours: [], nb: 3 }).dates, []);
+  });
+});
+
+describe('import Outlook (.ics)', () => {
+  const ICS = [
+    'BEGIN:VCALENDAR', 'VERSION:2.0', 'BEGIN:VTIMEZONE', 'TZID:Romance Standard Time', 'END:VTIMEZONE',
+    'BEGIN:VEVENT', 'UID:AAA', 'DTSTART;TZID=Romance Standard Time:20261007T140000',
+    'SUMMARY:ATELIER Smartphone', 'LOCATION:Médiathèque\\, Agen', 'BEGIN:VALARM', 'TRIGGER:-PT15M', 'END:VALARM', 'END:VEVENT',
+    'BEGIN:VEVENT', 'UID:BBB', 'DTSTART;TZID=Romance Standard Time:20261008T090000', 'SUMMARY:Réunion de service', 'END:VEVENT',
+    'BEGIN:VEVENT', 'UID:CCC', 'DTSTART;TZID=Romance Standard Time:20261012T100000',
+    'RRULE:FREQ=WEEKLY;COUNT=4;BYDAY=MO', 'EXDATE;TZID=Romance Standard Time:20261019T100000',
+    'SUMMARY:Atelier Tablette pour les seniors du quartier du Pin', 'END:VEVENT',
+    'BEGIN:VEVENT', 'UID:CCC', 'RECURRENCE-ID;TZID=Romance Standard Time:20261026T100000',
+    'DTSTART;TZID=Romance Standard Time:20261027T140000', 'SUMMARY:Atelier Tablette pour les seniors du quartier du Pin', 'END:VEVENT',
+    'BEGIN:VEVENT', 'UID:DDD', 'DTSTART:20261110T130000Z', 'SUMMARY:atélier Mail', 'END:VEVENT',
+    'BEGIN:VEVENT', 'UID:EEE', 'DTSTART;VALUE=DATE:20261111', 'SUMMARY:ATELIER journée', 'END:VEVENT',
+    'BEGIN:VEVENT', 'UID:FFF', 'DTSTART:20261013T080000Z', 'RRULE:FREQ=WEEKLY;BYDAY=TU', 'SUMMARY:Atelier sans fin', 'END:VEVENT',
+    'END:VCALENDAR',
+  ].join('\r\n');
+  const r = evenementsOutlook(ICS, 'atelier', '2026-10-01');
+  it('ne garde que les rendez-vous au mot-clé, journées entières exclues', () => {
+    assert.ok(!r.occurrences.some(o => /Réunion|journée/.test(o.titre)));
+    assert.deepEqual(r.occurrences[0], { cle: 'AAA|2026-10-07', date: '2026-10-07', horaire: '14:00', titre: 'ATELIER Smartphone', lieu: 'Médiathèque, Agen' });
+  });
+  it('développe une série : EXDATE retirée, occurrence déplacée prise une seule fois', () => {
+    const tab = r.occurrences.filter(o => o.cle.startsWith('CCC')).map(o => o.date + ' ' + o.horaire);
+    assert.deepEqual(tab, ['2026-10-12 10:00', '2026-10-27 14:00', '2026-11-02 10:00']);
+  });
+  it('heure UTC convertie à l\'heure de Paris (après le changement d\'heure)', () => {
+    assert.equal(r.occurrences.find(o => o.cle.startsWith('DDD')).horaire, '14:00');
+  });
+  it('série sans fin signalée, pas importée', () => {
+    assert.deepEqual(r.ignores, ['Atelier sans fin']);
+  });
+  it('identifiant stable et court', () => {
+    assert.equal(idOutlook('AAA|2026-10-07'), idOutlook('AAA|2026-10-07'));
+    assert.notEqual(idOutlook('AAA|2026-10-07'), idOutlook('AAA|2026-10-14'));
+    assert.ok(idOutlook('x'.repeat(300)).length <= 64);
   });
 });

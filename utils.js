@@ -570,8 +570,115 @@ function genererDatesCycle(o) {
   return res;
 }
 
+// ── Import d'un calendrier Outlook (.ics) dans la saisie par cycle (02/10/2026)
+// Le fichier est lu dans le navigateur et n'est jamais envoyé : seuls les
+// rendez-vous cochés deviennent des ateliers. Hypothèse non vérifiée sur un
+// export réel du poste pro : format testé = celui d'Outlook classique
+// (DTSTART;TZID=…, UID, RRULE, EXDATE, RECURRENCE-ID).
+function _icsTexte(v) { return String(v || '').replace(/\\n/gi, ' ').replace(/\\([,;\\])/g, '$1').trim(); }
+// Heure UTC → heure de Paris (changements d'heure compris).
+function _utcVersParis(a, mo, j, h, mi) {
+  const parts = new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
+    .formatToParts(new Date(Date.UTC(a, mo - 1, j, h, mi)));
+  const g = t => parts.find(p => p.type === t).value;
+  return { date: `${g('year')}-${g('month')}-${g('day')}`, horaire: `${g('hour')}:${g('minute')}` };
+}
+// Valeur DTSTART/EXDATE/RECURRENCE-ID → { date, horaire } (horaire '' si
+// journée entière). TZID ignoré : un agenda pro du Département est à
+// l'heure de Paris ; seul le suffixe Z (UTC) est converti.
+function _icsDate(v) {
+  const m = String(v || '').trim().match(/^(\d{4})(\d{2})(\d{2})(?:T(\d{2})(\d{2})\d{2}(Z?))?$/);
+  if (!m) return null;
+  if (!m[4]) return { date: `${m[1]}-${m[2]}-${m[3]}`, horaire: '' };
+  if (m[6]) return _utcVersParis(+m[1], +m[2], +m[3], +m[4], +m[5]);
+  return { date: `${m[1]}-${m[2]}-${m[3]}`, horaire: `${m[4]}:${m[5]}` };
+}
+// Texte .ics → liste des VEVENT bruts { uid, debut, titre, lieu, rrule, exdates, recurrenceId }.
+function lireICS(texte) {
+  const lignes = String(texte || '').replace(/\r\n[ \t]/g, '').replace(/\n[ \t]/g, '').split(/\r?\n/);
+  const evts = []; let e = null, profondeur = 0;
+  for (const l of lignes) {
+    if (l === 'BEGIN:VEVENT') { e = { uid: '', debut: null, titre: '', lieu: '', rrule: '', exdates: [], recurrenceId: '' }; profondeur = 0; continue; }
+    if (!e) continue;
+    if (l.startsWith('BEGIN:')) { profondeur++; continue; }          // VALARM…
+    if (l.startsWith('END:') && profondeur) { profondeur--; continue; }
+    if (l === 'END:VEVENT') { evts.push(e); e = null; continue; }
+    if (profondeur) continue;
+    const i = l.indexOf(':'); if (i < 0) continue;
+    const nom = l.slice(0, i).split(';')[0].toUpperCase(), val = l.slice(i + 1);
+    if (nom === 'UID') e.uid = val.trim();
+    else if (nom === 'DTSTART') e.debut = _icsDate(val);
+    else if (nom === 'SUMMARY') e.titre = _icsTexte(val);
+    else if (nom === 'LOCATION') e.lieu = _icsTexte(val);
+    else if (nom === 'RRULE') e.rrule = val.trim();
+    else if (nom === 'EXDATE') val.split(',').forEach(x => { const d = _icsDate(x); if (d) e.exdates.push(d.date); });
+    else if (nom === 'RECURRENCE-ID') { const d = _icsDate(val); if (d) e.recurrenceId = d.date; }
+  }
+  return evts;
+}
+const _ICS_JOURS = { SU: 0, MO: 1, TU: 2, WE: 3, TH: 4, FR: 5, SA: 6 };
+// Dates d'une série (RRULE) ; null si la règle n'est pas prise en charge.
+function _datesSerie(debut, rrule) {
+  const r = {}; rrule.split(';').forEach(p => { const [k, v] = p.split('='); r[(k || '').toUpperCase()] = v || ''; });
+  const fin = r.UNTIL ? (_icsDate(r.UNTIL) || {}).date : '';
+  const nb = parseInt(r.COUNT) || 0;
+  if (!nb && !fin) return null;                                   // série sans fin
+  const base = { debut, intervalle: parseInt(r.INTERVAL) || 1, nb, jusquau: fin };
+  if (r.FREQ === 'WEEKLY') {
+    const jours = (r.BYDAY || '').split(',').filter(Boolean).map(x => _ICS_JOURS[x]);
+    if (jours.some(j => j === undefined)) return null;
+    return genererDatesCycle({ ...base, mode: 'hebdo', jours: jours.length ? jours : [new Date(debut + 'T12:00:00Z').getUTCDay()] }).dates;
+  }
+  if (r.FREQ === 'MONTHLY') {
+    let m = (r.BYDAY || '').match(/^(-?\d)?(SU|MO|TU|WE|TH|FR|SA)$/), rang;
+    if (!m) return null;
+    rang = parseInt(m[1] || r.BYSETPOS);
+    if (![1, 2, 3, 4, -1].includes(rang)) return null;
+    return genererDatesCycle({ ...base, mode: 'mensuel', rang, jourSemaine: _ICS_JOURS[m[2]] }).dates;
+  }
+  return null;
+}
+// Occurrences dont le titre contient le mot-clé (sans casse ni accents),
+// à partir de `depuis` (AAAA-MM-JJ, inclus). Rend { occurrences:[{cle, date,
+// horaire, titre, lieu}], ignores:[titre] } — ignores = séries non prises
+// en charge, à signaler.
+function evenementsOutlook(texte, motCle, depuis) {
+  const norm = s => stripAccents(String(s || '')).toLowerCase();
+  const mc = norm(motCle).trim();
+  const evts = lireICS(texte).filter(e => e.debut && e.debut.horaire && (!mc || norm(e.titre).includes(mc)));
+  // Une occurrence modifiée (RECURRENCE-ID) remplace celle de sa série.
+  const remplacees = {};
+  evts.filter(e => e.recurrenceId).forEach(e => { (remplacees[e.uid] = remplacees[e.uid] || []).push(e.recurrenceId); });
+  const occ = [], ignores = [];
+  for (const e of evts) {
+    const ajouter = date => occ.push({ cle: e.uid + '|' + date, date, horaire: e.debut.horaire, titre: e.titre, lieu: e.lieu });
+    if (e.rrule && !e.recurrenceId) {
+      const dates = _datesSerie(e.debut.date, e.rrule);
+      if (!dates) { ignores.push(e.titre); continue; }
+      const exclues = new Set([...e.exdates, ...(remplacees[e.uid] || [])]);
+      dates.filter(d => !exclues.has(d)).forEach(ajouter);
+    } else ajouter(e.debut.date);
+  }
+  return {
+    occurrences: occ.filter(o => !depuis || o.date >= depuis).sort((a, b) => (a.date + a.horaire).localeCompare(b.date + b.horaire)),
+    ignores,
+  };
+}
+// _id d'atelier stable pour une occurrence Outlook : réimporter le même
+// rendez-vous retrouve l'atelier déjà créé au lieu d'en créer un second.
+function idOutlook(cle) {
+  let h1 = 0x811c9dc5, h2 = 0x01000193;
+  for (let i = 0; i < cle.length; i++) {
+    const c = cle.charCodeAt(i);
+    h1 = Math.imul(h1 ^ c, 0x01000193) >>> 0;
+    h2 = Math.imul(h2 ^ c, 0x5bd1e995) >>> 0;
+  }
+  return 'outlook_' + h1.toString(16).padStart(8, '0') + h2.toString(16).padStart(8, '0');
+}
+
 if (typeof module !== 'undefined') {
   module.exports={
+    lireICS, evenementsOutlook, idOutlook,
     genererDatesCycle, joursFeries,
     nouveautesNonVues,
     visibiliteEffective,

@@ -1805,7 +1805,19 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
     setLotRowErrors({});
     return true;
   }
-  function dupRow(id){setLotRows(r=>{const i=r.findIndex(x=>x.id===id);if(i<0)return r;return[...r.slice(0,i+1),{...r[i],id:genId(),horaire:'',ampm:''},...r.slice(i+1)];});}
+  // Rendez-vous importés d'Outlook (02/10/2026) : chaque ligne garde l'_id
+  // stable de son rendez-vous (idOutlook) pour qu'un second import le
+  // reconnaisse au lieu de créer un doublon.
+  function importerOutlook(liste){
+    const remplies=lotRows.filter(r=>r.date||r.horaire||(r.thematique||'').trim()).length;
+    if(remplies&&!window.confirm(`Remplacer les ${remplies} ligne(s) déjà saisie(s) par ${liste.length} rendez-vous Outlook ?`))return false;
+    setLotRows(liste.map(o=>({...emptyRow(),date:o.date,horaire:o.horaire,ampm:ampmDepuisHoraire(o.horaire)||'',thematique:o.thematique,olkId:o.olkId})));
+    setLotRowErrors({});
+    const lieux=[...new Set(liste.map(o=>o.lieu).filter(Boolean))];
+    if(lieux.length===1&&!lotForm.lieu)setLot('lieu',lieux[0]);
+    return true;
+  }
+  function dupRow(id){setLotRows(r=>{const i=r.findIndex(x=>x.id===id);if(i<0)return r;return[...r.slice(0,i+1),{...r[i],id:genId(),horaire:'',ampm:'',olkId:''},...r.slice(i+1)];});}
   function setRow(id,k,v){const a=k==='horaire'?ampmDepuisHoraire(v):'';setLotRows(r=>r.map(x=>x.id===id?{...x,[k]:v,...(a?{ampm:a}:{})}:x));setLotRowErrors(er=>({...er,[id]:{...(er[id]||{}),[k]:'',...(a?{ampm:''}:{})}}));}
 
   // ── validation mode unique ──
@@ -1907,7 +1919,7 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
     if(!validateLot(rowsFilled)){showToast('⚠️ Champs obligatoires manquants',false);return;}
     setSaving(true);
     try{
-      const entries=rowsFilled.map(row=>({_id:idsLotRef.current[row.id]||(idsLotRef.current[row.id]=genId()),_n:'',statut:'Planifié',date:row.date,horaire:row.horaire,ampm:row.ampm,thematique:row.thematique,orienteur:lotForm.orienteur,commune:lotForm.commune,lieu:lotForm.lieu,conseiller:lotForm.conseiller,co_animateur:lotForm.co_animateur||'',public:lotForm.public,materiel:(lotForm.materiel||[]).join('|'),residence:lotForm.residence,remarques:lotForm.remarques,inscrits:row.inscrits===''?'':parseInt(row.inscrits)||0,presents:row.presents===''?'':parseInt(row.presents)||0,nb_ordinateurs:lotForm.nb_ordinateurs===''?'':parseInt(lotForm.nb_ordinateurs)||0,date_prelevement_materiel:row.date_prelevement_materiel||'',date_retour_materiel:row.date_retour_materiel||''}));
+      const entries=rowsFilled.map(row=>({_id:idsLotRef.current[row.id]||(idsLotRef.current[row.id]=row.olkId||genId()),_n:'',statut:'Planifié',date:row.date,horaire:row.horaire,ampm:row.ampm,thematique:row.thematique,orienteur:lotForm.orienteur,commune:lotForm.commune,lieu:lotForm.lieu,conseiller:lotForm.conseiller,co_animateur:lotForm.co_animateur||'',public:lotForm.public,materiel:(lotForm.materiel||[]).join('|'),residence:lotForm.residence,remarques:lotForm.remarques,inscrits:row.inscrits===''?'':parseInt(row.inscrits)||0,presents:row.presents===''?'':parseInt(row.presents)||0,nb_ordinateurs:lotForm.nb_ordinateurs===''?'':parseInt(lotForm.nb_ordinateurs)||0,date_prelevement_materiel:row.date_prelevement_materiel||'',date_retour_materiel:row.date_retour_materiel||''}));
       // Même conversion materiel string→tableau que le mode unique.
       const appliquer=liste=>{
         liste.forEach(entry=>{const loc={...entry,materiel:lotForm.materiel||[]};if(onNewEntry)onNewEntry(loc);entreeSauvegardee(loc);});
@@ -2155,6 +2167,7 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
       // Tableau des dates
       CE('div',{style:secStyle},
         CE('div',{style:{fontSize:13,fontWeight:700,color:ac,marginBottom:12}},'📅 Dates du cycle'),
+        CE(ImportOutlook,{entries,ac,acLight,onImporter:importerOutlook}),
         CE(PeriodiciteCycle,{entries,ac,acLight,onGenerer:genererLignes}),
         lotRows.map((row)=>{
           const rErr=lotRowErrors[row.id]||{};
@@ -5309,7 +5322,76 @@ const NOUVEAUTES=[
   {id:2,date:'2026-10-01',titre:'Statut proposé selon la date',texte:'À la saisie, une date passée propose « Réalisé », une date à venir « Planifié ». Vous pouvez toujours choisir un autre statut.'},
   {id:4,date:'2026-10-01',titre:'Dupliquer une séance dans un cycle',texte:'Saisie par cycle : le bouton ⧉ au bout d\'une ligne la recopie juste en dessous, horaire vide. Pratique pour deux groupes le même jour (G1 de 14 h, G2 de 15 h) : il ne reste qu\'à taper l\'horaire.'},
   {id:5,date:'2026-10-01',titre:'Périodicité dans la saisie par cycle',texte:'Saisie par cycle : le bouton « 🔁 Générer les dates par périodicité » remplit le tableau comme un rendez-vous Outlook — chaque semaine ou toutes les N semaines (un ou plusieurs jours), ou chaque mois (« le 2e mardi »), jusqu\'à un nombre de séances ou une date. Les jours fériés sont sautés. La thématique vaut « TBD » par défaut, à remplacer quand elle est connue. Chaque ligne reste modifiable ensuite.'},
+  {id:6,date:'2026-10-02',titre:'Importer ses ateliers depuis Outlook',texte:'Saisie par cycle : « 📥 Importer depuis Outlook (.ics) ». Dans Outlook, mettez un mot-clé dans le titre de vos ateliers (par défaut « ATELIER », ex. « ATELIER Smartphone »), puis Fichier → Enregistrer le calendrier. Les rendez-vous avec ce mot-clé remplissent le tableau (date, horaire, thématique = le reste du titre) ; vous complétez commune, orienteur et public une fois pour tous. Un rendez-vous déjà importé est reconnu et grisé. Le fichier reste sur votre appareil.'},
 ];
+
+// ═══════════════════════════════════════════════════════════
+// IMPORT OUTLOOK — saisie par cycle (02/10/2026)
+// Lit un export .ics d'Outlook dans le navigateur (rien n'est envoyé), garde
+// les rendez-vous dont le titre contient le mot-clé, et remplit le tableau
+// des dates. Calcul : evenementsOutlook / idOutlook (utils.js).
+// ═══════════════════════════════════════════════════════════
+function thematiqueDepuisTitre(titre,motCle){
+  const t=String(titre||'');const mc=String(motCle||'').trim();
+  if(!mc)return t.trim()||'TBD';
+  const i=stripAccents(t).toLowerCase().indexOf(stripAccents(mc).toLowerCase());
+  const reste=i<0?t:(t.slice(0,i)+' '+t.slice(i+mc.length));
+  return reste.replace(/^[\s:\-–|,]+|[\s:\-–|,]+$/g,'').replace(/\s{2,}/g,' ')||'TBD';
+}
+function ImportOutlook({entries,ac,acLight,onImporter}){
+  const lireMc=()=>{try{return localStorage.getItem(lsKey('outlook_motcle'))||'ATELIER';}catch(_){return 'ATELIER';}};
+  const[ouvert,setOuvert]=React.useState(false);
+  const[texte,setTexte]=React.useState('');
+  const[nomFichier,setNomFichier]=React.useState('');
+  const[motCle,setMotCle]=React.useState(lireMc);
+  const[aVenir,setAVenir]=React.useState(true);
+  const[lieu,setLieu]=React.useState('');
+  const[coches,setCoches]=React.useState({});
+  const majMc=v=>{setMotCle(v);try{localStorage.setItem(lsKey('outlook_motcle'),v);}catch(_){}};
+  const ids=React.useMemo(()=>new Set((entries||[]).map(e=>e._id)),[entries]);
+  const res=React.useMemo(()=>texte?evenementsOutlook(texte,motCle,aVenir?todayLocal():''):{occurrences:[],ignores:[]},[texte,motCle,aVenir]);
+  const lieux=[...new Set(res.occurrences.map(o=>o.lieu).filter(Boolean))].sort();
+  const visibles=res.occurrences.filter(o=>!lieu||o.lieu===lieu);
+  const dejaLa=o=>ids.has(idOutlook(o.cle));
+  const choisis=visibles.filter(o=>coches[o.cle]!==false&&!dejaLa(o));
+  function lireFichier(f){
+    if(!f)return;setNomFichier(f.name);setCoches({});setLieu('');
+    const r=new FileReader();r.onload=()=>setTexte(String(r.result||''));r.readAsText(f);
+  }
+  if(!ouvert)return CE('button',{type:'button',onClick:()=>setOuvert(true),style:{display:'flex',alignItems:'center',justifyContent:'center',gap:6,padding:10,background:'#fff',border:`2px solid ${ac}`,borderRadius:10,cursor:'pointer',fontSize:13,color:ac,fontWeight:700,width:'100%',marginBottom:12}},'📥 Importer depuis Outlook (.ics)');
+  const champ={padding:'7px 9px',border:'2px solid #e2e8f0',borderRadius:8,fontSize:13,background:'#f8fafc',outline:'none',boxSizing:'border-box'};
+  const cell={padding:'5px 6px',borderBottom:'1px solid #edf2f7',fontSize:12,textAlign:'left',verticalAlign:'top'};
+  return CE('div',{style:{border:`2px solid ${ac}`,borderRadius:10,padding:12,marginBottom:12,background:'#fff'}},
+    CE('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:8}},
+      CE('span',{style:{fontSize:13,fontWeight:700,color:ac}},'📥 Importer depuis Outlook'),
+      CE('button',{type:'button',onClick:()=>setOuvert(false),'aria-label':'Fermer',style:{background:'none',border:'none',fontSize:16,cursor:'pointer',color:'#718096'}},'×')),
+    CE('div',{style:{fontSize:12,color:'#4a5568',marginBottom:10,lineHeight:1.5}},
+      'Dans Outlook : Fichier → Enregistrer le calendrier → Plus d\'options → « Tous les détails » et la période voulue. Le fichier est lu sur cet appareil, rien n\'est envoyé : seuls les rendez-vous cochés deviennent des ateliers.'),
+    CE('div',{style:{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap',marginBottom:10}},
+      CE('label',{style:{...champ,cursor:'pointer',fontWeight:700,color:ac,background:acLight}},
+        nomFichier?'📄 '+nomFichier:'Choisir le fichier .ics',
+        CE('input',{type:'file',accept:'.ics,text/calendar',style:{display:'none'},onChange:e=>lireFichier(e.target.files&&e.target.files[0])})),
+      CE('span',{style:{fontSize:12,color:'#718096'}},'Mot-clé du titre'),
+      CE('input',{type:'text',value:motCle,onChange:e=>majMc(e.target.value),style:{...champ,width:120}}),
+      lieux.length>1&&CE('select',{value:lieu,onChange:e=>setLieu(e.target.value),style:champ},
+        CE('option',{value:''},'Tous les lieux'),lieux.map(l=>CE('option',{key:l,value:l},l))),
+      CE('label',{style:{display:'flex',alignItems:'center',gap:4,fontSize:12,cursor:'pointer'}},
+        CE('input',{type:'checkbox',checked:aVenir,onChange:e=>setAVenir(e.target.checked)}),'À venir seulement')),
+    texte&&CE('div',{style:{fontSize:12,color:'#4a5568',marginBottom:6}},
+      visibles.length?`${visibles.length} rendez-vous avec « ${motCle} » dans le titre.`:`Aucun rendez-vous avec « ${motCle} » dans le titre.`,
+      res.ignores.length>0&&CE('div',{style:{color:'#b7791f',marginTop:2}},'Séries non importées (sans fin ou trop complexes) : '+[...new Set(res.ignores)].join(', '))),
+    visibles.length>0&&CE('div',{style:{maxHeight:260,overflowY:'auto',border:'1px solid #e2e8f0',borderRadius:8,marginBottom:10}},
+      CE('table',{style:{width:'100%',borderCollapse:'collapse'}},
+        CE('tbody',null,visibles.map(o=>{const la=dejaLa(o);return CE('tr',{key:o.cle,style:{opacity:la?.5:1}},
+          CE('td',{style:cell},CE('input',{type:'checkbox',disabled:la,checked:!la&&coches[o.cle]!==false,onChange:e=>setCoches(c=>({...c,[o.cle]:e.target.checked})),'aria-label':'Importer '+o.titre})),
+          CE('td',{style:{...cell,whiteSpace:'nowrap'}},fmtDate(o.date)+' '+o.horaire),
+          CE('td',{style:cell},o.titre,la&&CE('span',{style:{color:'#718096'}},' — déjà dans les ateliers')),
+          CE('td',{style:{...cell,color:'#718096'}},o.lieu));})))),
+    CE('button',{type:'button',disabled:!choisis.length,onClick:()=>{if(onImporter(choisis.map(o=>({...o,thematique:thematiqueDepuisTitre(o.titre,motCle),olkId:idOutlook(o.cle)}))))setOuvert(false);},
+      style:{padding:'10px 18px',border:'none',borderRadius:10,cursor:choisis.length?'pointer':'not-allowed',fontSize:13,fontWeight:700,color:'#fff',background:choisis.length?ac:'#94a3b8'}},
+      `Remplir le tableau (${choisis.length})`)
+  );
+}
 
 // ═══════════════════════════════════════════════════════════
 // PÉRIODICITÉ — encart de la saisie par cycle (01/10/2026)
