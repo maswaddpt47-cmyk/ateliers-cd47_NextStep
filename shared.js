@@ -5603,16 +5603,24 @@ function VueNouveautes({onVu}){
   React.useEffect(()=>{if(onVu)onVu();},[]);
   // Du plus récent au plus ancien par date, puis par numéro (demande du 02/10/2026).
   const liste=NOUVEAUTES.slice().sort((a,b)=>String(b.date).localeCompare(String(a.date))||b.id-a.id);
+  // Titres repliables (02/10/2026) : clic sur le titre pour déplier/replier.
+  // Toutes repliées à l'ouverture ; les non lues restent repérées par
+  // l'étiquette « Nouveau » et la bordure rouge.
+  const[ouverts,setOuverts]=React.useState(()=>new Set());
+  const basculer=id=>setOuverts(o=>{const x=new Set(o);x.has(id)?x.delete(id):x.add(id);return x;});
   return CE('div',{className:'card',style:{maxWidth:760}},
     CE('h2',{style:{margin:'0 0 4px',fontSize:18}},'🆕 Nouveautés'),
     CE('p',{style:{margin:'0 0 16px',fontSize:13,color:'var(--text-3)'}},'Ce qui a changé dans l\'outil, du plus récent au plus ancien.'),
-    liste.map(n=>CE('div',{key:n.id,style:{padding:'12px 14px',marginBottom:10,borderRadius:10,border:'1px solid var(--border)',borderLeft:`4px solid ${n.id>vuAvant?'#dc2626':'var(--border)'}`,background:'var(--surface)'}},
-      CE('div',{style:{display:'flex',alignItems:'center',gap:8,marginBottom:4,flexWrap:'wrap'}},
+    liste.map(n=>CE('div',{key:n.id,style:{padding:'9px 12px',marginBottom:6,borderRadius:10,border:'1px solid var(--border)',borderLeft:`4px solid ${n.id>vuAvant?'#dc2626':'var(--border)'}`,background:'var(--surface)'}},
+      CE('div',{role:'button',tabIndex:0,'aria-expanded':ouverts.has(n.id),onClick:()=>basculer(n.id),
+          onKeyDown:e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();basculer(n.id);}},
+          style:{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap',cursor:'pointer',userSelect:'none'}},
+        CE('span',{style:{fontSize:12,color:'var(--text-3)',width:12}},ouverts.has(n.id)?'▾':'▸'),
         CE('span',{style:{fontSize:12,color:'var(--text-3)',fontWeight:600}},fmtDate(n.date)),
         n.id>vuAvant&&CE('span',{style:{fontSize:10,fontWeight:800,color:'#fff',background:'#dc2626',borderRadius:6,padding:'1px 6px'}},'Nouveau'),
         CE('span',{style:{fontSize:14,fontWeight:700}},n.titre)
       ),
-      CE('div',{style:{fontSize:13,lineHeight:1.5,color:'var(--text-2)'}},n.texte)
+      ouverts.has(n.id)&&CE('div',{style:{fontSize:13,lineHeight:1.5,color:'var(--text-2)',marginTop:6,paddingLeft:20}},n.texte)
     ))
   );
 }
