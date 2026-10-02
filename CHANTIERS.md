@@ -19,9 +19,7 @@ AG-003 à AG-008, ordre du jour de la bascule) a été retirée. Texte complet :
 
 ## Reste ouvert
 - **Propre à NextStep (01-02/10/2026)** : titres de groupe de la barre
-  latérale masqués quand tous leurs onglets le sont (Stats seul sous Info) ;
-  tests navigateur de la périodicité et de l'import Outlook présents **ici
-  seulement** (`e2e/appels.test.js`), NEWGEN ne les a pas.
+  latérale masqués quand tous leurs onglets le sont (Stats seul sous Info).
 
 - **Parité avec NEWGEN (AG-015)** : 4 écarts au 26/09/2026, tous voulus
   (dont l'Historique : chacun garde son design, décision du 26/09). Suivi et **ordre de push (NextStep
