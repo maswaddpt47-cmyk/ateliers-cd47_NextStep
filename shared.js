@@ -2417,8 +2417,10 @@ function VueHistorique({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
   // Plusieurs publics sélectionnables (26/09/2026) : [] = tous.
   const[filtPublic,setFiltPublic]=React.useState([]);
   const basculerPublic=p=>setFiltPublic(l=>l.includes(p)?l.filter(x=>x!==p):[...l,p]);
-  const[filtresOuverts,setFiltresOuverts]=React.useState(()=>{try{return localStorage.getItem(lsKey('hist_filtres_ouverts'))==='1';}catch(_){return false;}});
-  function basculerFiltres(){setFiltresOuverts(o=>{try{localStorage.setItem(lsKey('hist_filtres_ouverts'),o?'0':'1');}catch(_){}return !o;});}
+  // Filtres repliés à chaque ouverture de l'Historique, plus de mémoire d'une
+  // session à l'autre (demande du 02/10/2026) ; l'ancienne clé est effacée.
+  const[filtresOuverts,setFiltresOuverts]=React.useState(()=>{try{localStorage.removeItem(lsKey('hist_filtres_ouverts'));}catch(_){}return false;});
+  function basculerFiltres(){setFiltresOuverts(o=>!o);}
   const[sortDir,setSortDir]=React.useState(1);
   const[dateFrom,setDateFrom]=React.useState('');
   const[dateTo,setDateTo]=React.useState('');
