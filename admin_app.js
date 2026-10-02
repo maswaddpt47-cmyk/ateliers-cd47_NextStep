@@ -857,64 +857,6 @@ const LOGS_COLONNES=[
   {label:'Appareil',key:'user_agent'}
 ];
 let logsCache=null; // {data:[...], ts:number} — survit aux démontages du composant
-// ── Corbeille (AG-014, 25/09/2026) ─────────────────────────────────────────
-// Un atelier supprimé reste 30 jours côté serveur ; restaurer le remet tel
-// quel (refusé si un atelier de même identifiant a été recréé entre-temps).
-function VueCorbeille(){
-  const[liste,setListe]=React.useState(null);
-  const[jours,setJours]=React.useState(30);
-  const[err,setErr]=React.useState('');
-  const[enCours,setEnCours]=React.useState('');
-  function charger(){
-    setErr('');
-    window.apiFetch('getCorbeille')
-      .then(r=>{ if(r&&r.ok){ setListe(r.ateliers||[]); setJours(r.jours||30); } else setErr((r&&r.error)||'Erreur'); })
-      .catch(e=>setErr(e.message||'Erreur réseau'));
-  }
-  React.useEffect(charger,[]);
-  async function restaurer(a){
-    if(!confirm('Restaurer l\'atelier du '+fmtDate(a.date)+' — '+(a.thematique||a.commune||a._id)+' ?')) return;
-    setEnCours(a._id);
-    try{
-      const r=await window.apiFetch('restaurerCorbeille',{_id:a._id});
-      if(r&&r.ok){
-        if(window.__entreeSauvegardee) window.__entreeSauvegardee(r.entry);
-        setListe(l=>l.filter(x=>x._id!==a._id));
-        showToast('✅ Atelier restauré');
-      } else showToast('❌ '+((r&&r.error)||'Erreur'),false);
-    }catch(e){ showToast('❌ '+(e.message||'Erreur réseau'),false); }
-    finally{ setEnCours(''); }
-  }
-  const th={padding:'6px 10px',textAlign:'left',fontSize:11,color:'var(--text-2,#718096)',borderBottom:'1px solid var(--border,#e2e8f0)'};
-  const td={padding:'6px 10px',fontSize:12,borderBottom:'1px solid var(--border,#f0f0f0)'};
-  return CE('div',{className:'card'},
-    CE('h2',{style:{marginTop:0}},'🗑️ Corbeille'),
-    CE('p',{style:{fontSize:12,color:'var(--text-2,#718096)',marginTop:0}},
-      'Les ateliers supprimés sont gardés '+jours+' jours, puis effacés définitivement. « Restaurer » remet l\'atelier tel qu\'il était au moment de sa suppression, avec son numéro. Un conseiller qui a supprimé un atelier par erreur passe par un administrateur.'),
-    err&&CE('p',{style:{color:'#c53030',fontSize:13}},err),
-    liste===null&&!err&&CE('p',{style:{fontSize:13}},'Chargement…'),
-    liste&&liste.length===0&&CE('p',{style:{fontSize:13,color:'var(--text-2,#718096)'}},'La corbeille est vide.'),
-    liste&&liste.length>0&&CE('div',{style:{overflowX:'auto'}},
-      CE('table',{style:{width:'100%',borderCollapse:'collapse'}},
-        CE('thead',null,CE('tr',null,['Atelier','Commune','Conseiller','Supprimé le','Par',''].map(h=>CE('th',{key:h,style:th},h)))),
-        CE('tbody',null,liste.map(a=>CE('tr',{key:a._id},
-          CE('td',{style:td},CE('strong',null,fmtDate(a.date)+(a.horaire?' '+a.horaire:'')),' — ',a.thematique||'—',
-            // Détails pour repérer l'atelier (02/10/2026) : numéro, statut, lieu, orienteur, public.
-            CE('div',{style:{fontSize:11,color:'var(--text-2,#718096)',marginTop:2}},
-              [a._n?'#'+a._n:'',a.statut,a.lieu?'📍 '+a.lieu:'',a.orienteur?'🤝 '+a.orienteur:'',a.public].filter(Boolean).join(' · ')||'—')),
-          CE('td',{style:td},a.commune||'—'),
-          CE('td',{style:td},a.conseiller||'—'),
-          CE('td',{style:td},fmtDate(String(a.supprime_le).slice(0,10))+' '+String(a.supprime_le).slice(11,16)),
-          CE('td',{style:td},a.supprime_par||'—'),
-          CE('td',{style:{...td,textAlign:'right'}},
-            CE('button',{disabled:!!enCours,onClick:()=>restaurer(a),style:{padding:'4px 10px',fontSize:12,fontWeight:700,border:'1px solid #1e3a8a',color:'#1e3a8a',background:'transparent',borderRadius:6,cursor:'pointer'}},
-              enCours===a._id?'…':'↩ Restaurer'))
-        )))
-      )
-    )
-  );
-}
-
 // ── Sauvegardes (AG-014, 25/09/2026) ───────────────────────────────────────
 // Lecture seule + copie à la demande. Pas de restauration complète ici, par
 // choix : une session Admin volée ne doit pas pouvoir effacer la base.
@@ -1086,7 +1028,7 @@ function VueAdminV10({entries,onRefresh,addLog,conseillersList,onSaveColors,anne
   function addTlLog(msg,type='info'){setTlLogs(l=>[...l,{msg,type,t:new Date().toLocaleTimeString('fr-FR')}]);}
   function changeMoisDeb(v){localStorage.setItem(lsKey('cal_moisDeb'),v);setMoisDeb(v);setLastExport(null);}
   function changeMoisFin(v){localStorage.setItem(lsKey('cal_moisFin'),v);setMoisFin(v);setLastExport(null);}
-  const VIS_ITEMS=[{key:'saisie',label:'✏️ Saisie',sub:'Formulaire de saisie'},{key:'historique',label:'📋 Historique',sub:'Liste des ateliers'},{key:'agenda',label:'🗓️ Agenda',sub:'Planning hebdo AM/PM'},{key:'calendrier',label:'📅 Calendrier',sub:'Vue calendrier mensuelle'},{key:'dashboard',label:'📊 Dashboard',sub:'Synthèse · Graphiques · Territoire'},{key:'carte',label:'🗺️ Carte',sub:'Carte des communes'},{key:'bingo',label:'🎯 Bingo',sub:'Vue par commune'},{key:'roadmap',label:'🛣️ Roadmap',sub:'Timeline & densité'},{key:'gestion_ordi',label:'🖥️ Gestion ordi',sub:'Conflits Classe mobile & stock ordinateurs'},{key:'anomalies',label:'⚠️ Anomalies',sub:'Champs manquants & communes invalides'}];
+  const VIS_ITEMS=[{key:'saisie',label:'✏️ Saisie',sub:'Formulaire de saisie'},{key:'historique',label:'📋 Historique',sub:'Liste des ateliers'},{key:'agenda',label:'🗓️ Agenda',sub:'Planning hebdo AM/PM'},{key:'calendrier',label:'📅 Calendrier',sub:'Vue calendrier mensuelle'},{key:'dashboard',label:'📊 Dashboard',sub:'Synthèse · Graphiques · Territoire'},{key:'carte',label:'🗺️ Carte',sub:'Carte des communes'},{key:'bingo',label:'🎯 Bingo',sub:'Vue par commune'},{key:'roadmap',label:'🛣️ Roadmap',sub:'Timeline & densité'},{key:'gestion_ordi',label:'🖥️ Gestion ordi',sub:'Conflits Classe mobile & stock ordinateurs'},{key:'anomalies',label:'⚠️ Anomalies',sub:'Champs manquants & communes invalides'},{key:'corbeille',label:'🗑️ Corbeille',sub:'Ateliers supprimés depuis moins de 30 jours : consulter et restaurer'}];
 
   React.useEffect(()=>{if(initialVisibility)return;apiFetch('getVisibility').then(res=>{if(res.ok)setVisibility(visibiliteEffective(res.visibility));}).catch(()=>{});},[]);
   React.useEffect(()=>{setColorDraft(d=>{const draft={...CONSEILLER_COLORS,...d};(conseillersList||[]).forEach(c=>{if(!draft[c])draft[c]='#6B7280';});return draft;});},[conseillersList]);

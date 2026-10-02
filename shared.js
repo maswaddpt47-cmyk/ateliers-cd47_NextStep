@@ -5533,6 +5533,67 @@ function PastilleNouveautes({nb}){
   return nb>0&&CE('span',{className:'nouv-blink','aria-label':nb+' nouveauté(s) non lue(s)',style:{position:'absolute',top:2,right:2,minWidth:16,height:16,padding:'0 4px',borderRadius:8,background:'#dc2626',color:'#fff',fontSize:10,fontWeight:800,lineHeight:'16px',textAlign:'center',boxShadow:'0 0 0 2px rgba(255,255,255,.85)',pointerEvents:'none'}},nb);
 }
 
+// ── Corbeille (AG-014, 25/09/2026) ─────────────────────────────────────────
+// Un atelier supprimé reste 30 jours côté serveur ; restaurer le remet tel
+// quel (refusé si un atelier de même identifiant a été recréé entre-temps).
+// Dans shared.js depuis le 02/10/2026 : l'Admin peut l'ouvrir sur Index
+// (Admin → Visibilité), l'API n'ouvre alors que getCorbeille et sa restauration.
+function VueCorbeille(){
+  const[liste,setListe]=React.useState(null);
+  const[jours,setJours]=React.useState(30);
+  const[err,setErr]=React.useState('');
+  const[enCours,setEnCours]=React.useState('');
+  function charger(){
+    setErr('');
+    window.apiFetch('getCorbeille')
+      .then(r=>{ if(r&&r.ok){ setListe(r.ateliers||[]); setJours(r.jours||30); } else setErr((r&&r.error)||'Erreur'); })
+      .catch(e=>setErr(e.message||'Erreur réseau'));
+  }
+  React.useEffect(charger,[]);
+  async function restaurer(a){
+    if(!confirm('Restaurer l\'atelier du '+fmtDate(a.date)+' — '+(a.thematique||a.commune||a._id)+' ?')) return;
+    setEnCours(a._id);
+    try{
+      const r=await window.apiFetch('restaurerCorbeille',{_id:a._id});
+      if(r&&r.ok){
+        if(window.__entreeSauvegardee) window.__entreeSauvegardee(r.entry);
+        setListe(l=>l.filter(x=>x._id!==a._id));
+        showToast('✅ Atelier restauré');
+      } else showToast('❌ '+((r&&r.error)||'Erreur'),false);
+    }catch(e){ showToast('❌ '+(e.message||'Erreur réseau'),false); }
+    finally{ setEnCours(''); }
+  }
+  const th={padding:'6px 10px',textAlign:'left',fontSize:11,color:'var(--text-2,#718096)',borderBottom:'1px solid var(--border,#e2e8f0)'};
+  const td={padding:'6px 10px',fontSize:12,borderBottom:'1px solid var(--border,#f0f0f0)'};
+  return CE('div',{className:'card'},
+    CE('h2',{style:{marginTop:0}},'🗑️ Corbeille'),
+    CE('p',{style:{fontSize:12,color:'var(--text-2,#718096)',marginTop:0}},
+      'Les ateliers supprimés sont gardés '+jours+' jours, puis effacés définitivement. « Restaurer » remet l\'atelier tel qu\'il était au moment de sa suppression, avec son numéro.'),
+    err&&CE('p',{style:{color:'#c53030',fontSize:13}},err),
+    liste===null&&!err&&CE('p',{style:{fontSize:13}},'Chargement…'),
+    liste&&liste.length===0&&CE('p',{style:{fontSize:13,color:'var(--text-2,#718096)'}},'La corbeille est vide.'),
+    liste&&liste.length>0&&CE('div',{style:{overflowX:'auto'}},
+      CE('table',{style:{width:'100%',borderCollapse:'collapse'}},
+        CE('thead',null,CE('tr',null,['Atelier','Commune','Conseiller','Supprimé le','Par',''].map(h=>CE('th',{key:h,style:th},h)))),
+        CE('tbody',null,liste.map(a=>CE('tr',{key:a._id},
+          CE('td',{style:td},CE('strong',null,fmtDate(a.date)+(a.horaire?' '+a.horaire:'')),' — ',a.thematique||'—',
+            // Détails pour repérer l'atelier (02/10/2026) : numéro, statut, lieu, orienteur, public.
+            CE('div',{style:{fontSize:11,color:'var(--text-2,#718096)',marginTop:2}},
+              [a._n?'#'+a._n:'',a.statut,a.lieu?'📍 '+a.lieu:'',a.orienteur?'🤝 '+a.orienteur:'',a.public].filter(Boolean).join(' · ')||'—')),
+          CE('td',{style:td},a.commune||'—'),
+          CE('td',{style:td},a.conseiller||'—'),
+          CE('td',{style:td},fmtDate(String(a.supprime_le).slice(0,10))+' '+String(a.supprime_le).slice(11,16)),
+          CE('td',{style:td},a.supprime_par||'—'),
+          CE('td',{style:{...td,textAlign:'right'}},
+            CE('button',{disabled:!!enCours,onClick:()=>restaurer(a),style:{padding:'4px 10px',fontSize:12,fontWeight:700,border:'1px solid #1e3a8a',color:'#1e3a8a',background:'transparent',borderRadius:6,cursor:'pointer'}},
+              enCours===a._id?'…':'↩ Restaurer'))
+        )))
+      )
+    )
+  );
+}
+
+
 function VueNouveautes({onVu}){
   // Ce qui était non lu à l'ouverture reste marqué « Nouveau » le temps de
   // la visite ; la pastille, elle, s'éteint tout de suite.

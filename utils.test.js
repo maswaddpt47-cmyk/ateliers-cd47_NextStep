@@ -448,6 +448,7 @@ describe('visibiliteEffective', () => {
     assert.equal(visibiliteEffective({ gestion_ordi: false }).gestion_ordi, false);
     assert.equal(visibiliteEffective({ gestion_ordi: 'false' }).gestion_ordi, false);
     assert.equal(visibiliteEffective(null).historique, true);
+    assert.equal(visibiliteEffective({}).corbeille, false, 'Corbeille fermée sur Index sauf ouverture explicite (comme l\'API)');
   });
 });
 
