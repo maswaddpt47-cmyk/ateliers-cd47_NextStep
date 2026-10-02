@@ -1,9 +1,9 @@
 # Chantiers en cours — Ateliers CD47 NextStep
 
-État au **29/09/2026**. NextStep (équipe) et NEWGEN (utilisateur) parlent à
+État au **02/10/2026**. NextStep (équipe) et NEWGEN (utilisateur) parlent à
 la même API Alwaysdata et à la même base depuis la bascule du 25/09/2026 :
-**les restes communs** (relève du journal le 30/09, audit trimestriel avant
-le 01/10, sauvegardes, sécurité ; base Google supprimée le 29/09) et les
+**les restes communs** (registres, audit trimestriel, sauvegardes,
+sécurité, import Outlook à valider, rubrique Nouveautés) et les
 décisions partagées (AG-002 sur le prêt multi-jours, interrupteur « login »,
 déconnexion à 30 min) **sont tenus dans `ATELIERS_NEWGEN/CHANTIERS.md`**.
 Ici, seulement ce qui est propre à NextStep.
@@ -18,15 +18,15 @@ AG-003 à AG-008, ordre du jour de la bascule) a été retirée. Texte complet :
 ---
 
 ## Reste ouvert
-- **Corrigé le 01/10/2026** : `admin_v14.html` (ancienne page Admin qui chargeait React/Leaflet/ECharts depuis cdnjs, relevée par la routine d'audit) retirée ; le contrôle RGPD-17 du déploiement couvre désormais toutes les pages HTML (`dafddcc`).
+- **Propre à NextStep (01-02/10/2026)** : titres de groupe de la barre
+  latérale masqués quand tous leurs onglets le sont (Stats seul sous Info) ;
+  tests navigateur de la périodicité et de l'import Outlook présents **ici
+  seulement** (`e2e/appels.test.js`), NEWGEN ne les a pas.
 
 - **Parité avec NEWGEN (AG-015)** : 4 écarts au 26/09/2026, tous voulus
   (dont l'Historique : chacun garde son design, décision du 26/09). Suivi et **ordre de push (NextStep
   d'abord)** : `CHANTIERS.md` d'ATELIERS_NEWGEN, section parité.
 - **Lisibilité des couleurs de la Frise du parc** : jamais vérifiée à l'œil.
-- `manifest-*.json` à retirer (plus de PWA depuis AG-012), une fois les
-  dernières installations désinstallées ; `sw.js` de désinstallation reste
-  publié sans date de fin.
 
 ## ⚠️ Pièges connus
 
@@ -62,6 +62,5 @@ AG-003 à AG-008, ordre du jour de la bascule) a été retirée. Texte complet :
   l'origine `maswaddpt47-cmyk.github.io` est partagée avec NEWGEN et GDINV2,
   et `localStorage` n'est pas cloisonné par chemin.
 - **Logique du matériel dans `logic.js` seul** (`periodePretMateriel`,
-  `occupeCreneauMateriel`…), chargée avant `shared.js` par les deux pages.
-  NEWGEN l'a en double (`shared.js` + `logic.js`) : ne pas importer ce
-  défaut ici.
+  `occupeCreneauMateriel`…), chargée avant `shared.js` par les deux pages
+  (NEWGEN aussi depuis le lot 0 d'AG-015).
