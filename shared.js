@@ -5486,7 +5486,8 @@ function VueNouveautes({onVu}){
   // la visite ; la pastille, elle, s'éteint tout de suite.
   const vuAvant=React.useRef(lireNouveautesVues()).current;
   React.useEffect(()=>{if(onVu)onVu();},[]);
-  const liste=NOUVEAUTES.slice().sort((a,b)=>b.id-a.id);
+  // Du plus récent au plus ancien par date, puis par numéro (demande du 02/10/2026).
+  const liste=NOUVEAUTES.slice().sort((a,b)=>String(b.date).localeCompare(String(a.date))||b.id-a.id);
   return CE('div',{className:'card',style:{maxWidth:760}},
     CE('h2',{style:{margin:'0 0 4px',fontSize:18}},'🆕 Nouveautés'),
     CE('p',{style:{margin:'0 0 16px',fontSize:13,color:'var(--text-3)'}},'Ce qui a changé dans l\'outil, du plus récent au plus ancien.'),
