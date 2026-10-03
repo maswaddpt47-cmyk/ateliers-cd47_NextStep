@@ -345,7 +345,6 @@ test('cycle — un second clic après échec renvoie les mêmes _id', async ({ p
   await sels.nth(2).selectOption({ index:1 });
   await page.locator(F + 'input[type="date"]').first().fill('2026-11-02');
   await page.locator(F + 'input[type="time"]').first().fill('14:00');
-  await sels.nth(3).selectOption('AM');
   await page.locator('input[placeholder="Thème de la séance"]').first().fill('TBD');
 
   const creer = page.getByText(/💾 Créer \d+ atelier/);
@@ -408,7 +407,6 @@ test('cycle — réponse perdue mais ateliers dans la feuille : succès affiché
   await sels.nth(2).selectOption({ index:1 });
   await page.locator(F + 'input[type="date"]').first().fill('2026-11-02');
   await page.locator(F + 'input[type="time"]').first().fill('14:00');
-  await sels.nth(3).selectOption('AM');
   await page.locator('input[placeholder="Thème de la séance"]').first().fill('TBD');
 
   await page.getByText(/💾 Créer \d+ atelier/).click();

@@ -1834,7 +1834,6 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
     if(!form.statut)            e.statut='Requis';
     if(!form.date)              e.date='Requis';
     if(!form.horaire)           e.horaire='Requis';
-    if(!form.ampm)              e.ampm='Requis';
     if(!form.commune.trim())    e.commune='Requis';
     if(!form.lieu.trim())       e.lieu='Requis';
     if(!form.thematique.trim()) e.thematique='Requis';
@@ -1870,14 +1869,13 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
       const er={};
       if(!r.date)       er.date='Requis';
       if(!r.horaire)    er.horaire='Requis';
-      if(!r.ampm)       er.ampm='Requis';
       if(!(r.thematique||'').trim()) er.thematique='Requis';
       if(r.inscrits==='')er.inscrits='Requis';
       if(Object.keys(er).length>0)re[r.id]=er;
     });
     setLotRowErrors(re);
     const missing=[...Object.keys(e).map(k=>FIELD_LABELS[k]||k)];
-    if(Object.keys(re).length>0)missing.push('Date/Horaire/AM-PM/Thématique/Inscrits dans le tableau');
+    if(Object.keys(re).length>0)missing.push('Date/Horaire/Thématique/Inscrits dans le tableau');
     if(missing.length>0)setFormError('Champs obligatoires manquants : '+missing.join(', '));
     else setFormError('');
     return Object.keys(e).length===0&&Object.keys(re).length===0;
@@ -1887,7 +1885,7 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
   async function handleSubmit(){
     if(!validate()){showToast('⚠️ Champs obligatoires manquants',false);return;}
     setSaving(true);
-    const entry={...form,_id:form._id||idNouveauRef.current||(idNouveauRef.current=genId()),inscrits:form.inscrits===''?'':parseInt(form.inscrits)||0,presents:form.presents===''?'':parseInt(form.presents)||0,nb_ordinateurs:form.nb_ordinateurs===''?'':parseInt(form.nb_ordinateurs)||0,duree:parseInt(form.duree)||DUREE_DEFAUT,materiel:(form.materiel||[]).join('|')};
+    const entry={...form,_id:form._id||idNouveauRef.current||(idNouveauRef.current=genId()),inscrits:form.inscrits===''?'':parseInt(form.inscrits)||0,presents:form.presents===''?'':parseInt(form.presents)||0,nb_ordinateurs:form.nb_ordinateurs===''?'':parseInt(form.nb_ordinateurs)||0,duree:parseInt(form.duree)||DUREE_DEFAUT,ampm:ampmDepuisHoraire(form.horaire)||form.ampm,materiel:(form.materiel||[]).join('|')};
     const reussir=()=>{
       showToast(editId?'✅ Atelier modifié':'✅ Atelier enregistré');
       // materiel repart en tableau (pas la chaîne '|' envoyée à GAS) : c'est
@@ -1925,7 +1923,7 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
     if(!validateLot(rowsFilled)){showToast('⚠️ Champs obligatoires manquants',false);return;}
     setSaving(true);
     try{
-      const entries=rowsFilled.map(row=>({_id:idsLotRef.current[row.id]||(idsLotRef.current[row.id]=row.olkId||genId()),_n:'',statut:'Planifié',date:row.date,horaire:row.horaire,ampm:row.ampm,duree:parseInt(row.duree)||DUREE_DEFAUT,thematique:row.thematique,orienteur:lotForm.orienteur,commune:lotForm.commune,lieu:lotForm.lieu,conseiller:lotForm.conseiller,co_animateur:lotForm.co_animateur||'',public:lotForm.public,materiel:(lotForm.materiel||[]).join('|'),residence:lotForm.residence,remarques:lotForm.remarques,inscrits:row.inscrits===''?'':parseInt(row.inscrits)||0,presents:row.presents===''?'':parseInt(row.presents)||0,nb_ordinateurs:lotForm.nb_ordinateurs===''?'':parseInt(lotForm.nb_ordinateurs)||0,date_prelevement_materiel:row.date_prelevement_materiel||'',date_retour_materiel:row.date_retour_materiel||''}));
+      const entries=rowsFilled.map(row=>({_id:idsLotRef.current[row.id]||(idsLotRef.current[row.id]=row.olkId||genId()),_n:'',statut:'Planifié',date:row.date,horaire:row.horaire,ampm:ampmDepuisHoraire(row.horaire)||row.ampm,duree:parseInt(row.duree)||DUREE_DEFAUT,thematique:row.thematique,orienteur:lotForm.orienteur,commune:lotForm.commune,lieu:lotForm.lieu,conseiller:lotForm.conseiller,co_animateur:lotForm.co_animateur||'',public:lotForm.public,materiel:(lotForm.materiel||[]).join('|'),residence:lotForm.residence,remarques:lotForm.remarques,inscrits:row.inscrits===''?'':parseInt(row.inscrits)||0,presents:row.presents===''?'':parseInt(row.presents)||0,nb_ordinateurs:lotForm.nb_ordinateurs===''?'':parseInt(lotForm.nb_ordinateurs)||0,date_prelevement_materiel:row.date_prelevement_materiel||'',date_retour_materiel:row.date_retour_materiel||''}));
       // Même conversion materiel string→tableau que le mode unique.
       const appliquer=liste=>{
         liste.forEach(entry=>{const loc={...entry,materiel:lotForm.materiel||[]};if(onNewEntry)onNewEntry(loc);entreeSauvegardee(loc);});
@@ -2113,9 +2111,9 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
     !modeLot&&CE('div',null,
       // Statut pills
       statutPills,
-      // Date / Horaire / AM-PM
+      // Date / Horaire / Durée (AM/PM calculé d'après l'horaire, AG-018)
       CE('div',{style:secStyle},
-        CE('div',{className:'sf-ligne-date',style:{display:'grid',gridTemplateColumns:'1fr 1fr 80px 100px',gap:12}},
+        CE('div',{className:'sf-ligne-date',style:{display:'grid',gridTemplateColumns:'1fr 1fr 100px',gap:12}},
           CE('div',null,
             Lbl({t:'Date *',err:!!errors.date}),
             CE('input',{type:'date',style:iStyle(errors.date),value:form.date,onChange:e=>set('date',e.target.value)}),
@@ -2124,11 +2122,6 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
             Lbl({t:'Horaire *',err:!!errors.horaire}),
             CE('input',{type:'time',style:iStyle(errors.horaire),value:form.horaire,onChange:e=>set('horaire',e.target.value)}),
             errors.horaire&&CE('span',{style:{color:'#e53e3e',fontSize:11,fontWeight:600}},errors.horaire)),
-          CE('div',null,
-            Lbl({t:'AM/PM *',err:!!errors.ampm}),
-            CE('select',{style:sStyle(errors.ampm),value:form.ampm,onChange:e=>set('ampm',e.target.value)},
-              CE('option',{value:'',disabled:true},'—'),CE('option',{value:'AM'},'AM'),CE('option',{value:'PM'},'PM')),
-            errors.ampm&&CE('span',{style:{color:'#e53e3e',fontSize:11,fontWeight:600}},errors.ampm)),
           // Durée (AG-017, 03/10/2026) : par demi-heure, 1 h 30 par défaut.
           CE('div',null,
             Lbl({t:'Durée'}),
@@ -2189,12 +2182,9 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
           const lbl=(t,err)=>CE('span',{style:{fontSize:10,fontWeight:700,color:err?'#e53e3e':'#718096',textTransform:'uppercase',letterSpacing:'.06em',display:'block',marginBottom:3}},t);
           return CE('div',{key:row.id,style:{borderRadius:10,border:`1.5px solid ${hasErr?'#fc8181':acLight}`,marginBottom:6,background:hasErr?'#fff5f5':acLight,position:'relative'}},
             // Ligne 1 : Date + Horaire + AM/PM + Supprimer
-            CE('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr auto auto 32px 32px',gap:8,alignItems:'end',padding:'9px 10px 8px'}},
+            CE('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr auto 32px 32px',gap:8,alignItems:'end',padding:'9px 10px 8px'}},
               CE('div',null,lbl('Date *',rErr.date),inp('date',row.date,'date',rErr.date)),
               CE('div',null,lbl('Horaire *',rErr.horaire),inp('time',row.horaire,'horaire',rErr.horaire)),
-              CE('div',null,lbl('AM/PM',rErr.ampm),
-                CE('select',{value:row.ampm,onChange:e=>setRow(row.id,'ampm',e.target.value),style:{padding:'8px 6px',border:brd(rErr.ampm),borderRadius:8,fontSize:12,background:bg(rErr.ampm)}},
-                  CE('option',{value:'',disabled:true},'—'),CE('option',{value:'AM'},'AM'),CE('option',{value:'PM'},'PM'))),
               CE('div',null,lbl('Durée'),
                 CE('select',{value:row.duree,onChange:e=>setRow(row.id,'duree',parseInt(e.target.value)),style:{padding:'8px 6px',border:brd(false),borderRadius:8,fontSize:12,background:bg(false)}},
                   DUREES_ATELIER.map(d=>CE('option',{key:d,value:d},fmtDuree(d))))),
@@ -3805,7 +3795,7 @@ function VueGestionOrdi({entries,onEdit}){
 // ─── VueAnomalies ──────────────────────────────────────────────────────────
 function VueAnomalies({entries,onEdit,communes:communesProp,apiFetch,showToast,addLog}){
   const CE=React.createElement;
-  const CHAMPS_OBL=['statut','date','horaire','ampm','commune','lieu','thematique','conseiller','orienteur','public'];
+  const CHAMPS_OBL=['statut','date','horaire','commune','lieu','thematique','conseiller','orienteur','public'];
   const LABELS={statut:'Statut',date:'Date',horaire:'Horaire',ampm:'AM/PM',commune:'Commune',lieu:'Lieu',thematique:'Thématique',conseiller:'Conseiller',orienteur:'Orienteur',public:'Public',inscrits:'Inscrits',presents:'Présents'};
   const[filter,setFilter]=React.useState('all');
   const[saving,setSaving]=React.useState(null);

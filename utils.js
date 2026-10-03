@@ -403,8 +403,8 @@ function comparerHistorique(a, b, sens) {
 }
 
 // AM/PM déduit de l'horaire saisi : avant 12:00 → AM, à partir de 12:00 → PM
-// (même seuil que la répartition du Dashboard). Pré-remplit le champ, qui
-// reste modifiable à la main (décision de l'utilisateur, 26/09/2026).
+// (même seuil que la répartition du Dashboard). Le champ n'est plus saisi
+// depuis le 03/10/2026 (AG-018) : l'API l'écrit d'après l'heure de début.
 // Horaire illisible → '' (le champ n'est alors pas touché).
 function ampmDepuisHoraire(h) {
   const m = /^\s*(\d{1,2})\s*[:hH]/.exec(String(h == null ? '' : h));
