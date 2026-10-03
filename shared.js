@@ -4666,6 +4666,102 @@ function VueAgendaSemaine({entries,onEdit,onDelete,onDuplicate,canDelete,initCon
     })
   );
 }
+// ════════════════════════════════════════════════════════════
+// ── VuePlanning — frise hebdomadaire par conseiller (03/10/2026) ──
+// Une ligne par conseiller, les jours ouvrés en colonnes, chaque atelier à
+// son heure et sur sa durée (1 h 30 si non saisie). Deux ateliers d'un même
+// conseiller qui se chevauchent s'empilent (voiesPlanning). Clic : le volet
+// latéral, comme l'Agenda. Essai à côté de l'Agenda avant de le remplacer.
+// ════════════════════════════════════════════════════════════
+function VuePlanning({entries,onEdit,onDelete,onDuplicate,canDelete,accentColor,conseillers}){
+  const[weekOffset,setWeekOffset]=React.useState(0);
+  const[selectedEntry,setSelectedEntry]=React.useState(null);
+  const[confirmDel,setConfirmDel]=React.useState(null);
+  const ac=accentColor||'#1e3a8a';
+  const dk=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  const lundi=(()=>{const t=new Date();const j=t.getDay();const m=new Date(t);m.setDate(t.getDate()+(j===0?-6:1-j)+weekOffset*7);m.setHours(0,0,0,0);return m;})();
+  const jours=Array.from({length:5},(_,i)=>{const d=new Date(lundi);d.setDate(lundi.getDate()+i);return d;});
+  const cles=jours.map(dk);
+  const aujourdhui=todayLocal();
+  const MOIS_LONG=['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
+  const libSemaine=jours[0].getMonth()===jours[4].getMonth()
+    ?`${jours[0].getDate()} – ${jours[4].getDate()} ${MOIS_LONG[jours[4].getMonth()]} ${jours[4].getFullYear()}`
+    :`${jours[0].getDate()} ${MOIS_LONG[jours[0].getMonth()]} – ${jours[4].getDate()} ${MOIS_LONG[jours[4].getMonth()]} ${jours[4].getFullYear()}`;
+
+  const semaine=entries.filter(e=>{const d=normalizeDate(e.date);return d>=cles[0]&&d<=cles[4];});
+  const items=[],sansHoraire=[];
+  semaine.forEach(e=>{
+    const debut=minutesHoraire(e.horaire);
+    if(debut==null){sansHoraire.push(e);return;}
+    items.push({e,jour:normalizeDate(e.date),nom:e.conseiller||'—',debut,fin:debut+(parseInt(e.duree)>0?parseInt(e.duree):DUREE_DEFAUT)});
+  });
+  // Toute l'équipe active, même sans atelier : on voit qui est disponible.
+  const noms=[...new Set([...(conseillers||[]),...items.map(x=>x.nom)])].filter(Boolean);
+  // Plage horaire : 8 h – 18 h, élargie si un atelier en sort.
+  const hMin=Math.min(480,...items.map(x=>Math.floor(x.debut/60)*60));
+  const hMax=Math.max(1080,...items.map(x=>Math.ceil(x.fin/60)*60));
+  const span=hMax-hMin;
+  const LJ=150,NOM=104,VOIE=30;
+  const parCase={};
+  items.forEach(x=>{const k=x.nom+'|'+x.jour;(parCase[k]=parCase[k]||[]).push(x);});
+  const nbVoies={};
+  Object.keys(parCase).forEach(k=>{nbVoies[k]=voiesPlanning(parCase[k]);});
+  const heures=[];for(let h=hMin;h<=hMax;h+=120)heures.push(h);
+  const pos=m=>(m-hMin)/span*LJ;
+  const grille=`repeating-linear-gradient(to right,var(--border,#e2e8f0) 0 1px,transparent 1px ${LJ*60/span}px)`;
+  const STYLE_STATUT={'Annulé':{opacity:.4,textDecoration:'line-through'},'Non réalisé':{opacity:.45},'Reporté':{opacity:.55}};
+
+  function barre(x){
+    const e=x.e,c=conseillerColor(e.conseiller),retard=isRetard(e);
+    const titre=`${e.horaire} · ${fmtDuree(x.fin-x.debut)} — ${e.thematique||'—'}${e.commune?' — '+e.commune:''} (${e.statut||'—'})`;
+    return CE('div',{key:e._id,title:titre,onClick:()=>setSelectedEntry(e),style:{
+      position:'absolute',left:pos(x.debut)+1,width:Math.max(8,pos(x.fin)-pos(x.debut)-2),top:4+x.voie*VOIE,height:VOIE-4,
+      background:e.statut==='Réalisé'?c:c+'cc',color:'#fff',borderRadius:6,padding:'2px 5px',boxSizing:'border-box',
+      fontSize:10,lineHeight:'11px',overflow:'hidden',cursor:'pointer',boxShadow:'0 1px 3px rgba(0,0,0,.18)',
+      outline:retard?'2px solid #dc2626':'none',...(STYLE_STATUT[e.statut]||{})}},
+      CE('div',{style:{fontWeight:700,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}},e.horaire+' '+(e.thematique||'—')),
+      CE('div',{style:{whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',opacity:.9}},e.commune||''));
+  }
+
+  return CE('div',null,
+    CE('div',{className:'card'},
+      CE('div',{style:{display:'flex',alignItems:'center',gap:8,marginBottom:12,flexWrap:'wrap'}},
+        CE('div',{style:{display:'flex',gap:4}},
+          CE('button',{className:'btn btn-secondary btn-sm',onClick:()=>setWeekOffset(w=>w-1)},'← Préc.'),
+          CE('button',{className:'btn btn-secondary btn-sm',onClick:()=>setWeekOffset(0),disabled:weekOffset===0,style:{opacity:weekOffset===0?.4:1}},'Auj.'),
+          CE('button',{className:'btn btn-secondary btn-sm',onClick:()=>setWeekOffset(w=>w+1)},'Suiv. →')),
+        CE('h2',{style:{margin:0,flex:1,textAlign:'center',fontSize:14,fontWeight:700}},'📊 Planning — semaine du '+libSemaine),
+        CE('span',{style:{fontSize:11,background:'#f1f5f9',borderRadius:20,padding:'3px 10px',color:'#475569'}},semaine.length+' atelier'+(semaine.length!==1?'s':''))),
+      CE('div',{style:{overflowX:'auto',border:'1px solid var(--border,#e2e8f0)',borderRadius:10}},
+        CE('div',{style:{width:NOM+5*LJ,minWidth:'100%'}},
+          // En-tête : jours et heures
+          CE('div',{style:{display:'flex',borderBottom:'1px solid var(--border,#e2e8f0)'}},
+            CE('div',{style:{width:NOM,flexShrink:0,position:'sticky',left:0,zIndex:2,background:'var(--surface,#fff)'}}),
+            jours.map((d,i)=>{const auj=cles[i]===aujourdhui;return CE('div',{key:cles[i],style:{width:LJ,flexShrink:0,borderLeft:'1px solid var(--border,#e2e8f0)',background:auj?ac+'14':'var(--surface-2,#f8fafc)',padding:'4px 0 2px'}},
+              CE('div',{style:{textAlign:'center',fontSize:12,fontWeight:800,color:auj?ac:'var(--text,#1a202c)'}},JOURS[d.getDay()]+' '+d.getDate()+' '+MOIS[d.getMonth()]),
+              CE('div',{style:{position:'relative',height:14}},heures.map(h=>CE('span',{key:h,style:{position:'absolute',left:pos(h),transform:h===hMin?'none':'translateX(-50%)',fontSize:9,color:'var(--text-3,#94a3b8)'}},(h/60)+'h'))));})),
+          // Une ligne par conseiller
+          noms.map(nom=>{
+            const h=Math.max(1,...cles.map(j=>nbVoies[nom+'|'+j]||0))*VOIE+8;
+            return CE('div',{key:nom,style:{display:'flex',borderBottom:'1px solid var(--border,#e2e8f0)'}},
+              CE('div',{style:{width:NOM,flexShrink:0,position:'sticky',left:0,zIndex:2,background:'var(--surface,#fff)',display:'flex',alignItems:'center',gap:6,padding:'0 8px',fontSize:11,fontWeight:700,color:conseillerColor(nom),boxShadow:'1px 0 0 var(--border,#e2e8f0)'}},
+                CE('span',{style:{width:8,height:8,borderRadius:'50%',background:conseillerColor(nom),flexShrink:0}}),
+                CE('span',{style:{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}},nom)),
+              cles.map(j=>CE('div',{key:j,style:{width:LJ,flexShrink:0,height:h,position:'relative',borderLeft:'1px solid var(--border,#e2e8f0)',backgroundImage:grille,backgroundColor:j===aujourdhui?ac+'0d':'transparent'}},
+                (parCase[nom+'|'+j]||[]).map(barre))));
+          }))),
+      CE('p',{style:{fontSize:11,color:'var(--text-3,#94a3b8)',margin:'8px 0 0'}},
+        'Barre = durée de l\'atelier (1 h 30 si non saisie) ; contour rouge : à mettre à jour ; estompé : annulé, non réalisé ou reporté. Clic : détails.'
+        +(sansHoraire.length?` ${sansHoraire.length} atelier(s) sans horaire non placé(s).`:''))),
+    CE(PanneauAtelier,{panel:selectedEntry,onClose:()=>setSelectedEntry(null),entries,onEdit,onDuplicate,canDelete,
+      onAskDelete:e=>setConfirmDel({id:e._id,label:`${fmtDate(e.date)} — ${e.thematique||e.commune||e._id}`})}),
+    confirmDel&&CE(ConfirmModal,{
+      item:confirmDel,
+      onConfirm:async()=>{if(onDelete)await onDelete(confirmDel.id);setConfirmDel(null);},
+      onCancel:()=>setConfirmDel(null)
+    })
+  );
+}
 // ── VueRoadmap — Timeline & Densité par conseiller ──────────
 // ════════════════════════════════════════════════════════════
 function VueRoadmap({entries,annee,conseillers}){

@@ -153,6 +153,12 @@ test('admin — onglet Agenda sans ReferenceError', async ({ page }) => {
   expect(errs, `Agenda : ${errs.join(' | ')}`).toHaveLength(0);
 });
 
+test('admin — onglet Planning sans ReferenceError', async ({ page }) => {
+  await login(page);
+  const errs = await clickTab(page, 'Planning');
+  expect(errs, `Planning : ${errs.join(' | ')}`).toHaveLength(0);
+});
+
 test('admin — onglet Calendrier sans ReferenceError', async ({ page }) => {
   await login(page);
   const errs = await clickTab(page, 'Calendrier');

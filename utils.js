@@ -512,8 +512,29 @@ function matIncludes(arr,m){if(typeof arr==='string')arr=arr.split('|').filter(B
 // Une seule table de valeurs par défaut pour Index ET l'Admin : une clé absente
 // de la config enregistrée valait « visible » sur Index et « masqué » dans
 // l'Admin (Gestion ordi affiché sur Index alors que l'Admin le montrait coupé).
+// Planning (03/10/2026) : minutes depuis minuit d'un horaire « 9:30 » /
+// « 14H00 », ou null s'il est illisible.
+function minutesHoraire(h){
+  const m=/^\s*(\d{1,2})\s*[:hH]\s*(\d{0,2})/.exec(String(h==null?'':h));
+  if(!m||+m[1]>23)return null;
+  return +m[1]*60+(parseInt(m[2]||'0',10)||0);
+}
+// Planning : range les ateliers d'une même case (un conseiller, un jour) sur
+// des voies, pour que ceux qui se chevauchent s'empilent au lieu de se
+// recouvrir. items : [{debut, fin}] en minutes ; pose it.voie (0, 1, …) et
+// rend le nombre de voies.
+function voiesPlanning(items){
+  const fins=[];
+  (items||[]).slice().sort((a,b)=>a.debut-b.debut||a.fin-b.fin).forEach(it=>{
+    let v=fins.findIndex(f=>f<=it.debut);
+    if(v<0){v=fins.length;fins.push(0);}
+    fins[v]=it.fin;it.voie=v;
+  });
+  return fins.length;
+}
+
 function visibiliteEffective(v){
-  const defaut={saisie:true,historique:true,dashboard:true,carte:true,bingo:true,calendrier:false,agenda:false,roadmap:false,gestion_ordi:true,anomalies:false,corbeille:false};
+  const defaut={saisie:true,historique:true,dashboard:true,carte:true,bingo:true,calendrier:false,agenda:false,planning:true,roadmap:false,gestion_ordi:true,anomalies:false,corbeille:false};
   const res=Object.assign({},defaut);
   if(v&&typeof v==='object')Object.keys(v).forEach(k=>{const x=v[k];res[k]=!(x===false||x===0||x===''||x==null||String(x).toLowerCase()==='false');});
   return res;
@@ -728,7 +749,7 @@ if (typeof module !== 'undefined') {
     normCommune,normalizeCommune,stripAccents,htmlEsc,trunc,
     normalizeDate,normalizeHoraire,fmtDate,fmtCardDate,todayLocal,addJoursIso,
     escapeICS,foldICSLine,parseHoraireICS,parseDateICS,buildICS,
-    DUREE_DEFAUT,DUREES_ATELIER,dureeArrondie,fmtDuree,
+    DUREE_DEFAUT,DUREES_ATELIER,dureeArrondie,fmtDuree,minutesHoraire,voiesPlanning,
     resumeLogsTexte,
     suppressionAboutie,
     anneesListe,

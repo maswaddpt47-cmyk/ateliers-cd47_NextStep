@@ -622,3 +622,16 @@ describe('durée', () => {
     assert.deepEqual(U.evenementsOutlook(ics, 'atelier', '').occurrences.map(o => o.duree), [120, 90]);
   });
 });
+
+// ── Planning (frise hebdomadaire) ──────────────────────────────────────────
+describe('planning', () => {
+  const { minutesHoraire, voiesPlanning } = require('./utils.js');
+  it('horaire en minutes', () => {
+    assert.deepEqual([minutesHoraire('9:30'), minutesHoraire('14H00'), minutesHoraire('08:05'), minutesHoraire(''), minutesHoraire('25:00')], [570, 840, 485, null, null]);
+  });
+  it('ateliers qui se chevauchent : voies différentes ; bout à bout : même voie', () => {
+    const a = { debut: 540, fin: 630 }, b = { debut: 600, fin: 690 }, c = { debut: 630, fin: 720 };
+    assert.equal(voiesPlanning([b, a, c]), 2);
+    assert.deepEqual([a.voie, b.voie, c.voie], [0, 1, 0]);
+  });
+});
