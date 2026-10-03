@@ -99,16 +99,30 @@ function parseDateICS(d){
   const m=String(d||'').match(/^(\d{4})-(\d{2})-(\d{2})/);
   return m?{y:m[1],mo:m[2],j:m[3]}:null;
 }
+// Durée d'un atelier en minutes (AG-017, 03/10/2026) : par demi-heure, de
+// 30 min à 8 h ; 1 h 30 par défaut, et pour un atelier saisi avant (vide).
+const DUREE_DEFAUT=90;
+const DUREES_ATELIER=Array.from({length:16},(_,i)=>(i+1)*30);
+function dureeArrondie(min){
+  const v=parseFloat(min);
+  return v>0?Math.min(Math.max(Math.round(v/30)*30,30),480):'';
+}
+function fmtDuree(min){
+  const n=parseInt(min,10);if(!(n>0))return '';
+  const h=Math.floor(n/60),m=n%60;
+  return h?(h+' h'+(m?' '+String(m).padStart(2,'0'):'')):(m+' min');
+}
 function buildICS(evts){
   const out=['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Ateliers Numerique 47//FR','CALSCALE:GREGORIAN','METHOD:PUBLISH'];
   for(const e of evts){
     const pd=parseDateICS(e.date);if(!pd)continue;
     const{hh,mm}=parseHoraireICS(e.horaire);
-    const startH=parseInt(hh,10);
     const dts=`${pd.y}${pd.mo}${pd.j}T${hh}${mm}00`;
-    let dte;
-    if(startH<23){dte=`${pd.y}${pd.mo}${pd.j}T${String(startH+1).padStart(2,'0')}${mm}00`;}
-    else{const next=new Date(parseInt(pd.y,10),parseInt(pd.mo,10)-1,parseInt(pd.j,10)+1);dte=`${next.getFullYear()}${String(next.getMonth()+1).padStart(2,'0')}${String(next.getDate()).padStart(2,'0')}T000000`;}
+    // Fin = début + durée (1 h 30 si non saisie), calculée en UTC pour
+    // franchir minuit sans dépendre du fuseau de l'appareil.
+    const f=new Date(Date.UTC(+pd.y,+pd.mo-1,+pd.j,+hh,+mm)+(parseInt(e.duree,10)>0?parseInt(e.duree,10):DUREE_DEFAUT)*60000);
+    const p2=n=>String(n).padStart(2,'0');
+    const dte=`${f.getUTCFullYear()}${p2(f.getUTCMonth()+1)}${p2(f.getUTCDate())}T${p2(f.getUTCHours())}${p2(f.getUTCMinutes())}00`;
     const summary=escapeICS([e.thematique,e.commune].filter(Boolean).join(' | '));
     const location=escapeICS([e.lieu,e.commune].filter(Boolean).join(', '));
     const descParts=[
@@ -611,7 +625,7 @@ function lireICS(texte) {
   const lignes = String(texte || '').replace(/\r\n[ \t]/g, '').replace(/\n[ \t]/g, '').split(/\r?\n/);
   const evts = []; let e = null, profondeur = 0;
   for (const l of lignes) {
-    if (l === 'BEGIN:VEVENT') { e = { uid: '', debut: null, titre: '', lieu: '', rrule: '', exdates: [], recurrenceId: '' }; profondeur = 0; continue; }
+    if (l === 'BEGIN:VEVENT') { e = { uid: '', debut: null, fin: null, duration: '', titre: '', lieu: '', rrule: '', exdates: [], recurrenceId: '' }; profondeur = 0; continue; }
     if (!e) continue;
     if (l.startsWith('BEGIN:')) { profondeur++; continue; }          // VALARM…
     if (l.startsWith('END:') && profondeur) { profondeur--; continue; }
@@ -621,6 +635,8 @@ function lireICS(texte) {
     const nom = l.slice(0, i).split(';')[0].toUpperCase(), val = l.slice(i + 1);
     if (nom === 'UID') e.uid = val.trim();
     else if (nom === 'DTSTART') e.debut = _icsDate(val);
+    else if (nom === 'DTEND') e.fin = _icsDate(val);
+    else if (nom === 'DURATION') e.duration = val.trim();
     else if (nom === 'SUMMARY') e.titre = _icsTexte(val);
     else if (nom === 'LOCATION') e.lieu = _icsTexte(val);
     else if (nom === 'RRULE') e.rrule = val.trim();
@@ -655,6 +671,15 @@ function _datesSerie(debut, rrule) {
 // à partir de `depuis` (AAAA-MM-JJ, inclus). Rend { occurrences:[{cle, date,
 // horaire, titre, lieu, ferie}], ignores:[titre] } — ferie = nom du jour férié ou '' — ignores = séries non prises
 // en charge, à signaler.
+// Durée d'un rendez-vous Outlook en minutes, arrondie à la demi-heure ('' si
+// inconnue) : DTEND − DTSTART, ou DURATION (PT1H30M).
+function _dureeEvt(e) {
+  const m = String(e.duration || '').match(/^P(?:(\d+)D)?T?(?:(\d+)H)?(?:(\d+)M)?/);
+  if (m && e.duration) return dureeArrondie((+m[1] || 0) * 1440 + (+m[2] || 0) * 60 + (+m[3] || 0));
+  if (!e.fin || !e.fin.horaire || !e.debut) return '';
+  const t = x => Date.UTC(+x.date.slice(0, 4), +x.date.slice(5, 7) - 1, +x.date.slice(8, 10), +x.horaire.slice(0, 2), +x.horaire.slice(3, 5));
+  return dureeArrondie((t(e.fin) - t(e.debut)) / 60000);
+}
 function evenementsOutlook(texte, motCle, depuis) {
   const norm = s => stripAccents(String(s || '')).toLowerCase();
   const mc = norm(motCle).trim();
@@ -668,7 +693,7 @@ function evenementsOutlook(texte, motCle, depuis) {
   evts.filter(e => e.recurrenceId).forEach(e => { (remplacees[e.uid] = remplacees[e.uid] || []).push(e.recurrenceId); });
   const occ = [], ignores = [];
   for (const e of evts) {
-    const ajouter = date => occ.push({ cle: e.uid + '|' + date, date, horaire: e.debut.horaire, titre: e.titre, lieu: e.lieu, ferie: ferie(date) });
+    const ajouter = date => occ.push({ cle: e.uid + '|' + date, date, horaire: e.debut.horaire, duree: _dureeEvt(e), titre: e.titre, lieu: e.lieu, ferie: ferie(date) });
     if (e.rrule && !e.recurrenceId) {
       const dates = _datesSerie(e.debut.date, e.rrule);
       if (!dates) { ignores.push(e.titre); continue; }
@@ -703,6 +728,7 @@ if (typeof module !== 'undefined') {
     normCommune,normalizeCommune,stripAccents,htmlEsc,trunc,
     normalizeDate,normalizeHoraire,fmtDate,fmtCardDate,todayLocal,addJoursIso,
     escapeICS,foldICSLine,parseHoraireICS,parseDateICS,buildICS,
+    DUREE_DEFAUT,DUREES_ATELIER,dureeArrondie,fmtDuree,
     resumeLogsTexte,
     suppressionAboutie,
     anneesListe,

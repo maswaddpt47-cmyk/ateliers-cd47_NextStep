@@ -1718,7 +1718,7 @@ function ComboThematiqueFixed({value,onChange,onBlur,entries,hasError}){
 
 // VUE SAISIE — v9.1 : mode unique + mode lot (cycle)
 // ═══════════════════════════════════════════════════════════
-const emptyRow=()=>({id:genId(),date:'',horaire:'',ampm:'',thematique:'',inscrits:4,presents:'',date_prelevement_materiel:'',date_retour_materiel:''});
+const emptyRow=()=>({id:genId(),date:'',horaire:'',ampm:'',duree:DUREE_DEFAUT,thematique:'',inscrits:4,presents:'',date_prelevement_materiel:'',date_retour_materiel:''});
 
 function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefillData,onClearPrefill,accentColor,conseillerDefaut}){
   const statuts    = lists?.statuts     || STATUTS_DEFAULT;
@@ -1728,7 +1728,7 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
   // Conseiller connecté proposé par défaut (lot 1 UX, 01/10/2026) : fourni par
   // l'interface des conseillers seulement, l'Admin saisit pour les autres.
   const consDef=conseillerDefaut&&conseillers.includes(conseillerDefaut)?conseillerDefaut:'';
-  const empty={_id:'',_n:'',statut:'',date:'',horaire:'',ampm:'',orienteur:'',commune:'',lieu:'',thematique:'',inscrits:4,presents:'',public:'',conseiller:consDef,co_animateur:'',materiel:[],residence:'',remarques:'',nb_ordinateurs:'',date_prelevement_materiel:'',date_retour_materiel:''};
+  const empty={_id:'',_n:'',statut:'',date:'',horaire:'',ampm:'',duree:DUREE_DEFAUT,orienteur:'',commune:'',lieu:'',thematique:'',inscrits:4,presents:'',public:'',conseiller:consDef,co_animateur:'',materiel:[],residence:'',remarques:'',nb_ordinateurs:'',date_prelevement_materiel:'',date_retour_materiel:''};
 
   // ── états mode unique ──
   const[form,setForm]   = React.useState(empty);
@@ -1759,7 +1759,7 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
     if(!editingId)return;
     idNouveauRef.current=null;
     const e=entries.find(x=>x._id===editingId);if(!e)return;
-    setForm({...empty,...e,materiel:e.materiel||[]});setEditId(editingId);setIsDup(false);setModeLot(false);
+    setForm({...empty,...e,duree:parseInt(e.duree)||DUREE_DEFAUT,materiel:e.materiel||[]});setEditId(editingId);setIsDup(false);setModeLot(false);
     window.scrollTo(0,0);if(onClearEdit)onClearEdit();
   },[editingId,entries]);
 
@@ -1817,7 +1817,7 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
   function importerOutlook(liste){
     const remplies=lotRows.filter(r=>r.date||r.horaire||(r.thematique||'').trim()).length;
     if(remplies&&!window.confirm(`Remplacer les ${remplies} ligne(s) déjà saisie(s) par ${liste.length} rendez-vous Outlook ?`))return false;
-    setLotRows(liste.map(o=>({...emptyRow(),date:o.date,horaire:o.horaire,ampm:ampmDepuisHoraire(o.horaire)||'',thematique:o.thematique,olkId:o.olkId})));
+    setLotRows(liste.map(o=>({...emptyRow(),date:o.date,horaire:o.horaire,duree:o.duree||DUREE_DEFAUT,ampm:ampmDepuisHoraire(o.horaire)||'',thematique:o.thematique,olkId:o.olkId})));
     setLotRowErrors({});
     const lieux=[...new Set(liste.map(o=>o.lieu).filter(Boolean))];
     if(lieux.length===1&&!lotForm.lieu)setLot('lieu',lieux[0]);
@@ -1887,7 +1887,7 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
   async function handleSubmit(){
     if(!validate()){showToast('⚠️ Champs obligatoires manquants',false);return;}
     setSaving(true);
-    const entry={...form,_id:form._id||idNouveauRef.current||(idNouveauRef.current=genId()),inscrits:form.inscrits===''?'':parseInt(form.inscrits)||0,presents:form.presents===''?'':parseInt(form.presents)||0,nb_ordinateurs:form.nb_ordinateurs===''?'':parseInt(form.nb_ordinateurs)||0,materiel:(form.materiel||[]).join('|')};
+    const entry={...form,_id:form._id||idNouveauRef.current||(idNouveauRef.current=genId()),inscrits:form.inscrits===''?'':parseInt(form.inscrits)||0,presents:form.presents===''?'':parseInt(form.presents)||0,nb_ordinateurs:form.nb_ordinateurs===''?'':parseInt(form.nb_ordinateurs)||0,duree:parseInt(form.duree)||DUREE_DEFAUT,materiel:(form.materiel||[]).join('|')};
     const reussir=()=>{
       showToast(editId?'✅ Atelier modifié':'✅ Atelier enregistré');
       // materiel repart en tableau (pas la chaîne '|' envoyée à GAS) : c'est
@@ -1925,7 +1925,7 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
     if(!validateLot(rowsFilled)){showToast('⚠️ Champs obligatoires manquants',false);return;}
     setSaving(true);
     try{
-      const entries=rowsFilled.map(row=>({_id:idsLotRef.current[row.id]||(idsLotRef.current[row.id]=row.olkId||genId()),_n:'',statut:'Planifié',date:row.date,horaire:row.horaire,ampm:row.ampm,thematique:row.thematique,orienteur:lotForm.orienteur,commune:lotForm.commune,lieu:lotForm.lieu,conseiller:lotForm.conseiller,co_animateur:lotForm.co_animateur||'',public:lotForm.public,materiel:(lotForm.materiel||[]).join('|'),residence:lotForm.residence,remarques:lotForm.remarques,inscrits:row.inscrits===''?'':parseInt(row.inscrits)||0,presents:row.presents===''?'':parseInt(row.presents)||0,nb_ordinateurs:lotForm.nb_ordinateurs===''?'':parseInt(lotForm.nb_ordinateurs)||0,date_prelevement_materiel:row.date_prelevement_materiel||'',date_retour_materiel:row.date_retour_materiel||''}));
+      const entries=rowsFilled.map(row=>({_id:idsLotRef.current[row.id]||(idsLotRef.current[row.id]=row.olkId||genId()),_n:'',statut:'Planifié',date:row.date,horaire:row.horaire,ampm:row.ampm,duree:parseInt(row.duree)||DUREE_DEFAUT,thematique:row.thematique,orienteur:lotForm.orienteur,commune:lotForm.commune,lieu:lotForm.lieu,conseiller:lotForm.conseiller,co_animateur:lotForm.co_animateur||'',public:lotForm.public,materiel:(lotForm.materiel||[]).join('|'),residence:lotForm.residence,remarques:lotForm.remarques,inscrits:row.inscrits===''?'':parseInt(row.inscrits)||0,presents:row.presents===''?'':parseInt(row.presents)||0,nb_ordinateurs:lotForm.nb_ordinateurs===''?'':parseInt(lotForm.nb_ordinateurs)||0,date_prelevement_materiel:row.date_prelevement_materiel||'',date_retour_materiel:row.date_retour_materiel||''}));
       // Même conversion materiel string→tableau que le mode unique.
       const appliquer=liste=>{
         liste.forEach(entry=>{const loc={...entry,materiel:lotForm.materiel||[]};if(onNewEntry)onNewEntry(loc);entreeSauvegardee(loc);});
@@ -2115,7 +2115,7 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
       statutPills,
       // Date / Horaire / AM-PM
       CE('div',{style:secStyle},
-        CE('div',{className:'sf-ligne-date',style:{display:'grid',gridTemplateColumns:'1fr 1fr 80px',gap:12}},
+        CE('div',{className:'sf-ligne-date',style:{display:'grid',gridTemplateColumns:'1fr 1fr 80px 100px',gap:12}},
           CE('div',null,
             Lbl({t:'Date *',err:!!errors.date}),
             CE('input',{type:'date',style:iStyle(errors.date),value:form.date,onChange:e=>set('date',e.target.value)}),
@@ -2128,7 +2128,12 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
             Lbl({t:'AM/PM *',err:!!errors.ampm}),
             CE('select',{style:sStyle(errors.ampm),value:form.ampm,onChange:e=>set('ampm',e.target.value)},
               CE('option',{value:'',disabled:true},'—'),CE('option',{value:'AM'},'AM'),CE('option',{value:'PM'},'PM')),
-            errors.ampm&&CE('span',{style:{color:'#e53e3e',fontSize:11,fontWeight:600}},errors.ampm))
+            errors.ampm&&CE('span',{style:{color:'#e53e3e',fontSize:11,fontWeight:600}},errors.ampm)),
+          // Durée (AG-017, 03/10/2026) : par demi-heure, 1 h 30 par défaut.
+          CE('div',null,
+            Lbl({t:'Durée'}),
+            CE('select',{style:sStyle(false),value:form.duree,onChange:e=>set('duree',parseInt(e.target.value))},
+              DUREES_ATELIER.map(d=>CE('option',{key:d,value:d},fmtDuree(d)))))
         )
       ),
       // Champs communs
@@ -2184,12 +2189,15 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
           const lbl=(t,err)=>CE('span',{style:{fontSize:10,fontWeight:700,color:err?'#e53e3e':'#718096',textTransform:'uppercase',letterSpacing:'.06em',display:'block',marginBottom:3}},t);
           return CE('div',{key:row.id,style:{borderRadius:10,border:`1.5px solid ${hasErr?'#fc8181':acLight}`,marginBottom:6,background:hasErr?'#fff5f5':acLight,position:'relative'}},
             // Ligne 1 : Date + Horaire + AM/PM + Supprimer
-            CE('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr auto 32px 32px',gap:8,alignItems:'end',padding:'9px 10px 8px'}},
+            CE('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr auto auto 32px 32px',gap:8,alignItems:'end',padding:'9px 10px 8px'}},
               CE('div',null,lbl('Date *',rErr.date),inp('date',row.date,'date',rErr.date)),
               CE('div',null,lbl('Horaire *',rErr.horaire),inp('time',row.horaire,'horaire',rErr.horaire)),
               CE('div',null,lbl('AM/PM',rErr.ampm),
                 CE('select',{value:row.ampm,onChange:e=>setRow(row.id,'ampm',e.target.value),style:{padding:'8px 6px',border:brd(rErr.ampm),borderRadius:8,fontSize:12,background:bg(rErr.ampm)}},
                   CE('option',{value:'',disabled:true},'—'),CE('option',{value:'AM'},'AM'),CE('option',{value:'PM'},'PM'))),
+              CE('div',null,lbl('Durée'),
+                CE('select',{value:row.duree,onChange:e=>setRow(row.id,'duree',parseInt(e.target.value)),style:{padding:'8px 6px',border:brd(false),borderRadius:8,fontSize:12,background:bg(false)}},
+                  DUREES_ATELIER.map(d=>CE('option',{key:d,value:d},fmtDuree(d))))),
               CE('button',{onClick:()=>dupRow(row.id),title:'Dupliquer cette séance (autre groupe, autre horaire)','aria-label':'Dupliquer cette séance',style:{background:'none',border:`1px solid ${acLight}`,borderRadius:6,color:ac,cursor:'pointer',fontSize:15,height:32,width:32,display:'flex',alignItems:'center',justifyContent:'center',alignSelf:'end'}},'⧉'),
               CE('button',{onClick:()=>removeRow(row.id),disabled:lotRows.length===1,style:{background:'none',border:`1px solid ${acLight}`,borderRadius:6,color:'#9b2c2c',cursor:'pointer',fontSize:15,height:32,width:32,display:'flex',alignItems:'center',justifyContent:'center',alignSelf:'end'}},'×')
             ),

@@ -553,7 +553,7 @@ describe('import Outlook (.ics)', () => {
   const r = evenementsOutlook(ICS, 'atelier', '2026-10-01');
   it('ne garde que les rendez-vous au mot-clé, journées entières exclues', () => {
     assert.ok(!r.occurrences.some(o => /Réunion|journée/.test(o.titre)));
-    assert.deepEqual(r.occurrences[0], { cle: 'AAA|2026-10-07', date: '2026-10-07', horaire: '14:00', titre: 'ATELIER Smartphone', lieu: 'Médiathèque, Agen', ferie: '' });
+    assert.deepEqual(r.occurrences[0], { cle: 'AAA|2026-10-07', date: '2026-10-07', horaire: '14:00', duree: '', titre: 'ATELIER Smartphone', lieu: 'Médiathèque, Agen', ferie: '' });
   });
   it('développe une série : EXDATE retirée, occurrence déplacée prise une seule fois', () => {
     const tab = r.occurrences.filter(o => o.cle.startsWith('CCC')).map(o => o.date + ' ' + o.horaire);
@@ -599,5 +599,26 @@ describe('ateliersPartenaire', () => {
   });
   it('sans filtre : tous les ateliers datés', () => {
     assert.deepEqual(ateliersPartenaire(E, '', '', '').map(e => e._id), ['b', 'a', 'c', 'd']);
+  });
+});
+
+// ── Durée d'un atelier (AG-017) ─────────────────────────────────────────────
+describe('durée', () => {
+  const U = require('./utils.js');
+  it('arrondi à la demi-heure, bornes 30 min – 8 h, affichage', () => {
+    assert.deepEqual([U.dureeArrondie(80), U.dureeArrondie(10), U.dureeArrondie(900), U.dureeArrondie(0)], [90, 30, 480, '']);
+    assert.deepEqual([U.fmtDuree(90), U.fmtDuree(120), U.fmtDuree(30), U.fmtDuree('')], ['1 h 30', '2 h', '30 min', '']);
+  });
+  it('export .ics : fin = début + durée, 1 h 30 si non saisie', () => {
+    const e = { _id: 'x', date: '2026-10-05', horaire: '09:30', thematique: 'T' };
+    assert.ok(U.buildICS([e]).includes('DTEND:20261005T110000'));
+    assert.ok(U.buildICS([{ ...e, duree: 120 }]).includes('DTEND:20261005T113000'));
+  });
+  it('import Outlook : durée tirée de DTEND ou DURATION', () => {
+    const ics = ['BEGIN:VCALENDAR',
+      'BEGIN:VEVENT', 'UID:A', 'SUMMARY:Atelier', 'DTSTART;TZID=Romance Standard Time:20261012T140000', 'DTEND;TZID=Romance Standard Time:20261012T160000', 'END:VEVENT',
+      'BEGIN:VEVENT', 'UID:B', 'SUMMARY:Atelier', 'DTSTART;TZID=Romance Standard Time:20261013T093000', 'DURATION:PT1H30M', 'END:VEVENT',
+      'END:VCALENDAR'].join('\r\n');
+    assert.deepEqual(U.evenementsOutlook(ics, 'atelier', '').occurrences.map(o => o.duree), [120, 90]);
   });
 });

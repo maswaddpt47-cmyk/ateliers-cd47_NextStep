@@ -24,6 +24,7 @@ function buildEntry(overrides = {}) {
     materiel:     'Videoprojecteur|Tablette', // pipe-string, jamais Array
     residence:    '',
     remarques:    '',
+    duree:        90,                   // minutes, par demi-heure (AG-017)
     ...overrides,
   };
 }
@@ -87,5 +88,13 @@ describe('_id', () => {
 describe('ampm', () => {
   it('est AM ou PM',                       () => {
     assert.ok(['AM', 'PM'].includes(buildEntry().ampm));
+  });
+});
+
+// ── duree (AG-017) ────────────────────────────────────────────────────────────
+describe('duree', () => {
+  it('en minutes, par demi-heure, de 30 à 480 (contrôlé par l\'API)', () => {
+    const d = buildEntry().duree;
+    assert.ok(Number.isInteger(d) && d % 30 === 0 && d >= 30 && d <= 480);
   });
 });
