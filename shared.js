@@ -4677,6 +4677,7 @@ function VuePlanning({entries,onEdit,onDelete,onDuplicate,canDelete,accentColor,
   const[weekOffset,setWeekOffset]=React.useState(0);
   const[selectedEntry,setSelectedEntry]=React.useState(null);
   const[confirmDel,setConfirmDel]=React.useState(null);
+  const[survol,setSurvol]=React.useState(null);   // infobulle : {x, e, debut, fin}
   const ac=accentColor||'#1e3a8a';
   const dk=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   const lundi=(()=>{const t=new Date();const j=t.getDay();const m=new Date(t);m.setDate(t.getDate()+(j===0?-6:1-j)+weekOffset*7);m.setHours(0,0,0,0);return m;})();
@@ -4713,8 +4714,8 @@ function VuePlanning({entries,onEdit,onDelete,onDuplicate,canDelete,accentColor,
 
   function barre(x){
     const e=x.e,c=conseillerColor(e.conseiller),retard=isRetard(e);
-    const titre=`${e.horaire} · ${fmtDuree(x.fin-x.debut)} — ${e.thematique||'—'}${e.commune?' — '+e.commune:''} (${e.statut||'—'})`;
-    return CE('div',{key:e._id,title:titre,onClick:()=>setSelectedEntry(e),style:{
+    const montrer=ev=>setSurvol({x:ev.clientX,y:ev.clientY,e,debut:x.debut,fin:x.fin});
+    return CE('div',{key:e._id,onClick:()=>{setSurvol(null);setSelectedEntry(e);},onMouseEnter:montrer,onMouseMove:montrer,onMouseLeave:()=>setSurvol(null),style:{
       position:'absolute',left:pos(x.debut)+1,width:Math.max(8,pos(x.fin)-pos(x.debut)-2),top:4+x.voie*VOIE,height:VOIE-4,
       background:e.statut==='Réalisé'?c:c+'cc',color:'#fff',borderRadius:6,padding:'2px 5px',boxSizing:'border-box',
       fontSize:10,lineHeight:'11px',overflow:'hidden',cursor:'pointer',boxShadow:'0 1px 3px rgba(0,0,0,.18)',
@@ -4753,6 +4754,24 @@ function VuePlanning({entries,onEdit,onDelete,onDuplicate,canDelete,accentColor,
       CE('p',{style:{fontSize:11,color:'var(--text-3,#94a3b8)',margin:'8px 0 0'}},
         'Barre = durée de l\'atelier (1 h 30 si non saisie) ; contour rouge : à mettre à jour ; estompé : annulé, non réalisé ou reporté. Clic : détails.'
         +(sansHoraire.length?` ${sansHoraire.length} atelier(s) sans horaire non placé(s).`:''))),
+    // Infobulle au survol (03/10/2026) : le détail sans ouvrir le volet.
+    survol&&(()=>{const e=survol.e,hm=m=>Math.floor(m/60)+'h'+String(m%60).padStart(2,'0');
+      const ligne=(l,v)=>v!==''&&v!=null&&CE('div',{style:{display:'flex',gap:6}},CE('span',{style:{color:'#94a3b8',minWidth:70}},l),CE('span',null,String(v)));
+      const gauche=survol.x>window.innerWidth-280;
+      return CE('div',{style:{position:'fixed',left:gauche?survol.x-266:survol.x+14,top:Math.min(survol.y+14,window.innerHeight-230),zIndex:3000,width:252,
+        background:'#1e293b',color:'#f8fafc',borderRadius:8,padding:'8px 10px',fontSize:11,lineHeight:1.5,boxShadow:'0 6px 18px rgba(0,0,0,.3)',pointerEvents:'none'}},
+        CE('div',{style:{fontWeight:700,fontSize:12,marginBottom:4,color:conseillerColor(e.conseiller)}},e.thematique||'—'),
+        ligne('Date',fmtDate(e.date)+' · '+hm(survol.debut)+' – '+hm(survol.fin)),
+        ligne('Durée',fmtDuree(survol.fin-survol.debut)+(parseInt(e.duree)>0?'':' (par défaut)')),
+        ligne('Conseiller',e.conseiller),
+        ligne('Statut',e.statut),
+        ligne('Commune',e.commune),
+        ligne('Lieu',e.lieu),
+        ligne('Orienteur',e.orienteur),
+        ligne('Public',e.public),
+        ligne('Inscrits',e.inscrits),
+        ligne('Présents',e.presents),
+        isRetard(e)&&CE('div',{style:{color:'#fca5a5',fontWeight:700,marginTop:3}},'⚠ À mettre à jour'));})(),
     CE(PanneauAtelier,{panel:selectedEntry,onClose:()=>setSelectedEntry(null),entries,onEdit,onDuplicate,canDelete,
       onAskDelete:e=>setConfirmDel({id:e._id,label:`${fmtDate(e.date)} — ${e.thematique||e.commune||e._id}`})}),
     confirmDel&&CE(ConfirmModal,{
