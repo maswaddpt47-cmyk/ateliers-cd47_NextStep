@@ -2249,7 +2249,7 @@ function PanneauAtelier({panel,onClose,entries,onEntryUpdated,onRefresh,onEdit,o
   const[panelPresents,setPanelPresents]=React.useState('');
   const[panelThematique,setPanelThematique]=React.useState('');
   const[panelDate,setPanelDate]=React.useState('');
-  const[panelHoraire,setPanelHoraire]=React.useState('');
+  const[panelHoraire,setPanelHoraire]=React.useState('');const[panelDuree,setPanelDuree]=React.useState(DUREE_DEFAUT);
   const[panelNbOrdi,setPanelNbOrdi]=React.useState('');
   const[panelPublic,setPanelPublic]=React.useState('');
   const[panelMobile,setPanelMobile]=React.useState(false);
@@ -2258,12 +2258,12 @@ function PanneauAtelier({panel,onClose,entries,onEntryUpdated,onRefresh,onEdit,o
   const[panelNote,setPanelNote]=React.useState('');
   const[saving,setSaving]=React.useState(false);
   // Réinitialise les champs à chaque atelier ouvert (ce que faisait openPanel).
-  React.useEffect(()=>{if(!panel)return;const e=panel;setPanelStatut(e.statut);setPanelInscrits(e.inscrits===undefined||e.inscrits===''?'':String(e.inscrits));setPanelPresents(e.presents===undefined||e.presents===''?'':String(e.presents));setPanelThematique(e.thematique||'');setPanelNote(e.remarques||'');setPanelDate(normalizeDate(e.date)||'');setPanelHoraire(normalizeHoraire(e.horaire)||'');setPanelNbOrdi(e.nb_ordinateurs===undefined||e.nb_ordinateurs===''||e.nb_ordinateurs===null?'':String(e.nb_ordinateurs));setPanelPublic(e.public||'');setPanelMobile(matIncludes(e.materiel,'Classe mobile'));setPanelPrelev(normalizeDate(e.date_prelevement_materiel)||'');setPanelRetour(normalizeDate(e.date_retour_materiel)||'');},[panel]);
+  React.useEffect(()=>{if(!panel)return;const e=panel;setPanelStatut(e.statut);setPanelInscrits(e.inscrits===undefined||e.inscrits===''?'':String(e.inscrits));setPanelPresents(e.presents===undefined||e.presents===''?'':String(e.presents));setPanelThematique(e.thematique||'');setPanelNote(e.remarques||'');setPanelDate(normalizeDate(e.date)||'');setPanelHoraire(normalizeHoraire(e.horaire)||'');setPanelDuree(parseInt(e.duree)||DUREE_DEFAUT);setPanelNbOrdi(e.nb_ordinateurs===undefined||e.nb_ordinateurs===''||e.nb_ordinateurs===null?'':String(e.nb_ordinateurs));setPanelPublic(e.public||'');setPanelMobile(matIncludes(e.materiel,'Classe mobile'));setPanelPrelev(normalizeDate(e.date_prelevement_materiel)||'');setPanelRetour(normalizeDate(e.date_retour_materiel)||'');},[panel]);
   const closePanel=onClose;
   async function savePanel(){
     if(!panel)return;if(!panelDate){showToast('❌ Date requise',false);return;}if(panelMobile&&!(parseInt(panelNbOrdi)>0)){showToast('❌ Ordinateurs prêtés requis avec la Classe mobile',false);return;}setSaving(true);
     try{
-      const updated={...panel,statut:panelStatut,inscrits:panelInscrits===''?'':parseInt(panelInscrits)||0,presents:panelPresents===''?'':parseInt(panelPresents)||0,thematique:panelThematique,date:panelDate,horaire:panelHoraire,ampm:ampmDepuisHoraire(panelHoraire)||panel.ampm,public:panelPublic,nb_ordinateurs:panelMobile?(panelNbOrdi===''?'':parseInt(panelNbOrdi)||0):'',date_prelevement_materiel:panelMobile?panelPrelev:'',date_retour_materiel:panelMobile?panelRetour:'',remarques:panelNote,materiel:matierePanneau(panel,panelMobile).join('|')};
+      const updated={...panel,statut:panelStatut,inscrits:panelInscrits===''?'':parseInt(panelInscrits)||0,presents:panelPresents===''?'':parseInt(panelPresents)||0,thematique:panelThematique,date:panelDate,horaire:panelHoraire,ampm:ampmDepuisHoraire(panelHoraire)||panel.ampm,duree:parseInt(panelDuree)||DUREE_DEFAUT,public:panelPublic,nb_ordinateurs:panelMobile?(panelNbOrdi===''?'':parseInt(panelNbOrdi)||0):'',date_prelevement_materiel:panelMobile?panelPrelev:'',date_retour_materiel:panelMobile?panelRetour:'',remarques:panelNote,materiel:matierePanneau(panel,panelMobile).join('|')};
       const res=await apiFetch('saveEntry',{entry:updated});
       if(!res.ok)throw new Error(res.error);
       showToast('✅ Mis à jour');closePanel();
@@ -2317,13 +2317,16 @@ function PanneauAtelier({panel,onClose,entries,onEntryUpdated,onRefresh,onEdit,o
           CE('div',{className:'sp-field'},CE('label',null,'Nombre de présents'),
             CE('input',{type:'number',min:0,value:panelPresents,onChange:e=>setPanelPresents(e.target.value),style:{width:'100%',padding:'8px 10px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:13},placeholder:'0'})),
           // Modifiables ici depuis le 26/09/2026 (demande de l'utilisateur) :
-          // date, horaire (AM/PM recalculé s'il change), public, ordinateurs ;
+          // date, horaire (AM/PM d'après l'horaire), durée, public, ordinateurs ;
           // thématique en auto-proposition comme dans le formulaire.
           CE('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}},
             CE('div',{className:'sp-field'},CE('label',null,'Date *'),
               CE('input',{type:'date',value:panelDate,onChange:e=>setPanelDate(e.target.value),style:{width:'100%',padding:'8px 10px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:13}})),
             CE('div',{className:'sp-field'},CE('label',null,'Horaire'),
-              CE('input',{type:'time',value:panelHoraire,onChange:e=>setPanelHoraire(e.target.value),style:{width:'100%',padding:'8px 10px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:13}}))),
+              CE('input',{type:'time',value:panelHoraire,onChange:e=>setPanelHoraire(e.target.value),style:{width:'100%',padding:'8px 10px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:13}})),
+            CE('div',{className:'sp-field'},CE('label',null,'Durée'),
+              CE('select',{value:panelDuree,onChange:e=>setPanelDuree(parseInt(e.target.value)),style:{width:'100%',padding:'8px 10px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:13}},
+                DUREES_ATELIER.map(d=>CE('option',{key:d,value:d},fmtDuree(d)))))),
           CE('div',{className:'sp-field'},CE('label',null,'Type de public'),
             CE('select',{value:panelPublic,onChange:e=>setPanelPublic(e.target.value),style:{width:'100%',padding:'8px 10px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:13}},
               CE('option',{value:''},'—'),
@@ -2344,7 +2347,7 @@ function PanneauAtelier({panel,onClose,entries,onEntryUpdated,onRefresh,onEdit,o
           parseInt(panel.nb_ordinateurs)>0&&(panel.date_prelevement_materiel||panel.date_retour_materiel)&&CE('div',{className:'sp-info-row'},CE('span',null,'Période de prêt'),CE('span',null,fmtPeriode(periodePretMateriel(panel).debut,periodePretMateriel(panel).fin))),
           // Conflit de matériel si l'on enregistre (26/09/2026) : même contrôle
           // que l'onglet Anomalies, sur l'atelier tel qu'il sera enregistré.
-          (()=>{const c=typeof conflitsDeLEntree==='function'?conflitsDeLEntree(entries,{...panel,date:panelDate,horaire:panelHoraire,ampm:ampmDepuisHoraire(panelHoraire)||panel.ampm,materiel:matierePanneau(panel,panelMobile),nb_ordinateurs:panelMobile?(panelNbOrdi===''?'':parseInt(panelNbOrdi)||0):'',date_prelevement_materiel:panelMobile?panelPrelev:'',date_retour_materiel:panelMobile?panelRetour:''},typeof findOrdinateursConflicts==='function'?findOrdinateursConflicts:null,typeof findMobileClassConflicts==='function'?findMobileClassConflicts:null):{ordi:[],mobile:[]};
+          (()=>{const c=typeof conflitsDeLEntree==='function'?conflitsDeLEntree(entries,{...panel,date:panelDate,horaire:panelHoraire,ampm:ampmDepuisHoraire(panelHoraire)||panel.ampm,duree:parseInt(panelDuree)||DUREE_DEFAUT,materiel:matierePanneau(panel,panelMobile),nb_ordinateurs:panelMobile?(panelNbOrdi===''?'':parseInt(panelNbOrdi)||0):'',date_prelevement_materiel:panelMobile?panelPrelev:'',date_retour_materiel:panelMobile?panelRetour:''},typeof findOrdinateursConflicts==='function'?findOrdinateursConflicts:null,typeof findMobileClassConflicts==='function'?findMobileClassConflicts:null):{ordi:[],mobile:[]};
             if(!c.ordi.length&&!c.mobile.length)return null;
             return CE('div',{style:{background:'#fff7ed',border:'1px solid #fed7aa',borderRadius:8,padding:'8px 10px',fontSize:12,color:'#9a3412',display:'flex',flexDirection:'column',gap:4}},
               CE('strong',null,'⚠️ Conflit de matériel si vous enregistrez :'),
