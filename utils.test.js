@@ -553,7 +553,7 @@ describe('import Outlook (.ics)', () => {
   const r = evenementsOutlook(ICS, 'atelier', '2026-10-01');
   it('ne garde que les rendez-vous au mot-clé, journées entières exclues', () => {
     assert.ok(!r.occurrences.some(o => /Réunion|journée/.test(o.titre)));
-    assert.deepEqual(r.occurrences[0], { cle: 'AAA|2026-10-07', date: '2026-10-07', horaire: '14:00', duree: '', titre: 'ATELIER Smartphone', lieu: 'Médiathèque, Agen', ferie: '' });
+    assert.deepEqual(r.occurrences[0], { cle: 'AAA|2026-10-07', cleStable: 'AAA', date: '2026-10-07', horaire: '14:00', duree: '', titre: 'ATELIER Smartphone', lieu: 'Médiathèque, Agen', ferie: '' });
   });
   it('développe une série : EXDATE retirée, occurrence déplacée prise une seule fois', () => {
     const tab = r.occurrences.filter(o => o.cle.startsWith('CCC')).map(o => o.date + ' ' + o.horaire);
@@ -633,5 +633,34 @@ describe('planning', () => {
     const a = { debut: 540, fin: 630 }, b = { debut: 600, fin: 690 }, c = { debut: 630, fin: 720 };
     assert.equal(voiesPlanning([b, a, c]), 2);
     assert.deepEqual([a.voie, b.voie, c.voie], [0, 1, 0]);
+  });
+});
+
+// ── Réimport Outlook : modifiés, supprimés ─────────────────────────────────
+describe('rapprocherOutlook', () => {
+  const { rapprocherOutlook, idOutlook } = require('./utils.js');
+  const base = { conseiller: 'Alice', statut: 'Planifié', horaire: '09:30', duree: 90 };
+  const E = [
+    { ...base, _id: idOutlook('A'), date: '2026-10-05' },                       // déplacé dans Outlook
+    { ...base, _id: idOutlook('S|2026-10-06'), date: '2026-10-06' },            // occurrence de série, ancien identifiant
+    { ...base, _id: idOutlook('X|2026-10-08'), date: '2026-10-08' },            // supprimé d'Outlook
+    { ...base, _id: idOutlook('R'), date: '2026-10-09', statut: 'Réalisé' },    // réalisé : jamais modifié
+    { ...base, _id: idOutlook('Y|2026-10-07'), date: '2026-10-07', conseiller: 'Bruno' },  // autre conseiller
+    { ...base, _id: 'entry_1', date: '2026-10-07' },                            // saisi à la main
+  ];
+  const O = [
+    { cle: 'A|2026-10-12', cleStable: 'A', date: '2026-10-12', horaire: '10:00', duree: 120 },
+    { cle: 'S|2026-10-06', cleStable: 'S|2026-10-06', date: '2026-10-06', horaire: '09:30', duree: '' },
+    { cle: 'R|2026-10-09', cleStable: 'R', date: '2026-10-09', horaire: '14:00', duree: 90 },
+    { cle: 'N|2026-10-10', cleStable: 'N', date: '2026-10-10', horaire: '09:00', duree: 90 },
+  ];
+  const r = rapprocherOutlook(O, E, { de: '2026-10-01', a: '2026-10-31' }, '');
+  it('déplacé reconnu malgré le changement de date ; ancien identifiant reconnu', () => {
+    assert.deepEqual(r.modifies.map(m => [m.e.date, m.ch, m.bloque]), [['2026-10-05', { date: '2026-10-12', horaire: '10:00', duree: 120 }, false], ['2026-10-09', { horaire: '14:00' }, true]]);
+    assert.equal(r.identiques.length, 1);
+    assert.deepEqual(r.nouveaux.map(n => n.o.cle), ['N|2026-10-10']);
+  });
+  it('supprimé : seulement un atelier importé, du même conseiller, planifié, dans la période', () => {
+    assert.deepEqual(r.supprimes.map(s => s.e.date), ['2026-10-08']);
   });
 });

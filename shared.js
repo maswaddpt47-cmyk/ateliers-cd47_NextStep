@@ -5505,16 +5505,41 @@ function ImportOutlook({entries,ac,acLight,onImporter}){
   const[lieu,setLieu]=React.useState('');
   const[coches,setCoches]=React.useState({});
   const majMc=v=>{setMotCle(v);try{localStorage.setItem(lsKey('outlook_motcle'),v);}catch(_){}};
-  const ids=React.useMemo(()=>new Set((entries||[]).map(e=>e._id)),[entries]);
-  const res=React.useMemo(()=>texte?evenementsOutlook(texte,motCle,aVenir?todayLocal():''):{occurrences:[],ignores:[]},[texte,motCle,aVenir]);
+  const[cochesMaj,setCochesMaj]=React.useState({});
+  const[envoiMaj,setEnvoiMaj]=React.useState(false);
+  const res=React.useMemo(()=>texte?evenementsOutlook(texte,motCle,aVenir?todayLocal():''):{occurrences:[],ignores:[],periode:{}},[texte,motCle,aVenir]);
+  // Réimport (03/10/2026) : ce qui a changé dans Outlook depuis l'import.
+  const rap=React.useMemo(()=>rapprocherOutlook(res.occurrences,entries,res.periode,aVenir?todayLocal():''),[res,entries,aVenir]);
+  const connus=React.useMemo(()=>new Set([...rap.identiques,...rap.modifies].map(x=>x.o.cle)),[rap]);
+  const modifiables=rap.modifies.filter(m=>!m.bloque);
+  const cocheMaj=(id,defaut)=>cochesMaj[id]!==undefined?cochesMaj[id]:defaut;
+  const majChoisies=[...modifiables.filter(m=>cocheMaj(m.e._id,true)),...rap.supprimes.filter(x=>cocheMaj(x.e._id,false))];
+  async function appliquerMaj(){
+    // Seuls date, horaire, durée (et AM/PM qui en découle) ou le statut
+    // « Annulé » changent ; inscrits, présents, remarques ne bougent pas.
+    const chaine=e=>({...e,materiel:Array.isArray(e.materiel)?e.materiel.join('|'):(e.materiel||'')});
+    const liste=majChoisies.map(x=>x.ch
+      ?{...chaine(x.e),date:x.ch.date||x.e.date,horaire:x.ch.horaire||x.e.horaire,ampm:ampmDepuisHoraire(x.ch.horaire||x.e.horaire)||x.e.ampm,duree:x.ch.duree||parseInt(x.e.duree)||DUREE_DEFAUT}
+      :{...chaine(x.e),statut:'Annulé'});
+    setEnvoiMaj(true);
+    try{
+      const r=await apiFetch('saveMany',{entries:liste});
+      if(!r||!r.ok)throw new Error((r&&r.error)||'Erreur');
+      const parId={};(entries||[]).forEach(e=>{parId[e._id]=e;});
+      liste.forEach(e=>entreeSauvegardee({...e,materiel:(parId[e._id]&&parId[e._id].materiel)||[]}));
+      showToast(`✅ ${liste.length} atelier(s) mis à jour depuis Outlook`);setCochesMaj({});
+    }catch(err){showToast('❌ '+(err.message||'Erreur réseau')+' — vous pouvez réappliquer, sans doublon.',false);}
+    finally{setEnvoiMaj(false);}
+  }
   const lieux=[...new Set(res.occurrences.map(o=>o.lieu).filter(Boolean))].sort();
   const visibles=res.occurrences.filter(o=>!lieu||o.lieu===lieu);
-  const dejaLa=o=>ids.has(idOutlook(o.cle));
+  const dejaLa=o=>connus.has(o.cle);
+  const estModifie=o=>rap.modifies.some(m=>m.o.cle===o.cle);
   // Un rendez-vous tombant un jour férié est proposé décoché (02/10/2026).
   const coche=o=>coches[o.cle]!==undefined?coches[o.cle]:!o.ferie;
   const choisis=visibles.filter(o=>coche(o)&&!dejaLa(o));
   function lireFichier(f){
-    if(!f)return;setNomFichier(f.name);setCoches({});setLieu('');
+    if(!f)return;setNomFichier(f.name);setCoches({});setCochesMaj({});setLieu('');
     const r=new FileReader();r.onload=()=>setTexte(String(r.result||''));r.readAsText(f);
   }
   if(!ouvert)return CE('button',{type:'button',onClick:()=>setOuvert(true),style:{display:'flex',alignItems:'center',justifyContent:'center',gap:6,padding:10,background:'#fff',border:`2px solid ${ac}`,borderRadius:10,cursor:'pointer',fontSize:13,color:ac,fontWeight:700,width:'100%',marginBottom:12}},'📥 Importer depuis Outlook (.ics)');
@@ -5544,11 +5569,24 @@ function ImportOutlook({entries,ac,acLight,onImporter}){
         CE('tbody',null,visibles.map(o=>{const la=dejaLa(o);return CE('tr',{key:o.cle,style:{opacity:la?.5:1}},
           CE('td',{style:cell},CE('input',{type:'checkbox',disabled:la,checked:!la&&coche(o),onChange:e=>setCoches(c=>({...c,[o.cle]:e.target.checked})),'aria-label':'Importer '+o.titre})),
           CE('td',{style:{...cell,whiteSpace:'nowrap'}},fmtDate(o.date)+' '+o.horaire),
-          CE('td',{style:cell},o.titre,la&&CE('span',{style:{color:'#718096'}},' — déjà dans les ateliers'),!la&&o.ferie&&CE('span',{style:{color:'#b7791f'}},` — férié (${o.ferie}), décoché`)),
+          CE('td',{style:cell},o.titre,la&&CE('span',{style:{color:estModifie(o)?'#c05621':'#718096'}},estModifie(o)?' — modifié dans Outlook (voir plus bas)':' — déjà dans les ateliers'),!la&&o.ferie&&CE('span',{style:{color:'#b7791f'}},` — férié (${o.ferie}), décoché`)),
           CE('td',{style:{...cell,color:'#718096'}},o.lieu));})))),
-    CE('button',{type:'button',disabled:!choisis.length,onClick:()=>{if(onImporter(choisis.map(o=>({...o,thematique:'TBD',olkId:idOutlook(o.cle)}))))setOuvert(false);},
+    CE('button',{type:'button',disabled:!choisis.length,onClick:()=>{if(onImporter(choisis.map(o=>({...o,thematique:'TBD',olkId:idOutlook(o.cleStable||o.cle)}))))setOuvert(false);},
       style:{padding:'10px 18px',border:'none',borderRadius:10,cursor:choisis.length?'pointer':'not-allowed',fontSize:13,fontWeight:700,color:'#fff',background:choisis.length?ac:'#94a3b8'}},
-      `Remplir le tableau (${choisis.length})`)
+      `Remplir le tableau (${choisis.length})`),
+    (rap.modifies.length>0||rap.supprimes.length>0)&&CE('div',{style:{marginTop:12,border:'1.5px solid #fbd38d',borderRadius:8,padding:10,background:'#fffaf0'}},
+      CE('div',{style:{fontSize:13,fontWeight:700,color:'#c05621',marginBottom:6}},'🔄 Changements depuis Outlook'),
+      CE('div',{style:{fontSize:11,color:'#718096',marginBottom:6}},'Seuls la date, l\'horaire et la durée sont repris, ou le statut « Annulé » pour un rendez-vous supprimé. Inscrits, présents et remarques ne changent pas.'),
+      rap.modifies.map(m=>{const e=m.e,ch=m.ch;return CE('label',{key:e._id,style:{display:'flex',gap:6,alignItems:'flex-start',fontSize:12,padding:'3px 0',opacity:m.bloque?.55:1,cursor:m.bloque?'default':'pointer'}},
+        CE('input',{type:'checkbox',disabled:m.bloque,checked:!m.bloque&&cocheMaj(e._id,true),onChange:ev=>setCochesMaj(c=>({...c,[e._id]:ev.target.checked}))}),
+        CE('span',null,CE('strong',null,fmtDate(e.date)+' '+(e.horaire||'')+(ch.duree?' · '+fmtDuree(parseInt(e.duree)||DUREE_DEFAUT):'')),' → ',
+          CE('strong',{style:{color:'#c05621'}},fmtDate(ch.date||e.date)+' '+(ch.horaire||e.horaire||'')+(ch.duree?' · '+fmtDuree(ch.duree):'')),
+          ' — '+(e.thematique||'—'),m.bloque&&CE('em',null,' (réalisé : non modifié)')));}),
+      rap.supprimes.map(x=>{const e=x.e;return CE('label',{key:e._id,style:{display:'flex',gap:6,alignItems:'flex-start',fontSize:12,padding:'3px 0',cursor:'pointer'}},
+        CE('input',{type:'checkbox',checked:cocheMaj(e._id,false),onChange:ev=>setCochesMaj(c=>({...c,[e._id]:ev.target.checked}))}),
+        CE('span',null,CE('strong',null,fmtDate(e.date)+' '+(e.horaire||'')),' — '+(e.thematique||'—')+' — ',CE('span',{style:{color:'#c53030'}},'absent d\'Outlook : passer en « Annulé »')));}),
+      CE('button',{type:'button',disabled:!majChoisies.length||envoiMaj,onClick:appliquerMaj,style:{marginTop:8,padding:'8px 14px',border:'none',borderRadius:8,cursor:majChoisies.length?'pointer':'not-allowed',fontSize:12,fontWeight:700,color:'#fff',background:majChoisies.length?'#c05621':'#94a3b8'}},
+        envoiMaj?'…':`Appliquer ${majChoisies.length} changement(s)`))
   );
 }
 

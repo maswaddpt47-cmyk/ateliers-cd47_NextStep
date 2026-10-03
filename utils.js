@@ -704,7 +704,8 @@ function _dureeEvt(e) {
 function evenementsOutlook(texte, motCle, depuis) {
   const norm = s => stripAccents(String(s || '')).toLowerCase();
   const mc = norm(motCle).trim();
-  const evts = lireICS(texte).filter(e => e.debut && e.debut.horaire && (!mc || norm(e.titre).includes(mc)));
+  const tous = lireICS(texte);
+  const evts = tous.filter(e => e.debut && e.debut.horaire && (!mc || norm(e.titre).includes(mc)));
   // Une occurrence modifiée (RECURRENCE-ID) remplace celle de sa série.
   // Jour férié (02/10/2026) : l'occurrence est gardée mais signalée, la
   // page la propose décochée.
@@ -714,7 +715,12 @@ function evenementsOutlook(texte, motCle, depuis) {
   evts.filter(e => e.recurrenceId).forEach(e => { (remplacees[e.uid] = remplacees[e.uid] || []).push(e.recurrenceId); });
   const occ = [], ignores = [];
   for (const e of evts) {
-    const ajouter = date => occ.push({ cle: e.uid + '|' + date, date, horaire: e.debut.horaire, duree: _dureeEvt(e), titre: e.titre, lieu: e.lieu, ferie: ferie(date) });
+    // cleStable (réimport, 03/10/2026) : ne dépend pas de la date d'un
+    // rendez-vous qu'on déplace — UID seul pour un rendez-vous simple, UID +
+    // date d'origine pour une occurrence de série. `cle` garde l'ancienne
+    // formule (UID + date) : identifiant des ateliers déjà importés avant.
+    const ajouter = date => occ.push({ cle: e.uid + '|' + date, cleStable: e.rrule || e.recurrenceId ? e.uid + '|' + (e.recurrenceId || date) : e.uid,
+      date, horaire: e.debut.horaire, duree: _dureeEvt(e), titre: e.titre, lieu: e.lieu, ferie: ferie(date) });
     if (e.rrule && !e.recurrenceId) {
       const dates = _datesSerie(e.debut.date, e.rrule);
       if (!dates) { ignores.push(e.titre); continue; }
@@ -722,13 +728,55 @@ function evenementsOutlook(texte, motCle, depuis) {
       dates.filter(d => !exclues.has(d)).forEach(ajouter);
     } else ajouter(e.debut.date);
   }
+  // Période couverte par le fichier (tous les rendez-vous, mot-clé ou non) :
+  // un atelier importé absent du fichier n'est « supprimé d'Outlook » que
+  // s'il tombe dedans.
+  const dates = tous.filter(e => e.debut).map(e => e.debut.date).concat(occ.map(o => o.date)).sort();
   return {
     occurrences: occ.filter(o => !depuis || o.date >= depuis).sort((a, b) => (a.date + a.horaire).localeCompare(b.date + b.horaire)),
     ignores,
+    periode: { de: dates[0] || '', a: dates[dates.length - 1] || '' },
   };
 }
 // _id d'atelier stable pour une occurrence Outlook : réimporter le même
 // rendez-vous retrouve l'atelier déjà créé au lieu d'en créer un second.
+// Réimport Outlook (03/10/2026) : rapproche les rendez-vous du fichier des
+// ateliers déjà importés. Rend { nouveaux, identiques, modifies, supprimes } :
+// - modifies : date, horaire ou durée changés dans Outlook ({o, e, ch}) ;
+//   bloque = atelier « Réalisé », jamais modifié ;
+// - supprimes : ateliers importés d'Outlook, des mêmes conseillers que ceux
+//   reconnus, encore « Planifié », dans la période du fichier (et à partir de
+//   `depuis`), absents du fichier.
+// Outlook ne touche jamais aux inscrits, présents, remarques ni au statut.
+function rapprocherOutlook(occurrences, entries, periode, depuis) {
+  const parId = {};
+  (entries || []).forEach(e => { parId[e._id] = e; });
+  const res = { nouveaux: [], identiques: [], modifies: [], supprimes: [] };
+  const vus = new Set();
+  (occurrences || []).forEach(o => {
+    const id = idOutlook(o.cleStable || o.cle);
+    const e = parId[id] || parId[idOutlook(o.cle)];
+    if (!e) { res.nouveaux.push({ o, id }); return; }
+    vus.add(e._id);
+    const ch = {};
+    if (normalizeDate(e.date) !== o.date) ch.date = o.date;
+    if ((normalizeHoraire(e.horaire) || '') !== o.horaire) ch.horaire = o.horaire;
+    if (o.duree && (parseInt(e.duree, 10) || DUREE_DEFAUT) !== o.duree) ch.duree = o.duree;
+    if (Object.keys(ch).length) res.modifies.push({ o, e, ch, bloque: e.statut === 'Réalisé' });
+    else res.identiques.push({ o, e });
+  });
+  const cons = new Set([...vus].map(id => parId[id].conseiller));
+  const de = periode && periode.de, a = periode && periode.a;
+  if (cons.size && de && a) {
+    (entries || []).forEach(e => {
+      const d = normalizeDate(e.date);
+      if (String(e._id).startsWith('outlook_') && !vus.has(e._id) && cons.has(e.conseiller) && e.statut === 'Planifié'
+        && d >= de && d <= a && (!depuis || d >= depuis)) res.supprimes.push({ e });
+    });
+  }
+  return res;
+}
+
 function idOutlook(cle) {
   let h1 = 0x811c9dc5, h2 = 0x01000193;
   for (let i = 0; i < cle.length; i++) {
@@ -741,7 +789,7 @@ function idOutlook(cle) {
 
 if (typeof module !== 'undefined') {
   module.exports={
-    lireICS, evenementsOutlook, idOutlook,
+    lireICS, evenementsOutlook, idOutlook, rapprocherOutlook,
     genererDatesCycle, joursFeries,
     nouveautesNonVues,
     visibiliteEffective,
