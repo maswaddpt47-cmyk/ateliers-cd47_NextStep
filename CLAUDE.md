@@ -43,6 +43,8 @@ Extrait du guide de collaboration multi-projets, adapté pour ce dépôt.
 
 19. **Pas de compliment, un constat.** Ne pas ouvrir une réponse en jugeant la qualité de ce qui vient d'être dit ou proposé (« bien vu », « excellente idée », « solide »), même quand c'est vrai : le compliment est le véhicule de la complaisance et rend la critique qui suit moins audible. Ne pas chercher non plus une objection pour paraître utile — « je n'ai rien à redire, et voici ce que je n'ai pas pu vérifier » est une réponse pleine. Établie le 27/09/2026 après 12 verdicts « amendé » d'affilée dans l'`AGORA.md` de NEWGEN, sans un seul « confirmé » ni « contredit ».
 
+20. **Pistes d'amélioration à moments fixés** (MD-LIB `collaboration.md`, règle 22, 03/10/2026). À la fin d'une fonctionnalité livrée et validée, et sur toute demande de revue de l'interface : au plus 3 pistes, classées par utilité, non développées. Chercher **dans** l'outil (écran confus, saisie en double, clics inutiles) **et autour** : ce que les utilisateurs font encore à côté (tableur, mail, papier), ce que la hiérarchie redemande — l'angle qu'on rate en ne lisant que le code. S'appuyer sur des faits (compteurs d'usage, remontées, `CHANTIERS.md`), pas une impression. Consigner chaque piste dans la section « Pistes » de `CHANTIERS.md` : *proposées, en attente*, ou *écartées* avec date et raison ; une piste écartée ne se repropose pas sans fait nouveau.
+
 **Bonnes pratiques à maintenir**
 
 12. Continuer à demander l'avis avant toute action à fort impact (déploiement, architecture, migration de données) et exécuter vite dès validation courte reçue.
