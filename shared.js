@@ -1827,13 +1827,14 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
   function setRow(id,k,v){const a=k==='horaire'?ampmDepuisHoraire(v):'';setLotRows(r=>r.map(x=>x.id===id?{...x,[k]:v,...(a?{ampm:a}:{})}:x));setLotRowErrors(er=>({...er,[id]:{...(er[id]||{}),[k]:'',...(a?{ampm:''}:{})}}));}
 
   // ── validation mode unique ──
-  const FIELD_LABELS={'statut':'Statut','date':'Date','horaire':'Horaire','ampm':'AM/PM','commune':'Commune','lieu':'Lieu','thematique':'Thématique','conseiller':'Conseiller','orienteur':'Orienteur','public':'Type de public','inscrits':'Inscrits','nb_ordinateurs':'Ordinateurs prêtés'};
+  const FIELD_LABELS={'statut':'Statut','date':'Date','horaire':'Horaire','duree':'Durée','ampm':'AM/PM','commune':'Commune','lieu':'Lieu','thematique':'Thématique','conseiller':'Conseiller','orienteur':'Orienteur','public':'Type de public','inscrits':'Inscrits','nb_ordinateurs':'Ordinateurs prêtés'};
 
   function validate(){
     const e={};
     if(!form.statut)            e.statut='Requis';
     if(!form.date)              e.date='Requis';
     if(!form.horaire)           e.horaire='Requis';
+    if(!(parseInt(form.duree)>0)) e.duree='Requis';
     if(!form.commune.trim())    e.commune='Requis';
     if(!form.lieu.trim())       e.lieu='Requis';
     if(!form.thematique.trim()) e.thematique='Requis';
@@ -1869,13 +1870,14 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
       const er={};
       if(!r.date)       er.date='Requis';
       if(!r.horaire)    er.horaire='Requis';
+      if(!(parseInt(r.duree)>0)) er.duree='Requis';
       if(!(r.thematique||'').trim()) er.thematique='Requis';
       if(r.inscrits==='')er.inscrits='Requis';
       if(Object.keys(er).length>0)re[r.id]=er;
     });
     setLotRowErrors(re);
     const missing=[...Object.keys(e).map(k=>FIELD_LABELS[k]||k)];
-    if(Object.keys(re).length>0)missing.push('Date/Horaire/Thématique/Inscrits dans le tableau');
+    if(Object.keys(re).length>0)missing.push('Date/Horaire/Durée/Thématique/Inscrits dans le tableau');
     if(missing.length>0)setFormError('Champs obligatoires manquants : '+missing.join(', '));
     else setFormError('');
     return Object.keys(e).length===0&&Object.keys(re).length===0;
@@ -2124,8 +2126,8 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
             errors.horaire&&CE('span',{style:{color:'#e53e3e',fontSize:11,fontWeight:600}},errors.horaire)),
           // Durée (AG-017, 03/10/2026) : par demi-heure, 1 h 30 par défaut.
           CE('div',null,
-            Lbl({t:'Durée'}),
-            CE('select',{style:sStyle(false),value:form.duree,onChange:e=>set('duree',parseInt(e.target.value))},
+            Lbl({t:'Durée *',err:!!errors.duree}),
+            CE('select',{style:sStyle(errors.duree),value:form.duree,onChange:e=>set('duree',parseInt(e.target.value))},
               DUREES_ATELIER.map(d=>CE('option',{key:d,value:d},fmtDuree(d)))))
         )
       ),
@@ -2185,8 +2187,8 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
             CE('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr auto 32px 32px',gap:8,alignItems:'end',padding:'9px 10px 8px'}},
               CE('div',null,lbl('Date *',rErr.date),inp('date',row.date,'date',rErr.date)),
               CE('div',null,lbl('Horaire *',rErr.horaire),inp('time',row.horaire,'horaire',rErr.horaire)),
-              CE('div',null,lbl('Durée'),
-                CE('select',{value:row.duree,onChange:e=>setRow(row.id,'duree',parseInt(e.target.value)),style:{padding:'8px 6px',border:brd(false),borderRadius:8,fontSize:12,background:bg(false)}},
+              CE('div',null,lbl('Durée *',rErr.duree),
+                CE('select',{value:row.duree,onChange:e=>setRow(row.id,'duree',parseInt(e.target.value)),style:{padding:'8px 6px',border:brd(rErr.duree),borderRadius:8,fontSize:12,background:bg(rErr.duree)}},
                   DUREES_ATELIER.map(d=>CE('option',{key:d,value:d},fmtDuree(d))))),
               CE('button',{onClick:()=>dupRow(row.id),title:'Dupliquer cette séance (autre groupe, autre horaire)','aria-label':'Dupliquer cette séance',style:{background:'none',border:`1px solid ${acLight}`,borderRadius:6,color:ac,cursor:'pointer',fontSize:15,height:32,width:32,display:'flex',alignItems:'center',justifyContent:'center',alignSelf:'end'}},'⧉'),
               CE('button',{onClick:()=>removeRow(row.id),disabled:lotRows.length===1,style:{background:'none',border:`1px solid ${acLight}`,borderRadius:6,color:'#9b2c2c',cursor:'pointer',fontSize:15,height:32,width:32,display:'flex',alignItems:'center',justifyContent:'center',alignSelf:'end'}},'×')
@@ -2324,7 +2326,7 @@ function PanneauAtelier({panel,onClose,entries,onEntryUpdated,onRefresh,onEdit,o
               CE('input',{type:'date',value:panelDate,onChange:e=>setPanelDate(e.target.value),style:{width:'100%',padding:'8px 10px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:13}})),
             CE('div',{className:'sp-field'},CE('label',null,'Horaire'),
               CE('input',{type:'time',value:panelHoraire,onChange:e=>setPanelHoraire(e.target.value),style:{width:'100%',padding:'8px 10px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:13}})),
-            CE('div',{className:'sp-field'},CE('label',null,'Durée'),
+            CE('div',{className:'sp-field'},CE('label',null,'Durée *'),
               CE('select',{value:panelDuree,onChange:e=>setPanelDuree(parseInt(e.target.value)),style:{width:'100%',padding:'8px 10px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:13}},
                 DUREES_ATELIER.map(d=>CE('option',{key:d,value:d},fmtDuree(d)))))),
           CE('div',{className:'sp-field'},CE('label',null,'Type de public'),
