@@ -579,7 +579,7 @@ function urlAvisPour(origine,chemin,jeton){
 }
 
 function visibiliteEffective(v){
-  const defaut={saisie:true,historique:true,dashboard:true,carte:true,bingo:true,calendrier:false,agenda:false,planning:true,roadmap:false,gestion_ordi:true,anomalies:false,corbeille:false};
+  const defaut={saisie:true,historique:true,dashboard:true,carte:true,bingo:true,calendrier:false,agenda:false,planning:true,roadmap:false,gestion_ordi:true,anomalies:false,corbeille:false,bilans:true};
   const res=Object.assign({},defaut);
   if(v&&typeof v==='object')Object.keys(v).forEach(k=>{const x=v[k];res[k]=!(x===false||x===0||x===''||x==null||String(x).toLowerCase()==='false');});
   return res;

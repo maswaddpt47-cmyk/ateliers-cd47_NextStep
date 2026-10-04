@@ -448,6 +448,8 @@ describe('visibiliteEffective', () => {
     assert.equal(visibiliteEffective({ gestion_ordi: false }).gestion_ordi, false);
     assert.equal(visibiliteEffective({ gestion_ordi: 'false' }).gestion_ordi, false);
     assert.equal(visibiliteEffective(null).historique, true);
+    assert.equal(visibiliteEffective({}).bilans, true, 'Mes bilans ouvert par défaut, masquable par l\'Admin (04/10/2026)');
+    assert.equal(visibiliteEffective({ bilans: false }).bilans, false);
     assert.equal(visibiliteEffective({}).corbeille, false, 'Corbeille fermée sur Index sauf ouverture explicite (comme l\'API)');
   });
 });
