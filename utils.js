@@ -533,6 +533,15 @@ function voiesPlanning(items){
   return fins.length;
 }
 
+// Adresse de l'API (bac à sable, AG-019, 04/10/2026) : les pages servies
+// sous ateliers-numeriques.alwaysdata.net/sandbox/ parlent à l'API du bac à
+// sable ; toute autre adresse (GitHub Pages, tests) à celle de production.
+const API_PROD_URL='https://ateliers-numeriques.alwaysdata.net/api/index.php';
+function urlApiPour(hote,chemin){
+  return hote==='ateliers-numeriques.alwaysdata.net'&&/^\/sandbox(\/|$)/.test(String(chemin||''))
+    ?'https://ateliers-numeriques.alwaysdata.net/api-sandbox/index.php':API_PROD_URL;
+}
+
 function visibiliteEffective(v){
   const defaut={saisie:true,historique:true,dashboard:true,carte:true,bingo:true,calendrier:false,agenda:false,planning:true,roadmap:false,gestion_ordi:true,anomalies:false,corbeille:false};
   const res=Object.assign({},defaut);
@@ -797,7 +806,7 @@ if (typeof module !== 'undefined') {
     normCommune,normalizeCommune,stripAccents,htmlEsc,trunc,
     normalizeDate,normalizeHoraire,fmtDate,fmtCardDate,todayLocal,addJoursIso,
     escapeICS,foldICSLine,parseHoraireICS,parseDateICS,buildICS,
-    DUREE_DEFAUT,DUREES_ATELIER,dureeArrondie,fmtDuree,minutesHoraire,voiesPlanning,
+    DUREE_DEFAUT,DUREES_ATELIER,dureeArrondie,fmtDuree,minutesHoraire,voiesPlanning,urlApiPour,
     resumeLogsTexte,
     suppressionAboutie,
     anneesListe,

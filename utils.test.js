@@ -664,3 +664,16 @@ describe('rapprocherOutlook', () => {
     assert.deepEqual(r.supprimes.map(s => s.e.date), ['2026-10-08']);
   });
 });
+
+// ── Bac à sable : aiguillage de l'API (AG-019) ─────────────────────────────
+describe('urlApiPour', () => {
+  const { urlApiPour } = require('./utils.js');
+  const PROD = 'https://ateliers-numeriques.alwaysdata.net/api/index.php';
+  it('production (GitHub Pages, tests) : jamais l\'API du bac à sable', () => {
+    for (const [h, c] of [['maswaddpt47-cmyk.github.io', '/ATELIERS_NEWGEN/sandbox/index.html'], ['maswaddpt47-cmyk.github.io', '/ateliers-cd47_NextStep/'], ['localhost', '/sandbox/'], ['ateliers-numeriques.alwaysdata.net', '/sandboxx/']])
+      assert.equal(urlApiPour(h, c), PROD, h + c);
+  });
+  it('pages du bac à sable : API du bac à sable', () => {
+    assert.equal(urlApiPour('ateliers-numeriques.alwaysdata.net', '/sandbox/index.html'), 'https://ateliers-numeriques.alwaysdata.net/api-sandbox/index.php');
+  });
+});
