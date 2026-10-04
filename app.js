@@ -8,6 +8,7 @@ var VIEW_META_F = {
   saisie:     {ico:'✏️',  label:'Nouveau',      group:'Action'},
   historique: {ico:'📋',  label:'Historique',   group:'Voir'},
   dashboard:  {ico:'📊',  label:'Dashboard',    group:'Voir'},
+  bilans:     {ico:'📝',  label:'Mes bilans',   group:'Voir'},
   agenda:     {ico:'🗓️', label:'Agenda',        group:'Voir'},
   planning:   {ico:'📊', label:'Planning',      group:'Voir'},
   calendrier: {ico:'📅',  label:'Calendrier',   group:'Voir'},
@@ -751,6 +752,10 @@ function App(){
       sideBtn('dashboard','📊','Dashboard',visibility.dashboard),
       sideBtn('bingo','🎯','Bingo',visibility.bingo),
 
+      // Mes bilans (04/10/2026) : toujours visible, hors de Stats.
+      CE('div',{className:'sidebar-sep'}),
+      sideBtn('bilans','📝','Mes bilans'),
+
       CE('div',{className:'sidebar-sep'}),
       CE('span',{className:'sidebar-group-label'},'Info'),
       CE('div',{style:{position:'relative'}},sideBtn('nouveautes','🆕','Nouveautés'),CE(PastilleNouveautes,{nb:nbNouveautes})),
@@ -853,14 +858,15 @@ function App(){
           view==='agenda'&&visibility.agenda&&CE(VueAgendaSemaine,{entries,onEdit:handleEdit,onDelete:handleDelete,onDuplicate:handleDuplicate,canDelete:true,initConseiller:filtreConseiller,accentColor}),
           view==='planning'&&visibility.planning&&CE(VuePlanning,{entries,onEdit:handleEdit,onDelete:handleDelete,onDuplicate:handleDuplicate,canDelete:true,accentColor,conseillers:conseillerActifs}),
           view==='calendrier'&&visibility.calendrier&&CE(VueCalendrier,{entries,onEdit:handleEdit,onDelete:handleDelete,onRefresh:()=>loadData(),onDuplicate:handleDuplicate,initConseiller:filtreConseiller,onResetConseiller:()=>{},canDelete:true}),
-          view==='dashboard'&&visibility.dashboard&&CE(VueDashboardTabs,{entries,conseillers:lists.conseillers}),
+          view==='dashboard'&&visibility.dashboard&&CE(VueDashboardTabs,{entries,conseillers:lists.conseillers,sansBilans:true}),
+          view==='bilans'&&CE(VueMesBilans,{entries}),
           view==='carte'&&visibility.carte&&CE(VueCarte,{entries,active:view==='carte'}),
           view==='roadmap'&&visibility.roadmap&&CE(VueRoadmap,{entries,annee:anneeReference(annee),conseillers:lists.conseillers}),
           view==='gestion_ordi'&&visibility.gestion_ordi&&CE(VueGestionOrdi,{entries,onEdit:handleEdit}),
           view==='bingo'&&visibility.bingo&&CE(VueBingo,{entries}),
           view==='corbeille'&&visibility.corbeille&&CE(VueCorbeille,null),
           view==='nouveautes'&&CE(VueNouveautes,{onVu:marquerNouveautes}),
-          view==='signaler'&&CE(VueTickets,{admin:false,onVu:marquerTickets,ongletCourant:ongletAvantSignaler.current,onglets:Object.keys(VIEW_META_F).filter(k=>k!=='signaler'&&k!=='nouveautes'&&(visibility[k]||k==='saisie')).map(k=>VIEW_META_F[k].label)})
+          view==='signaler'&&CE(VueTickets,{admin:false,onVu:marquerTickets,ongletCourant:ongletAvantSignaler.current,onglets:Object.keys(VIEW_META_F).filter(k=>k!=='signaler'&&k!=='nouveautes'&&(visibility[k]||k==='saisie'||k==='bilans')).map(k=>VIEW_META_F[k].label)})
         )
       )
     ),
