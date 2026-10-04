@@ -5785,6 +5785,8 @@ function VueUsageOnglets(){
 // correctifs invisibles. Rédigée pour l'équipe, pas en langage de commit.
 // `id` croissant, jamais réutilisé : la pastille compte les id plus grands
 // que le dernier vu sur cet appareil (nouveautesNonVues, utils.js).
+// Id retirés, à ne pas reprendre : 25 et 26 le 04/10/2026 (renvoyaient à
+// Stats, que les conseillers n'ont plus ; « Mes bilans » est en 27).
 // ═══════════════════════════════════════════════════════════
 const NOUVEAUTES=[
   {id:1,date:'2026-10-01',titre:'Votre nom proposé d\'office',texte:'Écran conseillers : à la création d\'un atelier, le champ Conseiller est déjà rempli avec votre nom. Il reste modifiable pour saisir pour un collègue.'},
@@ -5805,8 +5807,6 @@ const NOUVEAUTES=[
   {id:22,date:'2026-10-05',titre:'Planning de la semaine',texte:'Nouvel onglet « 📊 Planning » : la semaine du lundi au vendredi, une ligne par conseiller, chaque atelier dessiné à son heure et sur sa durée. On voit d\'un coup d\'œil qui est disponible et quand. Sur ordinateur, passez la souris sur un atelier pour voir son détail ; un clic (ou un appui sur téléphone) ouvre le volet pour le modifier. Contour rouge : atelier à mettre à jour ; barre estompée : annulé ou reporté. L\'Agenda reste disponible pendant l\'essai.'},
   {id:23,date:'2026-10-05',titre:'Fiche bilan de l\'atelier',texte:'Volet latéral : quand un atelier passe en « Réalisé », une fiche bilan apparaît sous les remarques. Quelques clics suffisent : niveau du groupe, objectif atteint, difficultés rencontrées (avec une précision libre pour « Autre »), supports utilisés et suite à donner. Elle se relit et se corrige au même endroit, puis « 💾 Enregistrer ».'},
   {id:24,date:'2026-10-05',titre:'L\'avis des stagiaires par QR code',texte:'Volet latéral : « 📱 QR code des avis stagiaires » affiche le QR de l\'atelier, à projeter ou à imprimer. Les stagiaires le scannent avec leur téléphone et répondent en une minute, sans donner leur nom. Le questionnaire est ouvert du jour de l\'atelier à 30 jours après. Pour quelqu\'un sans smartphone, « ✍️ Saisir un avis papier » enregistre ses réponses. Le résumé des avis reçus s\'affiche sous le QR.'},
-  {id:25,date:'2026-10-05',titre:'Les avis des stagiaires, atelier par atelier',texte:'Stats (Dashboard) → « 💬 Avis par atelier » : tous les ateliers qui ont reçu des avis sur la période choisie (90 derniers jours par défaut), avec le nombre d\'avis, les notes moyennes et les réponses « plus à l\'aise » ou « refaire seul ». Cliquez sur une ligne pour lire les remarques. Bouton « 🖨️ Imprimer / PDF ».'},
-  {id:26,date:'2026-10-05',titre:'Le bilan trimestriel en un clic',texte:'Stats (Dashboard) → « 🗓️ Bilan trimestriel » : choisissez le trimestre, le bilan s\'affiche — activité (ateliers, participants, taux de présence, heures), fiches bilan, avis des stagiaires et tableau par thématique, sur les ateliers « Réalisé ». Pensez à passer vos ateliers en « Réalisé » et à remplir leur fiche bilan : sinon, ils manquent au bilan. Bouton « 🖨️ Imprimer / PDF ».'},
   {id:27,date:'2026-10-05',titre:'Vos bilans dans « Mes bilans »',texte:'Nouvel onglet « 📝 Mes bilans » dans la barre du bas : les avis des stagiaires atelier par atelier, le bilan mensuel et le bilan trimestriel, limités aux ateliers que vous animez ou co-animez. Les avis d\'un atelier ne sont visibles que par son animateur et son co-animateur, y compris dans la fenêtre du QR code.'},
 ];
 
