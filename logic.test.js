@@ -533,3 +533,40 @@ describe('presentsSuperieursInscrits', () => {
     assert.equal(presentsSuperieursInscrits({}), false);
   });
 });
+
+// ── Bilan trimestriel (04/10/2026) ───────────────────────────────────────────
+const {bornesTrimestre, trimestrePrecedent, bilanTrimestriel} = require('./logic.js');
+describe('bilan trimestriel', () => {
+  it('bornes et trimestre précédent, y compris le passage d\'année', () => {
+    assert.deepEqual(bornesTrimestre(2026, 1), ['2026-01-01', '2026-03-31']);
+    assert.deepEqual(bornesTrimestre(2028, 1), ['2028-01-01', '2028-03-31']);
+    assert.deepEqual(bornesTrimestre(2026, 3), ['2026-07-01', '2026-09-30']);
+    assert.deepEqual(trimestrePrecedent('2026-10-04'), {annee: 2026, t: 3});
+    assert.deepEqual(trimestrePrecedent('2027-02-15'), {annee: 2026, t: 4});
+  });
+  it('fiches et avis comptés sur les seuls ateliers réalisés de la période', () => {
+    const E = [
+      {_id: 'a', date: '2026-07-02', statut: 'Réalisé', thematique: 'IA', inscrits: 8, presents: 6, duree: 90, commune: 'AGEN',
+       fiche_bilan: {objectif: 'Oui', difficultes: ['Connexion', 'Autre'], difficultes_autre: 'Panne', supports: ['Vidéo']}},
+      {_id: 'b', date: '2026-08-10', statut: 'Réalisé', thematique: 'IA', inscrits: 4, presents: '', duree: 120, commune: 'AGEN', fiche_bilan: ''},
+      {_id: 'c', date: '2026-09-01', statut: 'Annulé', thematique: 'IA', inscrits: 5, fiche_bilan: {objectif: 'Non'}},
+      {_id: 'd', date: '2026-10-01', statut: 'Réalisé', thematique: 'IA', presents: 9, fiche_bilan: {objectif: 'Non'}},
+    ];
+    const avis = [{atelier_id: 'a', attentes: 5, aise: 'Oui'}, {atelier_id: 'a', attentes: 4, aise: 'Oui'},
+                  {atelier_id: 'c', attentes: 1}, {atelier_id: 'd', attentes: 1}];
+    const b = bilanTrimestriel(E, '2026-07-01', '2026-09-30', avis);
+    assert.equal(b.activite.realises, 2);
+    assert.deepEqual(b.activite.statuts, {'Réalisé': 2, 'Annulé': 1});
+    assert.equal(b.activite.presents, 6);
+    assert.equal(b.activite.tauxPresence, 75);   // b : présents non saisis, hors taux
+    assert.equal(b.activite.heures, 3.5);
+    assert.equal(b.fiches.remplies, 1);
+    assert.deepEqual(b.fiches.objectif, {Oui: 1});
+    assert.deepEqual(b.fiches.difficultes, {Connexion: 1, Autre: 1});
+    assert.deepEqual(b.fiches.autres, ['Panne']);
+    assert.equal(b.avis.n, 2);
+    assert.equal(b.avis.attentes, 4.5);
+    assert.deepEqual(b.avis.aise, {Oui: 2});
+    assert.deepEqual(b.parTheme, [{theme: 'IA', ateliers: 2, presents: 6, avis: 2, attentes: 4.5}]);
+  });
+});

@@ -5519,16 +5519,153 @@ function VueDashboard({entries}){
 }
 
 
-// ── VueDashboardTabs — Dashboard unifié (3 onglets) ──────────
+// ── Bilan trimestriel (CR « option 1 », module D, 04/10/2026) ───────────
+// Un clic : activité, fiches bilan et avis des stagiaires d'un trimestre,
+// imprimable en PDF. Calcul : bilanTrimestriel (logic.js). Les avis
+// viennent de l'action bilanAvis, appelée à l'ouverture de l'onglet et au
+// changement de période, jamais au démarrage.
+const BILAN_LIBELLES={niveau:'Niveau du groupe',objectif:'Objectif atteint',difficultes:'Difficultés rencontrées',supports:'Supports utilisés',suite:'Suite à donner'};
+function htmlBilanTrimestriel(b,titre,remarques,avisErreur){
+  const e=htmlEsc,pc=(n,t)=>t?Math.round(n/t*100)+' %':'—';
+  const repartition=(compte,ordre,total)=>{
+    const cles=[...ordre.filter(k=>compte[k]),...Object.keys(compte).filter(k=>!ordre.includes(k))];
+    if(!cles.length)return '<div class="bt-vide">Aucune réponse</div>';
+    return cles.map(k=>`<div class="bt-barre"><span class="bt-lib">${e(k)}</span><span class="bt-fond"><span style="width:${total?Math.round(compte[k]/total*100):0}%"></span></span><span class="bt-val">${compte[k]} · ${pc(compte[k],total)}</span></div>`).join('');
+  };
+  const a=b.activite,f=b.fiches,v=b.avis;
+  const chiffre=(n,l)=>`<div class="bt-kpi"><b>${n===null||n===undefined?'—':e(String(n))}</b><span>${e(l)}</span></div>`;
+  const statuts=Object.entries(a.statuts).filter(([k])=>k!=='Réalisé').map(([k,n])=>`${e(k)} : ${n}`).join(' · ');
+  const reste=a.statuts['Planifié']||0;
+  let h=`<h1>${e(titre)}</h1><div class="bt-sous">Du ${fmtDate(b.debut)} au ${fmtDate(b.fin)} — statistiques sur les ateliers « Réalisé »</div>`;
+  h+=`<h2>Activité</h2><div class="bt-kpis">${chiffre(a.realises,'ateliers réalisés')}${chiffre(a.presents,'participants')}${chiffre(a.tauxPresence===null?null:a.tauxPresence+' %','taux de présence')}${chiffre(String(a.heures).replace('.',','),'heures d\'animation')}${chiffre(a.communes,'communes')}</div>`;
+  if(statuts)h+=`<div class="bt-note">Autres ateliers de la période : ${statuts}.</div>`;
+  if(reste)h+=`<div class="bt-alerte">⚠️ ${reste} atelier${reste>1?'s':''} encore « Planifié » sur la période : statut à mettre à jour, sinon ${reste>1?'ils manquent':'il manque'} au bilan.</div>`;
+  h+=`<h2>Fiches bilan</h2><div class="bt-note">${f.remplies} fiche${f.remplies>1?'s':''} remplie${f.remplies>1?'s':''} sur ${a.realises} atelier${a.realises>1?'s':''} réalisé${a.realises>1?'s':''}${a.realises>f.remplies?` (${a.realises-f.remplies} sans fiche)`:''}. Pourcentages sur les fiches remplies${BILAN_MULTIPLES.length?' ; plusieurs réponses possibles pour les difficultés et les supports':''}.</div><div class="bt-grille">`;
+  Object.keys(BILAN_CHOIX).forEach(k=>{h+=`<div class="bt-bloc"><h3>${e(BILAN_LIBELLES[k]||k)}</h3>${repartition(f[k],BILAN_CHOIX[k],f.remplies)}${k==='difficultes'&&f.autres.length?`<div class="bt-note">« Autre » : ${f.autres.map(e).join(' ; ')}</div>`:''}</div>`;});
+  h+=`</div><h2>Avis des stagiaires</h2>`;
+  if(avisErreur)h+=`<div class="bt-alerte">Avis non chargés : ${e(avisErreur)}</div>`;
+  else{
+    h+=`<div class="bt-kpis">${chiffre(v.n,'avis reçus')}${chiffre(v.ateliers,'ateliers concernés')}${chiffre(v.attentes===null?null:String(v.attentes).replace('.',',')+'/5','attentes')}${chiffre(v.clarte===null?null:String(v.clarte).replace('.',',')+'/5','clarté')}</div>`;
+    if(v.n){
+      h+='<div class="bt-grille">';
+      AVIS_QUESTIONS.filter(([k])=>v[k]).forEach(([k,lib,ordre])=>{h+=`<div class="bt-bloc"><h3>${e(lib)}</h3>${repartition(v[k],ordre,v.n)}</div>`;});
+      h+='</div>';
+      if((remarques||[]).length)h+=`<h3>Remarques (anonymes)</h3><ul class="bt-rem">${remarques.map(r=>`<li>« ${e(r)} »</li>`).join('')}</ul>`;
+    }
+  }
+  if(b.parTheme.length){
+    h+=`<h2>Par thématique</h2><table class="bt-table"><thead><tr><th>Thématique</th><th>Ateliers</th><th>Participants</th><th>Avis</th><th>Attentes</th></tr></thead><tbody>`;
+    b.parTheme.forEach(t=>{h+=`<tr><td>${e(t.theme)}</td><td>${t.ateliers}</td><td>${t.presents}</td><td>${t.avis}</td><td>${t.attentes===null?'—':String(t.attentes).replace('.',',')+'/5'}</td></tr>`;});
+    h+='</tbody></table>';
+  }
+  return h;
+}
+const BILAN_TRIM_CSS=`.bt h1{font-size:20px;color:#0f766e;margin:0 0 2px}.bt h2{font-size:15px;color:#0f766e;border-bottom:2px solid #ccfbf1;padding-bottom:3px;margin:18px 0 8px}.bt h3{font-size:13px;margin:0 0 6px;color:#334155}
+.bt-sous{font-size:12px;color:#64748b}.bt-kpis{display:flex;flex-wrap:wrap;gap:8px}.bt-kpi{flex:1 1 110px;background:#f0fdfa;border-radius:8px;padding:8px 10px;text-align:center}.bt-kpi b{display:block;font-size:20px;color:#0f766e}.bt-kpi span{font-size:11px;color:#475569}
+.bt-note{font-size:12px;color:#64748b;margin:6px 0}.bt-alerte{font-size:12px;background:#fff7ed;color:#9a3412;border-radius:6px;padding:6px 8px;margin:6px 0}.bt-vide{font-size:12px;color:#94a3b8}
+.bt-grille{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px}.bt-bloc{border:1px solid #e2e8f0;border-radius:8px;padding:8px 10px;break-inside:avoid}
+.bt-barre{display:grid;grid-template-columns:42% 1fr auto;gap:6px;align-items:center;font-size:12px;margin:3px 0}.bt-lib{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.bt-fond{background:#f1f5f9;border-radius:4px;height:9px;overflow:hidden}.bt-fond span{display:block;height:100%;background:#14b8a6}.bt-val{color:#475569;white-space:nowrap}
+.bt-rem{font-size:12px;color:#475569;font-style:italic;padding-left:18px}.bt-table{width:100%;border-collapse:collapse;font-size:12px}.bt-table th,.bt-table td{border-bottom:1px solid #e2e8f0;padding:5px 6px;text-align:left}.bt-table th{background:#f8fafc}
+@media print{.bt *{-webkit-print-color-adjust:exact;print-color-adjust:exact}}`;
+function VueBilanTrimestriel({entries}){
+  const defaut=trimestrePrecedent(todayLocal());
+  const[annee,setAnnee]=React.useState(defaut.annee);
+  const[t,setT]=React.useState(defaut.t);
+  const[av,setAv]=React.useState(null);
+  const[debut,fin]=bornesTrimestre(annee,t);
+  React.useEffect(()=>{let vivant=true;setAv(null);
+    (async()=>{try{
+      const r=await apiFetch('bilanAvis',{du:debut,au:fin});
+      if(vivant)setAv(r&&r.ok?{avis:r.avis,remarques:r.remarques}:{erreur:(r&&r.error)||'Erreur'});
+    }catch(e){if(vivant)setAv({erreur:e.message||'Erreur réseau'});}})();
+    return()=>{vivant=false;};},[debut,fin]);
+  const annees=[...new Set([annee,new Date().getFullYear(),...(entries||[]).map(e=>parseInt(String(normalizeDate(e.date)||'').slice(0,4))).filter(Boolean)])].sort((x,y)=>y-x);
+  const titre=`Bilan du ${t===1?'1er':t+'e'} trimestre ${annee} — Ateliers numériques`;
+  const b=bilanTrimestriel(entries,debut,fin,av&&av.avis||[]);
+  const html=av?htmlBilanTrimestriel(b,titre,av.remarques,av.erreur):'';
+  function imprimer(){
+    const w=window.open('','_blank');if(!w){showToast('Autorisez les fenêtres pour ce site',false);return;}
+    w.document.write(`<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><title>${htmlEsc(titre)}</title><style>body{font-family:Arial,sans-serif;margin:24px;color:#0f172a}${BILAN_TRIM_CSS}</style></head><body><div class="bt">${html}<div class="bt-note" style="margin-top:16px">Édité le ${fmtDate(todayLocal())}. Avis des stagiaires anonymes.</div></div><script>window.print();<\/script></body></html>`);
+    w.document.close();
+  }
+  const sel={padding:'6px 8px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:13};
+  return CE('div',{className:'card'},
+    CE('style',null,BILAN_TRIM_CSS),
+    CE('div',{style:{display:'flex',gap:8,flexWrap:'wrap',alignItems:'center',marginBottom:14}},
+      CE('select',{value:t,onChange:e=>setT(parseInt(e.target.value)),style:sel,'aria-label':'Trimestre'},[1,2,3,4].map(n=>CE('option',{key:n,value:n},`${n===1?'1er':n+'e'} trimestre`))),
+      CE('select',{value:annee,onChange:e=>setAnnee(parseInt(e.target.value)),style:sel,'aria-label':'Année'},annees.map(n=>CE('option',{key:n,value:n},n))),
+      CE('button',{type:'button',className:'btn btn-primary btn-sm',disabled:!av,onClick:imprimer},'🖨️ Imprimer / PDF')),
+    !av?CE('div',{style:{padding:30,color:'#64748b',textAlign:'center'}},'Chargement des avis…')
+      :CE('div',{className:'bt',dangerouslySetInnerHTML:{__html:html}}));
+}
+
+// ── Avis par atelier (demande du 04/10/2026) ──────────────────────────────
+// Récapitulatif des avis des stagiaires atelier par atelier, à tout moment
+// (le bilan trimestriel, lui, porte sur un trimestre clos). Action de
+// lecture avisParAtelier, appelée à l'ouverture de l'onglet et au changement
+// de période, jamais au démarrage.
+function VueAvisAteliers({entries}){
+  const auj=todayLocal();
+  const[du,setDu]=React.useState(addJoursIso(auj,-90));
+  const[au,setAu]=React.useState(auj);
+  const[res,setRes]=React.useState(null);
+  const[ouvert,setOuvert]=React.useState({});
+  React.useEffect(()=>{let vivant=true;setRes(null);
+    if(!du||!au||du>au){setRes({erreur:'Période invalide'});return;}
+    (async()=>{try{
+      const r=await apiFetch('avisParAtelier',{du,au});
+      if(vivant)setRes(r&&r.ok?{ateliers:r.ateliers||[]}:{erreur:(r&&r.error)||'Erreur'});
+    }catch(e){if(vivant)setRes({erreur:e.message||'Erreur réseau'});}})();
+    return()=>{vivant=false;};},[du,au]);
+  const parId=Object.fromEntries((entries||[]).map(e=>[e._id,e]));
+  const lignes=(res&&res.ateliers||[]).map(a=>({...a,e:parId[a.atelier_id]||{}}))
+    .sort((x,y)=>String(normalizeDate(y.e.date)||'').localeCompare(String(normalizeDate(x.e.date)||'')));
+  const totalAvis=lignes.reduce((t,l)=>t+l.n,0);
+  const note=v=>v===null||v===undefined?'—':String(v).replace('.',',')+'/5';
+  const part=(o,n)=>n?`${o}/${n}`:'—';
+  const COLS=['Date','Thématique','Commune','Conseiller','Avis','Attentes','Clarté','Rythme adapté','Plus à l\'aise','Refaire seul'];
+  const cellules=l=>[fmtDate(l.e.date),l.e.thematique||'—',l.e.commune||'—',l.e.conseiller||'—',l.n+(l.papier?` (dont ${l.papier} papier)`:''),note(l.attentes),note(l.clarte),part(l.rythme_ok,l.rythme_n),part(l.aise_oui,l.aise_n),part(l.autonomie_oui,l.autonomie_n)];
+  function imprimer(){
+    const w=window.open('','_blank');if(!w){showToast('Autorisez les fenêtres pour ce site',false);return;}
+    const e=htmlEsc;
+    const corps=lignes.map(l=>`<tr>${cellules(l).map(c=>`<td>${e(String(c))}</td>`).join('')}</tr>`+(l.remarques.length?`<tr><td></td><td colspan="9" class="rem">${l.remarques.map(r=>'« '+e(r)+' »').join('<br>')}</td></tr>`:'')).join('');
+    w.document.write(`<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><title>Avis des stagiaires par atelier</title><style>body{font-family:Arial,sans-serif;margin:24px;color:#0f172a}h1{font-size:18px;color:#0f766e}table{width:100%;border-collapse:collapse;font-size:11px}th,td{border-bottom:1px solid #e2e8f0;padding:4px 5px;text-align:left;vertical-align:top}th{background:#f8fafc}.rem{font-style:italic;color:#475569}</style></head><body><h1>Avis des stagiaires par atelier</h1><p style="font-size:12px;color:#64748b">Ateliers du ${fmtDate(du)} au ${fmtDate(au)} — ${lignes.length} atelier(s), ${totalAvis} avis. Avis anonymes. Édité le ${fmtDate(auj)}.</p><table><thead><tr>${COLS.map(c=>`<th>${e(c)}</th>`).join('')}</tr></thead><tbody>${corps}</tbody></table><script>window.print();<\/script></body></html>`);
+    w.document.close();
+  }
+  const champ={padding:'6px 8px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:13};
+  const td={padding:'6px 8px',borderBottom:'1px solid #e2e8f0',fontSize:12,verticalAlign:'top',whiteSpace:'nowrap'};
+  return CE('div',{className:'card'},
+    CE('div',{style:{display:'flex',gap:8,flexWrap:'wrap',alignItems:'center',marginBottom:12}},
+      CE('label',{style:{fontSize:13}},'Du ',CE('input',{type:'date',value:du,onChange:e=>setDu(e.target.value),style:champ})),
+      CE('label',{style:{fontSize:13}},'Au ',CE('input',{type:'date',value:au,onChange:e=>setAu(e.target.value),style:champ})),
+      CE('button',{type:'button',className:'btn btn-primary btn-sm',disabled:!lignes.length,onClick:imprimer},'🖨️ Imprimer / PDF')),
+    !res?CE('div',{style:{padding:30,color:'#64748b',textAlign:'center'}},'Chargement des avis…')
+    :res.erreur?CE('div',{style:{color:'#b91c1c',padding:16}},'❌ '+res.erreur)
+    :!lignes.length?CE('div',{style:{padding:30,color:'#64748b',textAlign:'center'}},'Aucun avis pour les ateliers de cette période.')
+    :CE(React.Fragment,null,
+      CE('div',{style:{fontSize:12,color:'#64748b',marginBottom:8}},`${lignes.length} atelier${lignes.length>1?'s':''} avec des avis, ${totalAvis} avis en tout. Cliquez sur une ligne pour lire ses remarques.`),
+      CE('div',{style:{overflowX:'auto'}},
+        CE('table',{style:{width:'100%',borderCollapse:'collapse'}},
+          CE('thead',null,CE('tr',null,COLS.map(c=>CE('th',{key:c,style:{...td,background:'#f8fafc',textAlign:'left',fontWeight:700}},c)))),
+          CE('tbody',null,lignes.map(l=>CE(React.Fragment,{key:l.atelier_id},
+            CE('tr',{onClick:()=>setOuvert(o=>({...o,[l.atelier_id]:!o[l.atelier_id]})),style:{cursor:l.remarques.length?'pointer':'default'}},
+              cellules(l).map((c,i)=>CE('td',{key:i,style:td},i===0&&l.remarques.length?(ouvert[l.atelier_id]?'▾ ':'▸ ')+c:c))),
+            ouvert[l.atelier_id]&&l.remarques.length>0&&CE('tr',null,CE('td',{colSpan:COLS.length,style:{...td,whiteSpace:'normal',fontStyle:'italic',color:'#475569',background:'#f8fafc'}},
+              l.remarques.map((r,i)=>CE('div',{key:i},'« '+r+' »')))))))))));
+}
+
+// ── VueDashboardTabs — Dashboard unifié (5 onglets) ──────────
 function VueDashboardTabs({entries, conseillers}){
   const[tab,setTab]=React.useState('dashboard');
   const TABS=[
     {id:'dashboard', ico:'🚀', label:'Synthèse'},
     {id:'graphiques', ico:'📊', label:'Analyse'},
     {id:'powerbi',    ico:'📈', label:'Bilan mensuel'},
+    {id:'avis',       ico:'💬', label:'Avis par atelier'},
+    {id:'trimestre',  ico:'🗓️', label:'Bilan trimestriel'},
   ];
   return CE('div',null,
-    CE('div',{style:{display:'flex',borderBottom:'2px solid #e5e7eb',marginBottom:16,gap:4}},
+    CE('div',{style:{display:'flex',borderBottom:'2px solid #e5e7eb',marginBottom:16,gap:4,overflowX:'auto'}},
       TABS.map(t=>CE('button',{
         key:t.id,
         onClick:()=>setTab(t.id),
@@ -5543,7 +5680,9 @@ function VueDashboardTabs({entries, conseillers}){
     ),
     tab==='dashboard'  && CE(VueDashboard,{entries}),
     tab==='graphiques' && CE(VueGraphiques,{entries}),
-    tab==='powerbi'    && CE(VuePowerBI,{entries,conseillers})
+    tab==='powerbi'    && CE(VuePowerBI,{entries,conseillers}),
+    tab==='avis'       && CE(VueAvisAteliers,{entries}),
+    tab==='trimestre'  && CE(VueBilanTrimestriel,{entries})
   );
 }
 
@@ -5634,6 +5773,8 @@ const NOUVEAUTES=[
   {id:22,date:'2026-10-05',titre:'Planning de la semaine',texte:'Nouvel onglet « 📊 Planning » : la semaine du lundi au vendredi, une ligne par conseiller, chaque atelier dessiné à son heure et sur sa durée. On voit d\'un coup d\'œil qui est disponible et quand. Sur ordinateur, passez la souris sur un atelier pour voir son détail ; un clic (ou un appui sur téléphone) ouvre le volet pour le modifier. Contour rouge : atelier à mettre à jour ; barre estompée : annulé ou reporté. L\'Agenda reste disponible pendant l\'essai.'},
   {id:23,date:'2026-10-05',titre:'Fiche bilan de l\'atelier',texte:'Volet latéral : quand un atelier passe en « Réalisé », une fiche bilan apparaît sous les remarques. Quelques clics suffisent : niveau du groupe, objectif atteint, difficultés rencontrées (avec une précision libre pour « Autre »), supports utilisés et suite à donner. Elle se relit et se corrige au même endroit, puis « 💾 Enregistrer ».'},
   {id:24,date:'2026-10-05',titre:'L\'avis des stagiaires par QR code',texte:'Volet latéral : « 📱 QR code des avis stagiaires » affiche le QR de l\'atelier, à projeter ou à imprimer. Les stagiaires le scannent avec leur téléphone et répondent en une minute, sans donner leur nom. Le questionnaire est ouvert du jour de l\'atelier à 30 jours après. Pour quelqu\'un sans smartphone, « ✍️ Saisir un avis papier » enregistre ses réponses. Le résumé des avis reçus s\'affiche sous le QR.'},
+  {id:25,date:'2026-10-05',titre:'Les avis des stagiaires, atelier par atelier',texte:'Stats (Dashboard) → « 💬 Avis par atelier » : tous les ateliers qui ont reçu des avis sur la période choisie (90 derniers jours par défaut), avec le nombre d\'avis, les notes moyennes et les réponses « plus à l\'aise » ou « refaire seul ». Cliquez sur une ligne pour lire les remarques. Bouton « 🖨️ Imprimer / PDF ».'},
+  {id:26,date:'2026-10-05',titre:'Le bilan trimestriel en un clic',texte:'Stats (Dashboard) → « 🗓️ Bilan trimestriel » : choisissez le trimestre, le bilan s\'affiche — activité (ateliers, participants, taux de présence, heures), fiches bilan, avis des stagiaires et tableau par thématique, sur les ateliers « Réalisé ». Pensez à passer vos ateliers en « Réalisé » et à remplir leur fiche bilan : sinon, ils manquent au bilan. Bouton « 🖨️ Imprimer / PDF ».'},
 ];
 
 // ═══════════════════════════════════════════════════════════

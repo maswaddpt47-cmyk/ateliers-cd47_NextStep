@@ -9,7 +9,10 @@
 // entre les deux dépôts sans qu'aucune page ne les exécute.
 
 if (typeof require !== 'undefined') {
-  var {addJoursIso, matIncludes} = require('./utils.js');
+  var {addJoursIso, matIncludes, normalizeDate} = require('./utils.js');
+  // Constantes (const) d'utils.js : un « var » du même nom ferait échouer le
+  // chargement de ce fichier dans les pages (redéclaration). Nom distinct.
+  var LOGIC_UTILS = require('./utils.js');
 }
 // En contexte navigateur, addJoursIso et matIncludes sont déjà des globals (utils.js chargé avant)
 
@@ -295,6 +298,80 @@ function estConflitPasse(conflit, today) {
   return (conflit.dateFin || conflit.date) < today;
 }
 
+// ── Bilan trimestriel (CR « option 1 », module D, 04/10/2026) ─────────────
+
+// Premier et dernier jour du trimestre t (1 à 4) de l'année a.
+function bornesTrimestre(a, t) {
+  const mm = n => String(n).padStart(2, '0');
+  const fin = new Date(Date.UTC(a, t * 3, 0)).getUTCDate();
+  return [`${a}-${mm(t * 3 - 2)}-01`, `${a}-${mm(t * 3)}-${mm(fin)}`];
+}
+
+// Dernier trimestre terminé à la date du jour (AAAA-MM-JJ) : celui qu'on
+// présente par défaut, un bilan portant sur une période close.
+function trimestrePrecedent(today) {
+  const a = parseInt(today.slice(0, 4), 10), t = Math.floor((parseInt(today.slice(5, 7), 10) - 1) / 3) + 1;
+  return t === 1 ? {annee: a - 1, t: 4} : {annee: a, t: t - 1};
+}
+
+// Chiffres du bilan d'une période [debut, fin] : activité sur tous les
+// statuts, fiches bilan et avis sur les seuls ateliers « Réalisé ».
+// avis : lignes de l'action bilanAvis (une par avis, sans remarque).
+function bilanTrimestriel(entries, debut, fin, avis) {
+  // Navigateur : constantes globales d'utils.js (const, absentes de window).
+  const CHOIX = typeof LOGIC_UTILS !== 'undefined' ? LOGIC_UTILS.BILAN_CHOIX : BILAN_CHOIX;
+  const MULTIPLES = typeof LOGIC_UTILS !== 'undefined' ? LOGIC_UTILS.BILAN_MULTIPLES : BILAN_MULTIPLES;
+  const compter = (o, k) => { if (k !== null && k !== undefined && k !== '') o[k] = (o[k] || 0) + 1; };
+  const moyenne = l => l.length ? Math.round(l.reduce((x, y) => x + y, 0) / l.length * 10) / 10 : null;
+  const num = v => (v === '' || v === null || v === undefined || isNaN(parseInt(v, 10))) ? null : parseInt(v, 10);
+  const periode = (entries || []).filter(e => { const d = normalizeDate(e.date); return d && d >= debut && d <= fin; });
+  const realises = periode.filter(e => e.statut === 'Réalisé');
+  const statuts = {};
+  periode.forEach(e => compter(statuts, e.statut || 'Sans statut'));
+  // Taux de présence : seulement les ateliers où inscrits et présents sont saisis.
+  const avecPresence = realises.filter(e => num(e.inscrits) > 0 && num(e.presents) !== null);
+  const sommeInscrits = avecPresence.reduce((x, e) => x + num(e.inscrits), 0);
+  const activite = {
+    realises: realises.length, statuts,
+    presents: realises.reduce((x, e) => x + (num(e.presents) || 0), 0),
+    tauxPresence: sommeInscrits ? Math.round(avecPresence.reduce((x, e) => x + num(e.presents), 0) / sommeInscrits * 100) : null,
+    heures: Math.round(realises.reduce((x, e) => x + (num(e.duree) || 0), 0) / 60 * 10) / 10,
+    communes: new Set(realises.map(e => e.commune).filter(Boolean)).size,
+  };
+  const fiches = {remplies: 0, autres: []};
+  Object.keys(CHOIX).forEach(k => { fiches[k] = {}; });
+  realises.forEach(e => {
+    const b = e.fiche_bilan;
+    if (!b || typeof b !== 'object' || !Object.keys(b).length) return;
+    fiches.remplies++;
+    Object.keys(CHOIX).forEach(k => {
+      (MULTIPLES.includes(k) ? (Array.isArray(b[k]) ? b[k] : []) : [b[k]]).forEach(v => compter(fiches[k], v));
+    });
+    if (b.difficultes_autre) fiches.autres.push(b.difficultes_autre);
+  });
+  const ids = new Set(realises.map(e => e._id));
+  const lignes = (avis || []).filter(v => ids.has(v.atelier_id));
+  const av = {n: lignes.length, ateliers: new Set(lignes.map(v => v.atelier_id)).size,
+    attentes: moyenne(lignes.map(v => v.attentes).filter(x => x)), clarte: moyenne(lignes.map(v => v.clarte).filter(x => x))};
+  ['rythme', 'aise', 'autonomie', 'sujet'].forEach(k => { av[k] = {}; lignes.forEach(v => compter(av[k], v[k])); });
+  const themes = {};
+  realises.forEach(e => {
+    const t = e.thematique || 'Sans thématique';
+    const x = themes[t] || (themes[t] = {theme: t, ateliers: 0, presents: 0, avis: 0, notes: []});
+    x.ateliers++; x.presents += num(e.presents) || 0;
+  });
+  lignes.forEach(v => {
+    const e = realises.find(r => r._id === v.atelier_id);
+    if (!e) return;
+    const x = themes[e.thematique || 'Sans thématique'];
+    x.avis++; if (v.attentes) x.notes.push(v.attentes);
+  });
+  const parTheme = Object.values(themes)
+    .map(x => ({theme: x.theme, ateliers: x.ateliers, presents: x.presents, avis: x.avis, attentes: moyenne(x.notes)}))
+    .sort((a, b) => b.ateliers - a.ateliers || a.theme.localeCompare(b.theme));
+  return {debut, fin, activite, fiches, avis: av, parTheme};
+}
+
 if (typeof module !== 'undefined') {
   module.exports = {
     filterMaterielsVisibles,
@@ -305,5 +382,6 @@ if (typeof module !== 'undefined') {
     getPretsMateriel, totauxParJourMateriel,
     estConflitPasse,
     estWeekend, veilleOuvree, lendemainOuvre,
+    bornesTrimestre, trimestrePrecedent, bilanTrimestriel,
   };
 }

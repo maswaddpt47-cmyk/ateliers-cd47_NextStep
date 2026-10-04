@@ -171,6 +171,18 @@ test('admin — onglet Dashboard sans ReferenceError', async ({ page }) => {
   expect(errs, `Dashboard : ${errs.join(' | ')}`).toHaveLength(0);
 });
 
+test('admin — Dashboard : sous-onglets Avis par atelier et Bilan trimestriel sans erreur', async ({ page }) => {
+  await login(page);
+  await clickTab(page, 'Dashboard');
+  for (const nom of ['💬 Avis par atelier', '🗓️ Bilan trimestriel']) {
+    const avant = page._jsErrors.length;
+    await page.getByRole('button', { name: nom, exact: true }).click();
+    await page.waitForTimeout(400);
+    const errs = page._jsErrors.slice(avant);
+    expect(errs, `${nom} : ${errs.join(' | ')}`).toHaveLength(0);
+  }
+});
+
 test('admin — onglet Bingo sans ReferenceError', async ({ page }) => {
   await login(page);
   const errs = await clickTab(page, 'Bingo');
