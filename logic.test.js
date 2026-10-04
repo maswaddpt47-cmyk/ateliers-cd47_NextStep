@@ -359,7 +359,7 @@ describe('getPretsMateriel', () => {
     ];
     const prets = getPretsMateriel(entries);
     assert.equal(prets.length, 1);
-    assert.deepEqual(prets[0], { _id: 'a1', conseiller: 'Alice', qte: 6, commune: 'FUMEL', lieu: 'MFR', thematique: 'Bureautique', dateAtelier: '2026-11-20', debut: '2026-11-17', fin: '2026-11-24', demi: null });
+    assert.deepEqual(prets[0], { _id: 'a1', conseiller: 'Alice', qte: 6, commune: 'FUMEL', lieu: 'MFR', thematique: 'Bureautique', dateAtelier: '2026-11-20', debut: '2026-11-17', fin: '2026-11-24', demi: null, demis: ['AM', 'PM'], creneau: null });
   });
   it('ignore les ateliers Annulés ou sans Classe mobile', () => {
     const entries = [
@@ -568,5 +568,30 @@ describe('bilan trimestriel', () => {
     assert.equal(b.avis.attentes, 4.5);
     assert.deepEqual(b.avis.aise, {Oui: 2});
     assert.deepEqual(b.parTheme, [{theme: 'IA', ateliers: 2, presents: 6, avis: 2, attentes: 4.5}]);
+  });
+});
+
+// ── Conflits à l'heure près (AG-022, 04/10/2026) ─────────────────────────────
+// Ordinateurs : créneau réel + 30 min de marge ; Classe mobile : demi-journées
+// touchées par l'horaire. Le cas de 11:00–12:30 contre 12:00 passait avant.
+describe('conflits de matériel à l\'heure près', () => {
+  const H = (cons, qte, horaire, duree) => ({
+    _id: cons + horaire, statut: 'Planifié', conseiller: cons, commune: 'AGEN', date: '2026-10-05',
+    materiel: ['Classe mobile'], nb_ordinateurs: qte, horaire, duree,
+  });
+  it('ordinateurs : un atelier qui déborde sur midi chevauche celui de 12:00', () => {
+    const c = findOrdinateursConflicts([H('Alice', 6, '11:00', 90), H('Bruno', 6, '12:00', 90)]);
+    assert.equal(c.length, 1);
+    assert.equal(c[0].total, 12);
+    assert.deepEqual([c[0].de, c[0].a], [720, 780]);   // de 12:00 à 13:00 (12:30 + marge)
+  });
+  it('ordinateurs : deux ateliers successifs du matin ne se gênent plus, la marge de 30 min compte', () => {
+    assert.deepEqual(findOrdinateursConflicts([H('Alice', 6, '09:00', 60), H('Bruno', 6, '10:30', 60)]), []);
+    assert.equal(findOrdinateursConflicts([H('Alice', 6, '09:00', 60), H('Bruno', 6, '10:15', 60)]).length, 1);
+  });
+  it('Classe mobile : la demi-journée reste l\'unité, toutes celles que l\'horaire touche', () => {
+    assert.equal(findMobileClassConflicts([H('Alice', 6, '11:00', 90), H('Bruno', 6, '14:00', 60)]).length, 1);
+    assert.equal(findMobileClassConflicts([H('Alice', 6, '09:00', 60), H('Bruno', 6, '10:30', 60)]).length, 1);
+    assert.deepEqual(findMobileClassConflicts([H('Alice', 6, '09:00', 60), H('Bruno', 6, '14:00', 60)]), []);
   });
 });

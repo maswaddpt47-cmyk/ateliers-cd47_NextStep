@@ -2394,7 +2394,7 @@ function PanneauAtelier({panel,onClose,entries,onEntryUpdated,onRefresh,onEdit,o
             if(!c.ordi.length&&!c.mobile.length)return null;
             return CE('div',{style:{background:'#fff7ed',border:'1px solid #fed7aa',borderRadius:8,padding:'8px 10px',fontSize:12,color:'#9a3412',display:'flex',flexDirection:'column',gap:4}},
               CE('strong',null,'⚠️ Conflit de matériel si vous enregistrez :'),
-              c.ordi.map(g=>CE('div',{key:'o'+g.date},'🖥️ '+fmtPeriode(g.date,g.dateFin)+' : '+g.total+' ordinateurs demandés sur '+STOCK_ORDINATEURS+' en stock')),
+              c.ordi.map(g=>CE('div',{key:'o'+g.date},'🖥️ '+fmtPeriode(g.date,g.dateFin)+' '+quandConflitOrdi(g)+' : '+g.total+' ordinateurs demandés au même moment sur '+STOCK_ORDINATEURS+' en stock')),
               c.mobile.map(g=>CE('div',{key:'m'+g.date},'📦 '+fmtDate(g.date)+' : Classe mobile aussi réservée par '+[...new Set(g.entries.filter(x=>x._id!==panel._id).map(x=>x.conseiller))].join(', '))),
               CE('div',{style:{color:'#6b7280'}},'Enregistrement possible : à régler ensuite dans Gestion ordi ou Anomalies.'));})(),
           CE('div',{className:'sp-field'},CE('label',null,'Thématique'),
@@ -3682,7 +3682,9 @@ function VueCarte({entries,active}){
 // apporter : un dépassement l'après-midi seulement se règle en déplaçant un
 // atelier le matin, pas en renonçant à du matériel.
 function libelleDemi(d){return d==='AM'?'le matin':d==='PM'?'l\'après-midi':'toute la journée';}
-function titreConflitOrdi(g){return '📅 '+fmtPeriode(g.date,g.dateFin)+' '+libelleDemi(g.demi)+' — jusqu\'à '+g.total+' ordinateurs demandés sur '+STOCK_ORDINATEURS+' en stock';}
+// Plage horaire du dépassement (AG-022) quand elle ne couvre pas la journée.
+function quandConflitOrdi(g){return g.de!=null&&!(g.de===0&&g.a===1440)?'de '+hhmm(g.de)+' à '+hhmm(g.a):libelleDemi(g.demi);}
+function titreConflitOrdi(g){return '📅 '+fmtPeriode(g.date,g.dateFin)+' '+quandConflitOrdi(g)+' — jusqu\'à '+g.total+' ordinateurs demandés au même moment sur '+STOCK_ORDINATEURS+' en stock';}
 // findMobileClassConflicts pousse l'entry brute dans chaque groupe : nb_
 // ordinateurs/date_retour_materiel sont déjà là, pas besoin de les recalculer.
 function itemConflitMobile(onEdit){
@@ -3753,7 +3755,10 @@ function FriseMateriel({entries,onEdit}){
   // Détail par demi-journée : c'est lui qui décide du dépassement, la case
   // n'affichant que la pointe de la journée (le max des deux).
   const detail=React.useMemo(()=>totauxParDemiJourneeMateriel(prets,jours),[prets,jours]);
-  const totaux=React.useMemo(()=>{const t={};Object.keys(detail).forEach(j=>{t[j]=Math.max(detail[j].AM,detail[j].PM);});return t;},[detail]);
+  // Pointe de la journée à l'heure près (AG-022) : c'est elle qui colore la
+  // case et marque les prêts en conflit, comme la liste des conflits.
+  const analyse=React.useMemo(()=>{const r={};jours.forEach(j=>{r[j]=analyseJourMateriel(prets,j,STOCK_ORDINATEURS);});return r;},[prets,jours]);
+  const totaux=React.useMemo(()=>{const t={};jours.forEach(j=>{t[j]=analyse[j].pointe;});return t;},[analyse,jours]);
   // Index (0-based) d'un jour dans la fenêtre visible, clampé aux bornes —
   // une barre qui déborde de la fenêtre est simplement tronquée à l'affichage.
   const colIdx=d=>d<jourDebut?0:d>jourFin?jours.length-1:jours.indexOf(d);
@@ -3786,10 +3791,10 @@ function FriseMateriel({entries,onEdit}){
       // Ligne stock cumulé
       CE('div',{className:printable?'frise-grid-row':undefined,style:{display:'grid',gridTemplateColumns:gridTemplate,gap:1,marginBottom:6}},
         CE('div',{style:{fontSize:tailleTexte+1,fontWeight:700,color:'#718096',alignSelf:'center'}},'Stock ('+STOCK_ORDINATEURS+')'),
-        jours.map(d=>{const dt=detail[d]||{AM:0,PM:0};const t=Math.max(dt.AM,dt.PM);
-          const depasse=t>STOCK_ORDINATEURS;
-          const quand=dt.AM===dt.PM?'':' (matin '+dt.AM+' · après-midi '+dt.PM+')';
-          return CE('div',{key:d,title:t+' ordinateur(s) réservé(s)'+quand,style:{height:colWidth<32?14:22,background:t===0?'#f1f5f9':depasse?'#dc2626':'#86efac',borderRadius:2,fontSize:tailleTexte,color:depasse?'#fff':'#166534',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:700}},t>0?t:'');
+        jours.map(d=>{const dt=detail[d]||{AM:0,PM:0};const an=analyse[d];const t=an?an.pointe:0;
+          const depasse=!!(an&&an.depassement);
+          const quand=depasse?' — stock dépassé de '+hhmm(an.depassement.de)+' à '+hhmm(an.depassement.a):dt.AM===dt.PM?'':' (matin '+dt.AM+' · après-midi '+dt.PM+' sur la demi-journée)';
+          return CE('div',{key:d,title:'Au plus '+t+' ordinateur(s) au même moment'+quand,style:{height:colWidth<32?14:22,background:t===0?'#f1f5f9':depasse?'#dc2626':'#86efac',borderRadius:2,fontSize:tailleTexte,color:depasse?'#fff':'#166534',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:700}},t>0?t:'');
         })
       ),
       // Une ligne par prêt
@@ -3799,8 +3804,7 @@ function FriseMateriel({entries,onEdit}){
           // Le marquage ⚠️ suit l'occupation réelle, pas la barre dessinée : le
           // jour du retour est affiché mais ne réserve plus le stock, il ne doit
           // donc pas faire passer ce prêt en conflit.
-          const conflit=jours.some(d=>['AM','PM'].some(dm=>
-            occupeCreneauMateriel(p,d,dm)&&((detail[d]&&detail[d][dm])||0)>STOCK_ORDINATEURS));
+          const conflit=jours.some(d=>analyse[d]&&analyse[d].enConflit.has(p));
           // Barre teintée dans la couleur du conum (même couleur que le
           // libellé à gauche et que partout ailleurs dans l'appli), plutôt
           // qu'un bleu/rouge générique — identifier qui réserve quoi d'un
@@ -3821,7 +3825,7 @@ function FriseMateriel({entries,onEdit}){
       )
     );
   }
-  const legende=CE('div',{style:{fontSize:10,color:'#94a3b8',marginBottom:8}},'▼ = jour de l\'atelier (entre le prélèvement et le retour de la barre) · le jour du retour ne réserve plus le stock (retour le matin) · un prêt d\'une seule journée ne réserve que sa demi-journée (AM/PM)');
+  const legende=CE('div',{style:{fontSize:10,color:'#94a3b8',marginBottom:8}},'▼ = jour de l\'atelier (entre le prélèvement et le retour de la barre) · le jour du retour ne réserve plus le stock (retour le matin) · un prêt d\'une seule journée réserve les ordinateurs de l\'heure de début à la fin + 30 min ; la case montre le plus grand nombre demandé au même moment');
   return CE(React.Fragment,null,
     CE('div',{className:'card',style:{maxWidth:'100%',margin:'0 auto 16px',overflowX:'auto'}},
       CE('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:4,flexWrap:'wrap',gap:8}},
@@ -5846,6 +5850,7 @@ const NOUVEAUTES=[
   {id:23,date:'2026-10-05',titre:'Fiche bilan de l\'atelier',texte:'Volet latéral : quand un atelier passe en « Réalisé », une fiche bilan apparaît sous les remarques. Quelques clics suffisent : niveau du groupe, objectif atteint, difficultés rencontrées (avec une précision libre pour « Autre »), supports utilisés et suite à donner. Elle se relit et se corrige au même endroit, puis « 💾 Enregistrer ».'},
   {id:27,date:'2026-10-05',titre:'Vos bilans dans « Mes bilans »',texte:'Nouvel onglet « 📝 Mes bilans » : les avis des stagiaires atelier par atelier, le bilan mensuel et le bilan trimestriel, limités aux ateliers que vous animez ou co-animez. Les avis d\'un atelier ne sont visibles que par son animateur et son co-animateur, y compris dans la fenêtre du QR code.'},
   {id:28,date:'2026-10-05',titre:'L\'avis des stagiaires par QR code',texte:'Volet latéral : « 📱 QR code des avis stagiaires » affiche le QR de l\'atelier, à projeter ou à imprimer. Les stagiaires répondent en une minute depuis leur téléphone, sans donner leur nom, du jour de l\'atelier à 30 jours après. Un seul avis par personne, et pas plus que de présents : mettez à jour le nombre de présents avant de projeter le QR. Sans smartphone : « ✍️ Saisir un avis papier ». Le résumé des avis reçus s\'affiche sous le QR.'},
+  {id:29,date:'2026-10-05',titre:'Conflits d\'ordinateurs à l\'heure près',texte:'Les alertes d\'ordinateurs tiennent compte de l\'heure et de la durée de l\'atelier, plus 30 min pour rendre le matériel. Deux ateliers qui se suivent le même matin ne sont plus signalés ; un atelier qui déborde sur midi l\'est avec celui de l\'après-midi. L\'alerte indique la plage horaire (« de 12:00 à 13:00 »). Pour la Classe mobile, la règle reste la demi-journée, mais un atelier de 11:00 à 12:30 occupe le matin et l\'après-midi. Renseignez bien l\'horaire et la durée.'},
 ];
 
 // ═══════════════════════════════════════════════════════════

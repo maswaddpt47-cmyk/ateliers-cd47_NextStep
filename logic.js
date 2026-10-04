@@ -9,7 +9,7 @@
 // entre les deux dépôts sans qu'aucune page ne les exécute.
 
 if (typeof require !== 'undefined') {
-  var {addJoursIso, matIncludes, normalizeDate} = require('./utils.js');
+  var {addJoursIso, matIncludes, normalizeDate, minutesHoraire} = require('./utils.js');
   // Constantes (const) d'utils.js : un « var » du même nom ferait échouer le
   // chargement de ce fichier dans les pages (redéclaration). Nom distinct.
   var LOGIC_UTILS = require('./utils.js');
@@ -40,8 +40,9 @@ function findMobileClassConflicts(entries) {
     if (e.statut === 'Annulé') return;
     if (!e.date) return;
     if (!matIncludes(e.materiel,'Classe mobile')) return;
-    const demi = demiJourneeAtelier(e);
-    (demi ? [demi] : ['AM', 'PM']).forEach(d => {
+    // Demi-journées touchées par l'horaire réel (AG-022) : 11:00–12:30
+    // occupe le matin ET l'après-midi.
+    demisAtelier(e).forEach(d => {
       const k = e.date + '|' + d;
       (parCreneau[k] = parCreneau[k] || []).push(e);
     });
@@ -158,20 +159,85 @@ function finOccupationMateriel(debut, fin) {
   return fin > debut ? addJoursIso(fin, -1) : fin;
 }
 
-// Occupation à la DEMI-JOURNÉE (confirmé le 22/09/2026) : deux ateliers le
-// même jour, l'un le matin l'autre l'après-midi, ne se disputent pas le
-// matériel — le premier rend à midi, le second prend l'après-midi.
-// Cette finesse ne vaut que pour un prêt d'une seule journée : dès que le
-// matériel dort ailleurs une nuit, il est immobilisé en continu, y compris
-// les demi-journées intermédiaires.
+// ── Créneau horaire d'un atelier (AG-022, 04/10/2026) ────────────────────
+// Décision de l'utilisateur du 04/10/2026, qui affine celle du 22/09 (la
+// demi-journée comme unité) : le stock d'ordinateurs se compte à l'heure
+// près, sur [début, fin + 30 min) ; la Classe mobile, matériel unique, garde
+// la demi-journée, mais un atelier occupe toutes celles que son horaire
+// touche (11:00–12:30 : matin et après-midi). Minutes depuis minuit.
+const MARGE_MATERIEL_MIN = 30;
+const MIDI_MIN = 720, JOUR_MIN = 1440;
+// { de, a } d'un atelier : son horaire et sa durée (1 h 30 si absente) ;
+// sans horaire, la demi-journée enregistrée (ateliers anciens) ; sinon null,
+// la journée entière — mieux vaut une alerte de trop qu'un conflit manqué.
+function creneauAtelier(e) {
+  const de = minutesHoraire(e && e.horaire);
+  if (de !== null) {
+    const defaut = typeof LOGIC_UTILS !== 'undefined' ? LOGIC_UTILS.DUREE_DEFAUT : DUREE_DEFAUT;
+    return { de, a: Math.min(JOUR_MIN, de + (parseInt(e.duree, 10) || defaut)), heure: true };
+  }
+  const v = String((e && e.ampm) || '').trim().toUpperCase();
+  if (v === 'AM') return { de: 0, a: MIDI_MIN };
+  if (v === 'PM') return { de: MIDI_MIN, a: JOUR_MIN };
+  return null;
+}
+// Demi-journées que l'atelier touche, sans la marge : ['AM'], ['PM'] ou les deux.
+function demisAtelier(e) {
+  const c = creneauAtelier(e);
+  if (!c) return ['AM', 'PM'];
+  const d = [];
+  if (c.de < MIDI_MIN) d.push('AM');
+  if (c.a > MIDI_MIN) d.push('PM');
+  return d.length ? d : ['AM', 'PM'];
+}
+function hhmm(min) { return String(Math.floor(min / 60)).padStart(2, '0') + ':' + String(min % 60).padStart(2, '0'); }
+
+// Occupation d'une demi-journée, pour l'affichage du Gantt (totaux matin /
+// après-midi). Un prêt de plus d'un jour immobilise le matériel en continu.
 function occupeCreneauMateriel(p, jour, demi) {
   if (jour < p.debut || jour > finOccupationMateriel(p.debut, p.fin)) return false;
+  if (p.debut === p.fin && p.demis) return p.demis.includes(demi);
   if (p.debut === p.fin && p.demi) return demi === p.demi;
   return true;
 }
 
+// Minutes occupées par un prêt un jour donné : son créneau + la marge pour un
+// prêt d'une seule journée ; la journée entière pour un prêt de plusieurs
+// jours ou un atelier sans heure ni demi-journée.
+function intervalleJourMateriel(p, jour) {
+  if (jour < p.debut || jour > finOccupationMateriel(p.debut, p.fin)) return null;
+  // Marge seulement sur une heure réelle : une demi-journée enregistrée sans
+  // horaire (ateliers anciens) rend le matériel à midi, comme avant.
+  if (p.debut === p.fin && p.creneau) return { de: p.creneau.de, a: Math.min(JOUR_MIN, p.creneau.a + (p.creneau.heure ? MARGE_MATERIEL_MIN : 0)) };
+  return { de: 0, a: JOUR_MIN };
+}
+
+// Une journée à l'heure près (AG-022) : ordinateurs demandés au même moment
+// (au max par conseiller, totalJourParConseiller). Rend la pointe, la plage
+// où le stock est dépassé ({de, a} en minutes, ou null) et les prêts présents
+// pendant ce dépassement.
+function analyseJourMateriel(prets, jour, stock) {
+  const actifs = [];
+  (prets || []).forEach(p => { const iv = intervalleJourMateriel(p, jour); if (iv) actifs.push({ p, iv }); });
+  const bornes = [...new Set([0, JOUR_MIN].concat(...actifs.map(x => [x.iv.de, x.iv.a])))].sort((x, y) => x - y);
+  let pointe = 0, de = null, a = null;
+  const enConflit = new Set();
+  for (let i = 0; i < bornes.length - 1; i++) {
+    const t = bornes[i];
+    const ici = actifs.filter(x => x.iv.de <= t && x.iv.a > t);
+    const total = totalJourParConseiller(ici.map(x => x.p));
+    if (total > pointe) pointe = total;
+    if (total > stock) {
+      if (de === null) de = t;
+      a = bornes[i + 1];
+      ici.forEach(x => enConflit.add(x.p));
+    }
+  }
+  return { pointe, depassement: de === null ? null : { de, a }, enConflit };
+}
+
 function findOrdinateursConflicts(entries, stock = STOCK_ORDINATEURS) {
-  const parCreneau = {};
+  const parJour = {};
   (entries || []).forEach(e => {
     if (e.statut === 'Annulé') return;
     if (!e.date) return;
@@ -186,61 +252,42 @@ function findOrdinateursConflicts(entries, stock = STOCK_ORDINATEURS) {
     const { debut, fin } = periodePretMateriel(e);
     const pret = { _id: e._id, conseiller: e.conseiller, qte,
       commune: e.commune || '', lieu: e.lieu || '',
-      dateDebut: debut, dateFin: fin, demi: demiJourneeAtelier(e), debut, fin };
+      dateDebut: debut, dateFin: fin, demi: demiJourneeAtelier(e), demis: demisAtelier(e), creneau: creneauAtelier(e), debut, fin };
     // Garde-fou : une date de prélèvement/retour saisie à la main peut être
     // erronée (année oubliée, inversion jour/mois...) — on plafonne à 90
     // jours pour ne jamais boucler indéfiniment sur une période aberrante.
     const finOcc = finOccupationMateriel(debut, fin);
     let d = debut, garde = 0;
     while (d <= finOcc && garde < 90) {
-      ['AM', 'PM'].forEach(demi => {
-        if (occupeCreneauMateriel(pret, d, demi)) {
-          (parCreneau[d + '|' + demi] = parCreneau[d + '|' + demi] || []).push(pret);
-        }
-      });
+      (parJour[d] = parJour[d] || []).push(pret);
       d = addJoursIso(d, 1);
       garde++;
     }
   });
 
-  // Un JOUR est en conflit dès qu'une de ses deux demi-journées dépasse le
-  // stock. Le bloc porte le total le plus élevé et nomme la ou les
-  // demi-journées concernées : « 11 demandés (après-midi) » se corrige
-  // autrement que « 11 demandés toute la journée ».
+  // Un JOUR est en conflit dès qu'à un instant le stock est dépassé (AG-022).
+  // Le bloc porte la pointe et la plage horaire du dépassement (de, a, en
+  // minutes) : « 11 demandés de 11:00 à 13:00 » se corrige autrement que
+  // « toute la journée ». `demi` (demi-journées touchées par la plage) reste
+  // fourni pour les écrans.
   const joursConflit = [];
-  const datesVues = {};
-  Object.keys(parCreneau).forEach(k => { datesVues[k.split('|')[0]] = true; });
-  Object.keys(datesVues).sort().forEach(date => {
-    const parts = ['AM', 'PM'].map(demi => {
-      const items = parCreneau[date + '|' + demi] || [];
-      return { demi, items, total: totalJourParConseiller(items) };
-    }).filter(p => p.total > stock);
-    if (!parts.length) return;
-    // Déduplication par RÉFÉRENCE et non par _id : le même prêt est poussé
-    // dans les deux demi-journées, et toutes les entrées n'ont pas d'_id
-    // (import, saisie en lot avant attribution).
-    const vus = new Set();
-    const entriesBloc = [];
-    parts.forEach(p => p.items.forEach(it => {
-      if (!vus.has(it)) { vus.add(it); entriesBloc.push(it); }
-    }));
-    joursConflit.push({
-      date,
-      entries: entriesBloc,
-      total: Math.max.apply(null, parts.map(p => p.total)),
-      demi: parts.map(p => p.demi).join('+'),
-    });
+  Object.keys(parJour).sort().forEach(date => {
+    const an = analyseJourMateriel(parJour[date], date, stock);
+    if (!an.depassement) return;
+    const { de, a } = an.depassement;
+    const demi = [de < MIDI_MIN ? 'AM' : null, a > MIDI_MIN ? 'PM' : null].filter(Boolean).join('+');
+    joursConflit.push({ date, entries: [...an.enConflit], total: an.pointe, demi, de, a });
   });
 
   const blocs = [];
   joursConflit.forEach(g => {
     const dernier = blocs[blocs.length - 1];
-    if (dernier && addJoursIso(dernier.dateFin, 1) === g.date && dernier.demi === g.demi) {
+    if (dernier && addJoursIso(dernier.dateFin, 1) === g.date && dernier.de === g.de && dernier.a === g.a) {
       dernier.dateFin = g.date;
       dernier.total = Math.max(dernier.total, g.total);
       g.entries.forEach(e => { if (!dernier._vus.has(e)) { dernier._vus.add(e); dernier.entries.push(e); } });
     } else {
-      blocs.push({ date: g.date, dateFin: g.date, total: g.total, demi: g.demi, entries: [...g.entries], _vus: new Set(g.entries) });
+      blocs.push({ date: g.date, dateFin: g.date, total: g.total, demi: g.demi, de: g.de, a: g.a, entries: [...g.entries], _vus: new Set(g.entries) });
     }
   });
   return blocs.map(({ _vus, ...b }) => b);
@@ -260,7 +307,7 @@ function getPretsMateriel(entries) {
       return {
         _id: e._id, conseiller: e.conseiller, qte: parseInt(e.nb_ordinateurs) || 1,
         commune: e.commune || '', lieu: e.lieu || '', thematique: e.thematique || '',
-        dateAtelier: e.date, debut, fin, demi: demiJourneeAtelier(e),
+        dateAtelier: e.date, debut, fin, demi: demiJourneeAtelier(e), demis: demisAtelier(e), creneau: creneauAtelier(e),
       };
     })
     .sort((a, b) => a.debut < b.debut ? -1 : a.debut > b.debut ? 1 : 0);
@@ -382,6 +429,7 @@ if (typeof module !== 'undefined') {
     getPretsMateriel, totauxParJourMateriel,
     estConflitPasse,
     estWeekend, veilleOuvree, lendemainOuvre,
+    creneauAtelier, demisAtelier, analyseJourMateriel, MARGE_MATERIEL_MIN, hhmm,
     bornesTrimestre, trimestrePrecedent, bilanTrimestriel,
   };
 }
