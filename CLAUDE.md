@@ -154,7 +154,7 @@ manifeste, ni `apple-touch-icon`, ni enregistrement de service worker.
 | `node --test logic.test.js` | `logic.js` — KPI, validation, filtres |
 | `node --test contract.test.js` | format des données envoyées à l'API |
 | `node --test reseau.test.js` | plafonds, tentatives, budget — garde-fou contre le rallongement des timeouts |
-| `npx playwright test --reporter=line` | `e2e/smoke.test.js` (les deux pages s'ouvrent, chaque onglet répond) et `e2e/appels.test.js` (nombre d'appels émis, journal Admin multi-onglets) |
+| `npx playwright test --reporter=line` | `e2e/smoke.test.js` (les deux pages s'ouvrent, chaque onglet répond) , `e2e/appels.test.js` (nombre d'appels émis, journal Admin multi-onglets) et `e2e/avis-admin.test.js` (Admin : suppression d'un avis) |
 
 Playwright exige `npm ci` et un Chromium (préinstallé en local, sinon
 `npx playwright install chromium`).

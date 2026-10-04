@@ -612,7 +612,7 @@ const GAS_ACTIONS_ECRITURE = new Set([
   'restaurerCorbeille','copieMaintenant',
   // Tickets (AG-016) : creerTicket est rejouable sans effet (id client), mais
   // jamais doublé en vol ; repondreTicket non plus.
-  'creerTicket','repondreTicket','supprimerTicket',
+  'creerTicket','repondreTicket','supprimerTicket','supprimerAvis',
   // Avis papier : chaque envoi crée un avis, jamais doublé (AG-021).
   'saisirAvisPapier'
 ]);
@@ -2470,7 +2470,7 @@ function ModaleAvisQR({atelier,onClose}){
       if(!r||!r.ok){setEtat({erreur:(r&&r.error)||'Erreur'});return;}
       const url=urlAvisPour(location.origin,location.pathname,r.jeton);
       const q=qrcode(0,'M');q.addData(url);q.make();
-      setQr(q.createSvgTag({cellSize:8,margin:2,scalable:true}));setEtat({url,avis:r.avis,ouvert_du:r.ouvert_du,ouvert_au:r.ouvert_au});
+      setQr(q.createSvgTag({cellSize:8,margin:2,scalable:true}));setEtat({url,avis:r.avis,plafond:r.plafond,ouvert_du:r.ouvert_du,ouvert_au:r.ouvert_au});
     }catch(e){if(vivant)setEtat({erreur:e.message||'Erreur réseau'});}})();
     return()=>{vivant=false;};},[atelier._id]);
   const titre=`${atelier.thematique||'Atelier'} — ${fmtDate(atelier.date)}${atelier.commune?' — '+atelier.commune:''}`;
@@ -2496,7 +2496,8 @@ function ModaleAvisQR({atelier,onClose}){
           CE('button',{type:'button',className:'btn btn-secondary btn-sm',onClick:()=>setPapier(p=>!p)},papier?'Fermer la saisie papier':'✍️ Saisir un avis papier')),
         papier&&CE(FormulaireAvisPapier,{atelierId:atelier._id,onEnregistre:avis=>setEtat(e=>({...e,avis}))}),
         CE('div',{style:{textAlign:'left',background:'#f8fafc',borderRadius:10,padding:'10px 12px',fontSize:13}},
-          CE('div',{style:{fontWeight:700,marginBottom:4}},a.n?`${a.n} avis reçu${a.n>1?'s':''}`:'Aucun avis pour l\'instant'),
+          CE('div',{style:{fontWeight:700,marginBottom:4}},(a.n?`${a.n} avis reçu${a.n>1?'s':''}`:'Aucun avis pour l\'instant')+(etat.plafond?` — ${etat.plafond} au plus`:'')),
+          etat.plafond&&CE('div',{style:{fontSize:11,color:'#64748b',marginBottom:4}},'Un avis par présent (à défaut, par inscrit) : mettez à jour le nombre de présents si un stagiaire ne peut plus répondre.'),
           a.n>0&&CE('div',null,`Attentes : ${a.attentes??'—'}/5 · Clarté : ${a.clarte??'—'}/5`),
           a.n>0&&CE('div',null,`Plus à l'aise : ${a.aise_oui}/${a.n} · Autonomes : ${a.autonomie_oui}/${a.n}`),
           (a.remarques||[]).length>0&&CE('div',{style:{marginTop:6,color:'#475569'}},a.remarques.map((t,i)=>CE('div',{key:i,style:{fontStyle:'italic'}},'« '+t+' »')))),
@@ -5609,7 +5610,43 @@ function VueBilanTrimestriel({entries,moi}){
 // (le bilan trimestriel, lui, porte sur un trimestre clos). Action de
 // lecture avisParAtelier, appelée à l'ouverture de l'onglet et au changement
 // de période, jamais au démarrage.
+// Admin seulement (04/10/2026) : les avis d'un atelier un par un, chacun
+// supprimable (remarque qui cite une personne, faux avis). Journalisé côté
+// API avec le seul numéro de l'avis.
+function DetailAvisAdmin({atelierId,onSupprime}){
+  const[liste,setListe]=React.useState(null);
+  const[envoi,setEnvoi]=React.useState(null);
+  async function charger(){
+    try{const r=await apiFetch('avisAtelier',{_id:atelierId});setListe(r&&r.ok?r.avis:{erreur:(r&&r.error)||'Erreur'});}
+    catch(e){setListe({erreur:e.message||'Erreur réseau'});}
+  }
+  React.useEffect(()=>{charger();},[atelierId]);
+  async function supprimer(a){
+    if(!confirm(`Supprimer définitivement cet avis${a.remarque?` (« ${trunc(a.remarque,60)} »)`:''} ?`))return;
+    setEnvoi(a.id);
+    try{
+      const r=await apiFetch('supprimerAvis',{_id:String(a.id)});
+      if(!r||!r.ok)throw new Error((r&&r.error)||'Erreur');
+      showToast('✅ Avis supprimé');await charger();onSupprime&&onSupprime();
+    }catch(e){showToast('❌ '+(e.message||'Erreur réseau'),false);}
+    finally{setEnvoi(null);}
+  }
+  if(!liste)return CE('div',{style:{color:'#64748b'}},'Chargement des avis…');
+  if(liste.erreur)return CE('div',{style:{color:'#b91c1c'}},'❌ '+liste.erreur);
+  if(!liste.length)return CE('div',{style:{color:'#64748b'}},'Aucun avis.');
+  const champ=(l,v)=>v===null||v===undefined||v===''?null:`${l} : ${v}`;
+  return CE('div',{style:{display:'grid',gap:6}},liste.map((a,i)=>CE('div',{key:a.id,style:{display:'flex',gap:8,alignItems:'flex-start',background:'#fff',border:'1px solid #e2e8f0',borderRadius:8,padding:'6px 8px'}},
+    CE('div',{style:{flex:1,fontStyle:'normal',color:'#334155'}},
+      CE('div',{style:{fontSize:11,color:'#94a3b8'}},`Avis ${i+1} · ${fmtDate(a.cree_le)} · ${a.source==='papier'?'papier':'QR code'}`),
+      CE('div',null,[champ('Attentes',a.attentes&&a.attentes+'/5'),champ('Clarté',a.clarte&&a.clarte+'/5'),champ('Rythme',a.rythme),champ('À l\'aise',a.aise),champ('Refaire seul',a.autonomie),champ('Sujet',a.sujet==='Autre'&&a.sujet_autre?'Autre — '+a.sujet_autre:a.sujet)].filter(Boolean).join(' · ')||'—'),
+      a.remarque&&CE('div',{style:{fontStyle:'italic',color:'#475569'}},'« '+a.remarque+' »')),
+    CE('button',{type:'button',className:'btn btn-danger btn-sm',disabled:envoi===a.id,onClick:e=>{e.stopPropagation();supprimer(a);}},envoi===a.id?'…':'🗑️ Supprimer'))));
+}
+
 function VueAvisAteliers({entries,moi}){
+  // Suppression d'un avis : page Admin seulement (demande du 04/10/2026).
+  const surAdmin=!moi&&window.location.pathname.indexOf('admin.html')>-1;
+  const[rev,setRev]=React.useState(0);
   const auj=todayLocal();
   const[du,setDu]=React.useState(addJoursIso(auj,-90));
   const[au,setAu]=React.useState(auj);
@@ -5621,7 +5658,7 @@ function VueAvisAteliers({entries,moi}){
       const r=await apiFetch('avisParAtelier',moi?{du,au,moi:'1'}:{du,au});
       if(vivant)setRes(r&&r.ok?{ateliers:r.ateliers||[]}:{erreur:(r&&r.error)||'Erreur'});
     }catch(e){if(vivant)setRes({erreur:e.message||'Erreur réseau'});}})();
-    return()=>{vivant=false;};},[du,au]);
+    return()=>{vivant=false;};},[du,au,rev]);
   const parId=Object.fromEntries((entries||[]).map(e=>[e._id,e]));
   const lignes=(res&&res.ateliers||[]).map(a=>({...a,e:parId[a.atelier_id]||{}}))
     .sort((x,y)=>String(normalizeDate(y.e.date)||'').localeCompare(String(normalizeDate(x.e.date)||'')));
@@ -5648,15 +5685,15 @@ function VueAvisAteliers({entries,moi}){
     :res.erreur?CE('div',{style:{color:'#b91c1c',padding:16}},'❌ '+res.erreur)
     :!lignes.length?CE('div',{style:{padding:30,color:'#64748b',textAlign:'center'}},'Aucun avis pour les ateliers de cette période.')
     :CE(React.Fragment,null,
-      CE('div',{style:{fontSize:12,color:'#64748b',marginBottom:8}},`${lignes.length} atelier${lignes.length>1?'s':''} avec des avis, ${totalAvis} avis en tout. Cliquez sur une ligne pour lire ses remarques.`),
+      CE('div',{style:{fontSize:12,color:'#64748b',marginBottom:8}},`${lignes.length} atelier${lignes.length>1?'s':''} avec des avis, ${totalAvis} avis en tout. `+(surAdmin?'Cliquez sur une ligne pour voir ses avis un par un et en supprimer un.':'Cliquez sur une ligne pour lire ses remarques.')),
       CE('div',{style:{overflowX:'auto'}},
         CE('table',{style:{width:'100%',borderCollapse:'collapse'}},
           CE('thead',null,CE('tr',null,COLS.map(c=>CE('th',{key:c,style:{...td,background:'#f8fafc',textAlign:'left',fontWeight:700}},c)))),
           CE('tbody',null,lignes.map(l=>CE(React.Fragment,{key:l.atelier_id},
-            CE('tr',{onClick:()=>setOuvert(o=>({...o,[l.atelier_id]:!o[l.atelier_id]})),style:{cursor:l.remarques.length?'pointer':'default'}},
-              cellules(l).map((c,i)=>CE('td',{key:i,style:td},i===0&&l.remarques.length?(ouvert[l.atelier_id]?'▾ ':'▸ ')+c:c))),
-            ouvert[l.atelier_id]&&l.remarques.length>0&&CE('tr',null,CE('td',{colSpan:COLS.length,style:{...td,whiteSpace:'normal',fontStyle:'italic',color:'#475569',background:'#f8fafc'}},
-              l.remarques.map((r,i)=>CE('div',{key:i},'« '+r+' »')))))))))));
+            CE('tr',{onClick:()=>setOuvert(o=>({...o,[l.atelier_id]:!o[l.atelier_id]})),style:{cursor:surAdmin||l.remarques.length?'pointer':'default'}},
+              cellules(l).map((c,i)=>CE('td',{key:i,style:td},i===0&&(surAdmin||l.remarques.length)?(ouvert[l.atelier_id]?'▾ ':'▸ ')+c:c))),
+            ouvert[l.atelier_id]&&(surAdmin||l.remarques.length>0)&&CE('tr',null,CE('td',{colSpan:COLS.length,style:{...td,whiteSpace:'normal',fontStyle:'italic',color:'#475569',background:'#f8fafc'}},
+              surAdmin?CE(DetailAvisAdmin,{atelierId:l.atelier_id,onSupprime:()=>setRev(n=>n+1)}):l.remarques.map((r,i)=>CE('div',{key:i},'« '+r+' »')))))))))));
 }
 
 // ── Mes bilans (page conseillers, 04/10/2026) ───────────────────────────
@@ -5808,6 +5845,7 @@ const NOUVEAUTES=[
   {id:23,date:'2026-10-05',titre:'Fiche bilan de l\'atelier',texte:'Volet latéral : quand un atelier passe en « Réalisé », une fiche bilan apparaît sous les remarques. Quelques clics suffisent : niveau du groupe, objectif atteint, difficultés rencontrées (avec une précision libre pour « Autre »), supports utilisés et suite à donner. Elle se relit et se corrige au même endroit, puis « 💾 Enregistrer ».'},
   {id:24,date:'2026-10-05',titre:'L\'avis des stagiaires par QR code',texte:'Volet latéral : « 📱 QR code des avis stagiaires » affiche le QR de l\'atelier, à projeter ou à imprimer. Les stagiaires le scannent avec leur téléphone et répondent en une minute, sans donner leur nom. Le questionnaire est ouvert du jour de l\'atelier à 30 jours après. Pour quelqu\'un sans smartphone, « ✍️ Saisir un avis papier » enregistre ses réponses. Le résumé des avis reçus s\'affiche sous le QR.'},
   {id:27,date:'2026-10-05',titre:'Vos bilans dans « Mes bilans »',texte:'Nouvel onglet « 📝 Mes bilans » dans la barre du bas : les avis des stagiaires atelier par atelier, le bilan mensuel et le bilan trimestriel, limités aux ateliers que vous animez ou co-animez. Les avis d\'un atelier ne sont visibles que par son animateur et son co-animateur, y compris dans la fenêtre du QR code.'},
+  {id:28,date:'2026-10-05',titre:'Avis des stagiaires : un avis par personne',texte:'Le questionnaire du QR code n\'accepte plus qu\'un avis par téléphone, et au plus autant d\'avis que de présents (à défaut, que d\'inscrits). Avant de projeter le QR, mettez à jour le nombre de présents : sinon, les derniers stagiaires seront refusés. Un stagiaire sans smartphone remplit un avis papier, que vous saisissez avec « ✍️ Saisir un avis papier ».'},
 ];
 
 // ═══════════════════════════════════════════════════════════
