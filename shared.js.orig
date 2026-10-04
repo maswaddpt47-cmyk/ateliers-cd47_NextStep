@@ -612,9 +612,7 @@ const GAS_ACTIONS_ECRITURE = new Set([
   'restaurerCorbeille','copieMaintenant',
   // Tickets (AG-016) : creerTicket est rejouable sans effet (id client), mais
   // jamais doublé en vol ; repondreTicket non plus.
-  'creerTicket','repondreTicket','supprimerTicket',
-  // Avis papier : chaque envoi crée un avis, jamais doublé (AG-021).
-  'saisirAvisPapier'
+  'creerTicket','repondreTicket','supprimerTicket'
 ]);
 const GAS_HEDGE_MS            = 7000;   // délai avant de doubler une lecture
 const GAS_TENTATIVES_LECTURE  = 3;
@@ -1778,7 +1776,7 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
   React.useEffect(()=>{
     if(!prefillData)return;
     idNouveauRef.current=null;
-    setForm({...empty,...prefillData,_id:'',_n:'',date:'',horaire:'',ampm:'',inscrits:4,presents:'',remarques:'',statut:'Planifié',fiche_bilan:''});
+    setForm({...empty,...prefillData,_id:'',_n:'',date:'',horaire:'',ampm:'',inscrits:4,presents:'',remarques:'',statut:'Planifié'});
     setEditId(null);setIsDup(true);setModeLot(false);setErrors({});
     window.scrollTo(0,0);if(onClearPrefill)onClearPrefill();
   },[prefillData]);
@@ -2256,29 +2254,6 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
 // Extrait le 26/09/2026 : il existait en deux copies, et l'Agenda en
 // demandait une troisième (demande de l'utilisateur).
 // ═══════════════════════════════════════════════════════════
-// Fiche bilan d'atelier (AG-020, 04/10/2026) : choix uniques en pastilles
-// (un second clic désélectionne), choix multiples en cases. Listes :
-// BILAN_CHOIX (utils.js), contrôlées aussi par l'API.
-function FicheBilan({valeur,onChange}){
-  const v=valeur||{};
-  const LIB={niveau:'Niveau du groupe',objectif:'Objectif atteint',difficultes:'Difficultés',supports:'Supports utilisés',suite:'Suite à donner'};
-  const basculer=(cle,x)=>{
-    const n={...v};
-    onChange(basculerBilan(v,cle,x));
-  };
-  return CE('div',{style:{border:'1.5px solid #bbf7d0',background:'#f0fdf4',borderRadius:10,padding:'10px 12px',display:'flex',flexDirection:'column',gap:8}},
-    CE('div',{style:{fontSize:13,fontWeight:700,color:'#166534'}},'📝 Bilan de l\'atelier'),
-    Object.keys(BILAN_CHOIX).map(cle=>CE('div',{key:cle},
-      CE('div',{style:{fontSize:11,fontWeight:700,color:'#4b5563',marginBottom:4,textTransform:'uppercase',letterSpacing:'.04em'}},LIB[cle]+(BILAN_MULTIPLES.includes(cle)?' (plusieurs choix)':'')),
-      CE('div',{style:{display:'flex',flexWrap:'wrap',gap:5}},BILAN_CHOIX[cle].map(x=>{
-        const actif=BILAN_MULTIPLES.includes(cle)?(v[cle]||[]).includes(x):v[cle]===x;
-        return CE('button',{key:x,type:'button',onClick:()=>basculer(cle,x),'aria-pressed':actif,style:{padding:'5px 10px',borderRadius:16,fontSize:12,cursor:'pointer',
-          border:'1.5px solid '+(actif?'#16a34a':'#d1d5db'),background:actif?'#16a34a':'#fff',color:actif?'#fff':'#374151',fontWeight:actif?700:500}},(BILAN_MULTIPLES.includes(cle)?(actif?'☑ ':'☐ '):'')+x);})),
-      // « Autre » coché : précision libre (04/10/2026).
-      cle==='difficultes'&&(v.difficultes||[]).includes('Autre')&&CE('input',{type:'text',maxLength:200,value:v.difficultes_autre||'',placeholder:'Précisez la difficulté…',
-        onChange:e=>onChange({...v,difficultes_autre:e.target.value}),style:{marginTop:6,width:'100%',boxSizing:'border-box',padding:'7px 9px',border:'1.5px solid #d1d5db',borderRadius:8,fontSize:13}}))));
-}
-
 function PanneauAtelier({panel,onClose,entries,onEntryUpdated,onRefresh,onEdit,onDuplicate,canDelete,onAskDelete}){
   const[panelStatut,setPanelStatut]=React.useState('');
   const[panelInscrits,setPanelInscrits]=React.useState('');
@@ -2292,16 +2267,14 @@ function PanneauAtelier({panel,onClose,entries,onEntryUpdated,onRefresh,onEdit,o
   const[panelPrelev,setPanelPrelev]=React.useState('');
   const[panelRetour,setPanelRetour]=React.useState('');
   const[panelNote,setPanelNote]=React.useState('');
-  const[panelBilan,setPanelBilan]=React.useState({});
-  const[qrAvis,setQrAvis]=React.useState(null);
   const[saving,setSaving]=React.useState(false);
   // Réinitialise les champs à chaque atelier ouvert (ce que faisait openPanel).
-  React.useEffect(()=>{if(!panel)return;const e=panel;setPanelStatut(e.statut);setPanelInscrits(e.inscrits===undefined||e.inscrits===''?'':String(e.inscrits));setPanelPresents(e.presents===undefined||e.presents===''?'':String(e.presents));setPanelThematique(e.thematique||'');setPanelNote(e.remarques||'');setPanelDate(normalizeDate(e.date)||'');setPanelHoraire(normalizeHoraire(e.horaire)||'');setPanelDuree(parseInt(e.duree)||DUREE_DEFAUT);setPanelBilan(e.fiche_bilan&&typeof e.fiche_bilan==='object'?e.fiche_bilan:{});setPanelNbOrdi(e.nb_ordinateurs===undefined||e.nb_ordinateurs===''||e.nb_ordinateurs===null?'':String(e.nb_ordinateurs));setPanelPublic(e.public||'');setPanelMobile(matIncludes(e.materiel,'Classe mobile'));setPanelPrelev(normalizeDate(e.date_prelevement_materiel)||'');setPanelRetour(normalizeDate(e.date_retour_materiel)||'');},[panel]);
+  React.useEffect(()=>{if(!panel)return;const e=panel;setPanelStatut(e.statut);setPanelInscrits(e.inscrits===undefined||e.inscrits===''?'':String(e.inscrits));setPanelPresents(e.presents===undefined||e.presents===''?'':String(e.presents));setPanelThematique(e.thematique||'');setPanelNote(e.remarques||'');setPanelDate(normalizeDate(e.date)||'');setPanelHoraire(normalizeHoraire(e.horaire)||'');setPanelDuree(parseInt(e.duree)||DUREE_DEFAUT);setPanelNbOrdi(e.nb_ordinateurs===undefined||e.nb_ordinateurs===''||e.nb_ordinateurs===null?'':String(e.nb_ordinateurs));setPanelPublic(e.public||'');setPanelMobile(matIncludes(e.materiel,'Classe mobile'));setPanelPrelev(normalizeDate(e.date_prelevement_materiel)||'');setPanelRetour(normalizeDate(e.date_retour_materiel)||'');},[panel]);
   const closePanel=onClose;
   async function savePanel(){
     if(!panel)return;if(!panelDate){showToast('❌ Date requise',false);return;}if(panelMobile&&!(parseInt(panelNbOrdi)>0)){showToast('❌ Ordinateurs prêtés requis avec la Classe mobile',false);return;}setSaving(true);
     try{
-      const updated={...panel,fiche_bilan:panelStatut==='Réalisé'?(Object.keys(panelBilan).length?panelBilan:''):(panel.fiche_bilan||''),statut:panelStatut,inscrits:panelInscrits===''?'':parseInt(panelInscrits)||0,presents:panelPresents===''?'':parseInt(panelPresents)||0,thematique:panelThematique,date:panelDate,horaire:panelHoraire,ampm:ampmDepuisHoraire(panelHoraire)||panel.ampm,duree:parseInt(panelDuree)||DUREE_DEFAUT,public:panelPublic,nb_ordinateurs:panelMobile?(panelNbOrdi===''?'':parseInt(panelNbOrdi)||0):'',date_prelevement_materiel:panelMobile?panelPrelev:'',date_retour_materiel:panelMobile?panelRetour:'',remarques:panelNote,materiel:matierePanneau(panel,panelMobile).join('|')};
+      const updated={...panel,statut:panelStatut,inscrits:panelInscrits===''?'':parseInt(panelInscrits)||0,presents:panelPresents===''?'':parseInt(panelPresents)||0,thematique:panelThematique,date:panelDate,horaire:panelHoraire,ampm:ampmDepuisHoraire(panelHoraire)||panel.ampm,duree:parseInt(panelDuree)||DUREE_DEFAUT,public:panelPublic,nb_ordinateurs:panelMobile?(panelNbOrdi===''?'':parseInt(panelNbOrdi)||0):'',date_prelevement_materiel:panelMobile?panelPrelev:'',date_retour_materiel:panelMobile?panelRetour:'',remarques:panelNote,materiel:matierePanneau(panel,panelMobile).join('|')};
       const res=await apiFetch('saveEntry',{entry:updated});
       if(!res.ok)throw new Error(res.error);
       showToast('✅ Mis à jour');closePanel();
@@ -2395,11 +2368,7 @@ function PanneauAtelier({panel,onClose,entries,onEntryUpdated,onRefresh,onEdit,o
           CE('div',{className:'sp-field'},CE('label',null,'Thématique'),
             CE(ComboThematique,{value:panelThematique,onChange:setPanelThematique,entries:entries})),
           CE('div',{className:'sp-field'},CE('label',null,'Remarques'),
-            CE('textarea',{value:panelNote,onChange:e=>setPanelNote(e.target.value),rows:3,placeholder:'Ajouter une note…',style:{width:'100%',padding:'8px 10px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:13,resize:'vertical'}})),
-          // Fiche bilan (AG-020, 04/10/2026) : une fois l'atelier réalisé.
-          panelStatut==='Réalisé'
-            ?CE(FicheBilan,{valeur:panelBilan,onChange:setPanelBilan})
-            :CE('div',{style:{fontSize:12,color:'#94a3b8',padding:'4px 0'}},'📝 La fiche bilan se remplit quand l\'atelier passe en « Réalisé ».'),
+            CE('textarea',{value:panelNote,onChange:e=>setPanelNote(e.target.value),rows:3,placeholder:'Ajouter une note…',style:{width:'100%',padding:'8px 10px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:13,resize:'vertical'}}))
         ),
         CE('div',{className:'side-panel-footer',style:{flexDirection:'column',gap:8}},
           CE('button',{className:'btn btn-primary',style:{width:'100%',padding:'12px',fontSize:15,fontWeight:700,background:'#16a34a',borderColor:'#16a34a'},onClick:savePanel,disabled:saving},saving?'…':'💾 Enregistrer'),
@@ -2407,99 +2376,11 @@ function PanneauAtelier({panel,onClose,entries,onEntryUpdated,onRefresh,onEdit,o
             canDelete&&onAskDelete&&CE('button',{className:'btn btn-danger btn-sm',onClick:()=>{onAskDelete(panel);closePanel();}},'Supprimer'),
             onDuplicate&&CE('button',{className:'btn btn-secondary btn-sm',style:{background:'#eff6ff',color:'#1d4ed8',border:'1px solid #bfdbfe'},onClick:()=>{onDuplicate(panel);closePanel();}},'📋 Dupliquer'),
             CE('button',{className:'btn btn-secondary btn-sm',style:{flex:1},onClick:()=>{onEdit(panel._id);closePanel();}},'Éditer complet')
-          ),
-          // Avis des stagiaires (AG-021, 04/10/2026) : QR code de l'atelier.
-          CE('button',{className:'btn btn-secondary btn-sm',style:{background:'#f0fdfa',color:'#0f766e',border:'1px solid #99f6e4'},onClick:()=>setQrAvis(panel)},'📱 QR code des avis stagiaires')
+          )
         )
       )
-    ),
-    qrAvis&&CE(ModaleAvisQR,{atelier:qrAvis,onClose:()=>setQrAvis(null)})
+    )
   );
-}
-
-// Fenêtre du QR code des avis (AG-021) : jeton demandé à l'ouverture
-// (jamais au démarrage), QR dessiné dans le navigateur, résumé des avis.
-// Avis papier recopié par le conseiller (amendement D d'AG-021) : mêmes
-// questions que avis.html, sans fenêtre de dates, marqué « papier ».
-const AVIS_QUESTIONS=[
-  ['attentes','Attentes (étoiles)',['1','2','3','4','5']],
-  ['rythme','Rythme',['Trop lent','Adapté','Trop rapide']],
-  ['clarte','Clarté (étoiles)',['1','2','3','4','5']],
-  ['aise','Plus à l\'aise',['Non','Un peu','Oui']],
-  ['autonomie','Refaire seul(e)',['Oui','Avec de l\'aide','Non']],
-  ['sujet','Sujet souhaité',['Smartphone','Messagerie','Démarches en ligne','Sécurité','Intelligence artificielle','Autre']],
-];
-function FormulaireAvisPapier({atelierId,onEnregistre}){
-  const vide={};
-  const[r,setR]=React.useState(vide);
-  const[envoi,setEnvoi]=React.useState(false);
-  const champ={width:'100%',padding:'6px 8px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:13};
-  async function envoyer(){
-    setEnvoi(true);
-    try{
-      const res=await apiFetch('saisirAvisPapier',{_id:atelierId,...r});
-      if(!res||!res.ok)throw new Error((res&&res.error)||'Erreur');
-      const maj=await apiFetch('jetonAvis',{_id:atelierId});
-      if(maj&&maj.ok)onEnregistre(maj.avis);
-      showToast('✅ Avis papier enregistré');setR(vide);
-    }catch(e){showToast('❌ '+(e.message||'Erreur réseau'),false);}
-    finally{setEnvoi(false);}
-  }
-  return CE('div',{style:{textAlign:'left',border:'1.5px dashed #99f6e4',borderRadius:10,padding:10,marginBottom:12,display:'grid',gap:6}},
-    AVIS_QUESTIONS.map(([k,lib,choix])=>CE('label',{key:k,style:{fontSize:12,fontWeight:600,color:'#334155'}},lib,
-      CE('select',{value:r[k]||'',onChange:e=>setR(x=>({...x,[k]:e.target.value})),style:champ},CE('option',{value:''},'—'),choix.map(c=>CE('option',{key:c,value:c},c))))),
-    r.sujet==='Autre'&&CE('input',{type:'text',maxLength:60,placeholder:'Lequel ?',value:r.sujet_autre||'',onChange:e=>setR(x=>({...x,sujet_autre:e.target.value})),style:champ}),
-    CE('textarea',{rows:2,maxLength:500,placeholder:'Remarque (sans aucun nom)',value:r.remarque||'',onChange:e=>setR(x=>({...x,remarque:e.target.value})),style:champ}),
-    CE('button',{type:'button',className:'btn btn-primary btn-sm',disabled:envoi||!Object.values(r).some(v=>v),onClick:envoyer},envoi?'…':'Enregistrer cet avis papier'));
-}
-
-function ModaleAvisQR({atelier,onClose}){
-  const[papier,setPapier]=React.useState(false);
-  const[etat,setEtat]=React.useState(null);
-  const[qr,setQr]=React.useState('');
-  React.useEffect(()=>{let vivant=true;
-    (async()=>{try{
-      await window.chargerScriptUneFois('vendor/qrcode-generator-2.0.4/qrcode.js');
-      const r=await apiFetch('jetonAvis',{_id:atelier._id});
-      if(!vivant)return;
-      if(!r||!r.ok){setEtat({erreur:(r&&r.error)||'Erreur'});return;}
-      const url=urlAvisPour(location.origin,location.pathname,r.jeton);
-      const q=qrcode(0,'M');q.addData(url);q.make();
-      setQr(q.createSvgTag({cellSize:8,margin:2,scalable:true}));setEtat({url,avis:r.avis,ouvert_du:r.ouvert_du,ouvert_au:r.ouvert_au});
-    }catch(e){if(vivant)setEtat({erreur:e.message||'Erreur réseau'});}})();
-    return()=>{vivant=false;};},[atelier._id]);
-  const titre=`${atelier.thematique||'Atelier'} — ${fmtDate(atelier.date)}${atelier.commune?' — '+atelier.commune:''}`;
-  function imprimer(){
-    const w=window.open('','_blank');if(!w){showToast('Autorisez les fenêtres pour ce site',false);return;}
-    w.document.write(`<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><title>Votre avis</title><style>body{font-family:Arial,sans-serif;text-align:center;padding:30px}h1{color:#0f6e7a}svg{width:70vmin;height:70vmin}p{font-size:18px}</style></head><body><h1>Votre avis nous intéresse</h1><p>${htmlEsc(titre)}</p>${qr}<p>Scannez ce code avec l'appareil photo de votre téléphone.<br>Une minute, anonyme.</p><script>window.print();<\/script></body></html>`);
-    w.document.close();
-  }
-  const a=etat&&etat.avis;
-  return CE('div',{onClick:onClose,style:{position:'fixed',inset:0,background:'rgba(15,23,42,.55)',zIndex:4000,display:'flex',alignItems:'center',justifyContent:'center',padding:16}},
-    CE('div',{onClick:e=>e.stopPropagation(),style:{background:'#fff',borderRadius:14,padding:18,width:'100%',maxWidth:420,maxHeight:'92vh',overflowY:'auto',textAlign:'center'}},
-      CE('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}},
-        CE('strong',{style:{fontSize:15,color:'#0f766e'}},'📱 Avis des stagiaires'),
-        CE('button',{type:'button',onClick:onClose,'aria-label':'Fermer',style:{border:'none',background:'none',fontSize:20,cursor:'pointer',color:'#64748b'}},'×')),
-      CE('div',{style:{fontSize:12,color:'#64748b',marginBottom:10}},titre),
-      !etat&&CE('div',{style:{padding:30,color:'#64748b'}},'Préparation du QR code…'),
-      etat&&etat.erreur&&CE('div',{style:{color:'#b91c1c',padding:20}},'❌ '+etat.erreur),
-      etat&&!etat.erreur&&CE(React.Fragment,null,
-        CE('div',{style:{width:'min(78vw,300px)',margin:'0 auto'},dangerouslySetInnerHTML:{__html:qr}}),
-        CE('div',{style:{fontSize:11,color:'#64748b',wordBreak:'break-all',margin:'6px 0 10px'}},etat.url),
-        CE('div',{style:{display:'flex',gap:6,justifyContent:'center',flexWrap:'wrap',marginBottom:12}},
-          CE('button',{type:'button',className:'btn btn-primary btn-sm',onClick:imprimer},'🖨️ Imprimer / projeter'),
-          CE('button',{type:'button',className:'btn btn-secondary btn-sm',onClick:()=>setPapier(p=>!p)},papier?'Fermer la saisie papier':'✍️ Saisir un avis papier')),
-        papier&&CE(FormulaireAvisPapier,{atelierId:atelier._id,onEnregistre:avis=>setEtat(e=>({...e,avis}))}),
-        CE('div',{style:{textAlign:'left',background:'#f8fafc',borderRadius:10,padding:'10px 12px',fontSize:13}},
-          CE('div',{style:{fontWeight:700,marginBottom:4}},a.n?`${a.n} avis reçu${a.n>1?'s':''}`:'Aucun avis pour l\'instant'),
-          a.n>0&&CE('div',null,`Attentes : ${a.attentes??'—'}/5 · Clarté : ${a.clarte??'—'}/5`),
-          a.n>0&&CE('div',null,`Plus à l'aise : ${a.aise_oui}/${a.n} · Autonomes : ${a.autonomie_oui}/${a.n}`),
-          (a.remarques||[]).length>0&&CE('div',{style:{marginTop:6,color:'#475569'}},a.remarques.map((t,i)=>CE('div',{key:i,style:{fontStyle:'italic'}},'« '+t+' »')))),
-        (()=>{const auj=todayLocal(),du=etat.ouvert_du,au=etat.ouvert_au;
-          const ouvert=du&&au&&auj>=du&&auj<=au;
-          return CE('div',{style:{fontSize:12,marginTop:8,padding:'6px 8px',borderRadius:8,background:ouvert?'#f0fdf4':'#fff7ed',color:ouvert?'#166534':'#9a3412'}},
-            (ouvert?'✅ Questionnaire ouvert':'⏳ Questionnaire fermé aujourd\'hui')+` — du ${fmtDate(du)} au ${fmtDate(au)} (du jour de l'atelier à 30 jours après). Avis anonymes.`
-            +(ouvert?'':' La saisie papier reste possible.'));})())));
 }
 
 // ═══════════════════════════════════════════════════════════

@@ -25,6 +25,7 @@ function buildEntry(overrides = {}) {
     residence:    '',
     remarques:    '',
     duree:        90,                   // minutes, par demi-heure (AG-017)
+    fiche_bilan:  '',                   // fiche bilan, objet JSON une fois réalisé (AG-020)
     ...overrides,
   };
 }

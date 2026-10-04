@@ -25,6 +25,7 @@ Pas de CDN : ces fichiers sont livrés par GitHub Pages avec le reste du site.
 | `xlsx-0.18.5/` | 0.18.5 | Apache-2.0 (`LICENSE`) | paquet npm officiel `xlsx@0.18.5`, `dist/` |
 | `html2canvas-1.4.1/` | 1.4.1 | MIT (`LICENSE`) | paquet npm officiel `html2canvas@1.4.1`, `dist/` |
 | `jspdf-2.5.1/` | 2.5.1 | MIT (`LICENSE`) | paquet npm officiel `jspdf@2.5.1`, `dist/` |
+| `qrcode-generator-2.0.4/` | 2.0.4 | MIT (`LICENSE`, recopiée de l'en-tête) | paquet npm officiel `qrcode-generator@2.0.4`, `dist/qrcode.js` (04/10/2026, QR des avis, AG-021) |
 
 Rapatriés le 25/09/2026 depuis cdnjs, qui restait le dernier tiers à recevoir
 l'adresse IP des agents. Provenance : registre npm (`npm pack`, qui vérifie
