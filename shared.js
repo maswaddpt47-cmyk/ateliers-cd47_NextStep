@@ -5852,6 +5852,7 @@ const NOUVEAUTES=[
   {id:23,date:'2026-10-05',titre:'Fiche bilan de l\'atelier',texte:'Volet latéral : quand un atelier passe en « Réalisé », une fiche bilan apparaît sous les remarques. Quelques clics suffisent : niveau du groupe, objectif atteint, difficultés rencontrées (avec une précision libre pour « Autre »), supports utilisés et suite à donner. Elle se relit et se corrige au même endroit, puis « 💾 Enregistrer ».'},
   {id:27,date:'2026-10-05',titre:'Vos bilans dans « Mes bilans »',texte:'Nouvel onglet « 📝 Mes bilans » : les avis des stagiaires atelier par atelier, le bilan mensuel et le bilan trimestriel, limités aux ateliers que vous animez ou co-animez. Les avis d\'un atelier ne sont visibles que par son animateur et son co-animateur, y compris dans la fenêtre du QR code.'},
   {id:28,date:'2026-10-05',titre:'L\'avis des stagiaires par QR code',texte:'Volet latéral : « 📱 QR code des avis stagiaires » affiche le QR de l\'atelier, à projeter ou à imprimer. Les stagiaires répondent en une minute depuis leur téléphone, sans donner leur nom, du jour de l\'atelier à 30 jours après. Un seul avis par personne, et pas plus que de présents : mettez à jour le nombre de présents avant de projeter le QR. Sans smartphone : « ✍️ Saisir un avis papier ». Le résumé des avis reçus s\'affiche sous le QR.'},
+  {id:30,date:'2026-10-05',admin:true,titre:'Bilan mensuel : la qualité des ateliers',texte:'Le bilan envoyé à la superviseure le 1er du mois comprend une rubrique « Qualité des ateliers réalisés » : fiches bilan remplies, objectif atteint, difficultés, suite à donner, nombre d\'avis des stagiaires et moyennes (attentes, clarté, plus à l\'aise, refaire seul). En chiffres seulement : ni remarque libre, ni détail par conseiller. Premier envoi le 01/11/2026, pour octobre.'},
 ];
 
 // ═══════════════════════════════════════════════════════════
@@ -6022,15 +6023,19 @@ function PeriodiciteCycle({entries,ac,acLight,onGenerer}){
 }
 
 function lireNouveautesVues(){try{return parseInt(localStorage.getItem(lsKey('nouveautes_vues')))||0;}catch(_){return 0;}}
+// Annonces de la page courante : celles marquées `admin` seulement sur admin.html.
+function nouveautesDeLaPage(){return nouveautesPourPage(NOUVEAUTES,window.location.pathname.indexOf('admin.html')>-1);}
 // [nombre non vues, marquer tout comme vu]
 function useNouveautes(){
   const[vu,setVu]=React.useState(lireNouveautesVues);
   const marquer=React.useCallback(()=>{
-    const max=NOUVEAUTES.reduce((m,n)=>Math.max(m,n.id),0);
+    // Plus grand numéro de CETTE page : une annonce Admin pas encore ouverte
+    // reste « non lue » sur l'Admin même si Index a été consulté avant.
+    const max=nouveautesDeLaPage().reduce((m,n)=>Math.max(m,n.id),0);
     try{localStorage.setItem(lsKey('nouveautes_vues'),String(max));}catch(_){}
     setVu(max);
   },[]);
-  return[nouveautesNonVues(NOUVEAUTES,vu),marquer];
+  return[nouveautesNonVues(nouveautesDeLaPage(),vu),marquer];
 }
 
 // Clignotement de la pastille (demande du 01/10/2026) : animation injectée
@@ -6283,7 +6288,7 @@ function VueNouveautes({onVu}){
   const vuAvant=React.useRef(lireNouveautesVues()).current;
   React.useEffect(()=>{if(onVu)onVu();},[]);
   // Du plus récent au plus ancien par date, puis par numéro (demande du 02/10/2026).
-  const liste=NOUVEAUTES.slice().sort((a,b)=>String(b.date).localeCompare(String(a.date))||b.id-a.id);
+  const liste=nouveautesDeLaPage().sort((a,b)=>String(b.date).localeCompare(String(a.date))||b.id-a.id);
   // Titres repliables (02/10/2026) : clic sur le titre pour déplier/replier.
   // Toutes repliées à l'ouverture ; les non lues restent repérées par
   // l'étiquette « Nouveau » et la bordure rouge.
@@ -6299,7 +6304,8 @@ function VueNouveautes({onVu}){
         CE('span',{style:{fontSize:12,color:'var(--text-3)',width:12}},ouverts.has(n.id)?'▾':'▸'),
         CE('span',{style:{fontSize:12,color:'var(--text-3)',fontWeight:600}},fmtDate(n.date)),
         n.id>vuAvant&&CE('span',{style:{fontSize:10,fontWeight:800,color:'#fff',background:'#dc2626',borderRadius:6,padding:'1px 6px'}},'Nouveau'),
-        CE('span',{style:{fontSize:14,fontWeight:700}},n.titre)
+        CE('span',{style:{fontSize:14,fontWeight:700}},n.titre),
+        n.admin&&CE('span',{style:{fontSize:10,fontWeight:700,color:'#1e3a8a',background:'#dbeafe',borderRadius:6,padding:'1px 6px'}},'Admin')
       ),
       ouverts.has(n.id)&&CE('div',{style:{fontSize:13,lineHeight:1.5,color:'var(--text-2)',marginTop:6,paddingLeft:20}},n.texte)
     ))

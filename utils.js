@@ -591,6 +591,11 @@ function nouveautesNonVues(liste, vu) {
   const v = Number(vu) || 0;
   return (liste || []).filter(n => n && Number(n.id) > v).length;
 }
+// Annonces de la page (04/10/2026) : une entrée `admin: true` ne concerne que
+// l'Admin (réglage, mail à la superviseure…) et ne s'affiche pas sur Index.
+function nouveautesPourPage(liste, surAdmin) {
+  return (liste || []).filter(n => n && (!n.admin || !!surAdmin));
+}
 
 // ── Périodicité de la saisie par cycle (01/10/2026) ─────────────────────────
 // Calcul en UTC pur (dates ISO AAAA-MM-JJ) : aucun changement d'heure ne peut
@@ -836,7 +841,7 @@ if (typeof module !== 'undefined') {
   module.exports={
     lireICS, evenementsOutlook, idOutlook, rapprocherOutlook,
     genererDatesCycle, joursFeries,
-    nouveautesNonVues,
+    nouveautesNonVues, nouveautesPourPage,
     visibiliteEffective,
     normalizeMat, matIncludes,
     normCommune,normalizeCommune,stripAccents,htmlEsc,trunc,

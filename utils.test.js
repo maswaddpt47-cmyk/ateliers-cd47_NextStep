@@ -490,6 +490,15 @@ describe('purgerCacheAteliers', () => {
   });
 });
 
+describe('nouveautesPourPage', () => {
+  it('une annonce « admin » ne s\'affiche que sur la page Admin', () => {
+    const { nouveautesPourPage } = require('./utils.js');
+    const l = [{ id: 1 }, { id: 2, admin: true }];
+    assert.deepEqual(nouveautesPourPage(l, false).map(n => n.id), [1]);
+    assert.deepEqual(nouveautesPourPage(l, true).map(n => n.id), [1, 2]);
+  });
+});
+
 describe('nouveautesNonVues', () => {
   const l = [{ id: 1 }, { id: 2 }, { id: 4 }];
   it('compte les nouveautés plus récentes que la dernière vue', () => {
