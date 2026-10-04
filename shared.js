@@ -5829,6 +5829,8 @@ function VueUsageOnglets(){
 // Id retirés, à ne pas reprendre : 25 et 26 le 04/10/2026 (renvoyaient à
 // Stats, que les conseillers n'ont plus ; « Mes bilans » est en 27) ; 24 le
 // même jour, fondu avec la 28 (avis des stagiaires par QR code).
+// 29 le 04/10/2026 (conflits d'ordinateurs à l'heure près), à la demande
+// de l'utilisateur : pas d'annonce.
 // ═══════════════════════════════════════════════════════════
 const NOUVEAUTES=[
   {id:1,date:'2026-10-01',titre:'Votre nom proposé d\'office',texte:'Écran conseillers : à la création d\'un atelier, le champ Conseiller est déjà rempli avec votre nom. Il reste modifiable pour saisir pour un collègue.'},
@@ -5850,7 +5852,6 @@ const NOUVEAUTES=[
   {id:23,date:'2026-10-05',titre:'Fiche bilan de l\'atelier',texte:'Volet latéral : quand un atelier passe en « Réalisé », une fiche bilan apparaît sous les remarques. Quelques clics suffisent : niveau du groupe, objectif atteint, difficultés rencontrées (avec une précision libre pour « Autre »), supports utilisés et suite à donner. Elle se relit et se corrige au même endroit, puis « 💾 Enregistrer ».'},
   {id:27,date:'2026-10-05',titre:'Vos bilans dans « Mes bilans »',texte:'Nouvel onglet « 📝 Mes bilans » : les avis des stagiaires atelier par atelier, le bilan mensuel et le bilan trimestriel, limités aux ateliers que vous animez ou co-animez. Les avis d\'un atelier ne sont visibles que par son animateur et son co-animateur, y compris dans la fenêtre du QR code.'},
   {id:28,date:'2026-10-05',titre:'L\'avis des stagiaires par QR code',texte:'Volet latéral : « 📱 QR code des avis stagiaires » affiche le QR de l\'atelier, à projeter ou à imprimer. Les stagiaires répondent en une minute depuis leur téléphone, sans donner leur nom, du jour de l\'atelier à 30 jours après. Un seul avis par personne, et pas plus que de présents : mettez à jour le nombre de présents avant de projeter le QR. Sans smartphone : « ✍️ Saisir un avis papier ». Le résumé des avis reçus s\'affiche sous le QR.'},
-  {id:29,date:'2026-10-05',titre:'Conflits d\'ordinateurs à l\'heure près',texte:'Les alertes d\'ordinateurs tiennent compte de l\'heure et de la durée de l\'atelier, plus 30 min pour rendre le matériel. Deux ateliers qui se suivent le même matin ne sont plus signalés ; un atelier qui déborde sur midi l\'est avec celui de l\'après-midi. L\'alerte indique la plage horaire (« de 12:00 à 13:00 »). Pour la Classe mobile, la règle reste la demi-journée, mais un atelier de 11:00 à 12:30 occupe le matin et l\'après-midi. Renseignez bien l\'horaire et la durée.'},
 ];
 
 // ═══════════════════════════════════════════════════════════
