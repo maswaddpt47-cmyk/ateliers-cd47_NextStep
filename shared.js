@@ -3904,7 +3904,12 @@ function FriseMateriel({entries,onEdit}){
 // Contrairement à VueAnomalies (champs manquants/communes invalides), pas de
 // filtre par conseiller ni d'autres catégories — le stock est partagé par
 // tous, chacun doit voir l'ensemble des conflits.
-function VueGestionOrdi({entries,onEdit}){
+function VueGestionOrdi({entries,onEdit,onDelete,onDuplicate,canDelete}){
+  // Un clic (frise ou « Ouvrir ») ouvre le volet latéral, comme le Planning
+  // (05/10/2026) ; « Éditer complet » y mène au formulaire.
+  const[selectedEntry,setSelectedEntry]=React.useState(null);
+  const[confirmDel,setConfirmDel]=React.useState(null);
+  const ouvrir=id=>{const e=(entries||[]).find(x=>x._id===id);if(e)setSelectedEntry(e);else if(onEdit)onEdit(id);};
   const conflitsMobile=React.useMemo(()=>findMobileClassConflicts(entries),[entries]);
   const conflitsOrdi=React.useMemo(()=>findOrdinateursConflicts(entries),[entries]);
   // Compteurs des tuiles : conflits actifs/à venir uniquement — l'historique
@@ -3913,7 +3918,7 @@ function VueGestionOrdi({entries,onEdit}){
   const nbActifsMobile=conflitsMobile.filter(g=>!estConflitPasse(g,today)).length;
   const nbActifsOrdi=conflitsOrdi.filter(g=>!estConflitPasse(g,today)).length;
   return CE(React.Fragment,null,
-    CE(FriseMateriel,{entries,onEdit}),
+    CE(FriseMateriel,{entries,onEdit:ouvrir}),
     CE('div',{className:'card',style:{maxWidth:900,margin:'0 auto'}},
       CE('div',{style:{display:'flex',alignItems:'center',gap:12,marginBottom:16}},
         CE('span',{style:{fontSize:22}},'🖥️'),
@@ -3937,16 +3942,23 @@ function VueGestionOrdi({entries,onEdit}){
         groupes:conflitsMobile, vide:'Aucun conflit Classe mobile',
         bg:'#fff7ed', border:'#fed7aa', titreColor:'#9a3412',
         renderTitre:g=>'📅 '+fmtDate(g.date)+' '+libelleDemi(g.demi)+' — Classe mobile réservée par '+g.entries.length+' conseillers',
-        renderItem:itemConflitMobile(onEdit)
+        renderItem:itemConflitMobile(ouvrir)
       }),
       CE('div',{style:{margin:'20px 0 8px',fontSize:12,fontWeight:700,color:'#991b1b'}},'Stock ordinateurs'),
       CE(BlocConflits,{
         groupes:conflitsOrdi, vide:'Aucun dépassement de stock',
         bg:'#fef2f2', border:'#fecaca', titreColor:'#991b1b',
         renderTitre:titreConflitOrdi,
-        renderItem:itemConflitOrdi(onEdit)
+        renderItem:itemConflitOrdi(ouvrir)
       })
-    )
+    ),
+    CE(PanneauAtelier,{panel:selectedEntry,onClose:()=>setSelectedEntry(null),entries,onEdit,onDuplicate,canDelete,
+      onAskDelete:e=>setConfirmDel({id:e._id,label:`${fmtDate(e.date)} — ${e.thematique||e.commune||e._id}`})}),
+    confirmDel&&CE(ConfirmModal,{
+      item:confirmDel,
+      onConfirm:async()=>{if(onDelete)await onDelete(confirmDel.id);setConfirmDel(null);},
+      onCancel:()=>setConfirmDel(null)
+    })
   );
 }
 

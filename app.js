@@ -862,7 +862,7 @@ function App(){
           view==='bilans'&&visibility.bilans&&CE(VueMesBilans,{entries}),
           view==='carte'&&visibility.carte&&CE(VueCarte,{entries,active:view==='carte'}),
           view==='roadmap'&&visibility.roadmap&&CE(VueRoadmap,{entries,annee:anneeReference(annee),conseillers:lists.conseillers}),
-          view==='gestion_ordi'&&visibility.gestion_ordi&&CE(VueGestionOrdi,{entries,onEdit:handleEdit}),
+          view==='gestion_ordi'&&visibility.gestion_ordi&&CE(VueGestionOrdi,{entries,onEdit:handleEdit,onDelete:handleDelete,onDuplicate:handleDuplicate,canDelete:true}),
           view==='bingo'&&visibility.bingo&&CE(VueBingo,{entries}),
           view==='corbeille'&&visibility.corbeille&&CE(VueCorbeille,null),
           view==='nouveautes'&&CE(VueNouveautes,{onVu:marquerNouveautes}),
