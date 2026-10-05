@@ -591,6 +591,13 @@ function nouveautesNonVues(liste, vu) {
   const v = Number(vu) || 0;
   return (liste || []).filter(n => n && Number(n.id) > v).length;
 }
+// Sélecteur de date des vues à la semaine (05/10/2026) : nombre de semaines
+// entre la semaine du jour et celle de la date choisie (lundi → dimanche).
+function semainesEntre(aujourdhuiIso, dateIso) {
+  const idx = iso => { const [y, m, d] = String(iso).split('-').map(Number); return Math.floor((Date.UTC(y, m - 1, d) / 86400000 + 3) / 7); };
+  return idx(dateIso) - idx(aujourdhuiIso);
+}
+
 // Annonces de la page (04/10/2026) : une entrée `admin: true` ne concerne que
 // l'Admin (réglage, mail à la superviseure…) et ne s'affiche pas sur Index.
 function nouveautesPourPage(liste, surAdmin) {
@@ -841,7 +848,7 @@ if (typeof module !== 'undefined') {
   module.exports={
     lireICS, evenementsOutlook, idOutlook, rapprocherOutlook,
     genererDatesCycle, joursFeries,
-    nouveautesNonVues, nouveautesPourPage,
+    nouveautesNonVues, nouveautesPourPage, semainesEntre,
     visibiliteEffective,
     normalizeMat, matIncludes,
     normCommune,normalizeCommune,stripAccents,htmlEsc,trunc,

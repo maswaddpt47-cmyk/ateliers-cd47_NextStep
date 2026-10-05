@@ -490,6 +490,17 @@ describe('purgerCacheAteliers', () => {
   });
 });
 
+describe('semainesEntre', () => {
+  it('compte les semaines du lundi au dimanche, dans les deux sens', () => {
+    const { semainesEntre } = require('./utils.js');
+    assert.equal(semainesEntre('2026-10-05', '2026-10-11'), 0);   // lundi → dimanche : même semaine
+    assert.equal(semainesEntre('2026-10-11', '2026-10-12'), 1);   // dimanche → lundi suivant
+    assert.equal(semainesEntre('2026-10-07', '2026-12-25'), 11);
+    assert.equal(semainesEntre('2026-10-07', '2026-09-30'), -1);
+    assert.equal(semainesEntre('2026-12-30', '2027-01-04'), 1);   // passage d'année
+  });
+});
+
 describe('nouveautesPourPage', () => {
   it('une annonce « admin » ne s\'affiche que sur la page Admin', () => {
     const { nouveautesPourPage } = require('./utils.js');

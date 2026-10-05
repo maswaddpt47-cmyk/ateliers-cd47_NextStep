@@ -2905,7 +2905,8 @@ function VueCalendrier({entries,onEdit,onDelete,onRefresh,onEntryUpdated,onDupli
           CE('button',{className:'btn btn-secondary btn-sm',onClick:prevMonth},'‹'),
           CE('div',{style:{fontSize:18,fontWeight:800,color:'var(--text)',minWidth:170,textAlign:'center'}},`${MOIS_LONG[mo]} ${yr}`),
           CE('button',{className:'btn btn-secondary btn-sm',onClick:nextMonth},'›'),
-          CE('button',{className:'btn btn-secondary btn-sm',style:{marginLeft:4,fontSize:12},onClick:goToday},'Aujourd\'hui')
+          CE('button',{className:'btn btn-secondary btn-sm',style:{marginLeft:4,fontSize:12},onClick:goToday},'Aujourd\'hui'),
+          CE(ChoixDate,{titre:'Aller au mois de cette date',value:`${yr}-${String(mo+1).padStart(2,'0')}-01`,onChange:v=>{const[y,m]=v.split('-').map(Number);setCalDate(new Date(y,m-1,1));setExpandDay(null);}})
         ),
         CE('button',{
           onClick:()=>setFiltresOpen(o=>!o),
@@ -3922,6 +3923,13 @@ function FriseMateriel({entries,onEdit}){
 // Contrairement à VueAnomalies (champs manquants/communes invalides), pas de
 // filtre par conseiller ni d'autres catégories — le stock est partagé par
 // tous, chacun doit voir l'ensemble des conflits.
+// Sélecteur « aller à la date » des vues Planning, Agenda, Calendrier et de
+// la frise (05/10/2026) : champ compact, largeur fixe.
+function ChoixDate({value,onChange,titre}){
+  return CE('input',{type:'date','aria-label':titre||'Aller à la date',title:titre||'Aller à la date',value:value||'',
+    onChange:e=>{const v=e.target.value;if(/^\d{4}-\d{2}-\d{2}$/.test(v))onChange(v);},
+    style:{width:130,flex:'0 0 auto',padding:'3px 6px',border:'1px solid #e2e8f0',borderRadius:6,fontSize:12,background:'#fff',color:'#1a202c'}});
+}
 function VueGestionOrdi({entries,onEdit,onDelete,onDuplicate,canDelete}){
   // Un clic (frise ou « Ouvrir ») ouvre le volet latéral, comme le Planning
   // (05/10/2026) ; « Éditer complet » y mène au formulaire.
@@ -4745,7 +4753,8 @@ function VueAgendaSemaine({entries,onEdit,onDelete,onDuplicate,canDelete,initCon
         CE('div',{style:{display:'flex',gap:4}},
           CE('button',{className:'btn btn-secondary btn-sm',onClick:()=>setWeekOffset(w=>w-1)},'← Préc.'),
           CE('button',{className:'btn btn-secondary btn-sm',onClick:()=>setWeekOffset(0),disabled:weekOffset===0,style:{opacity:weekOffset===0?.4:1}},'Auj.'),
-          CE('button',{className:'btn btn-secondary btn-sm',onClick:()=>setWeekOffset(w=>w+1)},'Suiv. →')
+          CE('button',{className:'btn btn-secondary btn-sm',onClick:()=>setWeekOffset(w=>w+1)},'Suiv. →'),
+          CE(ChoixDate,{titre:'Aller à la semaine de cette date',value:firstDay,onChange:v=>setWeekOffset(semainesEntre(todayLocal(),v))})
         ),
         CE('h2',{style:{margin:0,flex:1,textAlign:'center',fontSize:14,fontWeight:700,color:'#1a202c'}},
           '🗓️ Semaine du '+fmtWeekLabel()),
@@ -4913,7 +4922,8 @@ function VuePlanning({entries,onEdit,onDelete,onDuplicate,canDelete,accentColor,
         CE('div',{style:{display:'flex',gap:4}},
           CE('button',{className:'btn btn-secondary btn-sm',onClick:()=>setWeekOffset(w=>w-1)},'← Préc.'),
           CE('button',{className:'btn btn-secondary btn-sm',onClick:()=>setWeekOffset(0),disabled:weekOffset===0,style:{opacity:weekOffset===0?.4:1}},'Auj.'),
-          CE('button',{className:'btn btn-secondary btn-sm',onClick:()=>setWeekOffset(w=>w+1)},'Suiv. →')),
+          CE('button',{className:'btn btn-secondary btn-sm',onClick:()=>setWeekOffset(w=>w+1)},'Suiv. →'),
+          CE(ChoixDate,{titre:'Aller à la semaine de cette date',value:cles[0],onChange:v=>setWeekOffset(semainesEntre(todayLocal(),v))})),
         CE('h2',{style:{margin:0,flex:1,textAlign:'center',fontSize:14,fontWeight:700}},'📊 Planning — semaine du '+libSemaine),
         CE('span',{style:{fontSize:11,background:'#f1f5f9',borderRadius:20,padding:'3px 10px',color:'#475569'}},semaine.length+' atelier'+(semaine.length!==1?'s':''))),
       CE('div',{style:{overflowX:'auto',border:'1px solid var(--border,#e2e8f0)',borderRadius:10}},
