@@ -2777,7 +2777,8 @@ function VueHistorique({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
           CE('div',{className:'atelier-card-day'},d.day),CE('div',{className:'atelier-card-month'},d.month),
           CE('div',{className:'atelier-card-jour'},d.jour),CE('div',{className:'atelier-card-time'},e.horaire),
           // Durée sous l'horaire (05/10/2026)
-          fmtDuree(e.duree)&&CE('div',{className:'atelier-card-jour',style:{marginTop:2,fontWeight:600}},'⏱ '+fmtDuree(e.duree))
+          // Durée vide (ateliers d'avant le 03/10) : 1 h 30, comme partout ailleurs.
+          CE('div',{className:'atelier-card-jour',style:{marginTop:2,fontWeight:600}},'⏱ '+fmtDuree(parseInt(e.duree)||DUREE_DEFAUT))
         ),
         CE('div',{className:'atelier-card-body'},
           CE('div',{className:'atelier-card-badges'},
