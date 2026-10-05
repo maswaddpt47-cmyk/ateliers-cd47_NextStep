@@ -3764,7 +3764,10 @@ function FriseMateriel({entries,onEdit}){
   const colIdx=d=>d<jourDebut?0:d>jourFin?jours.length-1:jours.indexOf(d);
   const MOIS_ABREGE=['jan','fév','mar','avr','mai','jun','jul','aoû','sep','oct','nov','déc'];
   const jourLabel=d=>{const[y,m,j]=d.split('-');return{num:parseInt(j,10),mois:MOIS_ABREGE[parseInt(m,10)-1],weekend:[0,6].includes(new Date(parseInt(y,10),parseInt(m,10)-1,parseInt(j,10)).getDay())};};
-  const navBoutons=CE('div',{style:{display:'flex',gap:6}},
+  // Sélecteur de date (05/10/2026) : la frise démarre au jour choisi.
+  const allerAu=d=>{if(!/^\d{4}-\d{2}-\d{2}$/.test(d||''))return;const[y1,m1,j1]=today.split('-').map(Number),[y2,m2,j2]=d.split('-').map(Number);setOffset(Math.round((Date.UTC(y2,m2-1,j2)-Date.UTC(y1,m1-1,j1))/86400000));};
+  const navBoutons=CE('div',{style:{display:'flex',gap:6,flexWrap:'wrap',alignItems:'center'}},
+    CE('input',{type:'date','aria-label':'Aller au jour',title:'Afficher la frise à partir de ce jour',value:jourDebut,onChange:e=>allerAu(e.target.value),style:{padding:'3px 6px',border:'1px solid #e2e8f0',borderRadius:6,fontSize:12,background:'#fff',color:'#1a202c'}}),
     CE('button',{onClick:()=>setOffset(o=>o-7),style:{padding:'4px 10px',border:'1px solid #e2e8f0',borderRadius:6,background:'#fff',cursor:'pointer',fontSize:12}},'◀ Semaine'),
     CE('button',{onClick:()=>setOffset(0),style:{padding:'4px 10px',border:'1px solid #e2e8f0',borderRadius:6,background:offset===0?'#eff6ff':'#fff',color:offset===0?'#1d4ed8':'#1a202c',cursor:'pointer',fontSize:12}},'Aujourd\'hui'),
     CE('button',{onClick:()=>setOffset(o=>o+7),style:{padding:'4px 10px',border:'1px solid #e2e8f0',borderRadius:6,background:'#fff',cursor:'pointer',fontSize:12}},'Semaine ▶')
