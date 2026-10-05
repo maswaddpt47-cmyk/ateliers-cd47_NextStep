@@ -2777,7 +2777,7 @@ function VueHistorique({onOuvrirGestionOrdi,entries,onEdit,onDelete,onRefresh,on
     canDelete&&CE(BarreSelection,{actif:selActif,setActif:setSelActif,sel,setSel,filtered}),
     CE('div',{className:'atelier-list'},filtered.map((e,ei)=>{
       const d=fmtCardDate(e.date);const retard=isRetard(e);const cColor=conseillerColor(e.conseiller);
-      return CE(FadeItem,{key:e._id,delay:Math.min(ei*0.05,0.5)},CE('div',{className:'atelier-card',style:{position:'relative',background:retard?'#fffbeb':hexToRgba(cColor,0.04),borderLeft:'none'},onClick:()=>selActif?basculerSel(e._id):openPanel(e)},
+      return CE(FadeItem,{key:e._id,delay:Math.min(ei*0.05,0.5)},CE('div',{className:'atelier-card',style:{background:retard?'#fffbeb':hexToRgba(cColor,0.04),borderLeft:'none'},onClick:()=>selActif?basculerSel(e._id):openPanel(e)},
         selActif&&CE('input',{type:'checkbox',checked:sel.has(e._id),readOnly:true,'aria-label':'Sélectionner '+(e.thematique||'atelier'),style:{width:18,height:18,margin:'auto 6px auto 8px',flexShrink:0,cursor:'pointer'}}),
         CE('div',{className:'atelier-card-border',style:{background:cColor}}),
         CE('div',{className:'atelier-card-date',style:{background:hexToRgba(cColor,0.08),borderRight:`1px solid ${hexToRgba(cColor,0.2)}`}},
@@ -2795,11 +2795,9 @@ function VueHistorique({onOuvrirGestionOrdi,entries,onEdit,onDelete,onRefresh,on
           ),
           CE('div',{className:'atelier-card-conseiller',style:{color:cColor}},e.conseiller),
           CE('div',{className:'atelier-card-title'},e.thematique),
-          CE('div',{className:'atelier-card-sub'},e.commune,' — ',e.lieu,(e.inscrits||e.presents)?CE('span',null,' · ',e.presents||0,'/',e.inscrits||0,' présents'):null)
+          CE('div',{className:'atelier-card-sub'},alerteOrdi(e),e.commune,' — ',e.lieu,(e.inscrits||e.presents)?CE('span',null,' · ',e.presents||0,'/',e.inscrits||0,' présents'):null)
         ),
-        CE('div',{className:'atelier-card-arrow'},'›'),
-        // Alerte dans le coin inférieur droit (05/10/2026).
-        idsConflitOrdi.has(e._id)&&CE('div',{style:{position:'absolute',right:10,bottom:6}},alerteOrdi(e))
+        CE('div',{className:'atelier-card-arrow'},'›')
       ));
     })),
     // Side panel overlay
