@@ -2563,7 +2563,7 @@ function VueHistorique({onOuvrirGestionOrdi,entries,onEdit,onDelete,onRefresh,on
     try{findOrdinateursConflicts(entries||[]).filter(g=>!estConflitPasse(g,auj)).forEach(g=>(g.entries||[]).forEach(x=>{if(x&&x._id)ids.add(x._id);}));}catch(_){}
     return ids;
   },[entries]);
-  const alerteOrdi=e=>idsConflitOrdi.has(e._id)&&CE('span',{className:'nouv-blink',title:'Conflit de matériel : cliquer pour ouvrir Gestion ordi',role:onOuvrirGestionOrdi?'button':undefined,onClick:onOuvrirGestionOrdi?(ev=>{ev.stopPropagation();onOuvrirGestionOrdi();}):undefined,style:{display:'inline-block',color:'#dc2626',fontWeight:800,fontSize:11,whiteSpace:'nowrap',marginRight:6,cursor:onOuvrirGestionOrdi?'pointer':'default'}},'⚠️ ordi');
+  const alerteOrdi=e=>idsConflitOrdi.has(e._id)&&CE('span',{className:'nouv-blink',title:'Stock d\'ordinateurs dépassé : cliquer pour ouvrir Gestion ordi à cette date',role:onOuvrirGestionOrdi?'button':undefined,onClick:onOuvrirGestionOrdi?(ev=>{ev.stopPropagation();onOuvrirGestionOrdi(normalizeDate(e.date));}):undefined,style:{display:'inline-block',color:'#dc2626',fontWeight:800,fontSize:11,whiteSpace:'nowrap',marginRight:6,cursor:onOuvrirGestionOrdi?'pointer':'default'}},'⚠️ ordi');
   const[dSearch,setDSearch]=React.useState('');
   const[filtStatut,setFiltStatut]=React.useState('Planifié');
   const[filtMois,setFiltMois]=React.useState('Tous');
@@ -2777,7 +2777,7 @@ function VueHistorique({onOuvrirGestionOrdi,entries,onEdit,onDelete,onRefresh,on
     canDelete&&CE(BarreSelection,{actif:selActif,setActif:setSelActif,sel,setSel,filtered}),
     CE('div',{className:'atelier-list'},filtered.map((e,ei)=>{
       const d=fmtCardDate(e.date);const retard=isRetard(e);const cColor=conseillerColor(e.conseiller);
-      return CE(FadeItem,{key:e._id,delay:Math.min(ei*0.05,0.5)},CE('div',{className:'atelier-card',style:{background:retard?'#fffbeb':hexToRgba(cColor,0.04),borderLeft:'none'},onClick:()=>selActif?basculerSel(e._id):openPanel(e)},
+      return CE(FadeItem,{key:e._id,delay:Math.min(ei*0.05,0.5)},CE('div',{className:'atelier-card',style:{position:'relative',background:retard?'#fffbeb':hexToRgba(cColor,0.04),borderLeft:'none'},onClick:()=>selActif?basculerSel(e._id):openPanel(e)},
         selActif&&CE('input',{type:'checkbox',checked:sel.has(e._id),readOnly:true,'aria-label':'Sélectionner '+(e.thematique||'atelier'),style:{width:18,height:18,margin:'auto 6px auto 8px',flexShrink:0,cursor:'pointer'}}),
         CE('div',{className:'atelier-card-border',style:{background:cColor}}),
         CE('div',{className:'atelier-card-date',style:{background:hexToRgba(cColor,0.08),borderRight:`1px solid ${hexToRgba(cColor,0.2)}`}},
@@ -2795,11 +2795,11 @@ function VueHistorique({onOuvrirGestionOrdi,entries,onEdit,onDelete,onRefresh,on
           ),
           CE('div',{className:'atelier-card-conseiller',style:{color:cColor}},e.conseiller),
           CE('div',{className:'atelier-card-title'},e.thematique),
-          CE('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',gap:6}},
-            CE('div',{className:'atelier-card-sub'},e.commune,' — ',e.lieu,(e.inscrits||e.presents)?CE('span',null,' · ',e.presents||0,'/',e.inscrits||0,' présents'):null),
-            alerteOrdi(e))
+          CE('div',{className:'atelier-card-sub'},e.commune,' — ',e.lieu,(e.inscrits||e.presents)?CE('span',null,' · ',e.presents||0,'/',e.inscrits||0,' présents'):null)
         ),
-        CE('div',{className:'atelier-card-arrow'},'›')
+        CE('div',{className:'atelier-card-arrow'},'›'),
+        // Alerte dans le coin inférieur droit (05/10/2026).
+        idsConflitOrdi.has(e._id)&&CE('div',{style:{position:'absolute',right:10,bottom:6}},alerteOrdi(e))
       ));
     })),
     // Side panel overlay
@@ -3760,8 +3760,9 @@ function BlocConflits({groupes,vide,bg,border,titreColor,renderTitre,renderItem}
 // sautent aux yeux visuellement, plus besoin de lire chaque carte de
 // conflit une par une. Fenêtre de 28 jours navigable (± 1 semaine par clic).
 const FRISE_NB_JOURS=28;
-function FriseMateriel({entries,onEdit}){
-  const[offset,setOffset]=React.useState(0);
+function FriseMateriel({entries,onEdit,dateInitiale}){
+  // Ouverte depuis l'alerte d'une tuile (05/10/2026) : démarre au jour de l'atelier.
+  const[offset,setOffset]=React.useState(()=>{if(!/^\d{4}-\d{2}-\d{2}$/.test(dateInitiale||''))return 0;const[y1,m1,j1]=todayLocal().split('-').map(Number),[y2,m2,j2]=dateInitiale.split('-').map(Number);return Math.round((Date.UTC(y2,m2-1,j2)-Date.UTC(y1,m1-1,j1))/86400000);});
   const[agrandi,setAgrandi]=React.useState(false);
   const[exportEnCours,setExportEnCours]=React.useState(false);
   const today=todayLocal();
@@ -3942,7 +3943,7 @@ function ChoixDate({value,onChange,titre}){
     onChange:e=>{const v=e.target.value;if(/^\d{4}-\d{2}-\d{2}$/.test(v))onChange(v);},
     style:{width:130,flex:'0 0 auto',padding:'3px 6px',border:'1px solid #e2e8f0',borderRadius:6,fontSize:12,background:'#fff',color:'#1a202c'}});
 }
-function VueGestionOrdi({entries,onEdit,onDelete,onDuplicate,canDelete}){
+function VueGestionOrdi({entries,onEdit,onDelete,onDuplicate,canDelete,dateInitiale}){
   // Un clic (frise ou « Ouvrir ») ouvre le volet latéral, comme le Planning
   // (05/10/2026) ; « Éditer complet » y mène au formulaire.
   const[selectedEntry,setSelectedEntry]=React.useState(null);
@@ -3956,7 +3957,7 @@ function VueGestionOrdi({entries,onEdit,onDelete,onDuplicate,canDelete}){
   const today=todayLocal();
   const nbActifsOrdi=conflitsOrdi.filter(g=>!estConflitPasse(g,today)).length;
   return CE(React.Fragment,null,
-    CE(FriseMateriel,{entries,onEdit:ouvrir}),
+    CE(FriseMateriel,{entries,onEdit:ouvrir,dateInitiale}),
     CE('div',{className:'card',style:{maxWidth:900,margin:'0 auto'}},
       CE('div',{style:{display:'flex',alignItems:'center',gap:12,marginBottom:16}},
         CE('span',{style:{fontSize:22}},'🖥️'),
