@@ -539,7 +539,7 @@ const BILAN_CHOIX={
   niveau:['Débutant','Intermédiaire','Avancé'],
   objectif:['Oui','Partiellement','Non'],
   difficultes:['Matériel','Connexion','Niveau hétérogène','Absences','Autre'],
-  supports:['Diaporama','Fiche pas-à-pas','Vidéo','Démonstration','Exercices pratiques','Livret','Aucun'],
+  supports:['Diaporama','Fiche pas-à-pas','Vidéo','Démonstration','Exercices pratiques','Livret','PIX','Aucun'],
   suite:['Nouvel atelier','Orientation','Rien'],
 };
 const BILAN_MULTIPLES=['difficultes','supports'];
