@@ -2775,7 +2775,9 @@ function VueHistorique({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
         CE('div',{className:'atelier-card-border',style:{background:cColor}}),
         CE('div',{className:'atelier-card-date',style:{background:hexToRgba(cColor,0.08),borderRight:`1px solid ${hexToRgba(cColor,0.2)}`}},
           CE('div',{className:'atelier-card-day'},d.day),CE('div',{className:'atelier-card-month'},d.month),
-          CE('div',{className:'atelier-card-jour'},d.jour),CE('div',{className:'atelier-card-time'},e.horaire)
+          CE('div',{className:'atelier-card-jour'},d.jour),CE('div',{className:'atelier-card-time'},e.horaire),
+          // Durée sous l'horaire (05/10/2026)
+          fmtDuree(e.duree)&&CE('div',{className:'atelier-card-jour',style:{marginTop:2,fontWeight:600}},'⏱ '+fmtDuree(e.duree))
         ),
         CE('div',{className:'atelier-card-body'},
           CE('div',{className:'atelier-card-badges'},
