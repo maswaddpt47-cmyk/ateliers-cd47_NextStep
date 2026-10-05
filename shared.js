@@ -3772,7 +3772,7 @@ function FriseMateriel({entries,onEdit}){
   // Sélecteur de date (05/10/2026) : la frise démarre au jour choisi.
   const allerAu=d=>{if(!/^\d{4}-\d{2}-\d{2}$/.test(d||''))return;const[y1,m1,j1]=today.split('-').map(Number),[y2,m2,j2]=d.split('-').map(Number);setOffset(Math.round((Date.UTC(y2,m2-1,j2)-Date.UTC(y1,m1-1,j1))/86400000));};
   const navBoutons=CE('div',{style:{display:'flex',gap:6,flexWrap:'wrap',alignItems:'center'}},
-    CE('input',{type:'date','aria-label':'Aller au jour',title:'Afficher la frise à partir de ce jour',value:jourDebut,onChange:e=>allerAu(e.target.value),style:{padding:'3px 6px',border:'1px solid #e2e8f0',borderRadius:6,fontSize:12,background:'#fff',color:'#1a202c'}}),
+    CE('input',{type:'date','aria-label':'Aller au jour',title:'Afficher la frise à partir de ce jour',value:jourDebut,onChange:e=>allerAu(e.target.value),style:{width:130,flex:'0 0 auto',padding:'3px 6px',border:'1px solid #e2e8f0',borderRadius:6,fontSize:12,background:'#fff',color:'#1a202c'}}),
     CE('button',{onClick:()=>setOffset(o=>o-7),style:{padding:'4px 10px',border:'1px solid #e2e8f0',borderRadius:6,background:'#fff',cursor:'pointer',fontSize:12}},'◀ Semaine'),
     CE('button',{onClick:()=>setOffset(0),style:{padding:'4px 10px',border:'1px solid #e2e8f0',borderRadius:6,background:offset===0?'#eff6ff':'#fff',color:offset===0?'#1d4ed8':'#1a202c',cursor:'pointer',fontSize:12}},'Aujourd\'hui'),
     CE('button',{onClick:()=>setOffset(o=>o+7),style:{padding:'4px 10px',border:'1px solid #e2e8f0',borderRadius:6,background:'#fff',cursor:'pointer',fontSize:12}},'Semaine ▶')
@@ -3811,8 +3811,19 @@ function FriseMateriel({entries,onEdit}){
       // à l'affichage s'empilent sur une sous-ligne, sans répéter le nom.
       CE('div',{style:{display:'flex',flexDirection:'column',gap:colWidth<32?3:6}},
         (()=>{
-          const parCons=[];
+          // Séances du même conseiller sur la même période de prêt (G1 à 9 h,
+          // G2 à 10 h 30…) : un seul jeu d'ordinateurs, une seule barre
+          // (05/10/2026, demande de l'utilisateur) — comme le calcul des
+          // conflits, qui compte un conseiller au max de ses quantités.
+          const barres=[];
           pretsVisibles.forEach(p=>{
+            const cle=(p.conseiller||'—')+'|'+p.debut+'|'+p.fin;
+            const b=barres.find(x=>x.cle===cle);
+            if(b){b.seances.push(p);b.qte=Math.max(b.qte,p.qte);}
+            else barres.push({cle,conseiller:p.conseiller,debut:p.debut,fin:p.fin,dateAtelier:p.dateAtelier,_id:p._id,qte:p.qte,seances:[p]});
+          });
+          const parCons=[];
+          barres.forEach(p=>{
             let g=parCons.find(x=>x.nom===(p.conseiller||'—'));
             if(!g){g={nom:p.conseiller||'—',voies:[]};parCons.push(g);}
             const d=colIdx(p.debut),f=colIdx(p.fin);
@@ -3829,12 +3840,14 @@ function FriseMateriel({entries,onEdit}){
                 const debutIdx=colIdx(p.debut),finIdx=colIdx(p.fin),atelierIdx=colIdx(p.dateAtelier);
                 // Le marquage ⚠️ suit l'occupation réelle, pas la barre dessinée :
                 // le jour du retour est affiché mais ne réserve plus le stock.
-                const conflit=jours.some(d=>analyse[d]&&analyse[d].enConflit.has(p));
+                const conflit=jours.some(d=>analyse[d]&&p.seances.some(x=>analyse[d].enConflit.has(x)));
+                const communes=[...new Set(p.seances.map(x=>x.commune).filter(Boolean))].join(', ');
+                const detail=p.seances.map(x=>(x.thematique||'Atelier')+(x.creneau&&x.creneau.heure?' à '+hhmm(x.creneau.de):'')).join(' · ');
                 // Barre teintée dans la couleur du conum ; le conflit reste
                 // visible (bordure rouge épaissie + ⚠️ + texte rouge).
                 return [
-                  CE('div',{key:p._id,style:{gridColumn:(debutIdx+2)+' / '+(finIdx+3),gridRow:String(voie+1),background:cCol+'22',border:(conflit?'2px solid #dc2626':'1px solid '+cCol),borderRadius:6,padding:'2px 6px',fontSize:tailleTexte+1,color:conflit?'#7f1d1d':cCol,fontWeight:600,cursor:onEdit?'pointer':'default',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'},onClick:()=>onEdit&&onEdit(p._id),title:(p.thematique?p.thematique+' · ':'')+(p.commune||'')+' · '+p.qte+' ordinateur(s) · '+fmtPeriode(p.debut,p.fin)},
-                    (conflit?'⚠️ ':'')+p.qte+' 🖥️ '+(p.commune||'')),
+                  CE('div',{key:p._id,style:{gridColumn:(debutIdx+2)+' / '+(finIdx+3),gridRow:String(voie+1),background:cCol+'22',border:(conflit?'2px solid #dc2626':'1px solid '+cCol),borderRadius:6,padding:'2px 6px',fontSize:tailleTexte+1,color:conflit?'#7f1d1d':cCol,fontWeight:600,cursor:onEdit?'pointer':'default',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'},onClick:()=>onEdit&&onEdit(p._id),title:detail+' · '+communes+' · '+p.qte+' ordinateur(s) · '+fmtPeriode(p.debut,p.fin)+(p.seances.length>1?' — ouvre la première séance':'')},
+                    (conflit?'⚠️ ':'')+p.qte+' 🖥️ '+communes+(p.seances.length>1?' · '+p.seances.length+' séances':'')),
                   // Repère du jour de l'atelier, superposé sans bloquer le clic.
                   CE('div',{key:p._id+'_mark',title:'Atelier le '+fmtDate(p.dateAtelier),style:{gridColumn:(atelierIdx+2)+' / '+(atelierIdx+3),gridRow:String(voie+1),alignSelf:'start',justifySelf:'center',pointerEvents:'none',fontSize:tailleTexte+3,lineHeight:1,color:'#1a202c',transform:'translateY(-70%)'}},'▼')
                 ];
