@@ -2017,12 +2017,10 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
   // Classe mobile ci-dessous, purement informative (jamais bloquante).
   const champsCommuns=(frm,setFn,errs,entries_,datesConflit)=>{
     const matMobileActif=matIncludes(frm.materiel,'Classe mobile');
-    const conflitsMat=matMobileActif&&datesConflit&&datesConflit.length
-      ?[...new Set(datesConflit.filter(Boolean))].map(d=>({
-          date:d,
-          autres:(entries_||entries).filter(e=>e._id!==editId&&e.date===d&&e.statut!=='Annulé'&&e.conseiller&&e.conseiller!==frm.conseiller&&matIncludes(e.materiel,'Classe mobile'))
-        })).filter(g=>g.autres.length>0)
-      :[];
+    // Plus d'alerte « Classe mobile déjà réservée » (05/10/2026, décision de
+    // l'utilisateur) : seul le stock d'ordinateurs compte, signalé dans le
+    // volet et dans Gestion ordi.
+    const conflitsMat=[];
     return CE('div',null,
     CE('div',{className:'sf-ligne-2',style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}},
       CE('div',null,
@@ -2395,7 +2393,7 @@ function PanneauAtelier({panel,onClose,entries,onEntryUpdated,onRefresh,onEdit,o
           parseInt(panel.nb_ordinateurs)>0&&(panel.date_prelevement_materiel||panel.date_retour_materiel)&&CE('div',{className:'sp-info-row'},CE('span',null,'Période de prêt'),CE('span',null,fmtPeriode(periodePretMateriel(panel).debut,periodePretMateriel(panel).fin))),
           // Conflit de matériel si l'on enregistre (26/09/2026) : même contrôle
           // que l'onglet Anomalies, sur l'atelier tel qu'il sera enregistré.
-          (()=>{const c=typeof conflitsDeLEntree==='function'?conflitsDeLEntree(entries,{...panel,date:panelDate,horaire:panelHoraire,ampm:ampmDepuisHoraire(panelHoraire)||panel.ampm,duree:parseInt(panelDuree)||DUREE_DEFAUT,materiel:matierePanneau(panel,panelMobile),nb_ordinateurs:panelMobile?(panelNbOrdi===''?'':parseInt(panelNbOrdi)||0):'',date_prelevement_materiel:panelMobile?panelPrelev:'',date_retour_materiel:panelMobile?panelRetour:''},typeof findOrdinateursConflicts==='function'?findOrdinateursConflicts:null,typeof findMobileClassConflicts==='function'?findMobileClassConflicts:null):{ordi:[],mobile:[]};
+          (()=>{const c=typeof conflitsDeLEntree==='function'?conflitsDeLEntree(entries,{...panel,date:panelDate,horaire:panelHoraire,ampm:ampmDepuisHoraire(panelHoraire)||panel.ampm,duree:parseInt(panelDuree)||DUREE_DEFAUT,materiel:matierePanneau(panel,panelMobile),nb_ordinateurs:panelMobile?(panelNbOrdi===''?'':parseInt(panelNbOrdi)||0):'',date_prelevement_materiel:panelMobile?panelPrelev:'',date_retour_materiel:panelMobile?panelRetour:''},typeof findOrdinateursConflicts==='function'?findOrdinateursConflicts:null,null):{ordi:[],mobile:[]};
             if(!c.ordi.length&&!c.mobile.length)return null;
             return CE('div',{style:{background:'#fff7ed',border:'1px solid #fed7aa',borderRadius:8,padding:'8px 10px',fontSize:12,color:'#9a3412',display:'flex',flexDirection:'column',gap:4}},
               CE('strong',null,'⚠️ Conflit de matériel si vous enregistrez :'),
@@ -2557,12 +2555,12 @@ function BarreSelection({actif,setActif,sel,setSel,filtered}){
 
 function VueHistorique({onOuvrirGestionOrdi,entries,onEdit,onDelete,onRefresh,onDuplicate,initConseiller,onResetConseiller,canDelete,onChangeConseiller}){
   const[search,setSearch]=React.useState('');
-  // Ateliers pris dans un conflit de matériel à venir (ordinateurs ou Classe
-  // mobile, comme les compteurs de Gestion ordi) : « ⚠️ ordi » sur la tuile
+  // Ateliers pris dans un dépassement du stock d'ordinateurs à venir (comme
+  // Gestion ordi ; plus de règle « Classe mobile unique » depuis le 05/10/2026) : « ⚠️ ordi » sur la tuile
   // (05/10/2026). Calculé sur tous les ateliers, pas seulement les filtrés.
   const idsConflitOrdi=React.useMemo(()=>{
     const auj=todayLocal(),ids=new Set();
-    try{findOrdinateursConflicts(entries||[]).concat(findMobileClassConflicts(entries||[])).filter(g=>!estConflitPasse(g,auj)).forEach(g=>(g.entries||[]).forEach(x=>{if(x&&x._id)ids.add(x._id);}));}catch(_){}
+    try{findOrdinateursConflicts(entries||[]).filter(g=>!estConflitPasse(g,auj)).forEach(g=>(g.entries||[]).forEach(x=>{if(x&&x._id)ids.add(x._id);}));}catch(_){}
     return ids;
   },[entries]);
   const alerteOrdi=e=>idsConflitOrdi.has(e._id)&&CE('span',{className:'nouv-blink',title:'Conflit de matériel : cliquer pour ouvrir Gestion ordi',role:onOuvrirGestionOrdi?'button':undefined,onClick:onOuvrirGestionOrdi?(ev=>{ev.stopPropagation();onOuvrirGestionOrdi();}):undefined,style:{display:'inline-block',color:'#dc2626',fontWeight:800,fontSize:11,whiteSpace:'nowrap',marginRight:6,cursor:onOuvrirGestionOrdi?'pointer':'default'}},'⚠️ ordi');
@@ -3950,12 +3948,12 @@ function VueGestionOrdi({entries,onEdit,onDelete,onDuplicate,canDelete}){
   const[selectedEntry,setSelectedEntry]=React.useState(null);
   const[confirmDel,setConfirmDel]=React.useState(null);
   const ouvrir=id=>{const e=(entries||[]).find(x=>x._id===id);if(e)setSelectedEntry(e);else if(onEdit)onEdit(id);};
-  const conflitsMobile=React.useMemo(()=>findMobileClassConflicts(entries),[entries]);
+  // Décision de l'utilisateur du 05/10/2026 : seul le stock d'ordinateurs
+  // compte ; la Classe mobile n'est plus un objet unique à se disputer.
   const conflitsOrdi=React.useMemo(()=>findOrdinateursConflicts(entries),[entries]);
   // Compteurs des tuiles : conflits actifs/à venir uniquement — l'historique
   // (dates passées) est visible plus bas dans chaque bloc, pas dans le total.
   const today=todayLocal();
-  const nbActifsMobile=conflitsMobile.filter(g=>!estConflitPasse(g,today)).length;
   const nbActifsOrdi=conflitsOrdi.filter(g=>!estConflitPasse(g,today)).length;
   return CE(React.Fragment,null,
     CE(FriseMateriel,{entries,onEdit:ouvrir}),
@@ -3964,27 +3962,16 @@ function VueGestionOrdi({entries,onEdit,onDelete,onDuplicate,canDelete}){
         CE('span',{style:{fontSize:22}},'🖥️'),
         CE('div',null,
           CE('h2',{style:{margin:0,fontSize:16,fontWeight:700}},'Gestion ordi'),
-          CE('p',{style:{margin:0,fontSize:12,color:'#6b7280'}},'Classe mobile & stock de '+STOCK_ORDINATEURS+' ordinateurs prêtés aux participants')
+          CE('p',{style:{margin:0,fontSize:12,color:'#6b7280'}},'Stock de '+STOCK_ORDINATEURS+' ordinateurs prêtés aux participants')
         )
       ),
       CE('div',{style:{display:'flex',gap:10,marginBottom:16,flexWrap:'wrap'}},
-        CE('div',{style:{background:'#ffedd5',borderRadius:8,padding:'8px 14px',flex:'1',minWidth:120}},
-          CE('div',{style:{fontSize:20,fontWeight:700,color:'#9a3412'}},nbActifsMobile),
-          CE('div',{style:{fontSize:11,color:'#7c2d12'}},'⚠️ Conflits Classe mobile')
-        ),
         CE('div',{style:{background:'#fee2e2',borderRadius:8,padding:'8px 14px',flex:'1',minWidth:120}},
           CE('div',{style:{fontSize:20,fontWeight:700,color:'#991b1b'}},nbActifsOrdi),
           CE('div',{style:{fontSize:11,color:'#7f1d1d'}},'🖥️ Stock ordinateurs dépassé')
         )
       ),
-      CE('div',{style:{marginBottom:8,fontSize:12,fontWeight:700,color:'#9a3412'}},'Classe mobile'),
-      CE(BlocConflits,{
-        groupes:conflitsMobile, vide:'Aucun conflit Classe mobile',
-        bg:'#fff7ed', border:'#fed7aa', titreColor:'#9a3412',
-        renderTitre:g=>'📅 '+fmtDate(g.date)+' '+libelleDemi(g.demi)+' — Classe mobile réservée par '+g.entries.length+' conseillers',
-        renderItem:itemConflitMobile(ouvrir)
-      }),
-      CE('div',{style:{margin:'20px 0 8px',fontSize:12,fontWeight:700,color:'#991b1b'}},'Stock ordinateurs'),
+      CE('div',{style:{margin:'0 0 8px',fontSize:12,fontWeight:700,color:'#991b1b'}},'Stock ordinateurs'),
       CE(BlocConflits,{
         groupes:conflitsOrdi, vide:'Aucun dépassement de stock',
         bg:'#fef2f2', border:'#fecaca', titreColor:'#991b1b',
@@ -5913,7 +5900,7 @@ const NOUVEAUTES=[
   {id:13,date:'2026-09-25',titre:'L\'orienteur affiché dans le Calendrier et l\'Agenda',texte:'Calendrier : l\'orienteur apparaît sur sa propre ligne dans chaque atelier. Agenda : une ligne « 🤝 Orienteur » sous la commune. On sait pour quel partenaire est l\'atelier sans avoir à l\'ouvrir.'},
   {id:14,date:'2026-09-25',titre:'Rappels sur votre adresse professionnelle',texte:'Les mails de rappel des ateliers dont la date est dépassée sans mise à jour du statut arrivent désormais sur votre adresse mail professionnelle, et non plus sur Gmail. Ils partent chaque matin à 8 h.'},
   {id:15,date:'2026-10-02',titre:'Supprimer plusieurs ateliers d\'un coup',texte:'Historique : filtrez la liste si besoin (orienteur, thématique, dates… par exemple pour tout un cycle), cliquez sur « ☑ Sélectionner plusieurs ateliers », cochez les ateliers ou « Tout sélectionner », puis « 🗑 Supprimer la sélection ». Seuls les ateliers cochés et affichés sont supprimés ; ils restent récupérables 30 jours dans la Corbeille.'},
-  {id:17,date:'2026-09-26',titre:'Conflit d\'ordinateurs signalé avant d\'enregistrer',texte:'Volet latéral (Historique, Calendrier, Agenda) : quand vous changez la date, le nombre d\'ordinateurs ou les dates de prélèvement et de retour d\'un atelier avec Classe mobile, un encadré orange prévient si le stock d\'ordinateurs est dépassé ou si la Classe mobile est déjà réservée ce jour-là par un collègue. Vous pouvez enregistrer quand même : le conflit reste visible dans « 🖥️ Gestion ordi » pour s\'arranger.'},
+  {id:17,date:'2026-09-26',titre:'Conflit d\'ordinateurs signalé avant d\'enregistrer',texte:'Volet latéral (Historique, Calendrier, Agenda) : quand vous changez la date, le nombre d\'ordinateurs ou les dates de prélèvement et de retour d\'un atelier avec Classe mobile, un encadré orange prévient si le stock d\'ordinateurs est dépassé. Vous pouvez enregistrer quand même : le conflit reste visible dans « 🖥️ Gestion ordi » pour s\'arranger.'},
   {id:18,date:'2026-10-01',titre:'La rubrique Nouveautés',texte:'Les changements de l\'application sont annoncés ici, et non plus par mail. Une pastille signale les annonces que vous n\'avez pas encore lues ; elles sont classées de la plus récente à la plus ancienne.'},
   {id:20,date:'2026-10-02',titre:'Contribuer : vos idées et vos soucis',texte:'Nouvelle rubrique « 💬 Contribuer » : une idée d\'amélioration, un bug, une question ? Cliquez sur « ＋ Nouvelle contribution », choisissez le type et la gêne, décrivez en quelques lignes. L\'onglet où vous étiez est pré-rempli. Toute l\'équipe voit les contributions, ce qui évite les doublons ; la réponse s\'affiche dans la contribution, et une pastille vous prévient quand vous en avez une. Les contributions closes restent consultables dans « 🗄️ Archives ». Ne mettez aucune donnée d\'usager (nom, téléphone…).'},
   {id:21,date:'2026-10-05',titre:'Durée de l\'atelier',texte:'Formulaire « Nouveau » et saisie par cycle : une liste « Durée » par demi-heure, réglée sur 1 h 30 par défaut, à ajuster si besoin. L\'import Outlook reprend la durée de chaque rendez-vous. Les calendriers (.ics) envoyés aux partenaires affichent désormais la bonne heure de fin.'},
