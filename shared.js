@@ -2339,8 +2339,13 @@ function PanneauAtelier({panel,onClose,entries,onEntryUpdated,onRefresh,onEdit,o
           CE('div',{className:'cloture-banner',style:{background:isRetard(panel)?'#fffbeb':'#f0f4ff',borderColor:isRetard(panel)?'#fcd34d':'#bfdbfe'}},
             CE('div',{className:'cloture-title',style:{color:isRetard(panel)?'#92400e':'#1e3a8a'}},isRetard(panel)?'⚠️ Atelier passé — à clôturer':'⚡ Changement rapide de statut'),
             CE('div',{className:'cloture-btns'},
-              CLOTURE_PRESETS.map(p=>CE('button',{key:p.statut,className:'cloture-btn',style:{background:p.bg,color:p.color,outline:panelStatut===p.statut?'2px solid #1e3a8a':'none'},onClick:()=>setPanelStatut(p.statut)},p.label))
-            )
+              // Statut actuel mis en avant (05/10/2026) : coche et contour
+              // épais ; les autres estompés tant que l'un d'eux est choisi.
+              CLOTURE_PRESETS.map(p=>{const choisi=panelStatut===p.statut,unChoisi=CLOTURE_PRESETS.some(x=>x.statut===panelStatut);
+                return CE('button',{key:p.statut,className:'cloture-btn','aria-pressed':choisi,style:{background:p.bg,color:p.color,opacity:choisi||!unChoisi?1:.4,outline:choisi?'3px solid #1e3a8a':'none',outlineOffset:choisi?2:0,boxShadow:choisi?'0 2px 8px rgba(30,58,138,.35)':'none'},onClick:()=>setPanelStatut(p.statut)},(choisi?'✓ ':'')+p.label);})
+            ),
+            CE('div',{style:{fontSize:12,color:'#334155',marginTop:8}},'Statut actuel : ',CE('strong',null,panelStatut||'—'),
+              panelStatut!==panel.statut&&CE('span',{style:{color:'#b45309',fontWeight:600}},' (pas encore enregistré — avant : '+(panel.statut||'—')+')'))
           ),
           CE('div',{style:{fontSize:13,fontWeight:700,color:'#1a202c',marginBottom:8}},panel.thematique),
           CE('div',{className:'sp-info-row'},CE('span',null,'Commune'),CE('span',null,panel.commune)),
