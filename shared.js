@@ -2557,6 +2557,15 @@ function BarreSelection({actif,setActif,sel,setSel,filtered}){
 
 function VueHistorique({entries,onEdit,onDelete,onRefresh,onDuplicate,initConseiller,onResetConseiller,canDelete,onChangeConseiller}){
   const[search,setSearch]=React.useState('');
+  // Ateliers pris dans un conflit de matériel à venir (ordinateurs ou Classe
+  // mobile, comme les compteurs de Gestion ordi) : « ⚠️ ordi » sur la tuile
+  // (05/10/2026). Calculé sur tous les ateliers, pas seulement les filtrés.
+  const idsConflitOrdi=React.useMemo(()=>{
+    const auj=todayLocal(),ids=new Set();
+    try{findOrdinateursConflicts(entries||[]).concat(findMobileClassConflicts(entries||[])).filter(g=>!estConflitPasse(g,auj)).forEach(g=>(g.entries||[]).forEach(x=>{if(x&&x._id)ids.add(x._id);}));}catch(_){}
+    return ids;
+  },[entries]);
+  const alerteOrdi=e=>idsConflitOrdi.has(e._id)&&CE('span',{className:'nouv-blink',title:'Conflit de matériel : voir Gestion ordi',style:{display:'inline-block',color:'#dc2626',fontWeight:800,fontSize:11,whiteSpace:'nowrap',marginRight:6}},'⚠️ ordi');
   const[dSearch,setDSearch]=React.useState('');
   const[filtStatut,setFiltStatut]=React.useState('Planifié');
   const[filtMois,setFiltMois]=React.useState('Tous');
@@ -2788,7 +2797,7 @@ function VueHistorique({entries,onEdit,onDelete,onRefresh,onDuplicate,initConsei
           ),
           CE('div',{className:'atelier-card-conseiller',style:{color:cColor}},e.conseiller),
           CE('div',{className:'atelier-card-title'},e.thematique),
-          CE('div',{className:'atelier-card-sub'},e.commune,' — ',e.lieu,(e.inscrits||e.presents)?CE('span',null,' · ',e.presents||0,'/',e.inscrits||0,' présents'):null)
+          CE('div',{className:'atelier-card-sub'},alerteOrdi(e),e.commune,' — ',e.lieu,(e.inscrits||e.presents)?CE('span',null,' · ',e.presents||0,'/',e.inscrits||0,' présents'):null)
         ),
         CE('div',{className:'atelier-card-arrow'},'›')
       ));
