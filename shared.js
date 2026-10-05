@@ -3800,31 +3800,43 @@ function FriseMateriel({entries,onEdit}){
           return CE('div',{key:d,title:'Au plus '+t+' ordinateur(s) au même moment'+quand,style:{height:colWidth<32?14:22,background:t===0?'#f1f5f9':depasse?'#dc2626':'#86efac',borderRadius:2,fontSize:tailleTexte,color:depasse?'#fff':'#166534',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:700}},t>0?t:'');
         })
       ),
-      // Une ligne par prêt
+      // Une ligne par conseiller (05/10/2026, demande de l'utilisateur : une
+      // ligne par prêt répétait le même nom). Ses prêts sont posés côte à côte
+      // sur la même ligne ; deux prêts du même conseiller qui se chevauchent
+      // à l'affichage s'empilent sur une sous-ligne, sans répéter le nom.
       CE('div',{style:{display:'flex',flexDirection:'column',gap:colWidth<32?3:6}},
-        pretsVisibles.map(p=>{
-          const debutIdx=colIdx(p.debut),finIdx=colIdx(p.fin),atelierIdx=colIdx(p.dateAtelier);
-          // Le marquage ⚠️ suit l'occupation réelle, pas la barre dessinée : le
-          // jour du retour est affiché mais ne réserve plus le stock, il ne doit
-          // donc pas faire passer ce prêt en conflit.
-          const conflit=jours.some(d=>analyse[d]&&analyse[d].enConflit.has(p));
-          // Barre teintée dans la couleur du conum (même couleur que le
-          // libellé à gauche et que partout ailleurs dans l'appli), plutôt
-          // qu'un bleu/rouge générique — identifier qui réserve quoi d'un
-          // coup d'œil sur la frise. Le conflit reste visible (bordure rouge
-          // épaissie + ⚠️ + texte rouge) : la couleur ne doit pas faire
-          // disparaître le signal que ce composant existe pour donner.
-          const cCol=conseillerColor(p.conseiller);
-          return CE('div',{key:p._id,className:printable?'frise-grid-row':undefined,style:{display:'grid',gridTemplateColumns:gridTemplate,gap:1,alignItems:'center'}},
-            CE('div',{style:{fontSize:tailleTexte+2,fontWeight:600,color:cCol,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',paddingRight:4}},p.conseiller||'—'),
-            CE('div',{style:{gridColumn:(debutIdx+2)+' / '+(finIdx+3),gridRow:'1',background:cCol+'22',border:(conflit?'2px solid #dc2626':'1px solid '+cCol),borderRadius:6,padding:'2px 6px',fontSize:tailleTexte+1,color:conflit?'#7f1d1d':cCol,fontWeight:600,cursor:onEdit?'pointer':'default',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'},onClick:()=>onEdit&&onEdit(p._id),title:(p.commune||'')+' · '+p.qte+' ordinateur(s) · '+fmtPeriode(p.debut,p.fin)},
-              (conflit?'⚠️ ':'')+p.qte+' 🖥️ '+(p.commune||'')),
-            // Repère du jour de l'atelier (distinct du prélèvement/retour qui
-            // entourent la barre) — un triangle superposé, sans bloquer le
-            // clic sur la barre en dessous.
-            CE('div',{key:p._id+'_mark',title:'Atelier le '+fmtDate(p.dateAtelier),style:{gridColumn:(atelierIdx+2)+' / '+(atelierIdx+3),gridRow:'1',alignSelf:'start',justifySelf:'center',pointerEvents:'none',fontSize:tailleTexte+3,lineHeight:1,color:'#1a202c',transform:'translateY(-70%)'}},'▼')
-          );
-        })
+        (()=>{
+          const parCons=[];
+          pretsVisibles.forEach(p=>{
+            let g=parCons.find(x=>x.nom===(p.conseiller||'—'));
+            if(!g){g={nom:p.conseiller||'—',voies:[]};parCons.push(g);}
+            const d=colIdx(p.debut),f=colIdx(p.fin);
+            let v=g.voies.findIndex(fin=>fin<d);
+            if(v<0){v=g.voies.length;g.voies.push(f);}else g.voies[v]=f;
+            (g.prets=g.prets||[]).push({p,voie:v});
+          });
+          return parCons.map(g=>{
+            const cCol=conseillerColor(g.nom);
+            const nbVoies=g.voies.length;
+            return CE('div',{key:g.nom,className:printable?'frise-grid-row':undefined,style:{display:'grid',gridTemplateColumns:gridTemplate,gridTemplateRows:'repeat('+nbVoies+',auto)',columnGap:1,rowGap:colWidth<32?6:10,alignItems:'center',paddingTop:colWidth<32?4:6,borderTop:'1px dashed #e2e8f0'}},
+              CE('div',{style:{gridColumn:'1',gridRow:'1 / span '+nbVoies,alignSelf:'center',fontSize:tailleTexte+2,fontWeight:600,color:cCol,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',paddingRight:4}},g.nom),
+              ...g.prets.flatMap(({p,voie})=>{
+                const debutIdx=colIdx(p.debut),finIdx=colIdx(p.fin),atelierIdx=colIdx(p.dateAtelier);
+                // Le marquage ⚠️ suit l'occupation réelle, pas la barre dessinée :
+                // le jour du retour est affiché mais ne réserve plus le stock.
+                const conflit=jours.some(d=>analyse[d]&&analyse[d].enConflit.has(p));
+                // Barre teintée dans la couleur du conum ; le conflit reste
+                // visible (bordure rouge épaissie + ⚠️ + texte rouge).
+                return [
+                  CE('div',{key:p._id,style:{gridColumn:(debutIdx+2)+' / '+(finIdx+3),gridRow:String(voie+1),background:cCol+'22',border:(conflit?'2px solid #dc2626':'1px solid '+cCol),borderRadius:6,padding:'2px 6px',fontSize:tailleTexte+1,color:conflit?'#7f1d1d':cCol,fontWeight:600,cursor:onEdit?'pointer':'default',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'},onClick:()=>onEdit&&onEdit(p._id),title:(p.thematique?p.thematique+' · ':'')+(p.commune||'')+' · '+p.qte+' ordinateur(s) · '+fmtPeriode(p.debut,p.fin)},
+                    (conflit?'⚠️ ':'')+p.qte+' 🖥️ '+(p.commune||'')),
+                  // Repère du jour de l'atelier, superposé sans bloquer le clic.
+                  CE('div',{key:p._id+'_mark',title:'Atelier le '+fmtDate(p.dateAtelier),style:{gridColumn:(atelierIdx+2)+' / '+(atelierIdx+3),gridRow:String(voie+1),alignSelf:'start',justifySelf:'center',pointerEvents:'none',fontSize:tailleTexte+3,lineHeight:1,color:'#1a202c',transform:'translateY(-70%)'}},'▼')
+                ];
+              })
+            );
+          });
+        })()
       )
     );
   }
