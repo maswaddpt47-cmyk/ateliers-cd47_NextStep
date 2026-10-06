@@ -1,6 +1,6 @@
 # Chantiers en cours — Ateliers CD47 NextStep
 
-État au **02/10/2026**. NextStep (équipe) et NEWGEN (utilisateur) parlent à
+État au **06/10/2026**. NextStep (équipe) et NEWGEN (utilisateur) parlent à
 la même API Alwaysdata et à la même base depuis la bascule du 25/09/2026 :
 **les restes communs** (registres, audit trimestriel, sauvegardes,
 sécurité, import Outlook à valider, rubrique Nouveautés) et les
@@ -69,8 +69,8 @@ Règle 22 de MD-LIB `collaboration.md` : au plus 3 pistes, à la fin d'une
 fonctionnalité validée ou sur demande de revue. Une piste écartée ne se
 repropose pas sans fait nouveau.
 
-**Proposées, en attente**
-- Conflits de matériel tenant compte de la durée : un atelier 11:00–12:30 et un autre à 12:00 sur les mêmes ordinateurs (relevé par la session B, AG-018, 03/10/2026 ; `logic.js` ne regarde que la demi-journée de début).
+**Proposées, en attente** : tenues dans `CHANTIERS.md` d'ATELIERS_NEWGEN
+(mêmes interfaces, même base).
 
 **Écartées** (date — piste — raison)
 - 03/10/2026 — lien d'abonnement agenda pour les partenaires — « pour l'instant » (utilisateur).
