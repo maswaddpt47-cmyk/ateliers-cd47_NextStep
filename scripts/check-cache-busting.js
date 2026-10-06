@@ -35,7 +35,7 @@ function sh(cmd) {
 }
 
 function versionOf(content, file) {
-  const esc = file.replace(/[.]/g, '\\.');
+  const esc = file.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const m = new RegExp(esc + String.raw`\?v=([^"'\s>]+)`).exec(content);
   return m ? m[1] : null;
 }
