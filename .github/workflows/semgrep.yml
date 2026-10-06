@@ -33,14 +33,14 @@ jobs:
 
       # Détail des alertes dans le journal, SARIF pour l'onglet Security.
       # --timeout 60 : shared.js et xlsxstyle.js dépassaient les 5 s par règle.
-      # vendor/ : bibliothèques copiées, pas notre code. Tests :
+      # vendor/ et xlsxstyle.js (SheetJS minifié) : bibliothèques, pas notre code. Tests :
       # données d'essai, du bruit garanti.
       - name: Analyse
         run: >
           semgrep scan --metrics=off --timeout 60
           --config p/javascript --config p/secrets
           --exclude vendor --exclude node_modules --exclude e2e
-          --exclude '*.test.js'
+          --exclude '*.test.js' --exclude xlsxstyle.js
           --sarif-output=semgrep.sarif
 
       - uses: github/codeql-action/upload-sarif@v4
