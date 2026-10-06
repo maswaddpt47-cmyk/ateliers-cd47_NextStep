@@ -607,7 +607,7 @@ const GAS_ACTIONS_ECRITURE = new Set([
   'logLogin','logAccesIndex',
   // Mot de passe oublié (AG-013) : doubler enverrait deux mails et
   // consommerait deux fois le quota de 3 demandes par heure.
-  'demanderReinit','reinitMotDePasse',
+  'demanderReinit','reinitMotDePasse','envoyerLienReinit',
   // Corbeille et copie à la demande (AG-014) : écritures, jamais doublées.
   'restaurerCorbeille','copieMaintenant',
   // Tickets (AG-016) : creerTicket est rejouable sans effet (id client), mais
