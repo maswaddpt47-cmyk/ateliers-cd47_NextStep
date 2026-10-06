@@ -99,6 +99,12 @@ le repo) est prévu tous les trois mois. C'est une routine planifiée
 (`create_trigger`, mode session neuve à chaque déclenchement — indépendante
 de toute session de travail), avec notification push/email. Voir
 `MD-LIB/rgpd-securite.md` pour le détail.
+**Audit Codex** (OpenAI, MD-LIB `agora.md` §12) : le même jour, et après tout
+changement structurant de sécurité (connexion, page publique, hébergement),
+avec la consigne de `ateliers-backups/documents/sources/consigne-audit-codex.md`
+(ligne « Ce dépôt ne contient que l'interface » en tête) ; chaque point vérifié
+dans le code. Contradiction d'une proposition : `AGORA.md` d'ATELIERS_NEWGEN
+(blocs de sécurité : Codex).
 
 ## Branche de travail
 
