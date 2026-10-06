@@ -5724,12 +5724,12 @@ function VueAvisAteliers({entries,moi}){
   const totalAvis=lignes.reduce((t,l)=>t+l.n,0);
   const note=v=>v===null||v===undefined?'—':String(v).replace('.',',')+'/5';
   const part=(o,n)=>n?`${o}/${n}`:'—';
-  const COLS=['Date','Thématique','Commune','Conseiller','Avis','Attentes','Clarté','Rythme adapté','Plus à l\'aise','Refaire seul'];
-  const cellules=l=>[fmtDate(l.e.date),l.e.thematique||'—',l.e.commune||'—',l.e.conseiller||'—',l.n+(l.papier?` (dont ${l.papier} papier)`:''),note(l.attentes),note(l.clarte),part(l.rythme_ok,l.rythme_n),part(l.aise_oui,l.aise_n),part(l.autonomie_oui,l.autonomie_n)];
+  const COLS=['Date','Thématique','Commune','Partenaire','Conseiller','Avis','Attentes','Clarté','Rythme adapté','Plus à l\'aise','Refaire seul'];
+  const cellules=l=>[fmtDate(l.e.date),l.e.thematique||'—',l.e.commune||'—',l.e.orienteur||'—',l.e.conseiller||'—',l.n+(l.papier?` (dont ${l.papier} papier)`:''),note(l.attentes),note(l.clarte),part(l.rythme_ok,l.rythme_n),part(l.aise_oui,l.aise_n),part(l.autonomie_oui,l.autonomie_n)];
   function imprimer(){
     const w=window.open('','_blank');if(!w){showToast('Autorisez les fenêtres pour ce site',false);return;}
     const e=htmlEsc;
-    const corps=lignes.map(l=>`<tr>${cellules(l).map(c=>`<td>${e(String(c))}</td>`).join('')}</tr>`+(l.remarques.length?`<tr><td></td><td colspan="9" class="rem">${l.remarques.map(r=>'« '+e(r)+' »').join('<br>')}</td></tr>`:'')).join('');
+    const corps=lignes.map(l=>`<tr>${cellules(l).map(c=>`<td>${e(String(c))}</td>`).join('')}</tr>`+(l.remarques.length?`<tr><td></td><td colspan="${COLS.length-1}" class="rem">${l.remarques.map(r=>'« '+e(r)+' »').join('<br>')}</td></tr>`:'')).join('');
     w.document.write(`<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><title>Avis des stagiaires par atelier</title><style>body{font-family:Arial,sans-serif;margin:24px;color:#0f172a}h1{font-size:18px;color:#0f766e}table{width:100%;border-collapse:collapse;font-size:11px}th,td{border-bottom:1px solid #e2e8f0;padding:4px 5px;text-align:left;vertical-align:top}th{background:#f8fafc}.rem{font-style:italic;color:#475569}</style></head><body><h1>Avis des stagiaires par atelier</h1><p style="font-size:12px;color:#64748b">Ateliers du ${fmtDate(du)} au ${fmtDate(au)} — ${lignes.length} atelier(s), ${totalAvis} avis. Avis anonymes. Édité le ${fmtDate(auj)}.</p><table><thead><tr>${COLS.map(c=>`<th>${e(c)}</th>`).join('')}</tr></thead><tbody>${corps}</tbody></table><script>window.print();<\/script></body></html>`);
     w.document.close();
   }
