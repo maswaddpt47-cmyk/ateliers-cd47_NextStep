@@ -1,0 +1,48 @@
+name: Semgrep
+
+# Analyse statique du JavaScript des pages (06/10/2026). L'API PHP vit dans
+# ATELIERS_NEWGEN et y est analysée par le même workflow.
+# Jamais bloquant : les résultats vont dans l'onglet Security → Code scanning,
+# à trier un par un (vraie faille, fausse alerte, risque accepté).
+# Hebdomadaire en plus du push : les règles évoluent sans que le code change.
+
+on:
+  push:
+    branches: [main]
+    paths-ignore: ['**.md']
+  schedule:
+    - cron: '23 6 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+
+concurrency:
+  group: semgrep
+  cancel-in-progress: true
+
+jobs:
+  semgrep:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    container:
+      image: semgrep/semgrep
+    steps:
+      - uses: actions/checkout@v4
+
+      # vendor/ : bibliothèques copiées, pas notre code. Tests :
+      # données d'essai, du bruit garanti.
+      - name: Analyse
+        run: >
+          semgrep scan --metrics=off
+          --config p/javascript --config p/secrets
+          --exclude vendor --exclude node_modules --exclude e2e
+          --exclude '*.test.js'
+          --sarif --output semgrep.sarif
+
+      - uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: semgrep.sarif
+          category: semgrep
