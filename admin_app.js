@@ -868,6 +868,7 @@ const LOGS_COLONNES=[
   {label:'Appareil',key:'user_agent'}
 ];
 let logsCache=null; // {data:[...], ts:number} — survit aux démontages du composant
+window.addEventListener('ateliers:deconnexion',()=>{ logsCache=null; });   // pas lisible après déconnexion
 // ── Sauvegardes (AG-014, 25/09/2026) ───────────────────────────────────────
 // Lecture seule + copie à la demande. Pas de restauration complète ici, par
 // choix : une session Admin volée ne doit pas pouvoir effacer la base.

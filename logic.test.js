@@ -66,7 +66,7 @@ describe('findMobileClassConflicts', () => {
     const entries = [
       { statut: 'Planifié', date: '2026-10-01', conseiller: 'Alice', materiel: ['Classe mobile'] },
       { statut: 'Planifié', date: '2026-10-01', conseiller: 'Bob',   materiel: ['Classe mobile'] },
-      { statut: 'Planifié', date: '2026-10-01', conseiller: 'Cynthia', materiel: ['Classe mobile'] },
+      { statut: 'Planifié', date: '2026-10-01', conseiller: 'Alice', materiel: ['Classe mobile'] },
     ];
     const conflits = findMobileClassConflicts(entries);
     assert.equal(conflits.length, 1);
@@ -251,7 +251,7 @@ describe('findOrdinateursConflicts', () => {
     const entries = [
       { statut: 'Planifié', date: '2026-10-01', date_prelevement_materiel: '2026-10-01', date_retour_materiel: '2026-10-01', conseiller: 'Alice', materiel: ['Classe mobile'], nb_ordinateurs: 6 },
       { statut: 'Planifié', date: '2026-10-01', date_prelevement_materiel: '2026-10-01', date_retour_materiel: '2026-10-01', conseiller: 'Bob',   materiel: ['Classe mobile'], nb_ordinateurs: 6 },
-      { statut: 'Planifié', date: '2026-10-05', date_prelevement_materiel: '2026-10-05', date_retour_materiel: '2026-10-05', conseiller: 'Cynthia', materiel: ['Classe mobile'], nb_ordinateurs: 6 },
+      { statut: 'Planifié', date: '2026-10-05', date_prelevement_materiel: '2026-10-05', date_retour_materiel: '2026-10-05', conseiller: 'Alice', materiel: ['Classe mobile'], nb_ordinateurs: 6 },
       { statut: 'Planifié', date: '2026-10-05', date_prelevement_materiel: '2026-10-05', date_retour_materiel: '2026-10-05', conseiller: 'David',   materiel: ['Classe mobile'], nb_ordinateurs: 6 },
     ];
     const conflits = findOrdinateursConflicts(entries);
@@ -451,12 +451,12 @@ describe('occupation du stock le jour du retour', () => {
 
   it('un retour et un prélèvement le même jour ne se cumulent pas (le matériel change de mains)', () => {
     const entries = [
-      pret('a', 'Corentin', 6, '2026-09-25', '2026-09-24', '2026-09-29'),
+      pret('a', 'Bruno', 6, '2026-09-25', '2026-09-24', '2026-09-29'),
       pret('b', 'Michel',   5, '2026-09-30', '2026-09-29', '2026-10-02'),
     ];
     const totaux = totauxParJourMateriel(getPretsMateriel(entries), ['2026-09-28', '2026-09-29', '2026-09-30']);
-    assert.equal(totaux['2026-09-28'], 6);  // Corentin seul
-    assert.equal(totaux['2026-09-29'], 5);  // Corentin a rendu le matin, Michel prélève
+    assert.equal(totaux['2026-09-28'], 6);  // Bruno seul
+    assert.equal(totaux['2026-09-29'], 5);  // Bruno a rendu le matin, Michel prélève
     assert.equal(totaux['2026-09-30'], 5);
     assert.deepEqual(findOrdinateursConflicts(entries), []);
   });
