@@ -81,6 +81,10 @@ Checklist condensée :
   HTTPS, pas de donnée sensible en localStorage/cookies sans nécessité, libs/
   CDN externes vérifiées, permissions par défaut minimales, logs sans données
   personnelles en clair.
+- **Captures d'écran** (charte IA du CD47 §4, 06/10/2026) : celles envoyées à
+  Claude se font dans le bac à sable (données fictives) ou recadrées. Une
+  capture qui montre des données réelles (noms d'agents, remarques de
+  stagiaires) se signale en une ligne : rappel d'habitude, pas alerte RGPD.
 
 Signaler tout point non garanti explicitement dans la réponse (`⚠️ RGPD/
 sécurité : ...`), même sans qu'on le demande — immédiatement si critique
