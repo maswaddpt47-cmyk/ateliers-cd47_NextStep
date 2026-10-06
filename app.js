@@ -366,7 +366,9 @@ function App(){
       showToast('⏱️ Déconnecté après 30 min d’inactivité.',false);
       return true;
     };
-    toucher();
+    // Page rechargée : l'ancienne activité est regardée avant d'être
+    // renouvelée (audit Codex du 06/10/2026). La connexion la pose (onSuccess).
+    if(!expirer()) toucher();
     const minuteur=setInterval(expirer,60*1000);
     const auRetour=()=>{ if(!expirer()) toucher(); };
     const activite=()=>{ if(!expirer()) toucher(); };
@@ -627,7 +629,7 @@ function App(){
   if(!authed){
     return CE(VueLoginIndex,{
       conseillers:loginConseillers,
-      onSuccess:(nom,res)=>{ window.onLoginSuccess(nom,res); setAuthed(true); handleChoixConseiller(nom, true); }
+      onSuccess:(nom,res)=>{ try{ localStorage.setItem(lsKey('idx_derniere_activite'),String(Date.now())); }catch(_){} window.onLoginSuccess(nom,res); setAuthed(true); handleChoixConseiller(nom, true); }
     });
   }
 
