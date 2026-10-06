@@ -85,6 +85,9 @@ Checklist condensée :
   Claude se font dans le bac à sable (données fictives) ou recadrées. Une
   capture qui montre des données réelles (noms d'agents, remarques de
   stagiaires) se signale en une ligne : rappel d'habitude, pas alerte RGPD.
+- **Références CD47** : consignes IA → `MD-LIB/charte-ia-cd47.md` ; durées
+  de conservation et purges (tableau de gestion, visa des Archives
+  départementales, versions V0.x/V1) → `MD-LIB/archivage-cd47.md`.
 
 Signaler tout point non garanti explicitement dans la réponse (`⚠️ RGPD/
 sécurité : ...`), même sans qu'on le demande — immédiatement si critique
