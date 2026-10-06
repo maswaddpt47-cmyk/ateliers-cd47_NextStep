@@ -5793,9 +5793,9 @@ function VueMesBilans({entries}){
   ];
   return CE('div',null,
     CE('div',{style:{fontSize:13,color:'#64748b',marginBottom:8}},`Ateliers que vous animez ou co-animez — ${moi||'?'}`),
-    CE('div',{style:{display:'flex',borderBottom:'2px solid #e5e7eb',marginBottom:16,gap:4,overflowX:'auto'}},
+    CE('div',{style:{display:'flex',boxShadow:'inset 0 -2px 0 #e5e7eb',marginBottom:16,gap:4,overflowX:'auto',overflowY:'hidden'}},
       TABS.map(t=>CE('button',{key:t.id,onClick:()=>setTab(t.id),style:{padding:'8px 18px',border:'none',background:'none',cursor:'pointer',fontSize:13,fontWeight:tab===t.id?700:400,fontFamily:'inherit',
-        color:tab===t.id?'var(--accent,#0ea5e9)':'#6b7280',borderBottom:tab===t.id?'3px solid var(--accent,#0ea5e9)':'3px solid transparent',marginBottom:-2,whiteSpace:'nowrap'}},t.ico+' '+t.label))),
+        color:tab===t.id?'var(--accent,#0ea5e9)':'#6b7280',borderBottom:tab===t.id?'3px solid var(--accent,#0ea5e9)':'3px solid transparent',whiteSpace:'nowrap'}},t.ico+' '+t.label))),
     !moi?CE('div',{className:'card',style:{color:'#b91c1c'}},'Reconnectez-vous pour afficher vos bilans.')
     :CE(React.Fragment,null,
       tab==='avis'&&CE(VueAvisAteliers,{entries:miens,moi:true}),
@@ -5814,7 +5814,7 @@ function VueDashboardTabs({entries, conseillers, sansBilans}){
     {id:'trimestre',  ico:'🗓️', label:'Bilan trimestriel'},
   ].filter(t=>!sansBilans||t.id==='dashboard'||t.id==='graphiques');
   return CE('div',null,
-    CE('div',{style:{display:'flex',borderBottom:'2px solid #e5e7eb',marginBottom:16,gap:4,overflowX:'auto'}},
+    CE('div',{style:{display:'flex',boxShadow:'inset 0 -2px 0 #e5e7eb',marginBottom:16,gap:4,overflowX:'auto',overflowY:'hidden'}},
       TABS.map(t=>CE('button',{
         key:t.id,
         onClick:()=>setTab(t.id),
@@ -5823,7 +5823,7 @@ function VueDashboardTabs({entries, conseillers, sansBilans}){
           fontSize:13,fontWeight:tab===t.id?700:400,fontFamily:'inherit',
           color:tab===t.id?'var(--accent,#0ea5e9)':'#6b7280',
           borderBottom:tab===t.id?'3px solid var(--accent,#0ea5e9)':'3px solid transparent',
-          marginBottom:-2,transition:'all .15s'
+          whiteSpace:'nowrap',transition:'all .15s'
         }
       }, t.ico+' '+t.label))
     ),
