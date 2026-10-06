@@ -31,6 +31,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Détail des alertes dans le journal, SARIF pour l'onglet Security.
       # vendor/ : bibliothèques copiées, pas notre code. Tests :
       # données d'essai, du bruit garanti.
       - name: Analyse
@@ -39,9 +40,9 @@ jobs:
           --config p/javascript --config p/secrets
           --exclude vendor --exclude node_modules --exclude e2e
           --exclude '*.test.js'
-          --sarif --output semgrep.sarif
+          --sarif-output=semgrep.sarif
 
-      - uses: github/codeql-action/upload-sarif@v3
+      - uses: github/codeql-action/upload-sarif@v4
         if: always()
         with:
           sarif_file: semgrep.sarif
