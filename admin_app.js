@@ -819,6 +819,21 @@ function ReinitialiserMotDePasseCollegue({conseillers}){
   const[result,setResult]=React.useState(null); // {ok, newPassword} | {ok:false, txt}
   const[copied,setCopied]=React.useState(false);
 
+  // Lien par mail (06/10/2026) : le collègue choisit lui-même son mot de
+  // passe, que personne d'autre ne connaît. Le provisoire reste en secours
+  // (pas d'adresse, mail qui n'arrive pas).
+  async function handleLien(){
+    if(!cible)return;
+    setSaving(true);setResult(null);setCopied(false);
+    try{
+      const retour=location.origin+location.pathname.replace(/[^/]*$/,'index.html');
+      const res=await apiFetch('envoyerLienReinit',{conseiller:cible,retour});
+      if(res&&res.ok)setResult({ok:true,lien:true,txt:res.message||'Lien envoyé.'});
+      else setResult({ok:false,txt:res&&res.error||'Erreur serveur'});
+    }catch(_){setResult({ok:false,txt:'Hors-ligne'});}
+    finally{setSaving(false);}
+  }
+
   async function handleReset(){
     if(!cible)return;
     if(!window.confirm('Donner un mot de passe provisoire à '+cible+' ?\n\nCette action est immédiate et remplace son mot de passe actuel.'))return;
@@ -832,8 +847,8 @@ function ReinitialiserMotDePasseCollegue({conseillers}){
   }
 
   return CE('div',{className:'admin-section'},
-    CE('h3',null,'🔑 Mot de passe oublié — réinitialiser pour un collègue'),
-    CE('p',{style:{fontSize:12,color:'#4a5568',marginBottom:12}},'Tire un mot de passe provisoire pour le conseiller sélectionné. Communiquez-le-lui ensuite (téléphone, en personne…). S\'il a une adresse mail enregistrée, « Mot de passe oublié » sur la page de connexion lui évite de passer par vous.'),
+    CE('h3',null,'🔑 Mot de passe oublié — aider un collègue'),
+    CE('p',{style:{fontSize:12,color:'#4a5568',marginBottom:8}},'« Envoyer un lien » : le conseiller reçoit un mail et choisit lui-même son mot de passe (lien valable 30 min). Le mot de passe provisoire ne sert qu\'en secours : pas d\'adresse mail, ou mail qui n\'arrive pas.'),
     CE('div',{style:{display:'flex',gap:10,flexWrap:'wrap',alignItems:'flex-end'}},
       CE('div',null,
         CE('label',null,'Conseiller'),
@@ -842,9 +857,11 @@ function ReinitialiserMotDePasseCollegue({conseillers}){
           (conseillers||[]).map(c=>CE('option',{key:c,value:c},c))
         )
       ),
-      CE('button',{className:'btn btn-primary',disabled:!cible||saving,onClick:handleReset},saving?'Réinitialisation…':'🔑 Réinitialiser')
+      CE('button',{className:'btn btn-primary',disabled:!cible||saving,onClick:handleLien},saving?'Envoi…':'📧 Envoyer un lien par mail'),
+      CE('button',{className:'btn btn-secondary',disabled:!cible||saving,onClick:handleReset},'🔑 Mot de passe provisoire')
     ),
-    result&&result.ok&&CE('div',{style:{marginTop:12,padding:'12px 14px',background:'#f0fff4',border:'1.5px solid #9ae6b4',borderRadius:8}},
+    result&&result.ok&&result.lien&&CE('p',{style:{marginTop:8,fontSize:13,color:'#276749'}},'✅ '+result.txt),
+    result&&result.ok&&!result.lien&&CE('div',{style:{marginTop:12,padding:'12px 14px',background:'#f0fff4',border:'1.5px solid #9ae6b4',borderRadius:8}},
       CE('div',{style:{fontSize:12,color:'#276749',fontWeight:700,marginBottom:6}},'✅ Nouveau mot de passe de '+cible+' :'),
       CE('div',{style:{display:'flex',alignItems:'center',gap:10}},
         CE('code',{style:{fontFamily:"'SF Mono',Consolas,monospace",fontSize:14,color:'#22543d',background:'#fff',border:'1px solid #9ae6b4',borderRadius:6,padding:'4px 10px'}},result.newPassword),

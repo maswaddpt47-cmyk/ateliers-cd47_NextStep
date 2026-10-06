@@ -607,7 +607,7 @@ const GAS_ACTIONS_ECRITURE = new Set([
   'logLogin','logAccesIndex',
   // Mot de passe oublié (AG-013) : doubler enverrait deux mails et
   // consommerait deux fois le quota de 3 demandes par heure.
-  'demanderReinit','reinitMotDePasse',
+  'demanderReinit','reinitMotDePasse','envoyerLienReinit',
   // Corbeille et copie à la demande (AG-014) : écritures, jamais doublées.
   'restaurerCorbeille','copieMaintenant',
   // Tickets (AG-016) : creerTicket est rejouable sans effet (id client), mais
@@ -2510,8 +2510,9 @@ function ModaleAvisQR({atelier,onClose}){
         CE('div',{style:{textAlign:'left',background:'#f8fafc',borderRadius:10,padding:'10px 12px',fontSize:13}},
           CE('div',{style:{fontWeight:700,marginBottom:4}},(a.n?`${a.n} avis reçu${a.n>1?'s':''}`:'Aucun avis pour l\'instant')+(etat.plafond?` — ${etat.plafond} au plus`:'')),
           etat.plafond&&CE('div',{style:{fontSize:11,color:'#64748b',marginBottom:4}},'Un avis par présent (à défaut, par inscrit) : mettez à jour le nombre de présents si un stagiaire ne peut plus répondre.'),
-          a.n>0&&CE('div',null,`Attentes : ${a.attentes??'—'}/5 · Clarté : ${a.clarte??'—'}/5`),
-          a.n>0&&CE('div',null,`Plus à l'aise : ${a.aise_oui}/${a.n} · Autonomes : ${a.autonomie_oui}/${a.n}`),
+          a.masque&&CE('div',{style:{fontSize:12,color:'#64748b'}},`Résultats visibles à partir de ${a.seuil||3} avis, pour que personne ne soit reconnu.`),
+          a.n>0&&!a.masque&&CE('div',null,`Attentes : ${a.attentes??'—'}/5 · Clarté : ${a.clarte??'—'}/5`),
+          a.n>0&&!a.masque&&CE('div',null,`Plus à l'aise : ${a.aise_oui}/${a.n} · Autonomes : ${a.autonomie_oui}/${a.n}`),
           (a.remarques||[]).length>0&&CE('div',{style:{marginTop:6,color:'#475569'}},a.remarques.map((t,i)=>CE('div',{key:i,style:{fontStyle:'italic'}},'« '+t+' »')))),
         (()=>{const auj=todayLocal(),du=etat.ouvert_du,au=etat.ouvert_au;
           const ouvert=du&&au&&auj>=du&&auj<=au;
@@ -5650,7 +5651,7 @@ function VueBilanTrimestriel({entries,moi}){
   React.useEffect(()=>{let vivant=true;setAv(null);
     (async()=>{try{
       const r=await apiFetch('bilanAvis',moi?{du:debut,au:fin,moi:'1'}:{du:debut,au:fin});
-      if(vivant)setAv(r&&r.ok?{avis:r.avis,remarques:r.remarques}:{erreur:(r&&r.error)||'Erreur'});
+      if(vivant)setAv(r&&r.ok?(r.masque?{avis:[],remarques:[],erreur:`moins de ${r.seuil||3} avis sur la période, résultats masqués pour que personne ne soit reconnu`}:{avis:r.avis,remarques:r.remarques}):{erreur:(r&&r.error)||'Erreur'});
     }catch(e){if(vivant)setAv({erreur:e.message||'Erreur réseau'});}})();
     return()=>{vivant=false;};},[debut,fin]);
   const annees=[...new Set([annee,new Date().getFullYear(),...(entries||[]).map(e=>parseInt(String(normalizeDate(e.date)||'').slice(0,4))).filter(Boolean)])].sort((x,y)=>y-x);
@@ -5741,7 +5742,7 @@ function VueAvisAteliers({entries,moi}){
   const detail=(l,q,o,n)=>{const d=l.detail&&l.detail[q];if(!d)return part(o,n);
     const t=DETAIL[q].filter(([v])=>d[v]>0).map(([v,lib])=>d[v]+' '+lib);return t.length?t.join(' · '):'—';};
   const COLS=['Date','Thématique','Commune','Partenaire','Conseiller','Avis','Attentes','Clarté','Rythme','À l\'aise','Refaire seul'];
-  const cellules=l=>[fmtDate(l.e.date),l.e.thematique||'—',l.e.commune||'—',l.e.orienteur||'—',l.e.conseiller||'—',l.n+(l.papier?` (dont ${l.papier} papier)`:''),note(l.attentes),note(l.clarte),detail(l,'rythme',l.rythme_ok,l.rythme_n),detail(l,'aise',l.aise_oui,l.aise_n),detail(l,'autonomie',l.autonomie_oui,l.autonomie_n)];
+  const cellules=l=>[fmtDate(l.e.date),l.e.thematique||'—',l.e.commune||'—',l.e.orienteur||'—',l.e.conseiller||'—',l.n+(l.papier?` (dont ${l.papier} papier)`:'')+(l.masque?' — résultats à partir de 3':''),note(l.attentes),note(l.clarte),detail(l,'rythme',l.rythme_ok,l.rythme_n),detail(l,'aise',l.aise_oui,l.aise_n),detail(l,'autonomie',l.autonomie_oui,l.autonomie_n)];
   // Export CSV pour Excel (06/10/2026) : « ; » et virgule décimale, BOM pour
   // les accents, une colonne par réponse possible.
   function exporterCsv(){
