@@ -5741,7 +5741,9 @@ function VueAvisAteliers({entries,moi}){
       .concat(...Object.keys(DETAIL).map(q=>DETAIL[q].map(([v])=>({rythme:'Rythme',aise:'À l\'aise',autonomie:'Refaire seul'})[q]+' : '+v)),['Remarques']);
     const ligne=l=>[fmtDate(l.e.date),l.e.thematique||'',l.e.commune||'',l.e.orienteur||'',l.e.conseiller||'',l.n,l.papier||0,nb(l.attentes),nb(l.clarte)]
       .concat(...Object.keys(DETAIL).map(q=>DETAIL[q].map(([v])=>(l.detail&&l.detail[q]&&l.detail[q][v])||0)),[l.remarques.join(' | ')]);
-    const champCsv=c=>{const t=String(c);return /[;"\n\r]/.test(t)?'"'+t.replace(/"/g,'""')+'"':t;};
+    // Une remarque anonyme qui commence par = + - @ serait lue comme une formule
+    // par le tableur : apostrophe devant (audit Codex du 06/10/2026, n° 11).
+    const champCsv=c=>{let t=String(c);if(/^[=+\-@\t\r]/.test(t))t="'"+t;return /[;"\n\r]/.test(t)?'"'+t.replace(/"/g,'""')+'"':t;};
     const csv='\ufeff'+[tete].concat(lignes.map(ligne)).map(r=>r.map(champCsv).join(';')).join('\r\n');
     const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
     a.download=`avis-par-atelier_${du}_${au}.csv`;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
