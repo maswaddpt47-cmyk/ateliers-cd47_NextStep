@@ -1008,7 +1008,9 @@ const COMMUNES_GPS = {
   'TOURNON D AGENAIS':{lat:44.3833,lng:0.9667},
   'VILLENEUVE SUR LOT':{lat:44.4089,lng:0.7053},
 };
-const CONSEILLERS_DEFAULT = ['Cynthia Pineau','Corentin Tual','Michel Aswad','Eva Capelle'];
+// Vide : la liste vient de l'API (getComptes, getAll). Plus de noms d'agents
+// dans le code public (audit Codex du 06/10/2026).
+const CONSEILLERS_DEFAULT = [];
 const STATUTS_DEFAULT = ['Planifié','Réalisé','Annulé','Non réalisé','Reporté'];
 const PUBLICS_DEFAULT = [
   'Tous publics',

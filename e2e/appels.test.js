@@ -39,7 +39,7 @@ const MOCK_GETALL = {
   ],
   lists: {
     statuts:['Planifié','Réalisé','Annulé','Reporté','Non réalisé'],
-    conseillers:['Michel Aswad','Cynthia Pineau'],
+    conseillers:['Michel Aswad','Alice Martin'],
     publics:['Adultes','Seniors'],
     materiels:['Tablette','Ordinateur'],
   },
@@ -52,7 +52,7 @@ function reponseGas(action) {
   if (action === 'checkPassword')  return { ok:true, role:'admin', token:'jeton-de-test' };
   if (action === 'getComptes')     return { ok:true, comptes:[
     { conseiller:'Michel Aswad', role:'admin', actif:'OUI' },
-    { conseiller:'Cynthia Pineau', role:'user', actif:'OUI' },
+    { conseiller:'Alice Martin', role:'user', actif:'OUI' },
   ]};
   if (action === 'getConfig')      return { ok:true, config:{} };
   if (action === 'logLogin')       return { ok:true };
@@ -127,7 +127,7 @@ test('index — modifier un atelier émet saveEntry seul, sans getAll derrière'
   await page.waitForSelector('input[type="password"]', { timeout:10000 });
 
   // Le conseiller doit être choisi explicitement. Le menu déroulant conserve
-  // la valeur initiale (CONSEILLERS_DEFAULT[0]) dès lors qu'elle figure aussi
+  // la valeur initiale (le premier nom) dès lors qu'elle figure aussi
   // dans les comptes renvoyés par getComptes — on se retrouvait connecté sous
   // un autre nom que l'auteur de l'atelier de test, que le filtre par
   // conseiller masquait alors tout à fait légitimement.

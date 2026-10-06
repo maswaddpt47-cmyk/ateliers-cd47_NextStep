@@ -11,13 +11,13 @@ const YESTERDAY = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
 
 const MOCK_ENTRIES = [
   { _id: 'e1', date: TODAY,     horaire: '09H00', statut: 'Planifié',  conseiller: 'Michel Aswad',  commune: 'Agen',    thematique: 'Numérique', inscrits: 4, presents: 0, materiel: ['Tablette'], orienteur: 'CAF', public: 'Adultes', remarques: '' },
-  { _id: 'e2', date: YESTERDAY, horaire: '14H00', statut: 'Réalisé',   conseiller: 'Cynthia Pineau', commune: 'Nérac',  thematique: 'Email',     inscrits: 6, presents: 5, materiel: ['PC'],       orienteur: 'MDPH', public: 'Seniors', remarques: '' },
-  { _id: 'e3', date: YESTERDAY, horaire: '10H00', statut: 'Planifié',  conseiller: 'Corentin Tual', commune: 'Marmande', thematique: 'Démarches', inscrits: 3, presents: 0, materiel: [],          orienteur: 'Mairie', public: 'Adultes', remarques: '' },
+  { _id: 'e2', date: YESTERDAY, horaire: '14H00', statut: 'Réalisé',   conseiller: 'Alice Martin', commune: 'Nérac',  thematique: 'Email',     inscrits: 6, presents: 5, materiel: ['PC'],       orienteur: 'MDPH', public: 'Seniors', remarques: '' },
+  { _id: 'e3', date: YESTERDAY, horaire: '10H00', statut: 'Planifié',  conseiller: 'Bruno Petit', commune: 'Marmande', thematique: 'Démarches', inscrits: 3, presents: 0, materiel: [],          orienteur: 'Mairie', public: 'Adultes', remarques: '' },
 ];
 
 const MOCK_LISTS = {
   ok: true,
-  conseillers: ['Michel Aswad', 'Cynthia Pineau', 'Corentin Tual', 'Eva Capelle'],
+  conseillers: ['Michel Aswad', 'Alice Martin', 'Bruno Petit', 'Claire Durand'],
   communes: ['Agen', 'Nérac', 'Marmande'],
   thematiques: ['Numérique', 'Email', 'Démarches'],
   orienteurs: ['CAF', 'MDPH', 'Mairie'],
@@ -29,7 +29,7 @@ function mockGasResponse(action) {
   if (action === 'checkPassword')  return { ok: true, role: 'admin', nom: 'Michel Aswad' };
   if (action === 'getEntries')     return { ok: true, entries: MOCK_ENTRIES };
   if (action === 'getLists')       return MOCK_LISTS;
-  if (action === 'getComptes')     return { ok: true, comptes: [] };
+  if (action === 'getComptes')     return { ok: true, comptes: [{ conseiller: 'Michel Aswad', role: 'admin', actif: 'OUI' }, { conseiller: 'Alice Martin', role: 'user', actif: 'OUI' }] };   // plus de noms par défaut dans le code (06/10/2026)
   if (action === 'getLogs')        return { ok: true, logs: [] };
   if (action === 'getVisibility')  return { ok: true, visibility: {} };
   if (action === 'getConfig')      return { ok: true, maintenance: false, maintenance_msg: '' };
