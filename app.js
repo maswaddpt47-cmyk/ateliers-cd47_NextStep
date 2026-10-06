@@ -161,7 +161,9 @@ function VueLoginIndex({conseillers,onSuccess}){
     if(newPwd!==newPwd2){setNewPwdErr('Les mots de passe ne correspondent pas');return;}
     setChangingPwd(true);setNewPwdErr('');
     try{
-      const res2=await apiFetch('selfSetPassword',{password:newPwd,token:pendingRes.token});
+      // currentPwd : le mot de passe saisi à la connexion, exigé par l'API pour
+      // tout changement hors mot de passe provisoire (AG-023, 06/10/2026).
+      const res2=await apiFetch('selfSetPassword',{password:newPwd,currentPwd:pwd,token:pendingRes.token});
       if(res2&&res2.ok){
         onSuccess(conseiller,pendingRes);
       }else{
