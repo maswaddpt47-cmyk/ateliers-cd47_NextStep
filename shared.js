@@ -5724,8 +5724,28 @@ function VueAvisAteliers({entries,moi}){
   const totalAvis=lignes.reduce((t,l)=>t+l.n,0);
   const note=v=>v===null||v===undefined?'—':String(v).replace('.',',')+'/5';
   const part=(o,n)=>n?`${o}/${n}`:'—';
-  const COLS=['Date','Thématique','Commune','Partenaire','Conseiller','Avis','Attentes','Clarté','Rythme adapté','Plus à l\'aise','Refaire seul'];
-  const cellules=l=>[fmtDate(l.e.date),l.e.thematique||'—',l.e.commune||'—',l.e.orienteur||'—',l.e.conseiller||'—',l.n+(l.papier?` (dont ${l.papier} papier)`:''),note(l.attentes),note(l.clarte),part(l.rythme_ok,l.rythme_n),part(l.aise_oui,l.aise_n),part(l.autonomie_oui,l.autonomie_n)];
+  // Détail de chaque réponse à choix (06/10/2026), réponse attendue en tête :
+  // « 2 adapté · 1 trop lent » plutôt que « 2/4 ».
+  const DETAIL={rythme:[['Adapté','adapté'],['Trop lent','trop lent'],['Trop rapide','trop rapide']],
+    aise:[['Oui','oui'],['Un peu','un peu'],['Non','non']],
+    autonomie:[['Oui','oui'],['Avec de l\'aide','avec aide'],['Non','non']]};
+  const detail=(l,q,o,n)=>{const d=l.detail&&l.detail[q];if(!d)return part(o,n);
+    const t=DETAIL[q].filter(([v])=>d[v]>0).map(([v,lib])=>d[v]+' '+lib);return t.length?t.join(' · '):'—';};
+  const COLS=['Date','Thématique','Commune','Partenaire','Conseiller','Avis','Attentes','Clarté','Rythme','À l\'aise','Refaire seul'];
+  const cellules=l=>[fmtDate(l.e.date),l.e.thematique||'—',l.e.commune||'—',l.e.orienteur||'—',l.e.conseiller||'—',l.n+(l.papier?` (dont ${l.papier} papier)`:''),note(l.attentes),note(l.clarte),detail(l,'rythme',l.rythme_ok,l.rythme_n),detail(l,'aise',l.aise_oui,l.aise_n),detail(l,'autonomie',l.autonomie_oui,l.autonomie_n)];
+  // Export CSV pour Excel (06/10/2026) : « ; » et virgule décimale, BOM pour
+  // les accents, une colonne par réponse possible.
+  function exporterCsv(){
+    const nb=v=>v===null||v===undefined?'':String(v).replace('.',',');
+    const tete=['Date','Thématique','Commune','Partenaire','Conseiller','Avis','Dont papier','Attentes (/5)','Clarté (/5)']
+      .concat(...Object.keys(DETAIL).map(q=>DETAIL[q].map(([v])=>({rythme:'Rythme',aise:'À l\'aise',autonomie:'Refaire seul'})[q]+' : '+v)),['Remarques']);
+    const ligne=l=>[fmtDate(l.e.date),l.e.thematique||'',l.e.commune||'',l.e.orienteur||'',l.e.conseiller||'',l.n,l.papier||0,nb(l.attentes),nb(l.clarte)]
+      .concat(...Object.keys(DETAIL).map(q=>DETAIL[q].map(([v])=>(l.detail&&l.detail[q]&&l.detail[q][v])||0)),[l.remarques.join(' | ')]);
+    const champCsv=c=>{const t=String(c);return /[;"\n\r]/.test(t)?'"'+t.replace(/"/g,'""')+'"':t;};
+    const csv='\ufeff'+[tete].concat(lignes.map(ligne)).map(r=>r.map(champCsv).join(';')).join('\r\n');
+    const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
+    a.download=`avis-par-atelier_${du}_${au}.csv`;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+  }
   function imprimer(){
     const w=window.open('','_blank');if(!w){showToast('Autorisez les fenêtres pour ce site',false);return;}
     const e=htmlEsc;
@@ -5739,7 +5759,8 @@ function VueAvisAteliers({entries,moi}){
     CE('div',{style:{display:'flex',gap:8,flexWrap:'wrap',alignItems:'center',marginBottom:12}},
       CE('label',{style:{fontSize:13}},'Du ',CE('input',{type:'date',value:du,onChange:e=>setDu(e.target.value),style:champ})),
       CE('label',{style:{fontSize:13}},'Au ',CE('input',{type:'date',value:au,onChange:e=>setAu(e.target.value),style:champ})),
-      CE('button',{type:'button',className:'btn btn-primary btn-sm',disabled:!lignes.length,onClick:imprimer},'🖨️ Imprimer / PDF')),
+      CE('button',{type:'button',className:'btn btn-primary btn-sm',disabled:!lignes.length,onClick:imprimer},'🖨️ Imprimer / PDF'),
+      CE('button',{type:'button',className:'btn btn-secondary btn-sm',disabled:!lignes.length,onClick:exporterCsv},'⬇️ Export CSV')),
     !res?CE('div',{style:{padding:30,color:'#64748b',textAlign:'center'}},'Chargement des avis…')
     :res.erreur?CE('div',{style:{color:'#b91c1c',padding:16}},'❌ '+res.erreur)
     :!lignes.length?CE('div',{style:{padding:30,color:'#64748b',textAlign:'center'}},'Aucun avis pour les ateliers de cette période.')
