@@ -1040,7 +1040,9 @@ let COMMUNES_47_CACHE = null;
 
 // ── Utilitaires ────────────────────────────────────────────
 const NAV_DEFAULT_COLOR = '#197d89';
-let CONSEILLER_COLORS = {'Cynthia Pineau':'#7C3AED','Corentin Tual':'#2563EB','Michel Aswad':'#059669','Eva Capelle':'#DB2777'};
+// Vide : les couleurs viennent de la configuration (Admin → Couleurs,
+// enregistrées le 06/10/2026). Plus de noms d'agents dans le code public.
+let CONSEILLER_COLORS = {};
 function conseillerColor(c){return(c&&CONSEILLER_COLORS[c])||'#6B7280';}
 function applyColors(colors){if(colors&&typeof colors==='object')Object.assign(CONSEILLER_COLORS,colors);}
 
