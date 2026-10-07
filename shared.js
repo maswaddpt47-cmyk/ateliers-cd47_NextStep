@@ -2843,7 +2843,9 @@ function VueCalendrier({entries,onEdit,onDelete,onRefresh,onEntryUpdated,onDupli
   const today=new Date();
   const todayStr=today.toISOString().slice(0,10);
   const[calDate,setCalDate]=React.useState(new Date(today.getFullYear(),today.getMonth(),1));
-  const[filtConseiller,setFiltConseiller]=React.useState(initConseiller||'Tous');
+  // « Tous » par défaut (demande du 07/10/2026) : le conseiller connecté ne
+  // filtre plus d'office le Calendrier ; initConseiller n'est plus lu ici.
+  const[filtConseiller,setFiltConseiller]=React.useState('Tous');
   const[filtPublic,setFiltPublic]=React.useState('Tous');
   const[filtresOpen,setFiltresOpen]=React.useState(false);
   const[panel,setPanel]=React.useState(null);
@@ -2857,7 +2859,6 @@ function VueCalendrier({entries,onEdit,onDelete,onRefresh,onEntryUpdated,onDupli
   const[suppressionEnCours,setSuppressionEnCours]=React.useState(false);
   const[expandDay,setExpandDay]=React.useState(null);
 
-  React.useEffect(()=>{if(initConseiller)setFiltConseiller(initConseiller);},[initConseiller]);
 
   const yr=calDate.getFullYear();
   const mo=calDate.getMonth();
@@ -4678,7 +4679,8 @@ function ConfirmModal({item,onConfirm,onCancel}){
 // ════════════════════════════════════════════════════════════
 function VueAgendaSemaine({entries,onEdit,onDelete,onDuplicate,canDelete,initConseiller,accentColor}){
   const[weekOffset,setWeekOffset]=React.useState(0);
-  const[filterConseiller,setFilterConseiller]=React.useState(initConseiller||'Tous');
+  // « Tous » par défaut (demande du 07/10/2026), comme le Calendrier.
+  const[filterConseiller,setFilterConseiller]=React.useState('Tous');
   const[selectedEntry,setSelectedEntry]=React.useState(null);
   const[confirmDel,setConfirmDel]=React.useState(null);
 
