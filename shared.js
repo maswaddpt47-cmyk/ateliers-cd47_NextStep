@@ -4900,8 +4900,10 @@ function VuePlanning({entries,onEdit,onDelete,onDuplicate,canDelete,accentColor,
     if(debut==null){sansHoraire.push(e);return;}
     items.push({e,jour:normalizeDate(e.date),nom:e.conseiller||'—',debut,fin:debut+(parseInt(e.duree)>0?parseInt(e.duree):DUREE_DEFAUT)});
   });
-  // Toute l'équipe active, même sans atelier : on voit qui est disponible.
-  const noms=[...new Set([...(conseillers||[]),...items.map(x=>x.nom)])].filter(Boolean);
+  // L'équipe active, même sans atelier cette semaine (on voit qui est
+  // disponible) ; un conseiller qui n'a encore aucun atelier n'apparaît pas.
+  const ontAtelier=new Set((entries||[]).map(e=>e.conseiller).filter(Boolean));
+  const noms=[...new Set([...(conseillers||[]).filter(c=>ontAtelier.has(c)),...items.map(x=>x.nom)])].filter(Boolean);
   // Plage horaire : 8 h – 18 h, élargie si un atelier en sort.
   const hMin=Math.min(480,...items.map(x=>Math.floor(x.debut/60)*60));
   const hMax=Math.max(1080,...items.map(x=>Math.ceil(x.fin/60)*60));
