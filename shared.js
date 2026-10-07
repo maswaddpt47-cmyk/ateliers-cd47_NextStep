@@ -3882,7 +3882,7 @@ function FriseMateriel({entries,onEdit,dateInitiale}){
       )
     );
   }
-  const legende=CE('div',{style:{fontSize:10,color:'#94a3b8',marginBottom:8}},'▼ = jour de l\'atelier (entre le prélèvement et le retour de la barre) · le jour du retour ne réserve plus le stock (retour le matin) · un prêt d\'une seule journée réserve les ordinateurs de l\'heure de début à la fin + 30 min ; la case montre le plus grand nombre demandé au même moment');
+  const legende=CE('div',{style:{fontSize:10,color:'#94a3b8',marginBottom:8}},'▼ = jour de l\'atelier');
   return CE(React.Fragment,null,
     CE('div',{className:'card',style:{maxWidth:'100%',margin:'0 auto 16px',overflowX:'auto'}},
       CE('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:4,flexWrap:'wrap',gap:8}},
