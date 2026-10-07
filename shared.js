@@ -4921,11 +4921,11 @@ function VuePlanning({entries,onEdit,onDelete,onDuplicate,canDelete,accentColor,
     const montrer=ev=>setSurvol({x:ev.clientX,y:ev.clientY,e,debut:x.debut,fin:x.fin});
     return CE('div',{key:e._id,onClick:()=>{setSurvol(null);setSelectedEntry(e);},onMouseEnter:montrer,onMouseMove:montrer,onMouseLeave:()=>setSurvol(null),style:{
       position:'absolute',left:pos(x.debut)+1,width:Math.max(8,pos(x.fin)-pos(x.debut)-2),top:4+x.voie*VOIE,height:VOIE-4,
-      background:e.statut==='Réalisé'?c:c+'cc',color:'#fff',borderRadius:6,padding:'2px 5px',boxSizing:'border-box',
-      fontSize:10,lineHeight:'11px',overflow:'hidden',cursor:'pointer',boxShadow:'0 1px 3px rgba(0,0,0,.18)',
-      outline:retard?'2px solid #dc2626':'none',...(STYLE_STATUT[e.statut]||{})}},
-      CE('div',{style:{fontWeight:700,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}},e.horaire+' '+(e.thematique||'—')),
-      CE('div',{style:{whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',opacity:.9}},e.commune||''));
+      background:e.statut==='Réalisé'?c:c+'cc',borderRadius:6,boxSizing:'border-box',cursor:'pointer',boxShadow:'0 1px 3px rgba(0,0,0,.18)',
+      outline:retard?'2px solid #dc2626':'none',...(STYLE_STATUT[e.statut]||{})},
+      // Pas de texte : une barre d'1 h 30 fait ~22 px (LJ fixe), tout libellé y
+      // était tronqué. Détails au survol (infobulle) ou au clic.
+      'aria-label':(e.horaire||'')+' '+(e.thematique||'')+' — '+(e.commune||'')});
   }
 
   return CE('div',null,
