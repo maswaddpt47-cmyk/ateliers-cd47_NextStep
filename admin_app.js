@@ -485,6 +485,9 @@ const LOGS_KEY = lsKey('adm_logs');
   }
 
   function handleEdit(id){setEditingId(id);setPrefillData(null);setView('saisie');}
+  // Calendrier / Agenda (08/10/2026) : clic sur une case, import ICS.
+  function handleNouveauLe(date){setEditingId(null);setPrefillData({_creneau:date});setView('saisie');}
+  function handleImportICS(){setEditingId(null);setPrefillData({_importICS:true});setView('saisie');}
   function handleSaved(){setView('historique');}
 
   function handleDuplicate(entry){
@@ -655,9 +658,9 @@ const LOGS_KEY = lsKey('adm_logs');
         !loading&&!error&&CE('div',{key:view,className:'view-anim'},
           view==='saisie'&&CE(VueSaisie,{entries,onSaved:handleSaved,onNewEntry:e=>{setNewEntries(n=>[e,...n]);setSeenIds(s=>{const ns=new Set(s);ns.add(e._id);return ns;});},lists,editingId,onClearEdit:()=>setEditingId(null),prefillData,onClearPrefill:()=>setPrefillData(null),accentColor:conseillerColor(adminConseiller),materielsMasques}),
           view==='historique'&&CE(VueHistorique,{key:'hist_'+adminConseiller,onOuvrirGestionOrdi:d=>{setDateGestionOrdi(d||null);setView('gestion_ordi');},entries,onEdit:handleEdit,onDelete:handleDelete,onRefresh:()=>loadData(),onDuplicate:handleDuplicate,canDelete:true,initConseiller:adminConseiller&&adminConseiller!=='admin'?adminConseiller:null,onResetConseiller:()=>{},onChangeConseiller:(c)=>{const nom=c==='Tous'?'admin':c;localStorage.setItem(lsKey('adm_conseiller'),nom);setAdminConseiller(nom);}}),
-          view==='agenda'&&CE(VueAgendaSemaine,{key:'agenda_'+adminConseiller,entries,onEdit:handleEdit,onDelete:handleDelete,onDuplicate:handleDuplicate,canDelete:true,initConseiller:adminConseiller&&adminConseiller!=='admin'?adminConseiller:null,accentColor}),
+          view==='agenda'&&CE(VueAgendaSemaine,{onNouveau:handleNouveauLe,key:'agenda_'+adminConseiller,entries,onEdit:handleEdit,onDelete:handleDelete,onDuplicate:handleDuplicate,canDelete:true,initConseiller:adminConseiller&&adminConseiller!=='admin'?adminConseiller:null,accentColor}),
           view==='planning'&&CE(VuePlanning,{entries,onEdit:handleEdit,onDelete:handleDelete,onDuplicate:handleDuplicate,canDelete:true,accentColor,conseillers:lists.conseillers}),
-          view==='calendrier'&&CE(VueCalendrier,{key:'cal_'+adminConseiller,entries,onEdit:handleEdit,onDelete:handleDelete,onRefresh:()=>loadData(),onDuplicate:handleDuplicate,canDelete:true,initConseiller:adminConseiller&&adminConseiller!=='admin'?adminConseiller:null,onResetConseiller:()=>{},onChangeConseiller:(c)=>{const nom=c==='Tous'?'admin':c;localStorage.setItem(lsKey('adm_conseiller'),nom);setAdminConseiller(nom);}}),
+          view==='calendrier'&&CE(VueCalendrier,{onNouveau:handleNouveauLe,onImportICS:handleImportICS,key:'cal_'+adminConseiller,entries,onEdit:handleEdit,onDelete:handleDelete,onRefresh:()=>loadData(),onDuplicate:handleDuplicate,canDelete:true,initConseiller:adminConseiller&&adminConseiller!=='admin'?adminConseiller:null,onResetConseiller:()=>{},onChangeConseiller:(c)=>{const nom=c==='Tous'?'admin':c;localStorage.setItem(lsKey('adm_conseiller'),nom);setAdminConseiller(nom);}}),
           view==='dashboard'&&CE(VueDashboardTabs,{entries,conseillers:lists.conseillers}),
           view==='carte'&&CE(VueCarte,{entries,active:view==='carte'}),
           view==='roadmap'&&CE(VueRoadmap,{entries,annee:anneeReference(annee),conseillers:lists.conseillers}),
