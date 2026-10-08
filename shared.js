@@ -2968,15 +2968,17 @@ function VueCalendrier({entries,onEdit,onDelete,onRefresh,onEntryUpdated,onDupli
           if(day===null)return CE('div',{key:'e'+idx,className:'cal-cell cal-cell-empty'});
           const ds=`${yr}-${String(mo+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
           const isToday=ds===todayStr;
+          const ferie=joursFeries(yr)[ds];
           const dayAteliers=dayMap[day]||[];
           const MAX_VISIBLE=3;
           const hidden=dayAteliers.length-MAX_VISIBLE;
           const expanded=expandDay===day;
           const visible=expanded?dayAteliers:dayAteliers.slice(0,MAX_VISIBLE);
-          return CE('div',{key:day,className:'cal-cell'+(isToday?' cal-today':'')},
+          return CE('div',{key:day,className:'cal-cell'+(isToday?' cal-today':''),style:ferie&&!isToday?{background:'#fef2f2'}:undefined,title:ferie||undefined},
             CE('div',{className:'cal-day-num'},
               isToday?CE('span',{className:'cal-today-num'},day):day
             ),
+            ferie&&CE('div',{style:{fontSize:9,fontWeight:700,color:'#b91c1c',lineHeight:1.2,marginBottom:2}},ferie),
             visible.map(e=>{
               const sc=conseillerColor(e.conseiller);
               const retard=isRetard(e);
@@ -4808,16 +4810,18 @@ function VueAgendaSemaine({entries,onEdit,onDelete,onDuplicate,canDelete,initCon
               CE('th',{style:{width:36,border:'none',background:'transparent'}}),
               weekDays.map(d=>{
                 const dkey=dk(d);const isToday=dkey===todayStr;
+                const ferie=joursFeries(d.getFullYear())[dkey];
                 const count=(slots[dkey]?slots[dkey].AM.length+slots[dkey].PM.length:0);
                 const acc=isToday?accentColor:'#6b7280';
                 return CE('th',{key:dkey,style:{
                   padding:'10px 6px 8px',textAlign:'center',border:'none',
-                  background:isToday?accentColor+'15':'#f8fafc',
+                  background:isToday?accentColor+'15':ferie?'#fef2f2':'#f8fafc',
                   borderRadius:'12px 12px 0 0',fontWeight:400
                 }},
                   CE('div',{style:{fontSize:10,fontWeight:800,textTransform:'uppercase',letterSpacing:'.08em',color:acc}},JOURS[d.getDay()]),
                   CE('div',{style:{fontSize:26,fontWeight:800,lineHeight:1.1,color:isToday?accentColor:'#1a202c',margin:'2px 0'}},d.getDate()),
                   CE('div',{style:{fontSize:10,color:'#9ca3af',marginBottom:4}},MOIS[d.getMonth()]),
+                  ferie&&CE('div',{style:{fontSize:10,fontWeight:700,color:'#b91c1c',marginBottom:4}},ferie),
                   count>0&&CE('span',{style:{
                     display:'inline-block',background:isToday?accentColor:'#e2e8f0',
                     color:isToday?'#fff':'#4a5568',borderRadius:20,
@@ -4838,11 +4842,12 @@ function VueAgendaSemaine({entries,onEdit,onDelete,onDuplicate,canDelete,initCon
               weekDays.map(d=>{
                 const dkey=dk(d);const isToday=dkey===todayStr;
                 const items=slots[dkey]?slots[dkey][slot]:[];
+                const ferie=joursFeries(d.getFullYear())[dkey];
                 return CE('td',{key:dkey+slot,style:{
                   verticalAlign:'top',padding:4,
                   background:isToday
                     ?(slot==='AM'?accentColor+'12':accentColor+'08')
-                    :(slot==='AM'?'#f8fafc':'#fafafa'),
+                    :ferie?'#fef2f2':(slot==='AM'?'#f8fafc':'#fafafa'),
                   borderBottom:si===0?`1px dashed ${isToday?accentColor+'40':'#e2e8f0'}`:'none',
                   borderRadius:si===1?'0 0 10px 10px':'0',
                   border:isToday&&si===1?`1px solid ${accentColor}30`:'',
