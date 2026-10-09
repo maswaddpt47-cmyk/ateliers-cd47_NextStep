@@ -4914,6 +4914,12 @@ function VuePlanning({entries,onEdit,onDelete,onDuplicate,canDelete,accentColor,
   const[selectedEntry,setSelectedEntry]=React.useState(null);
   const[confirmDel,setConfirmDel]=React.useState(null);
   const[survol,setSurvol]=React.useState(null);   // infobulle : {x, e, debut, fin}
+  // Vue Mois (09/10/2026) : une case par conseiller et par jour ouvré,
+  // coupée en matin / après-midi. Le choix est retenu sur l'appareil.
+  const[mode,setModeBrut]=React.useState(()=>{try{return localStorage.getItem(lsKey('planning_mode'))==='mois'?'mois':'semaine';}catch(_){return 'semaine';}});
+  const setMode=m=>{setModeBrut(m);try{localStorage.setItem(lsKey('planning_mode'),m);}catch(_){}};
+  const[moisOffset,setMoisOffset]=React.useState(0);
+  const[choix,setChoix]=React.useState(null);     // plusieurs ateliers dans une demi-case : {x, y, liste}
   const ac=accentColor||'#1e3a8a';
   const dk=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   const lundi=(()=>{const t=new Date();const j=t.getDay();const m=new Date(t);m.setDate(t.getDate()+(j===0?-6:1-j)+weekOffset*7);m.setHours(0,0,0,0);return m;})();
@@ -4936,6 +4942,19 @@ function VuePlanning({entries,onEdit,onDelete,onDuplicate,canDelete,accentColor,
   // disponible) ; un conseiller qui n'a encore aucun atelier n'apparaît pas.
   const ontAtelier=new Set((entries||[]).map(e=>e.conseiller).filter(Boolean));
   const noms=[...new Set([...(conseillers||[]).filter(c=>ontAtelier.has(c)),...items.map(x=>x.nom)])].filter(Boolean);
+  // ── Mois : jours ouvrés du mois affiché, ateliers rangés par demi-journée.
+  const debutMois=(()=>{const t=new Date();return new Date(t.getFullYear(),t.getMonth()+moisOffset,1);})();
+  const joursMois=[];
+  for(let d=new Date(debutMois);d.getMonth()===debutMois.getMonth();d.setDate(d.getDate()+1)){const j=d.getDay();if(j!==0&&j!==6)joursMois.push(new Date(d));}
+  const clesMois=joursMois.map(dk);
+  const prefixeMois=dk(debutMois).slice(0,7);
+  const duMois=entries.filter(e=>normalizeDate(e.date).startsWith(prefixeMois));
+  const demiDe=e=>{const m=minutesHoraire(e.horaire);if(m!=null)return m<720?'AM':'PM';return e.ampm==='PM'?'PM':'AM';};
+  const parDemi={};
+  duMois.forEach(e=>{const k=(e.conseiller||'—')+'|'+normalizeDate(e.date)+'|'+demiDe(e);(parDemi[k]=parDemi[k]||[]).push(e);});
+  Object.values(parDemi).forEach(l=>l.sort((a,b)=>String(a.horaire||'').localeCompare(String(b.horaire||''))));
+  const nomsMois=[...new Set([...(conseillers||[]).filter(c=>ontAtelier.has(c)),...duMois.map(e=>e.conseiller||'—')])].filter(Boolean);
+  const LM=34;
   // Plage horaire : 8 h – 18 h, élargie si un atelier en sort.
   const hMin=Math.min(480,...items.map(x=>Math.floor(x.debut/60)*60));
   const hMax=Math.max(1080,...items.map(x=>Math.ceil(x.fin/60)*60));
@@ -4962,8 +4981,54 @@ function VuePlanning({entries,onEdit,onDelete,onDuplicate,canDelete,accentColor,
       'aria-label':(e.horaire||'')+' '+(e.thematique||'')+' — '+(e.commune||'')});
   }
 
+  function demiCase(nom,j,demi){
+    const liste=parDemi[nom+'|'+j+'|'+demi]||[];
+    if(!liste.length)return CE('div',{style:{height:18}});
+    const e=liste[0],c=conseillerColor(e.conseiller),retard=liste.some(isRetard);
+    const tous=liste.every(x=>STYLE_STATUT[x.statut]);
+    return CE('div',{
+      title:liste.map(x=>(x.horaire||(demi==='AM'?'matin':'après-midi'))+' '+(x.thematique||'—')+' — '+(x.commune||'')+' ('+(x.statut||'')+')').join('\n'),
+      onClick:ev=>{setSurvol(null);if(liste.length===1)setSelectedEntry(e);else setChoix({x:ev.clientX,y:ev.clientY,liste});},
+      style:{height:16,margin:'1px 2px',borderRadius:4,cursor:'pointer',background:liste.some(x=>x.statut==='Réalisé')?c:c+'cc',
+        color:'#fff',fontSize:10,fontWeight:800,lineHeight:'16px',textAlign:'center',
+        outline:retard?'2px solid #dc2626':'none',outlineOffset:-1,...(tous?STYLE_STATUT[e.statut]:{})}},
+      liste.length>1?liste.length:'');
+  }
+  const navMois=CE('div',{style:{display:'flex',gap:4}},
+    CE('button',{className:'btn btn-secondary btn-sm',onClick:()=>setMoisOffset(m=>m-1)},'← Préc.'),
+    CE('button',{className:'btn btn-secondary btn-sm',onClick:()=>setMoisOffset(0),disabled:moisOffset===0,style:{opacity:moisOffset===0?.4:1}},'Auj.'),
+    CE('button',{className:'btn btn-secondary btn-sm',onClick:()=>setMoisOffset(m=>m+1)},'Suiv. →'));
+  const bascule=CE('div',{style:{display:'flex',border:'1px solid var(--border,#e2e8f0)',borderRadius:8,overflow:'hidden'}},
+    [['semaine','Semaine'],['mois','Mois']].map(([m,l])=>CE('button',{key:m,onClick:()=>{setMode(m);setChoix(null);setSurvol(null);},
+      style:{border:'none',padding:'4px 12px',fontSize:12,fontWeight:700,cursor:'pointer',background:mode===m?ac:'transparent',color:mode===m?'#fff':'var(--text-3,#64748b)'}},l)));
+  const vueMois=CE('div',{className:'card'},
+    CE('div',{style:{display:'flex',alignItems:'center',gap:8,marginBottom:12,flexWrap:'wrap'}},
+      navMois,
+      CE('h2',{style:{margin:0,flex:1,textAlign:'center',fontSize:14,fontWeight:700}},'📊 Planning — '+MOIS_LONG[debutMois.getMonth()]+' '+debutMois.getFullYear()),
+      bascule,
+      CE('span',{style:{fontSize:11,background:'#f1f5f9',borderRadius:20,padding:'3px 10px',color:'#475569'}},duMois.length+' atelier'+(duMois.length!==1?'s':''))),
+    CE('div',{style:{overflowX:'auto',border:'1px solid var(--border,#e2e8f0)',borderRadius:10}},
+      CE('div',{style:{width:NOM+clesMois.length*LM,minWidth:'100%'}},
+        CE('div',{style:{display:'flex',borderBottom:'1px solid var(--border,#e2e8f0)'}},
+          CE('div',{style:{width:NOM,flexShrink:0,position:'sticky',left:0,zIndex:2,background:'var(--surface,#fff)'}}),
+          joursMois.map((d,i)=>{const j=clesMois[i],auj=j===aujourdhui,ferie=joursFeries(d.getFullYear())[j],lundi=d.getDay()===1;
+            return CE('div',{key:j,title:ferie||undefined,style:{width:LM,flexShrink:0,borderLeft:(lundi?'2px':'1px')+' solid var(--border,#e2e8f0)',textAlign:'center',padding:'3px 0',
+              background:auj?ac+'14':ferie?'#fef2f2':'var(--surface-2,#f8fafc)'}},
+              CE('div',{style:{fontSize:9,color:ferie?'#b91c1c':'var(--text-3,#94a3b8)'}},JOURS[d.getDay()].slice(0,2)),
+              CE('div',{style:{fontSize:12,fontWeight:800,color:auj?ac:ferie?'#b91c1c':'var(--text,#1a202c)'}},d.getDate()));})),
+        nomsMois.map(nom=>CE('div',{key:nom,style:{display:'flex',borderBottom:'1px solid var(--border,#e2e8f0)'}},
+          CE('div',{style:{width:NOM,flexShrink:0,position:'sticky',left:0,zIndex:2,background:'var(--surface,#fff)',display:'flex',alignItems:'center',gap:6,padding:'0 8px',fontSize:11,fontWeight:700,color:conseillerColor(nom)}},
+            CE('span',{style:{width:8,height:8,borderRadius:'50%',background:conseillerColor(nom),flexShrink:0}}),
+            CE('span',{style:{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}},nom)),
+          joursMois.map((d,i)=>{const j=clesMois[i],ferie=joursFeries(d.getFullYear())[j];
+            return CE('div',{key:j,style:{width:LM,flexShrink:0,padding:'2px 0',borderLeft:(d.getDay()===1?'2px':'1px')+' solid var(--border,#e2e8f0)',
+              background:j===aujourdhui?ac+'0d':ferie?'#fef2f2':'transparent'}},
+              demiCase(nom,j,'AM'),CE('div',{style:{borderTop:'1px dashed var(--border,#e2e8f0)',margin:'0 3px'}}),demiCase(nom,j,'PM'));}))))),
+    CE('p',{style:{fontSize:11,color:'var(--text-3,#94a3b8)',margin:'8px 0 0'}},
+      'Haut de case : matin ; bas : après-midi ; chiffre : plusieurs ateliers ; contour rouge : à mettre à jour ; estompé : annulé, non réalisé ou reporté. Clic : détails.'));
+
   return CE('div',null,
-    CE('div',{className:'card'},
+    mode==='mois'?vueMois:CE('div',{className:'card'},
       CE('div',{style:{display:'flex',alignItems:'center',gap:8,marginBottom:12,flexWrap:'wrap'}},
         CE('div',{style:{display:'flex',gap:4}},
           CE('button',{className:'btn btn-secondary btn-sm',onClick:()=>setWeekOffset(w=>w-1)},'← Préc.'),
@@ -4971,6 +5036,7 @@ function VuePlanning({entries,onEdit,onDelete,onDuplicate,canDelete,accentColor,
           CE('button',{className:'btn btn-secondary btn-sm',onClick:()=>setWeekOffset(w=>w+1)},'Suiv. →'),
           CE(ChoixDate,{titre:'Aller à la semaine de cette date',value:cles[0],onChange:v=>setWeekOffset(semainesEntre(todayLocal(),v))})),
         CE('h2',{style:{margin:0,flex:1,textAlign:'center',fontSize:14,fontWeight:700}},'📊 Planning — semaine du '+libSemaine),
+        bascule,
         CE('span',{style:{fontSize:11,background:'#f1f5f9',borderRadius:20,padding:'3px 10px',color:'#475569'}},semaine.length+' atelier'+(semaine.length!==1?'s':''))),
       CE('div',{style:{overflowX:'auto',border:'1px solid var(--border,#e2e8f0)',borderRadius:10}},
         CE('div',{style:{width:NOM+5*LJ,minWidth:'100%'}},
@@ -5011,6 +5077,13 @@ function VuePlanning({entries,onEdit,onDelete,onDuplicate,canDelete,accentColor,
         ligne('Inscrits',e.inscrits),
         ligne('Présents',e.presents),
         isRetard(e)&&CE('div',{style:{color:'#fca5a5',fontWeight:700,marginTop:3}},'⚠ À mettre à jour'));})(),
+    // Plusieurs ateliers dans une même demi-journée (vue Mois) : on choisit.
+    choix&&CE('div',{onClick:()=>setChoix(null),style:{position:'fixed',inset:0,zIndex:2999}},
+      CE('div',{onClick:ev=>ev.stopPropagation(),style:{position:'fixed',left:Math.min(choix.x,window.innerWidth-250),top:Math.min(choix.y+8,window.innerHeight-40-choix.liste.length*34),width:240,
+        background:'var(--surface,#fff)',border:'1px solid var(--border,#e2e8f0)',borderRadius:8,boxShadow:'0 6px 18px rgba(0,0,0,.2)',padding:4}},
+        choix.liste.map(e=>CE('button',{key:e._id,onClick:()=>{setChoix(null);setSelectedEntry(e);},
+          style:{display:'block',width:'100%',textAlign:'left',border:'none',background:'transparent',padding:'6px 8px',fontSize:12,cursor:'pointer',borderRadius:6,color:'var(--text,#1a202c)'}},
+          (e.horaire||'—')+' · '+(e.thematique||'—')+(e.commune?' · '+e.commune:''))))),
     CE(PanneauAtelier,{panel:selectedEntry,onClose:()=>setSelectedEntry(null),entries,onEdit,onDuplicate,canDelete,
       onAskDelete:e=>setConfirmDel({id:e._id,label:`${fmtDate(e.date)} — ${e.thematique||e.commune||e._id}`})}),
     confirmDel&&CE(ConfirmModal,{
