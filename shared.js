@@ -4915,8 +4915,9 @@ function VuePlanning({entries,onEdit,onDelete,onDuplicate,canDelete,accentColor,
   const[confirmDel,setConfirmDel]=React.useState(null);
   const[survol,setSurvol]=React.useState(null);   // infobulle : {x, e, debut, fin}
   // Vue Mois (09/10/2026) : une case par conseiller et par jour ouvré,
-  // coupée en matin / après-midi. Le choix est retenu sur l'appareil.
-  const[mode,setModeBrut]=React.useState(()=>{try{return localStorage.getItem(lsKey('planning_mode'))==='mois'?'mois':'semaine';}catch(_){return 'semaine';}});
+  // coupée en matin / après-midi. Mois par défaut (09/10/2026) ; le choix
+  // Semaine est retenu sur l'appareil.
+  const[mode,setModeBrut]=React.useState(()=>{try{return localStorage.getItem(lsKey('planning_mode'))==='semaine'?'semaine':'mois';}catch(_){return 'mois';}});
   const setMode=m=>{setModeBrut(m);try{localStorage.setItem(lsKey('planning_mode'),m);}catch(_){}};
   const[moisOffset,setMoisOffset]=React.useState(0);
   const[choix,setChoix]=React.useState(null);     // plusieurs ateliers dans une demi-case : {x, y, liste}
