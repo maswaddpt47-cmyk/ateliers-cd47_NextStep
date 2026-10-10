@@ -4956,6 +4956,17 @@ function VuePlanning({entries,onEdit,onDelete,onDuplicate,canDelete,accentColor,
   Object.values(parDemi).forEach(l=>l.sort((a,b)=>String(a.horaire||'').localeCompare(String(b.horaire||''))));
   const nomsMois=[...new Set([...(conseillers||[]).filter(c=>ontAtelier.has(c)),...duMois.map(e=>e.conseiller||'—')])].filter(Boolean);
   const LM=34;
+  // Ouverture sur aujourd'hui (09/10/2026) : sur téléphone, seule une partie
+  // de la semaine ou du mois tient à l'écran ; le tableau se place sur le jour
+  // courant au lieu du début (atelier cru absent le 07/10, il était à droite).
+  const defilRef=React.useRef(null);
+  React.useEffect(()=>{
+    const el=defilRef.current;if(!el)return;
+    if((mode==='mois'?moisOffset:weekOffset)!==0){el.scrollLeft=0;return;}   // autre période : depuis le début
+    // Week-end ou jour férié hors grille : le jour ouvré suivant, sinon le dernier.
+    const c=mode==='mois'?clesMois:cles,k=c.findIndex(j=>j>=aujourdhui),i=k<0?c.length-1:k;
+    el.scrollLeft=i>0?i*(mode==='mois'?LM:LJ)-(mode==='mois'?2*LM:0):0;
+  },[mode,moisOffset,weekOffset]);
   // Plage horaire : 8 h – 18 h, élargie si un atelier en sort.
   const hMin=Math.min(480,...items.map(x=>Math.floor(x.debut/60)*60));
   const hMax=Math.max(1080,...items.map(x=>Math.ceil(x.fin/60)*60));
@@ -5008,7 +5019,7 @@ function VuePlanning({entries,onEdit,onDelete,onDuplicate,canDelete,accentColor,
       CE('h2',{style:{margin:0,flex:1,textAlign:'center',fontSize:14,fontWeight:700}},'📊 Planning — '+MOIS_LONG[debutMois.getMonth()]+' '+debutMois.getFullYear()),
       bascule,
       CE('span',{style:{fontSize:11,background:'#f1f5f9',borderRadius:20,padding:'3px 10px',color:'#475569'}},duMois.length+' atelier'+(duMois.length!==1?'s':''))),
-    CE('div',{style:{overflowX:'auto',border:'1px solid var(--border,#e2e8f0)',borderRadius:10}},
+    CE('div',{ref:defilRef,style:{overflowX:'auto',border:'1px solid var(--border,#e2e8f0)',borderRadius:10}},
       CE('div',{style:{width:NOM+clesMois.length*LM,minWidth:'100%'}},
         CE('div',{style:{display:'flex',borderBottom:'1px solid var(--border,#e2e8f0)'}},
           CE('div',{style:{width:NOM,flexShrink:0,position:'sticky',left:0,zIndex:2,background:'var(--surface,#fff)'}}),
@@ -5039,7 +5050,7 @@ function VuePlanning({entries,onEdit,onDelete,onDuplicate,canDelete,accentColor,
         CE('h2',{style:{margin:0,flex:1,textAlign:'center',fontSize:14,fontWeight:700}},'📊 Planning — semaine du '+libSemaine),
         bascule,
         CE('span',{style:{fontSize:11,background:'#f1f5f9',borderRadius:20,padding:'3px 10px',color:'#475569'}},semaine.length+' atelier'+(semaine.length!==1?'s':''))),
-      CE('div',{style:{overflowX:'auto',border:'1px solid var(--border,#e2e8f0)',borderRadius:10}},
+      CE('div',{ref:defilRef,style:{overflowX:'auto',border:'1px solid var(--border,#e2e8f0)',borderRadius:10}},
         CE('div',{style:{width:NOM+5*LJ,minWidth:'100%'}},
           // En-tête : jours et heures
           CE('div',{style:{display:'flex',borderBottom:'1px solid var(--border,#e2e8f0)'}},
