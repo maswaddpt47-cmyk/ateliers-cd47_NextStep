@@ -4939,7 +4939,7 @@ function CreneauxLibres({entries,conseillers,conseillerFixe,onNouveau,onFermer,a
   const champ={padding:'4px 8px',border:'1.5px solid var(--border,#e2e8f0)',borderRadius:6,fontSize:12,width:'auto',flex:'0 0 auto'};
   return CE('div',{className:'card',style:{marginBottom:12}},
     CE('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10}},
-      CE('h2',{style:{margin:0,fontSize:15}},'🔍 Créneaux libres'),
+      CE('h2',{style:{margin:0,fontSize:15}},'🔍 Disponibilités'),
       CE('button',{className:'btn btn-secondary btn-sm',onClick:onFermer},'✕ Fermer')),
     CE('div',{style:{display:'flex',flexWrap:'wrap',gap:8,alignItems:'center',marginBottom:8}},
       conseillerFixe
@@ -5073,7 +5073,7 @@ function VuePlanning({entries,onEdit,onDelete,onDuplicate,canDelete,accentColor,
     CE('button',{className:'btn btn-secondary btn-sm',onClick:()=>setMoisOffset(0),disabled:moisOffset===0,style:{opacity:moisOffset===0?.4:1}},'Auj.'),
     CE('button',{className:'btn btn-secondary btn-sm',onClick:()=>setMoisOffset(m=>m+1)},'Suiv. →'));
   const bascule=CE('div',{style:{display:'flex',gap:6,alignItems:'center'}},
-    CE('button',{className:'btn btn-secondary btn-sm',style:{fontSize:12,background:creneauxOuvert?ac:undefined,color:creneauxOuvert?'#fff':undefined},onClick:()=>setCreneauxOuvert(o=>!o)},'🔍 Créneaux libres'),
+    CE('button',{className:'btn btn-secondary btn-sm',style:{fontSize:12,background:creneauxOuvert?ac:undefined,color:creneauxOuvert?'#fff':undefined},onClick:()=>setCreneauxOuvert(o=>!o)},'🔍 Disponibilités'),
     CE('div',{style:{display:'flex',border:'1px solid var(--border,#e2e8f0)',borderRadius:8,overflow:'hidden'}},
     [['semaine','Semaine'],['mois','Mois']].map(([m,l])=>CE('button',{key:m,onClick:()=>{setMode(m);setChoix(null);setSurvol(null);},
       style:{border:'none',padding:'4px 12px',fontSize:12,fontWeight:700,cursor:'pointer',background:mode===m?ac:'transparent',color:mode===m?'#fff':'var(--text-3,#64748b)'}},l))));
