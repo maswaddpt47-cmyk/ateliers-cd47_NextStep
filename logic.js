@@ -419,6 +419,38 @@ function bilanTrimestriel(entries, debut, fin, avis) {
   return {debut, fin, activite, fiches, avis: av, parTheme};
 }
 
+
+// ── Créneaux libres (11/10/2026) ──────────────────────────────
+// Demi-journées (matin / après-midi) sans atelier pour un conseiller, sur les
+// jours de la semaine choisis. Occupé = animateur ou co-animateur d'un atelier
+// non annulé ni reporté sur cette demi-journée (AM/PM de l'atelier, d'après
+// demiJourneeAtelier) ; un atelier sans horaire ni AM/PM occupe la journée.
+// Ne connaît que les ateliers saisis : ni congés ni réunions Outlook.
+// o = { conseiller, du, au (AAAA-MM-JJ, inclus), jours: [1..5] (0 = dimanche),
+//       moments: ['AM','PM'], estFerie: iso => libellé | '' }
+// Rend [{ date, demi }] dans l'ordre chronologique.
+function creneauxLibres(entries, o) {
+  const occ = new Set();
+  (entries || []).forEach(e => {
+    if (!e || (e.conseiller !== o.conseiller && e.co_animateur !== o.conseiller)) return;
+    if (e.statut === 'Annulé' || e.statut === 'Reporté') return;
+    const d = normalizeDate(e.date);
+    if (!d) return;
+    const demi = demiJourneeAtelier(e);
+    if (demi) occ.add(d + '|' + demi);
+    else { occ.add(d + '|AM'); occ.add(d + '|PM'); }
+  });
+  const res = [];
+  if (!o.du || !o.au || o.du > o.au) return res;
+  for (let d = o.du, n = 0; d <= o.au && n < 400; d = addJoursIso(d, 1), n++) {
+    const [y, m, j] = d.split('-').map(Number);
+    if (!(o.jours || []).includes(new Date(y, m - 1, j).getDay())) continue;
+    if (o.estFerie && o.estFerie(d)) continue;
+    (o.moments || ['AM', 'PM']).forEach(demi => { if (!occ.has(d + '|' + demi)) res.push({ date: d, demi }); });
+  }
+  return res;
+}
+
 if (typeof module !== 'undefined') {
   module.exports = {
     filterMaterielsVisibles,
@@ -431,5 +463,6 @@ if (typeof module !== 'undefined') {
     estWeekend, veilleOuvree, lendemainOuvre,
     creneauAtelier, demisAtelier, analyseJourMateriel, MARGE_MATERIEL_MIN, hhmm,
     bornesTrimestre, trimestrePrecedent, bilanTrimestriel,
+    creneauxLibres,
   };
 }

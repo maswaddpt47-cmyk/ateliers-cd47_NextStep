@@ -1800,7 +1800,7 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
       window.scrollTo(0,0);if(onClearPrefill)onClearPrefill();return;
     }
     if(prefillData._creneau){
-      setForm({...empty,date:prefillData._creneau,statut:'Planifié'});
+      setForm({...empty,date:prefillData._creneau,statut:'Planifié',...(prefillData._conseiller?{conseiller:prefillData._conseiller}:{})});
       setEditId(null);setIsDup(false);setModeLot(false);setErrors({});
       window.scrollTo(0,0);if(onClearPrefill)onClearPrefill();return;
     }
@@ -4909,7 +4909,68 @@ function VueAgendaSemaine({entries,onEdit,onDelete,onDuplicate,canDelete,initCon
 // conseiller qui se chevauchent s'empilent (voiesPlanning). Clic : le volet
 // latéral, comme l'Agenda. Essai à côté de l'Agenda avant de le remplacer.
 // ════════════════════════════════════════════════════════════
-function VuePlanning({entries,onEdit,onDelete,onDuplicate,canDelete,accentColor,conseillers}){
+// ═══════════════════════════════════════════════════════════
+// CRÉNEAUX LIBRES (11/10/2026) — dans le Planning. Demi-journées sans atelier
+// d'un conseiller sur les jours choisis (calcul : creneauxLibres, logic.js).
+// Index : le conseiller connecté seulement ; Admin : au choix.
+// ═══════════════════════════════════════════════════════════
+function CreneauxLibres({entries,conseillers,conseillerFixe,onNouveau,onFermer,ac}){
+  const JOURS_SEM=[[1,'Lun'],[2,'Mar'],[3,'Mer'],[4,'Jeu'],[5,'Ven']];
+  const NOMS_JOURS=['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
+  const auj=todayLocal();
+  const[jours,setJours]=React.useState([1,2,3,4,5]);
+  const[moments,setMoments]=React.useState(['AM','PM']);
+  const[du,setDu]=React.useState(auj);
+  const[au,setAu]=React.useState(addJoursIso(auj,27));
+  const[cons,setCons]=React.useState(conseillerFixe||(conseillers||[])[0]||'');
+  const bascule=(liste,set,v)=>set(liste.includes(v)?liste.filter(x=>x!==v):[...liste,v].sort());
+  const libres=React.useMemo(()=>creneauxLibres(entries,{conseiller:cons,du,au,jours,moments,
+    estFerie:d=>joursFeries(+d.slice(0,4))[d]||''}),[entries,cons,du,au,jours,moments]);
+  const parDate=[];libres.forEach(c=>{const l=parDate[parDate.length-1];if(l&&l.date===c.date)l.demis.push(c.demi);else parDate.push({date:c.date,demis:[c.demi]});});
+  const libJour=iso=>{const[y,m,j]=iso.split('-').map(Number);return NOMS_JOURS[new Date(y,m-1,j).getDay()]+' '+String(j).padStart(2,'0')+'/'+String(m).padStart(2,'0');};
+  const libDemis=d=>d.length===2?'matin et après-midi':d[0]==='AM'?'matin':'après-midi';
+  function copier(){
+    const txt=parDate.map(x=>libJour(x.date)+' — '+libDemis(x.demis)).join('\n');
+    const ok=()=>showToast('✅ Liste copiée ('+parDate.length+' jour'+(parDate.length>1?'s':'')+')');
+    try{navigator.clipboard.writeText(txt).then(ok,()=>showToast('Copie impossible sur cet appareil',false));}catch(_){showToast('Copie impossible sur cet appareil',false);}
+  }
+  const puce=(actif,lib,onClick,key)=>CE('button',{key,type:'button',onClick,style:{padding:'4px 10px',borderRadius:14,fontSize:12,fontWeight:700,cursor:'pointer',
+    border:'1.5px solid '+(actif?ac:'var(--border,#e2e8f0)'),background:actif?ac:'transparent',color:actif?'#fff':'var(--text-3,#64748b)'}},lib);
+  const champ={padding:'4px 8px',border:'1.5px solid var(--border,#e2e8f0)',borderRadius:6,fontSize:12,width:'auto',flex:'0 0 auto'};
+  return CE('div',{className:'card',style:{marginBottom:12}},
+    CE('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10}},
+      CE('h2',{style:{margin:0,fontSize:15}},'🔍 Créneaux libres'),
+      CE('button',{className:'btn btn-secondary btn-sm',onClick:onFermer},'✕ Fermer')),
+    CE('div',{style:{display:'flex',flexWrap:'wrap',gap:8,alignItems:'center',marginBottom:8}},
+      conseillerFixe
+        ?CE('span',{style:{fontSize:12,fontWeight:700,color:conseillerColor(conseillerFixe)}},'👤 '+conseillerFixe)
+        :CE('select',{value:cons,onChange:e=>setCons(e.target.value),style:champ},(conseillers||[]).map(c=>CE('option',{key:c,value:c},c))),
+      CE('span',{style:{fontSize:12,color:'var(--text-3,#64748b)'}},'du'),CE('input',{type:'date',value:du,onChange:e=>setDu(e.target.value),style:champ}),
+      CE('span',{style:{fontSize:12,color:'var(--text-3,#64748b)'}},'au'),CE('input',{type:'date',value:au,onChange:e=>setAu(e.target.value),style:champ})),
+    CE('div',{style:{display:'flex',flexWrap:'wrap',gap:6,alignItems:'center',marginBottom:12}},
+      JOURS_SEM.map(([n,l])=>puce(jours.includes(n),l,()=>bascule(jours,setJours,n),'j'+n)),
+      CE('span',{style:{width:10}}),
+      puce(moments.includes('AM'),'Matin',()=>bascule(moments,setMoments,'AM'),'am'),
+      puce(moments.includes('PM'),'Après-midi',()=>bascule(moments,setMoments,'PM'),'pm')),
+    !cons?CE('p',{style:{fontSize:13}},'Choisissez un conseiller.')
+    :!parDate.length?CE('p',{style:{fontSize:13,color:'var(--text-3,#64748b)'}},'Aucun créneau libre sur cette période.')
+    :CE(React.Fragment,null,
+      CE('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:6}},
+        CE('span',{style:{fontSize:12,color:'var(--text-3,#64748b)'}},libres.length+' demi-journée'+(libres.length>1?'s':'')+' libre'+(libres.length>1?'s':'')+' sur '+parDate.length+' jour'+(parDate.length>1?'s':'')),
+        CE('button',{className:'btn btn-secondary btn-sm',onClick:copier},'📋 Copier la liste')),
+      CE('div',{style:{maxHeight:320,overflowY:'auto',border:'1px solid var(--border,#e2e8f0)',borderRadius:8}},
+        parDate.map(x=>CE('div',{key:x.date,style:{display:'flex',alignItems:'center',gap:8,padding:'6px 10px',borderBottom:'1px solid var(--border,#e2e8f0)'}},
+          CE('span',{style:{fontSize:13,fontWeight:700,minWidth:120}},libJour(x.date)),
+          x.demis.map(dm=>CE('button',{key:dm,type:'button',disabled:!onNouveau,title:onNouveau?'Saisir un atelier ce '+(dm==='AM'?'matin':'après-midi'):undefined,
+            onClick:()=>onNouveau&&onNouveau(x.date,cons),
+            style:{padding:'3px 10px',borderRadius:12,fontSize:12,cursor:onNouveau?'pointer':'default',border:'1px solid '+(dm==='AM'?'#93c5fd':'#fcd34d'),
+              background:dm==='AM'?'#eff6ff':'#fffbeb',color:dm==='AM'?'#1d4ed8':'#92400e'}},dm==='AM'?'☀️ Matin':'🌙 Après-midi'))))),
+      CE('p',{style:{fontSize:11,color:'var(--text-3,#94a3b8)',margin:'6px 0 0'}},
+        'Libre = aucun atelier saisi dans l\'outil (hors annulés et reportés). Congés et réunions Outlook ne sont pas connus : vérifiez votre agenda. Clic : saisir un atelier à cette date.'))
+  );
+}
+
+function VuePlanning({entries,onEdit,onDelete,onDuplicate,canDelete,accentColor,conseillers,onNouveau,conseillerFixe}){
   const[weekOffset,setWeekOffset]=React.useState(0);
   const[selectedEntry,setSelectedEntry]=React.useState(null);
   const[confirmDel,setConfirmDel]=React.useState(null);
@@ -4921,6 +4982,7 @@ function VuePlanning({entries,onEdit,onDelete,onDuplicate,canDelete,accentColor,
   const setMode=m=>{setModeBrut(m);try{localStorage.setItem(lsKey('planning_mode'),m);}catch(_){}};
   const[moisOffset,setMoisOffset]=React.useState(0);
   const[choix,setChoix]=React.useState(null);     // plusieurs ateliers dans une demi-case : {x, y, liste}
+  const[creneauxOuvert,setCreneauxOuvert]=React.useState(false);
   const ac=accentColor||'#1e3a8a';
   const dk=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   const lundi=(()=>{const t=new Date();const j=t.getDay();const m=new Date(t);m.setDate(t.getDate()+(j===0?-6:1-j)+weekOffset*7);m.setHours(0,0,0,0);return m;})();
@@ -5010,9 +5072,11 @@ function VuePlanning({entries,onEdit,onDelete,onDuplicate,canDelete,accentColor,
     CE('button',{className:'btn btn-secondary btn-sm',onClick:()=>setMoisOffset(m=>m-1)},'← Préc.'),
     CE('button',{className:'btn btn-secondary btn-sm',onClick:()=>setMoisOffset(0),disabled:moisOffset===0,style:{opacity:moisOffset===0?.4:1}},'Auj.'),
     CE('button',{className:'btn btn-secondary btn-sm',onClick:()=>setMoisOffset(m=>m+1)},'Suiv. →'));
-  const bascule=CE('div',{style:{display:'flex',border:'1px solid var(--border,#e2e8f0)',borderRadius:8,overflow:'hidden'}},
+  const bascule=CE('div',{style:{display:'flex',gap:6,alignItems:'center'}},
+    CE('button',{className:'btn btn-secondary btn-sm',style:{fontSize:12,background:creneauxOuvert?ac:undefined,color:creneauxOuvert?'#fff':undefined},onClick:()=>setCreneauxOuvert(o=>!o)},'🔍 Créneaux libres'),
+    CE('div',{style:{display:'flex',border:'1px solid var(--border,#e2e8f0)',borderRadius:8,overflow:'hidden'}},
     [['semaine','Semaine'],['mois','Mois']].map(([m,l])=>CE('button',{key:m,onClick:()=>{setMode(m);setChoix(null);setSurvol(null);},
-      style:{border:'none',padding:'4px 12px',fontSize:12,fontWeight:700,cursor:'pointer',background:mode===m?ac:'transparent',color:mode===m?'#fff':'var(--text-3,#64748b)'}},l)));
+      style:{border:'none',padding:'4px 12px',fontSize:12,fontWeight:700,cursor:'pointer',background:mode===m?ac:'transparent',color:mode===m?'#fff':'var(--text-3,#64748b)'}},l))));
   const vueMois=CE('div',{className:'card'},
     CE('div',{style:{display:'flex',alignItems:'center',gap:8,marginBottom:12,flexWrap:'wrap'}},
       navMois,
@@ -5040,6 +5104,7 @@ function VuePlanning({entries,onEdit,onDelete,onDuplicate,canDelete,accentColor,
       'Haut de case : matin ; bas : après-midi ; chiffre : plusieurs ateliers ; contour rouge : à mettre à jour ; estompé : annulé, non réalisé ou reporté. Clic : détails.'));
 
   return CE('div',null,
+    creneauxOuvert&&CE(CreneauxLibres,{entries,conseillers:noms,conseillerFixe,onNouveau,onFermer:()=>setCreneauxOuvert(false),ac}),
     mode==='mois'?vueMois:CE('div',{className:'card'},
       CE('div',{style:{display:'flex',alignItems:'center',gap:8,marginBottom:12,flexWrap:'wrap'}},
         CE('div',{style:{display:'flex',gap:4}},

@@ -595,3 +595,28 @@ describe('conflits de matériel à l\'heure près', () => {
     assert.deepEqual(findMobileClassConflicts([H('Alice', 6, '09:00', 60), H('Bruno', 6, '14:00', 60)]), []);
   });
 });
+
+// ── Créneaux libres (11/10/2026) ─────────────────────────────────────────────
+const {creneauxLibres} = require('./logic.js');
+describe('creneauxLibres', () => {
+  const at = (date, horaire, extra) => ({date, horaire, conseiller:'Alice', statut:'Planifié', ...extra});
+  const base = {conseiller:'Alice', du:'2026-10-12', au:'2026-10-18', jours:[1,4], moments:['AM','PM']};
+  it('seuls les jours choisis, demi-journées occupées retirées', () => {
+    // lundi 12 matin occupé ; jeudi 15 libre ; mardi 13 non demandé
+    const r = creneauxLibres([at('2026-10-12','09:30'), at('2026-10-13','14:00')], base);
+    assert.deepEqual(r, [{date:'2026-10-12',demi:'PM'},{date:'2026-10-15',demi:'AM'},{date:'2026-10-15',demi:'PM'}]);
+  });
+  it('annulé ou reporté libère ; co-animation occupe ; sans horaire occupe la journée ; autre conseiller ignoré', () => {
+    const r = creneauxLibres([
+      at('2026-10-12','09:00',{statut:'Annulé'}),
+      at('2026-10-12','14:00',{conseiller:'Bruno', co_animateur:'Alice'}),
+      at('2026-10-15','',{ampm:''}),
+      at('2026-10-15','09:00',{conseiller:'Bruno'}),
+    ], base);
+    assert.deepEqual(r, [{date:'2026-10-12',demi:'AM'}]);
+  });
+  it('férié exclu, matin seulement', () => {
+    const r = creneauxLibres([], {...base, du:'2026-11-09', au:'2026-11-12', jours:[1,3], moments:['AM'], estFerie: d => d === '2026-11-11' ? 'Armistice' : ''});
+    assert.deepEqual(r, [{date:'2026-11-09',demi:'AM'}]);
+  });
+});
