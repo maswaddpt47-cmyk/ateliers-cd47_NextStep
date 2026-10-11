@@ -1799,6 +1799,13 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
       setEditId(null);setIsDup(false);setImportOuvert(true);setModeLot(true);
       window.scrollTo(0,0);if(onClearPrefill)onClearPrefill();return;
     }
+    if(prefillData._cycle){
+      setEditId(null);setIsDup(false);setModeLot(true);
+      setLotRows(prefillData._cycle.map(c=>({...emptyRow(),date:c.date,ampm:c.demi})));
+      if(prefillData._conseiller)setLotForm(f=>({...f,conseiller:prefillData._conseiller}));
+      setLotErrors({});setLotRowErrors({});
+      window.scrollTo(0,0);if(onClearPrefill)onClearPrefill();return;
+    }
     if(prefillData._creneau){
       setForm({...empty,date:prefillData._creneau,statut:'Planifié',...(prefillData._conseiller?{conseiller:prefillData._conseiller}:{})});
       setEditId(null);setIsDup(false);setModeLot(false);setErrors({});
@@ -2221,7 +2228,7 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
             // Ligne 1 : Date + Horaire + AM/PM + Supprimer
             CE('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr auto 32px 32px',gap:8,alignItems:'end',padding:'9px 10px 8px'}},
               CE('div',null,lbl('Date *',rErr.date),inp('date',row.date,'date',rErr.date)),
-              CE('div',null,lbl('Horaire *',rErr.horaire),inp('time',row.horaire,'horaire',rErr.horaire)),
+              CE('div',null,lbl('Horaire *'+(row.ampm&&!row.horaire?(row.ampm==='AM'?' (matin)':' (après-midi)'):''),rErr.horaire),inp('time',row.horaire,'horaire',rErr.horaire)),
               CE('div',null,lbl('Durée *',rErr.duree),
                 CE('select',{value:row.duree,onChange:e=>setRow(row.id,'duree',parseInt(e.target.value)),style:{padding:'8px 6px',border:brd(rErr.duree),borderRadius:8,fontSize:12,background:bg(rErr.duree)}},
                   DUREES_ATELIER.map(d=>CE('option',{key:d,value:d},fmtDuree(d))))),
@@ -4914,7 +4921,7 @@ function VueAgendaSemaine({entries,onEdit,onDelete,onDuplicate,canDelete,initCon
 // d'un conseiller sur les jours choisis (calcul : creneauxLibres, logic.js).
 // Index : le conseiller connecté seulement ; Admin : au choix.
 // ═══════════════════════════════════════════════════════════
-function CreneauxLibres({entries,conseillers,conseillerFixe,onNouveau,onFermer,ac}){
+function CreneauxLibres({entries,conseillers,conseillerFixe,onNouveau,onCycle,onFermer,ac}){
   const JOURS_SEM=[[1,'Lun'],[2,'Mar'],[3,'Mer'],[4,'Jeu'],[5,'Ven']];
   const NOMS_JOURS=['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
   const auj=todayLocal();
@@ -4923,6 +4930,9 @@ function CreneauxLibres({entries,conseillers,conseillerFixe,onNouveau,onFermer,a
   const[du,setDu]=React.useState(auj);
   const[au,setAu]=React.useState(addJoursIso(auj,27));
   const[cons,setCons]=React.useState(conseillerFixe||(conseillers||[])[0]||'');
+  // Sélection pour un cycle (11/10/2026) : clés « date|AM » ou « date|PM ».
+  const[sel,setSel]=React.useState([]);
+  const cocher=k=>setSel(l=>l.includes(k)?l.filter(x=>x!==k):[...l,k]);
   const bascule=(liste,set,v)=>set(liste.includes(v)?liste.filter(x=>x!==v):[...liste,v].sort());
   const libres=React.useMemo(()=>creneauxLibres(entries,{conseiller:cons,du,au,jours,moments,
     estFerie:d=>joursFeries(+d.slice(0,4))[d]||''}),[entries,cons,du,au,jours,moments]);
@@ -4957,20 +4967,29 @@ function CreneauxLibres({entries,conseillers,conseillerFixe,onNouveau,onFermer,a
     :CE(React.Fragment,null,
       CE('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:6}},
         CE('span',{style:{fontSize:12,color:'var(--text-3,#64748b)'}},libres.length+' demi-journée'+(libres.length>1?'s':'')+' libre'+(libres.length>1?'s':'')+' sur '+parDate.length+' jour'+(parDate.length>1?'s':'')),
-        CE('button',{className:'btn btn-secondary btn-sm',onClick:copier},'📋 Copier la liste')),
+        CE('div',{style:{display:'flex',gap:6,flexWrap:'wrap'}},
+          onCycle&&CE('button',{className:'btn btn-sm',disabled:!sel.filter(k=>libres.some(c=>c.date+'|'+c.demi===k)).length,
+            style:{background:ac,color:'#fff',border:'none',opacity:sel.length?1:.5},
+            onClick:()=>{const l=libres.filter(c=>sel.includes(c.date+'|'+c.demi));if(l.length)onCycle(l,cons);}},
+            '🔄 Créer un cycle avec la sélection ('+sel.filter(k=>libres.some(c=>c.date+'|'+c.demi===k)).length+')'),
+          sel.length>0&&CE('button',{className:'btn btn-secondary btn-sm',onClick:()=>setSel([])},'Vider'),
+          CE('button',{className:'btn btn-secondary btn-sm',onClick:copier},'📋 Copier la liste'))),
       CE('div',{style:{maxHeight:320,overflowY:'auto',border:'1px solid var(--border,#e2e8f0)',borderRadius:8}},
         parDate.map(x=>CE('div',{key:x.date,style:{display:'flex',alignItems:'center',gap:8,padding:'6px 10px',borderBottom:'1px solid var(--border,#e2e8f0)'}},
           CE('span',{style:{fontSize:13,fontWeight:700,minWidth:120}},libJour(x.date)),
-          x.demis.map(dm=>CE('button',{key:dm,type:'button',disabled:!onNouveau,title:onNouveau?'Saisir un atelier ce '+(dm==='AM'?'matin':'après-midi'):undefined,
+          x.demis.map(dm=>CE('span',{key:dm,style:{display:'inline-flex',alignItems:'center',gap:3}},
+            onCycle&&CE('input',{type:'checkbox',checked:sel.includes(x.date+'|'+dm),onChange:()=>cocher(x.date+'|'+dm),
+              title:'Ajouter au cycle','aria-label':'Ajouter '+libJour(x.date)+' '+(dm==='AM'?'matin':'après-midi')+' au cycle',style:{width:16,height:16,margin:0,cursor:'pointer'}}),
+            CE('button',{type:'button',disabled:!onNouveau,title:onNouveau?'Saisir un atelier ce '+(dm==='AM'?'matin':'après-midi'):undefined,
             onClick:()=>onNouveau&&onNouveau(x.date,cons),
             style:{padding:'3px 10px',borderRadius:12,fontSize:12,cursor:onNouveau?'pointer':'default',border:'1px solid '+(dm==='AM'?'#93c5fd':'#fcd34d'),
-              background:dm==='AM'?'#eff6ff':'#fffbeb',color:dm==='AM'?'#1d4ed8':'#92400e'}},dm==='AM'?'☀️ Matin':'🌙 Après-midi'))))),
+              background:dm==='AM'?'#eff6ff':'#fffbeb',color:dm==='AM'?'#1d4ed8':'#92400e'}},dm==='AM'?'☀️ Matin':'🌙 Après-midi')))))),
       CE('p',{style:{fontSize:11,color:'var(--text-3,#94a3b8)',margin:'6px 0 0'}},
-        'Libre = aucun atelier saisi dans l\'outil (hors annulés et reportés). Congés et réunions Outlook ne sont pas connus : vérifiez votre agenda. Clic : saisir un atelier à cette date.'))
+        'Libre = aucun atelier saisi dans l\'outil (hors annulés et reportés). Congés et réunions Outlook ne sont pas connus : vérifiez votre agenda. Clic : saisir un atelier à cette date'+(onCycle?' ; cases cochées : un cycle.':'.')))
   );
 }
 
-function VuePlanning({entries,onEdit,onDelete,onDuplicate,canDelete,accentColor,conseillers,onNouveau,conseillerFixe}){
+function VuePlanning({entries,onEdit,onDelete,onDuplicate,canDelete,accentColor,conseillers,onNouveau,onCycle,conseillerFixe}){
   const[weekOffset,setWeekOffset]=React.useState(0);
   const[selectedEntry,setSelectedEntry]=React.useState(null);
   const[confirmDel,setConfirmDel]=React.useState(null);
@@ -5104,7 +5123,7 @@ function VuePlanning({entries,onEdit,onDelete,onDuplicate,canDelete,accentColor,
       'Haut de case : matin ; bas : après-midi ; chiffre : plusieurs ateliers ; contour rouge : à mettre à jour ; estompé : annulé, non réalisé ou reporté. Clic : détails.'));
 
   return CE('div',null,
-    creneauxOuvert&&CE(CreneauxLibres,{entries,conseillers:noms,conseillerFixe,onNouveau,onFermer:()=>setCreneauxOuvert(false),ac}),
+    creneauxOuvert&&CE(CreneauxLibres,{entries,conseillers:noms,conseillerFixe,onNouveau,onCycle,onFermer:()=>setCreneauxOuvert(false),ac}),
     mode==='mois'?vueMois:CE('div',{className:'card'},
       CE('div',{style:{display:'flex',alignItems:'center',gap:8,marginBottom:12,flexWrap:'wrap'}},
         CE('div',{style:{display:'flex',gap:4}},
@@ -6129,7 +6148,7 @@ const NOUVEAUTES=[
   {id:30,date:'2026-10-05',admin:true,titre:'Bilan mensuel : la qualité des ateliers',texte:'Le bilan envoyé à la superviseure le 1er du mois comprend une rubrique « Qualité des ateliers réalisés » : fiches bilan remplies, objectif atteint, difficultés, suite à donner, nombre d\'avis des stagiaires et moyennes (attentes, clarté, plus à l\'aise, refaire seul). En chiffres seulement : ni remarque libre, ni détail par conseiller. Premier envoi le 01/11/2026, pour octobre.'},
   {id:31,date:'2026-10-05',admin:true,titre:'Supprimer un avis de stagiaire',texte:'Dashboard → « 💬 Avis par atelier » : cliquez sur la ligne d\'un atelier pour voir ses avis un par un, chacun avec un bouton « 🗑️ Supprimer » (confirmation demandée). Pour retirer une remarque qui cite une personne ou un faux avis. Réservé à l\'Admin ; le journal ne garde que le numéro de l\'avis supprimé, jamais son contenu.'},
   {id:32,date:'2026-10-05',admin:true,titre:'« Mes bilans » masquable',texte:'Admin → Visibilité des onglets : une ligne « 📝 Mes bilans » permet de masquer cet onglet aux conseillers (affiché par défaut). Masqué, il disparaît de leur barre ; la fenêtre du QR code continue de montrer à l\'animateur les avis de ses ateliers.'},
-  {id:33,date:'2026-10-12',titre:'Vos disponibilités en un clic',texte:'Planning → bouton « 🔍 Disponibilités » : la liste de vos matinées et après-midis sans atelier. Cochez les jours qui vous intéressent (par exemple lundi et jeudi), le matin, l\'après-midi ou les deux, et la période (4 semaines par défaut). Les week-ends et jours fériés sont exclus. « 📋 Copier la liste » la colle dans un mail pour proposer des dates à un partenaire ; un clic sur un créneau ouvre la saisie avec la date déjà remplie. Attention : seuls les ateliers saisis dans l\'outil sont connus — vérifiez vos congés et réunions dans Outlook.'},
+  {id:33,date:'2026-10-12',titre:'Vos disponibilités en un clic',texte:'Planning → bouton « 🔍 Disponibilités » : la liste de vos matinées et après-midis sans atelier. Cochez les jours qui vous intéressent (par exemple lundi et jeudi), le matin, l\'après-midi ou les deux, et la période (4 semaines par défaut). Les week-ends et jours fériés sont exclus. « 📋 Copier la liste » la colle dans un mail pour proposer des dates à un partenaire ; un clic sur un créneau ouvre la saisie avec la date déjà remplie. Pour un cycle : cochez plusieurs créneaux puis « 🔄 Créer un cycle avec la sélection » — la saisie par cycle s\'ouvre avec les dates déjà en place, il reste à remplir les informations communes et l\'heure de chaque séance. Attention : seuls les ateliers saisis dans l\'outil sont connus — vérifiez vos congés et réunions dans Outlook.'},
 ];
 
 // ═══════════════════════════════════════════════════════════
