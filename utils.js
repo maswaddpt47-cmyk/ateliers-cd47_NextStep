@@ -703,7 +703,7 @@ function lireICS(texte) {
   const lignes = String(texte || '').replace(/\r\n[ \t]/g, '').replace(/\n[ \t]/g, '').split(/\r?\n/);
   const evts = []; let e = null, profondeur = 0;
   for (const l of lignes) {
-    if (l === 'BEGIN:VEVENT') { e = { uid: '', debut: null, fin: null, duration: '', titre: '', lieu: '', rrule: '', exdates: [], recurrenceId: '' }; profondeur = 0; continue; }
+    if (l === 'BEGIN:VEVENT') { e = { uid: '', debut: null, fin: null, duration: '', titre: '', lieu: '', rrule: '', exdates: [], recurrenceId: '', transp: '', busy: '', statut: '' }; profondeur = 0; continue; }
     if (!e) continue;
     if (l.startsWith('BEGIN:')) { profondeur++; continue; }          // VALARM…
     if (l.startsWith('END:') && profondeur) { profondeur--; continue; }
@@ -720,6 +720,9 @@ function lireICS(texte) {
     else if (nom === 'RRULE') e.rrule = val.trim();
     else if (nom === 'EXDATE') val.split(',').forEach(x => { const d = _icsDate(x); if (d) e.exdates.push(d.date); });
     else if (nom === 'RECURRENCE-ID') { const d = _icsDate(val); if (d) e.recurrenceId = d.date; }
+    else if (nom === 'TRANSP') e.transp = val.trim().toUpperCase();
+    else if (nom === 'X-MICROSOFT-CDO-BUSYSTATUS') e.busy = val.trim().toUpperCase();
+    else if (nom === 'STATUS') e.statut = val.trim().toUpperCase();
   }
   return evts;
 }
@@ -795,6 +798,49 @@ function evenementsOutlook(texte, motCle, depuis) {
     periode: { de: dates[0] || '', a: dates[dates.length - 1] || '' },
   };
 }
+// Demi-journées occupées d'après un export Outlook (12/10/2026), pour
+// « Mes rendez-vous Outlook » dans Disponibilités. Lu dans le navigateur :
+// rien n'est envoyé au serveur. Un rendez-vous occupe le matin s'il déborde
+// avant midi, l'après-midi s'il déborde après ; une journée entière (congé)
+// occupe les deux, sur tous ses jours. Ignorés : « libre » (TRANSP:TRANSPARENT
+// ou statut Outlook FREE) et annulés. Série sans fin : bornée à un an.
+// Rend { occupees: ['AAAA-MM-JJ|AM', …], ignores: nombre de séries non lues }.
+function demiJourneesOccupeesICS(texte) {
+  const evts = lireICS(texte).filter(e => e.debut && e.transp !== 'TRANSPARENT' && e.busy !== 'FREE' && e.statut !== 'CANCELLED');
+  const remplacees = {};
+  evts.filter(e => e.recurrenceId).forEach(e => { (remplacees[e.uid] = remplacees[e.uid] || []).push(e.recurrenceId); });
+  const occ = new Set(); let ignores = 0;
+  const mn = h => +h.slice(0, 2) * 60 + +h.slice(3, 5);
+  const marquer = (date, e) => {
+    if (!e.debut.horaire) {   // journée entière, DTEND exclusif
+      const fin = e.fin && !e.fin.horaire && e.fin.date > e.debut.date ? e.fin.date : addJoursIso(e.debut.date, 1);
+      const nb = Math.min(Math.round((_tUTC(fin) - _tUTC(e.debut.date)) / 86400000), 366);
+      for (let i = 0; i < nb; i++) { const d = addJoursIso(date, i); occ.add(d + '|AM'); occ.add(d + '|PM'); }
+      return;
+    }
+    const deb = mn(e.debut.horaire);
+    let duree = 60;
+    const m = String(e.duration || '').match(/^P(?:(\d+)D)?T?(?:(\d+)H)?(?:(\d+)M)?/);
+    if (e.duration && m) duree = (+m[1] || 0) * 1440 + (+m[2] || 0) * 60 + (+m[3] || 0);
+    else if (e.fin && e.fin.horaire) duree = (_tUTC(e.fin.date) - _tUTC(e.debut.date)) / 60000 + mn(e.fin.horaire) - deb;
+    const fin = deb + Math.max(duree, 1);
+    for (let j = 0; j * 1440 < fin && j < 31; j++) {
+      const a = Math.max(deb - j * 1440, 0), b = Math.min(fin - j * 1440, 1440), d = addJoursIso(date, j);
+      if (a < 720 && b > 0) occ.add(d + '|AM');
+      if (b > 720) occ.add(d + '|PM');
+    }
+  };
+  for (const e of evts) {
+    if (e.rrule && !e.recurrenceId) {
+      const borne = /(^|;)(UNTIL|COUNT)=/i.test(e.rrule) ? e.rrule : e.rrule + ';UNTIL=' + addJoursIso(todayLocal(), 365).replace(/-/g, '');
+      const dates = _datesSerie(e.debut.date, borne);
+      if (!dates) { ignores++; continue; }
+      const exclues = new Set([...e.exdates, ...(remplacees[e.uid] || [])]);
+      dates.filter(d => !exclues.has(d)).forEach(d => marquer(d, e));
+    } else marquer(e.debut.date, e);
+  }
+  return { occupees: [...occ].sort(), ignores };
+}
 // _id d'atelier stable pour une occurrence Outlook : réimporter le même
 // rendez-vous retrouve l'atelier déjà créé au lieu d'en créer un second.
 // Réimport Outlook (03/10/2026) : rapproche les rendez-vous du fichier des
@@ -846,7 +892,7 @@ function idOutlook(cle) {
 
 if (typeof module !== 'undefined') {
   module.exports={
-    lireICS, evenementsOutlook, idOutlook, rapprocherOutlook,
+    lireICS, evenementsOutlook, idOutlook, rapprocherOutlook, demiJourneesOccupeesICS,
     genererDatesCycle, joursFeries,
     nouveautesNonVues, nouveautesPourPage, semainesEntre,
     visibiliteEffective,

@@ -427,10 +427,11 @@ function bilanTrimestriel(entries, debut, fin, avis) {
 // demiJourneeAtelier) ; un atelier sans horaire ni AM/PM occupe la journée.
 // Ne connaît que les ateliers saisis : ni congés ni réunions Outlook.
 // o = { conseiller, du, au (AAAA-MM-JJ, inclus), jours: [1..5] (0 = dimanche),
-//       moments: ['AM','PM'], estFerie: iso => libellé | '' }
+//       moments: ['AM','PM'], estFerie: iso => libellé | '',
+//       bloques: ['AAAA-MM-JJ|AM', …] (rendez-vous Outlook, 12/10/2026) }
 // Rend [{ date, demi }] dans l'ordre chronologique.
 function creneauxLibres(entries, o) {
-  const occ = new Set();
+  const occ = new Set(o.bloques || []);
   (entries || []).forEach(e => {
     if (!e || (e.conseiller !== o.conseiller && e.co_animateur !== o.conseiller)) return;
     if (e.statut === 'Annulé' || e.statut === 'Reporté') return;

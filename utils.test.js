@@ -743,3 +743,23 @@ describe('basculerBilan', () => {
     assert.deepEqual(basculerBilan(basculerBilan({}, 'niveau', 'Avancé'), 'niveau', 'Avancé'), {});
   });
 });
+
+// ── Rendez-vous Outlook → demi-journées occupées (12/10/2026) ─────────────────
+const {demiJourneesOccupeesICS} = require('./utils.js');
+describe('demiJourneesOccupeesICS', () => {
+  const ics = (...evts) => 'BEGIN:VCALENDAR\r\n' + evts.map(e => 'BEGIN:VEVENT\r\n' + e.join('\r\n') + '\r\nEND:VEVENT\r\n').join('') + 'END:VCALENDAR';
+  it('matin, chevauchement de midi, journée entière de deux jours, libre ignoré', () => {
+    const r = demiJourneesOccupeesICS(ics(
+      ['UID:a', 'DTSTART:20261013T090000', 'DTEND:20261013T100000'],
+      ['UID:b', 'DTSTART:20261014T113000', 'DTEND:20261014T130000'],
+      ['UID:c', 'DTSTART;VALUE=DATE:20261019', 'DTEND;VALUE=DATE:20261021'],
+      ['UID:d', 'DTSTART:20261015T140000', 'DTEND:20261015T150000', 'TRANSP:TRANSPARENT'],
+    ));
+    assert.deepEqual(r.occupees, ['2026-10-13|AM', '2026-10-14|AM', '2026-10-14|PM', '2026-10-19|AM', '2026-10-19|PM', '2026-10-20|AM', '2026-10-20|PM']);
+  });
+  it('série hebdomadaire sans fin : bornée, exception retirée', () => {
+    const r = demiJourneesOccupeesICS(ics(['UID:s', 'DTSTART:20261012T140000', 'DTEND:20261012T160000', 'RRULE:FREQ=WEEKLY;BYDAY=MO', 'EXDATE:20261019T140000']));
+    assert.ok(r.occupees.includes('2026-10-12|PM') && r.occupees.includes('2026-10-26|PM'));
+    assert.ok(!r.occupees.includes('2026-10-19|PM') && !r.occupees.includes('2026-10-12|AM'));
+  });
+});

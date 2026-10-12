@@ -615,6 +615,10 @@ describe('creneauxLibres', () => {
     ], base);
     assert.deepEqual(r, [{date:'2026-10-12',demi:'AM'}]);
   });
+  it('demi-journées bloquées (Outlook) retirées', () => {
+    const r = creneauxLibres([], {...base, bloques:['2026-10-12|AM','2026-10-15|PM']});
+    assert.deepEqual(r, [{date:'2026-10-12',demi:'PM'},{date:'2026-10-15',demi:'AM'}]);
+  });
   it('férié exclu, matin seulement', () => {
     const r = creneauxLibres([], {...base, du:'2026-11-09', au:'2026-11-12', jours:[1,3], moments:['AM'], estFerie: d => d === '2026-11-11' ? 'Armistice' : ''});
     assert.deepEqual(r, [{date:'2026-11-09',demi:'AM'}]);

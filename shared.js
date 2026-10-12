@@ -4943,10 +4943,24 @@ function CreneauxLibres({entries,conseillers,conseillerFixe,onNouveau,onCycle,on
   const[cons,setCons]=React.useState(conseillerFixe||(conseillers||[])[0]||'');
   // Sélection pour un cycle (11/10/2026) : clés « date|AM » ou « date|PM ».
   const[sel,setSel]=React.useState([]);
+  // Rendez-vous Outlook (12/10/2026) : demi-journées occupées lues dans un
+  // export .ics, gardées sur cet appareil seulement (dates, sans titre).
+  const lireOlk=()=>{try{return JSON.parse(localStorage.getItem(lsKey('dispo_outlook'))||'null');}catch(_){return null;}};
+  const[olk,setOlk]=React.useState(lireOlk);
+  const olkActif=olk&&olk.conseiller===cons?olk:null;
+  function importerOlk(f){
+    if(!f)return;const r=new FileReader();
+    r.onload=()=>{const res=demiJourneesOccupeesICS(String(r.result||''));
+      const v={conseiller:cons,le:todayLocal(),occupees:res.occupees,ignores:res.ignores};
+      setOlk(v);try{localStorage.setItem(lsKey('dispo_outlook'),JSON.stringify(v));}catch(_){}
+      showToast('✅ '+res.occupees.length+' demi-journée(s) occupée(s) lue(s) dans Outlook'+(res.ignores?' — '+res.ignores+' série(s) non lue(s)':''));};
+    r.readAsText(f);
+  }
+  function retirerOlk(){setOlk(null);try{localStorage.removeItem(lsKey('dispo_outlook'));}catch(_){}}
   const cocher=k=>setSel(l=>l.includes(k)?l.filter(x=>x!==k):[...l,k]);
   const bascule=(liste,set,v)=>set(liste.includes(v)?liste.filter(x=>x!==v):[...liste,v].sort());
-  const libres=React.useMemo(()=>creneauxLibres(entries,{conseiller:cons,du,au,jours,moments,
-    estFerie:d=>joursFeries(+d.slice(0,4))[d]||''}),[entries,cons,du,au,jours,moments]);
+  const libres=React.useMemo(()=>creneauxLibres(entries,{conseiller:cons,du,au,jours,moments,bloques:olkActif?olkActif.occupees:[],
+    estFerie:d=>joursFeries(+d.slice(0,4))[d]||''}),[entries,cons,du,au,jours,moments,olkActif]);
   const parDate=[];libres.forEach(c=>{const l=parDate[parDate.length-1];if(l&&l.date===c.date)l.demis.push(c.demi);else parDate.push({date:c.date,demis:[c.demi]});});
   const libJour=iso=>{const[y,m,j]=iso.split('-').map(Number);return NOMS_JOURS[new Date(y,m-1,j).getDay()]+' '+String(j).padStart(2,'0')+'/'+String(m).padStart(2,'0');};
   const libDemis=d=>d.length===2?'matin et après-midi':d[0]==='AM'?'matin':'après-midi';
@@ -4973,6 +4987,15 @@ function CreneauxLibres({entries,conseillers,conseillerFixe,onNouveau,onCycle,on
       CE('span',{style:{width:10}}),
       puce(moments.includes('AM'),'Matin',()=>bascule(moments,setMoments,'AM'),'am'),
       puce(moments.includes('PM'),'Après-midi',()=>bascule(moments,setMoments,'PM'),'pm')),
+    CE('div',{style:{display:'flex',flexWrap:'wrap',gap:8,alignItems:'center',marginBottom:12,fontSize:12}},
+      CE('label',{className:'btn btn-secondary btn-sm',style:{cursor:'pointer',fontSize:12}},olkActif?'📥 Recharger mes rendez-vous Outlook':'📥 Mes rendez-vous Outlook',
+        CE('input',{type:'file',accept:'.ics,text/calendar',style:{display:'none'},onChange:e=>{importerOlk(e.target.files[0]);e.target.value='';}})),
+      olkActif
+        ?CE(React.Fragment,null,
+          CE('span',{style:{color:'#166534',fontWeight:600}},'✅ Outlook du '+fmtDate(olkActif.le)+' : '+olkActif.occupees.length+' demi-journée(s) occupée(s) retirée(s)'
+            +(olkActif.ignores?' · '+olkActif.ignores+' série(s) non lue(s)':'')),
+          CE('button',{className:'btn btn-secondary btn-sm',style:{fontSize:11},onClick:retirerOlk},'Retirer'))
+        :CE('span',{style:{color:'var(--text-3,#64748b)'}},'Dans Outlook : Fichier → Enregistrer le calendrier → « Disponibilité uniquement » → fichier .ics.')),
     !cons?CE('p',{style:{fontSize:13}},'Choisissez un conseiller.')
     :!parDate.length?CE('p',{style:{fontSize:13,color:'var(--text-3,#64748b)'}},'Aucun créneau libre sur cette période.')
     :CE(React.Fragment,null,
@@ -4996,7 +5019,7 @@ function CreneauxLibres({entries,conseillers,conseillerFixe,onNouveau,onCycle,on
             style:{padding:'3px 10px',borderRadius:12,fontSize:12,cursor:onNouveau?'pointer':'default',border:'1px solid '+(dm==='AM'?'#93c5fd':'#fcd34d'),
               background:dm==='AM'?'#eff6ff':'#fffbeb',color:dm==='AM'?'#1d4ed8':'#92400e'}},dm==='AM'?'☀️ Matin':'🌙 Après-midi')))))),
       CE('p',{style:{fontSize:11,color:'var(--text-3,#94a3b8)',margin:'6px 0 0'}},
-        'Libre = aucun atelier saisi dans l\'outil (hors annulés et reportés). Congés et réunions Outlook ne sont pas connus : vérifiez votre agenda. Clic : saisir un atelier à cette date'+(onCycle?' ; cases cochées : un cycle.':'.')))
+        'Libre = aucun atelier saisi dans l\'outil (hors annulés et reportés)'+(olkActif?' ni rendez-vous dans l\'export Outlook importé — réimportez-le quand votre agenda change':' ; congés et réunions Outlook inconnus tant que vous n\'importez pas votre agenda')+'. Clic : saisir un atelier à cette date'+(onCycle?' ; cases cochées : un cycle.':'.')))
   );
 }
 
