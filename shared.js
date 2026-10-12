@@ -4945,18 +4945,26 @@ function CreneauxLibres({entries,conseillers,conseillerFixe,onNouveau,onCycle,on
   const[sel,setSel]=React.useState([]);
   // Rendez-vous Outlook (12/10/2026) : demi-journées occupées lues dans un
   // export .ics, gardées sur cet appareil seulement (dates, sans titre).
-  const lireOlk=()=>{try{return JSON.parse(localStorage.getItem(lsKey('dispo_outlook'))||'null');}catch(_){return null;}};
+  // Clé commune à NEWGEN et NextStep (12/10/2026, sans préfixe lsKey) : un
+  // import fait dans l'une sert à l'autre dans le même navigateur ; l'ancienne
+  // clé préfixée est reprise une fois.
+  const CLE_OLK='ateliers_dispo_outlook';
+  const lireOlk=()=>{try{
+    const v=localStorage.getItem(CLE_OLK);if(v)return JSON.parse(v);
+    const ancien=localStorage.getItem(lsKey('dispo_outlook'));
+    if(ancien){localStorage.setItem(CLE_OLK,ancien);localStorage.removeItem(lsKey('dispo_outlook'));return JSON.parse(ancien);}
+    return null;}catch(_){return null;}};
   const[olk,setOlk]=React.useState(lireOlk);
   const olkActif=olk&&olk.conseiller===cons?olk:null;
   function importerOlk(f){
     if(!f)return;const r=new FileReader();
     r.onload=()=>{const res=demiJourneesOccupeesICS(String(r.result||''));
       const v={conseiller:cons,le:todayLocal(),occupees:res.occupees,ignores:res.ignores};
-      setOlk(v);try{localStorage.setItem(lsKey('dispo_outlook'),JSON.stringify(v));}catch(_){}
+      setOlk(v);try{localStorage.setItem(CLE_OLK,JSON.stringify(v));}catch(_){}
       showToast('✅ '+res.occupees.length+' demi-journée(s) occupée(s) lue(s) dans Outlook'+(res.ignores?' — '+res.ignores+' série(s) non lue(s)':''));};
     r.readAsText(f);
   }
-  function retirerOlk(){setOlk(null);try{localStorage.removeItem(lsKey('dispo_outlook'));}catch(_){}}
+  function retirerOlk(){setOlk(null);try{localStorage.removeItem(CLE_OLK);}catch(_){}}
   const cocher=k=>setSel(l=>l.includes(k)?l.filter(x=>x!==k):[...l,k]);
   const bascule=(liste,set,v)=>set(liste.includes(v)?liste.filter(x=>x!==v):[...liste,v].sort());
   const libres=React.useMemo(()=>creneauxLibres(entries,{conseiller:cons,du,au,jours,moments,bloques:olkActif?olkActif.occupees:[],
