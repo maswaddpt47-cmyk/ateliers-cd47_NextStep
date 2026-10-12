@@ -782,3 +782,15 @@ describe('evenementsOutlook ignore les ateliers exportés par l\'outil', () => {
     assert.deepEqual(r.occurrences.map(o => o.date), ['2026-10-21']);
   });
 });
+
+// ── Titre du rendez-vous exporté (12/10/2026) ────────────────────────────────
+describe('buildICS — titre et corps', () => {
+  it('titre « Atelier <partenaire> », thématique et commune dans le corps', () => {
+    const ics = buildICS([{_id:'x', date:'2026-10-12', horaire:'09:30', thematique:'TBD', commune:'FUMEL (47500)', lieu:'test', orienteur:'CCAS Démo', conseiller:'Alice Démo'}]);
+    assert.ok(ics.includes('SUMMARY:Atelier CCAS Démo'));
+    assert.ok(ics.includes('Thématique : TBD') && ics.includes('Commune : FUMEL (47500)'));
+  });
+  it('sans partenaire : « Atelier » suivi de la thématique', () => {
+    assert.ok(buildICS([{_id:'y', date:'2026-10-12', horaire:'09:30', thematique:'Smartphone'}]).includes('SUMMARY:Atelier Smartphone'));
+  });
+});

@@ -123,9 +123,13 @@ function buildICS(evts){
     const f=new Date(Date.UTC(+pd.y,+pd.mo-1,+pd.j,+hh,+mm)+(parseInt(e.duree,10)>0?parseInt(e.duree,10):DUREE_DEFAUT)*60000);
     const p2=n=>String(n).padStart(2,'0');
     const dte=`${f.getUTCFullYear()}${p2(f.getUTCMonth()+1)}${p2(f.getUTCDate())}T${p2(f.getUTCHours())}${p2(f.getUTCMinutes())}00`;
-    const summary=escapeICS([e.thematique,e.commune].filter(Boolean).join(' | '));
+    // Titre « Atelier <partenaire> » (12/10/2026, demande de l'utilisateur) ;
+    // thématique, commune et le reste dans le corps.
+    const summary=escapeICS('Atelier'+(e.orienteur&&String(e.orienteur).trim()?' '+String(e.orienteur).trim():(e.thematique?' '+e.thematique:'')));
     const location=escapeICS([e.lieu,e.commune].filter(Boolean).join(', '));
     const descParts=[
+      e.thematique&&'Thématique : '+e.thematique,
+      e.commune&&'Commune : '+e.commune,
       e.conseiller&&'Conseiller : '+e.conseiller,
       e.orienteur&&'Orienteur : '+e.orienteur,
       e.statut&&'Statut : '+e.statut,
