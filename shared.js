@@ -1754,6 +1754,36 @@ function jourDeLaDate(iso){
   const f=joursFeries(y)[iso];
   return txt+(f?' — férié ('+f+')':'');
 }
+// Après une création (12/10/2026) : barre en bas d'écran pour ajouter les
+// ateliers à Outlook (.ics). Hors React : elle survit au passage sur
+// l'Historique qui suit l'enregistrement. Disparaît au clic ou après 60 s.
+function proposerICS(liste){
+  try{
+    const evts=(liste||[]).filter(e=>e&&e.date);if(!evts.length)return;
+    const old=document.getElementById('barre-ics');if(old)old.remove();
+    const barre=document.createElement('div');barre.id='barre-ics';
+    barre.setAttribute('role','status');
+    barre.style.cssText='position:fixed;left:50%;bottom:84px;transform:translateX(-50%);z-index:4000;display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:center;'
+      +'background:#1e293b;color:#f8fafc;padding:10px 14px;border-radius:10px;box-shadow:0 6px 18px rgba(0,0,0,.3);font:13px system-ui,sans-serif;max-width:calc(100vw - 32px)';
+    const txt=document.createElement('span');
+    txt.textContent=evts.length>1?evts.length+' ateliers créés — les ajouter à votre agenda Outlook ?':'Atelier créé — l\'ajouter à votre agenda Outlook ?';
+    const btn=document.createElement('button');btn.type='button';btn.textContent='📅 Télécharger le .ics';
+    btn.style.cssText='background:#3b82f6;color:#fff;border:none;border-radius:6px;padding:6px 12px;font-weight:700;cursor:pointer';
+    const fermer=document.createElement('button');fermer.type='button';fermer.textContent='✕';fermer.setAttribute('aria-label','Fermer');
+    fermer.style.cssText='background:transparent;color:#cbd5e1;border:none;font-size:15px;cursor:pointer';
+    const retirer=()=>{clearTimeout(minuterie);barre.remove();};
+    btn.onclick=()=>{
+      const tri=evts.slice().sort((a,b)=>String(a.date+(a.horaire||'')).localeCompare(String(b.date+(b.horaire||''))));
+      const url=URL.createObjectURL(new Blob([buildICS(tri)],{type:'text/calendar;charset=utf-8'}));
+      const a=document.createElement('a');a.href=url;a.download=(tri.length>1?'cycle-'+tri[0].date:'atelier-'+tri[0].date)+'.ics';
+      document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);
+      retirer();showToast('✅ Fichier .ics téléchargé : ouvrez-le pour l\'ajouter à Outlook');
+    };
+    fermer.onclick=retirer;
+    barre.append(txt,btn,fermer);document.body.appendChild(barre);
+    const minuterie=setTimeout(retirer,60000);
+  }catch(_){}
+}
 function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefillData,onClearPrefill,accentColor,conseillerDefaut}){
   const statuts    = lists?.statuts     || STATUTS_DEFAULT;
   const conseillers= lists?.conseillers || CONSEILLERS_DEFAULT;
@@ -1955,6 +1985,7 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
       // Application locale, sans relire le serveur : entreeSauvegardee (les
       // deux applis) et onSaved(isNew, entry) (NEWGEN).
       entreeSauvegardee({...entry,materiel:form.materiel||[]});
+      if(!editId)proposerICS([entry]);
       onSaved(!editId,{...entry,materiel:form.materiel||[]});reset();
     };
     try{
@@ -1986,7 +2017,7 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
         window._pendingHighlight=ids;
         document.dispatchEvent(new CustomEvent('ateliers:highlight',{detail:{ids}}));
       };
-      const reussir=(verifie)=>{appliquer(entries);showToast(`✅ ${entries.length} atelier(s) créé(s)`+(verifie?' — confirmé après vérification':''));onSaved(true);resetLot();};
+      const reussir=(verifie)=>{appliquer(entries);showToast(`✅ ${entries.length} atelier(s) créé(s)`+(verifie?' — confirmé après vérification':''));proposerICS(entries);onSaved(true);resetLot();};
       let res;
       try{ res=await apiFetch('saveMany',{entries}); }
       catch(err){

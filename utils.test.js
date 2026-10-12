@@ -771,3 +771,14 @@ describe('demiJourneesOccupeesICS', () => {
     assert.ok(!r.occupees.includes('2026-10-19|PM') && !r.occupees.includes('2026-10-12|AM'));
   });
 });
+
+// ── Ateliers exportés depuis l'outil : jamais réimportés (12/10/2026) ─────────
+describe('evenementsOutlook ignore les ateliers exportés par l\'outil', () => {
+  it('UID …@ateliers-newgen écarté, rendez-vous Outlook gardé', () => {
+    const {evenementsOutlook} = require('./utils.js');
+    const t = 'BEGIN:VCALENDAR\r\nBEGIN:VEVENT\r\nUID:abc@ateliers-newgen\r\nDTSTART:20261020T090000\r\nDTEND:20261020T103000\r\nSUMMARY:Atelier smartphone\r\nEND:VEVENT\r\n'
+      + 'BEGIN:VEVENT\r\nUID:olk-1\r\nDTSTART:20261021T090000\r\nDTEND:20261021T103000\r\nSUMMARY:Atelier tablette\r\nEND:VEVENT\r\nEND:VCALENDAR';
+    const r = evenementsOutlook(t, 'atelier', '');
+    assert.deepEqual(r.occurrences.map(o => o.date), ['2026-10-21']);
+  });
+});

@@ -765,7 +765,9 @@ function evenementsOutlook(texte, motCle, depuis) {
   const norm = s => stripAccents(String(s || '')).toLowerCase();
   const mc = norm(motCle).trim();
   const tous = lireICS(texte);
-  const evts = tous.filter(e => e.debut && e.debut.horaire && (!mc || norm(e.titre).includes(mc)));
+  // Les ateliers exportés depuis l'outil (UID …@ateliers-newgen, 12/10/2026)
+  // sont déjà en base : jamais proposés à l'import.
+  const evts = tous.filter(e => e.debut && e.debut.horaire && !/@ateliers-newgen$/.test(e.uid) && (!mc || norm(e.titre).includes(mc)));
   // Une occurrence modifiée (RECURRENCE-ID) remplace celle de sa série.
   // Jour férié (02/10/2026) : l'occurrence est gardée mais signalée, la
   // page la propose décochée.
