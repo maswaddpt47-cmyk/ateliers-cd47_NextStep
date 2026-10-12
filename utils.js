@@ -802,11 +802,15 @@ function evenementsOutlook(texte, motCle, depuis) {
 // « Mes rendez-vous Outlook » dans Disponibilités. Lu dans le navigateur :
 // rien n'est envoyé au serveur. Un rendez-vous occupe le matin s'il déborde
 // avant midi, l'après-midi s'il déborde après ; une journée entière (congé)
-// occupe les deux, sur tous ses jours. Ignorés : « libre » (TRANSP:TRANSPARENT
-// ou statut Outlook FREE) et annulés. Série sans fin : bornée à un an.
+// occupe les deux, sur tous ses jours. Ignorés : annulés, et rendez-vous à
+// horaire marqués « libre » (TRANSP:TRANSPARENT ou statut Outlook FREE). Une
+// journée entière bloque même « libre » : Outlook crée les journées entières
+// en « Libre » par défaut, et un congé (CA) passait au travers (12/10/2026).
+// Série sans fin : bornée à un an.
 // Rend { occupees: ['AAAA-MM-JJ|AM', …], ignores: nombre de séries non lues }.
 function demiJourneesOccupeesICS(texte) {
-  const evts = lireICS(texte).filter(e => e.debut && e.transp !== 'TRANSPARENT' && e.busy !== 'FREE' && e.statut !== 'CANCELLED');
+  const journee = e => !e.debut.horaire || (e.debut.horaire === '00:00' && e.fin && e.fin.horaire === '00:00' && e.fin.date > e.debut.date);
+  const evts = lireICS(texte).filter(e => e.debut && e.statut !== 'CANCELLED' && (journee(e) || (e.transp !== 'TRANSPARENT' && e.busy !== 'FREE')));
   const remplacees = {};
   evts.filter(e => e.recurrenceId).forEach(e => { (remplacees[e.uid] = remplacees[e.uid] || []).push(e.recurrenceId); });
   const occ = new Set(); let ignores = 0;

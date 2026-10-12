@@ -757,6 +757,14 @@ describe('demiJourneesOccupeesICS', () => {
     ));
     assert.deepEqual(r.occupees, ['2026-10-13|AM', '2026-10-14|AM', '2026-10-14|PM', '2026-10-19|AM', '2026-10-19|PM', '2026-10-20|AM', '2026-10-20|PM']);
   });
+  it('journée entière marquée « libre » (congé Outlook par défaut) : bloque quand même', () => {
+    const r = demiJourneesOccupeesICS(ics(
+      ['UID:ca', 'DTSTART;VALUE=DATE:20261109', 'DTEND;VALUE=DATE:20261114', 'TRANSP:TRANSPARENT', 'X-MICROSOFT-CDO-BUSYSTATUS:FREE'],
+      ['UID:ca2', 'DTSTART:20261116T000000', 'DTEND:20261117T000000', 'TRANSP:TRANSPARENT'],
+    ));
+    assert.ok(['2026-11-09|AM', '2026-11-13|PM', '2026-11-16|AM', '2026-11-16|PM'].every(k => r.occupees.includes(k)));
+    assert.ok(!r.occupees.includes('2026-11-14|AM') && !r.occupees.includes('2026-11-17|AM'));
+  });
   it('série hebdomadaire sans fin : bornée, exception retirée', () => {
     const r = demiJourneesOccupeesICS(ics(['UID:s', 'DTSTART:20261012T140000', 'DTEND:20261012T160000', 'RRULE:FREQ=WEEKLY;BYDAY=MO', 'EXDATE:20261019T140000']));
     assert.ok(r.occupees.includes('2026-10-12|PM') && r.occupees.includes('2026-10-26|PM'));
