@@ -5049,7 +5049,7 @@ function VuePlanning({entries,onEdit,onDelete,onDuplicate,canDelete,accentColor,
   const setMode=m=>{setModeBrut(m);try{localStorage.setItem(lsKey('planning_mode'),m);}catch(_){}};
   const[moisOffset,setMoisOffset]=React.useState(0);
   const[choix,setChoix]=React.useState(null);     // plusieurs ateliers dans une demi-case : {x, y, liste}
-  const[creneauxOuvert,setCreneauxOuvert]=React.useState(false);
+  const[creneauxOuvert,setCreneauxOuvert]=React.useState(true);   // Disponibilités ouvertes à l'arrivée (12/10/2026), « ✕ Fermer » pour les replier
   const ac=accentColor||'#1e3a8a';
   const dk=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   const lundi=(()=>{const t=new Date();const j=t.getDay();const m=new Date(t);m.setDate(t.getDate()+(j===0?-6:1-j)+weekOffset*7);m.setHours(0,0,0,0);return m;})();
