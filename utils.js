@@ -136,6 +136,10 @@ function buildICS(evts){
       e.public&&'Public : '+e.public,
       (e.inscrits!==''&&e.inscrits!=null)&&'Inscrits : '+e.inscrits,
       (e.presents!==''&&e.presents!=null)&&'Présents : '+e.presents,
+      // Matériel (12/10/2026) : ordinateurs prêtés, dates de prélèvement et de retour.
+      parseInt(e.nb_ordinateurs,10)>0&&'Ordinateurs prêtés : '+parseInt(e.nb_ordinateurs,10),
+      e.date_prelevement_materiel&&'Prélèvement du matériel : '+fmtDate(e.date_prelevement_materiel),
+      e.date_retour_materiel&&'Retour du matériel : '+fmtDate(e.date_retour_materiel),
       e.remarques&&'Remarques : '+e.remarques,
     ].filter(Boolean);
     out.push('BEGIN:VEVENT','DTSTART:'+dts,'DTEND:'+dte,'SUMMARY:'+summary);

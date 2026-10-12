@@ -794,3 +794,16 @@ describe('buildICS — titre et corps', () => {
     assert.ok(buildICS([{_id:'y', date:'2026-10-12', horaire:'09:30', thematique:'Smartphone'}]).includes('SUMMARY:Atelier Smartphone'));
   });
 });
+
+// ── Matériel dans le corps du rendez-vous exporté (12/10/2026) ───────────────
+describe('buildICS — matériel', () => {
+  it('ordinateurs prêtés et dates de prélèvement / retour dans le corps', () => {
+    const ics = buildICS([{_id:'m', date:'2026-10-12', horaire:'09:30', orienteur:'CCAS', nb_ordinateurs:'6', date_prelevement_materiel:'2026-10-09', date_retour_materiel:'2026-10-13'}]);
+    const desc = ics.replace(/\r\n[ \t]/g, '');
+    assert.ok(desc.includes('Ordinateurs prêtés : 6'));
+    assert.ok(desc.includes('Prélèvement du matériel : ') && desc.includes('09/10/2026') && desc.includes('Retour du matériel : ') && desc.includes('13/10/2026'));
+  });
+  it('rien quand aucun ordinateur ni date', () => {
+    assert.ok(!buildICS([{_id:'n', date:'2026-10-12', horaire:'09:30'}]).includes('Ordinateurs'));
+  });
+});
