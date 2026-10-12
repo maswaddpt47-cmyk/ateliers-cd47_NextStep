@@ -1745,6 +1745,15 @@ function ComboThematiqueFixed({value,onChange,onBlur,entries,hasError}){
 // ═══════════════════════════════════════════════════════════
 const emptyRow=()=>({id:genId(),date:'',horaire:'',ampm:'',duree:DUREE_DEFAUT,thematique:'',inscrits:4,presents:'',date_prelevement_materiel:'',date_retour_materiel:''});
 
+// Jour en toutes lettres sous la date de la saisie (12/10/2026) : « lundi 12
+// octobre 2026 », et le nom du férié s'il y en a un.
+function jourDeLaDate(iso){
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(iso||''))return '';
+  const[y,m,j]=iso.split('-').map(Number),d=new Date(y,m-1,j);
+  const txt=d.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  const f=joursFeries(y)[iso];
+  return txt+(f?' — férié ('+f+')':'');
+}
 function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefillData,onClearPrefill,accentColor,conseillerDefaut}){
   const statuts    = lists?.statuts     || STATUTS_DEFAULT;
   const conseillers= lists?.conseillers || CONSEILLERS_DEFAULT;
@@ -2161,6 +2170,7 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
           CE('div',null,
             Lbl({t:'Date *',err:!!errors.date}),
             CE('input',{type:'date',style:iStyle(errors.date),value:form.date,onChange:e=>set('date',e.target.value)}),
+            form.date&&CE('div',{style:{fontSize:12,fontWeight:600,marginTop:4,color:/férié/.test(jourDeLaDate(form.date))?'#b91c1c':'var(--text-3,#64748b)'}},jourDeLaDate(form.date)),
             errors.date&&CE('span',{style:{color:'#e53e3e',fontSize:11,fontWeight:600}},errors.date)),
           CE('div',null,
             Lbl({t:'Horaire *',err:!!errors.horaire}),
@@ -2227,7 +2237,8 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
           return CE('div',{key:row.id,style:{borderRadius:10,border:`1.5px solid ${hasErr?'#fc8181':acLight}`,marginBottom:6,background:hasErr?'#fff5f5':acLight,position:'relative'}},
             // Ligne 1 : Date + Horaire + AM/PM + Supprimer
             CE('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr auto 32px 32px',gap:8,alignItems:'end',padding:'9px 10px 8px'}},
-              CE('div',null,lbl('Date *',rErr.date),inp('date',row.date,'date',rErr.date)),
+              CE('div',null,lbl('Date *',rErr.date),inp('date',row.date,'date',rErr.date),
+                row.date&&CE('div',{style:{fontSize:11,fontWeight:600,marginTop:3,color:/férié/.test(jourDeLaDate(row.date))?'#b91c1c':'#64748b'}},jourDeLaDate(row.date))),
               CE('div',null,lbl('Horaire *'+(row.ampm&&!row.horaire?(row.ampm==='AM'?' (matin)':' (après-midi)'):''),rErr.horaire),inp('time',row.horaire,'horaire',rErr.horaire)),
               CE('div',null,lbl('Durée *',rErr.duree),
                 CE('select',{value:row.duree,onChange:e=>setRow(row.id,'duree',parseInt(e.target.value)),style:{padding:'8px 6px',border:brd(rErr.duree),borderRadius:8,fontSize:12,background:bg(rErr.duree)}},
