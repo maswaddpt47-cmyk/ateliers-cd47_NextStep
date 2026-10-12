@@ -4981,7 +4981,9 @@ function CreneauxLibres({entries,conseillers,conseillerFixe,onNouveau,onCycle,on
         ?CE('span',{style:{fontSize:12,fontWeight:700,color:conseillerColor(conseillerFixe)}},'👤 '+conseillerFixe)
         :CE('select',{value:cons,onChange:e=>setCons(e.target.value),style:champ},(conseillers||[]).map(c=>CE('option',{key:c,value:c},c))),
       CE('span',{style:{fontSize:12,color:'var(--text-3,#64748b)'}},'du'),CE('input',{type:'date',value:du,onChange:e=>setDu(e.target.value),style:champ}),
-      CE('span',{style:{fontSize:12,color:'var(--text-3,#64748b)'}},'au'),CE('input',{type:'date',value:au,onChange:e=>setAu(e.target.value),style:champ})),
+      CE('span',{style:{fontSize:12,color:'var(--text-3,#64748b)'}},'au'),CE('input',{type:'date',value:au,onChange:e=>setAu(e.target.value),style:champ}),
+      CE('button',{type:'button',className:'btn btn-secondary btn-sm',style:{fontSize:12},title:'Revenir à la période par défaut : aujourd\'hui + 4 semaines',
+        disabled:du===auj&&au===addJoursIso(auj,27),onClick:()=>{setDu(auj);setAu(addJoursIso(auj,27));}},'Aujourd\'hui')),
     CE('div',{style:{display:'flex',flexWrap:'wrap',gap:6,alignItems:'center',marginBottom:12}},
       JOURS_SEM.map(([n,l])=>puce(jours.includes(n),l,()=>bascule(jours,setJours,n),'j'+n)),
       CE('span',{style:{width:10}}),
