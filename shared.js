@@ -4951,8 +4951,11 @@ function CreneauxLibres({entries,conseillers,conseillerFixe,onNouveau,onCycle,on
   const CLE_OLK='ateliers_dispo_outlook';
   const lireOlk=()=>{try{
     const v=localStorage.getItem(CLE_OLK);if(v)return JSON.parse(v);
-    const ancien=localStorage.getItem(lsKey('dispo_outlook'));
-    if(ancien){localStorage.setItem(CLE_OLK,ancien);localStorage.removeItem(lsKey('dispo_outlook'));return JSON.parse(ancien);}
+    // Ancien import, fait dans l'une ou l'autre appli (clés préfixées).
+    for(const k of ['nextstep:dispo_outlook','newgen:dispo_outlook']){
+      const ancien=localStorage.getItem(k);
+      if(ancien){localStorage.setItem(CLE_OLK,ancien);localStorage.removeItem(k);return JSON.parse(ancien);}
+    }
     return null;}catch(_){return null;}};
   const[olk,setOlk]=React.useState(lireOlk);
   const olkActif=olk&&olk.conseiller===cons?olk:null;
