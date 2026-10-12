@@ -1784,6 +1784,22 @@ function proposerICS(liste){
     const minuterie=setTimeout(retirer,60000);
   }catch(_){}
 }
+// Alertes sous l'horaire (12/10/2026) : heure hors du créneau choisi dans
+// Disponibilités, conseiller déjà pris sur cette demi-journée. Non bloquant :
+// l'enregistrement demande confirmation (alertesSaisie).
+function alertesSaisie(entries, cand, creneau) {
+  const out = [];
+  const nom = {AM:'matin', PM:'après-midi'};
+  const d = demiSaisie(cand);
+  if (creneau && creneau.date === cand.date && cand.horaire && d && d !== creneau.demi)
+    out.push('Créneau libre choisi : ' + nom[creneau.demi] + ' — ' + cand.horaire + ' tombe le ' + nom[d] + '.');
+  conflitsConseiller(entries, cand).forEach(e => out.push((e.conseiller === cand.conseiller || e.co_animateur === cand.conseiller ? (cand.conseiller || '') : (cand.co_animateur || '')) + ' a déjà un atelier ' + (d ? 'ce ' + nom[d] : 'ce jour') + ' : ' + (e.horaire || 'sans horaire') + ' ' + (e.thematique || '—') + (e.commune ? ' (' + e.commune + ')' : '') + '.'));
+  return out;
+}
+function BlocAlertes({liste}) {
+  return liste.length ? CE('div', {style:{marginTop:4, padding:'4px 8px', borderRadius:6, background:'#fff7ed', border:'1px solid #fdba74', color:'#9a3412', fontSize:11, fontWeight:600, lineHeight:1.4}},
+    liste.map((t, i) => CE('div', {key:i}, '⚠️ ' + t))) : null;
+}
 function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefillData,onClearPrefill,accentColor,conseillerDefaut}){
   const statuts    = lists?.statuts     || STATUTS_DEFAULT;
   const conseillers= lists?.conseillers || CONSEILLERS_DEFAULT;
@@ -1803,6 +1819,7 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
   // ── états mode lot ──
   const[modeLot,setModeLot]     = React.useState(false);
   const[importOuvert,setImportOuvert]=React.useState(false);
+  const[creneauUnique,setCreneauUnique]=React.useState(null);   // {date, demi} venu de Disponibilités
   const[lotForm,setLotForm]     = React.useState({orienteur:'',commune:'',lieu:'',conseiller:consDef,co_animateur:'',public:'',materiel:[],residence:'',remarques:'',nb_ordinateurs:''});
   const[lotRows,setLotRows]     = React.useState([emptyRow(),emptyRow()]);
   const[lotErrors,setLotErrors] = React.useState({});
@@ -1840,13 +1857,14 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
     }
     if(prefillData._cycle){
       setEditId(null);setIsDup(false);setModeLot(true);
-      setLotRows(prefillData._cycle.map(c=>({...emptyRow(),date:c.date,ampm:c.demi})));
+      setLotRows(prefillData._cycle.map(c=>({...emptyRow(),date:c.date,ampm:c.demi,creneau:c.demi})));
       if(prefillData._conseiller)setLotForm(f=>({...f,conseiller:prefillData._conseiller}));
       setLotErrors({});setLotRowErrors({});
       window.scrollTo(0,0);if(onClearPrefill)onClearPrefill();return;
     }
     if(prefillData._creneau){
       setForm({...empty,date:prefillData._creneau,statut:'Planifié',...(prefillData._conseiller?{conseiller:prefillData._conseiller}:{})});
+      setCreneauUnique(prefillData._demi?{date:prefillData._creneau,demi:prefillData._demi}:null);
       setEditId(null);setIsDup(false);setModeLot(false);setErrors({});
       window.scrollTo(0,0);if(onClearPrefill)onClearPrefill();return;
     }
@@ -1969,6 +1987,8 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
   // ── submit mode unique ──
   async function handleSubmit(){
     if(!validate()){showToast('⚠️ Champs obligatoires manquants',false);return;}
+    const alertes=alertesSaisie(entries,{...form,_id:form._id||editId||''},creneauUnique);
+    if(alertes.length&&!window.confirm(alertes.join('\n')+'\n\nEnregistrer quand même ?'))return;
     setSaving(true);
     const entry={...form,_id:form._id||idNouveauRef.current||(idNouveauRef.current=genId()),inscrits:form.inscrits===''?'':parseInt(form.inscrits)||0,presents:form.presents===''?'':parseInt(form.presents)||0,nb_ordinateurs:form.nb_ordinateurs===''?'':parseInt(form.nb_ordinateurs)||0,duree:parseInt(form.duree)||DUREE_DEFAUT,ampm:ampmDepuisHoraire(form.horaire)||form.ampm,materiel:(form.materiel||[]).join('|')};
     const reussir=()=>{
@@ -1986,6 +2006,7 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
       // deux applis) et onSaved(isNew, entry) (NEWGEN).
       entreeSauvegardee({...entry,materiel:form.materiel||[]});
       if(!editId)proposerICS([entry]);
+      setCreneauUnique(null);
       onSaved(!editId,{...entry,materiel:form.materiel||[]});reset();
     };
     try{
@@ -2001,12 +2022,21 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
     finally{setSaving(false);}
   }
 
+  // Alertes d'une ligne du cycle : ateliers en base et autres lignes du cycle.
+  function alertesLigne(row){
+    if(!row.date)return [];
+    const cand={_id:'ligne-'+row.id,date:row.date,horaire:row.horaire,ampm:row.ampm,conseiller:lotForm.conseiller,co_animateur:lotForm.co_animateur};
+    const autres=lotRows.filter(r=>r.id!==row.id&&r.date).map(r=>({_id:'ligne-'+r.id,date:r.date,horaire:r.horaire,ampm:r.ampm,conseiller:lotForm.conseiller,co_animateur:lotForm.co_animateur,thematique:'autre ligne du cycle',statut:'Planifié'}));
+    return alertesSaisie([...(entries||[]),...autres],cand,row.creneau?{date:row.date,demi:row.creneau}:null);
+  }
   // ── submit mode lot ──
   async function handleSubmitLot(){
     const rowsFilled=lotRows.filter(r=>r.date||r.horaire||(r.thematique||'').trim());
     if(rowsFilled.length===0){setFormError('Ajoutez au moins une date dans le tableau.');showToast('⚠️ Ajoutez au moins une date dans le tableau.',false);return;}
     if(rowsFilled.length<lotRows.length)setLotRows(rowsFilled);
     if(!validateLot(rowsFilled)){showToast('⚠️ Champs obligatoires manquants',false);return;}
+    const alertesLot=rowsFilled.flatMap(r=>alertesLigne(r).map(t=>fmtDate(r.date)+' — '+t));
+    if(alertesLot.length&&!window.confirm(alertesLot.slice(0,8).join('\n')+(alertesLot.length>8?'\n…':'')+'\n\nEnregistrer quand même ?'))return;
     setSaving(true);
     try{
       const entries=rowsFilled.map(row=>({_id:idsLotRef.current[row.id]||(idsLotRef.current[row.id]=row.olkId||genId()),_n:'',statut:'Planifié',date:row.date,horaire:row.horaire,ampm:ampmDepuisHoraire(row.horaire)||row.ampm,duree:parseInt(row.duree)||DUREE_DEFAUT,thematique:row.thematique,orienteur:lotForm.orienteur,commune:lotForm.commune,lieu:lotForm.lieu,conseiller:lotForm.conseiller,co_animateur:lotForm.co_animateur||'',public:lotForm.public,materiel:(lotForm.materiel||[]).join('|'),residence:lotForm.residence,remarques:lotForm.remarques,inscrits:row.inscrits===''?'':parseInt(row.inscrits)||0,presents:row.presents===''?'':parseInt(row.presents)||0,nb_ordinateurs:lotForm.nb_ordinateurs===''?'':parseInt(lotForm.nb_ordinateurs)||0,date_prelevement_materiel:row.date_prelevement_materiel||'',date_retour_materiel:row.date_retour_materiel||''}));
@@ -2206,6 +2236,7 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
           CE('div',null,
             Lbl({t:'Horaire *',err:!!errors.horaire}),
             CE('input',{type:'time',style:iStyle(errors.horaire),value:form.horaire,onChange:e=>set('horaire',e.target.value)}),
+            CE(BlocAlertes,{liste:alertesSaisie(entries,{...form,_id:form._id||editId||''},creneauUnique)}),
             errors.horaire&&CE('span',{style:{color:'#e53e3e',fontSize:11,fontWeight:600}},errors.horaire)),
           // Durée (AG-017, 03/10/2026) : par demi-heure, 1 h 30 par défaut.
           CE('div',null,
@@ -2270,7 +2301,8 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
             CE('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr auto 32px 32px',gap:8,alignItems:'end',padding:'9px 10px 8px'}},
               CE('div',null,lbl('Date *',rErr.date),inp('date',row.date,'date',rErr.date),
                 row.date&&CE('div',{style:{fontSize:11,fontWeight:600,marginTop:3,color:/férié/.test(jourDeLaDate(row.date))?'#b91c1c':'#64748b'}},jourDeLaDate(row.date))),
-              CE('div',null,lbl('Horaire *'+(row.ampm&&!row.horaire?(row.ampm==='AM'?' (matin)':' (après-midi)'):''),rErr.horaire),inp('time',row.horaire,'horaire',rErr.horaire)),
+              CE('div',null,lbl('Horaire *'+(row.creneau&&!row.horaire?(row.creneau==='AM'?' (matin)':' (après-midi)'):''),rErr.horaire),inp('time',row.horaire,'horaire',rErr.horaire),
+                CE(BlocAlertes,{liste:alertesLigne(row)})),
               CE('div',null,lbl('Durée *',rErr.duree),
                 CE('select',{value:row.duree,onChange:e=>setRow(row.id,'duree',parseInt(e.target.value)),style:{padding:'8px 6px',border:brd(rErr.duree),borderRadius:8,fontSize:12,background:bg(rErr.duree)}},
                   DUREES_ATELIER.map(d=>CE('option',{key:d,value:d},fmtDuree(d))))),
@@ -5060,7 +5092,7 @@ function CreneauxLibres({entries,conseillers,conseillerFixe,onNouveau,onCycle,on
             onCycle&&CE('input',{type:'checkbox',checked:sel.includes(x.date+'|'+dm),onChange:()=>cocher(x.date+'|'+dm),
               title:'Ajouter au cycle','aria-label':'Ajouter '+libJour(x.date)+' '+(dm==='AM'?'matin':'après-midi')+' au cycle',style:{width:16,height:16,margin:0,cursor:'pointer'}}),
             CE('button',{type:'button',disabled:!onNouveau,title:onNouveau?'Saisir un atelier ce '+(dm==='AM'?'matin':'après-midi'):undefined,
-            onClick:()=>onNouveau&&onNouveau(x.date,cons),
+            onClick:()=>onNouveau&&onNouveau(x.date,cons,dm),
             style:{padding:'3px 10px',borderRadius:12,fontSize:12,cursor:onNouveau?'pointer':'default',border:'1px solid '+(dm==='AM'?'#93c5fd':'#fcd34d'),
               background:dm==='AM'?'#eff6ff':'#fffbeb',color:dm==='AM'?'#1d4ed8':'#92400e'}},dm==='AM'?'☀️ Matin':'🌙 Après-midi')))))),
       CE('p',{style:{fontSize:11,color:'var(--text-3,#94a3b8)',margin:'6px 0 0'}},

@@ -452,6 +452,31 @@ function creneauxLibres(entries, o) {
   return res;
 }
 
+
+// ── Contrôles de saisie (12/10/2026) ──────────────────────────
+// Demi-journée d'un atelier en cours de saisie : l'heure tapée prime sur
+// l'AM/PM enregistré (encore l'ancien pendant la frappe). null = inconnue.
+function demiSaisie(x) {
+  const m = minutesHoraire(x && x.horaire);
+  if (m != null) return m < 720 ? 'AM' : 'PM';
+  return demiJourneeAtelier(x);
+}
+// Ateliers du même conseiller (animateur ou co-animateur, dans un sens ou
+// dans l'autre) sur la même demi-journée, hors annulés, reportés et l'atelier
+// lui-même. Demi-journée inconnue d'un côté : toute la journée compte.
+function conflitsConseiller(entries, cand) {
+  const gens = [cand.conseiller, cand.co_animateur].filter(Boolean);
+  if (!cand.date || !gens.length) return [];
+  const dc = demiSaisie(cand);
+  return (entries || []).filter(e => {
+    if (!e || e._id === cand._id || e.statut === 'Annulé' || e.statut === 'Reporté') return false;
+    if (normalizeDate(e.date) !== cand.date) return false;
+    if (!gens.includes(e.conseiller) && !gens.includes(e.co_animateur)) return false;
+    const de = demiSaisie(e);
+    return !dc || !de || dc === de;
+  });
+}
+
 if (typeof module !== 'undefined') {
   module.exports = {
     filterMaterielsVisibles,
@@ -464,6 +489,6 @@ if (typeof module !== 'undefined') {
     estWeekend, veilleOuvree, lendemainOuvre,
     creneauAtelier, demisAtelier, analyseJourMateriel, MARGE_MATERIEL_MIN, hhmm,
     bornesTrimestre, trimestrePrecedent, bilanTrimestriel,
-    creneauxLibres,
+    creneauxLibres, demiSaisie, conflitsConseiller,
   };
 }

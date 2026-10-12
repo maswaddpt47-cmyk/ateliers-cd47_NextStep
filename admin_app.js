@@ -486,7 +486,7 @@ const LOGS_KEY = lsKey('adm_logs');
 
   function handleEdit(id){setEditingId(id);setPrefillData(null);setView('saisie');}
   // Calendrier / Agenda (08/10/2026) : clic sur une case, import ICS.
-  function handleNouveauLe(date,conseiller){setEditingId(null);setPrefillData({_creneau:date,_conseiller:conseiller||''});setView('saisie');}
+  function handleNouveauLe(date,conseiller,demi){setEditingId(null);setPrefillData({_creneau:date,_conseiller:conseiller||'',_demi:demi||''});setView('saisie');}
   function handleCycleCreneaux(liste,conseiller){setEditingId(null);setPrefillData({_cycle:liste,_conseiller:conseiller||''});setView('saisie');}
   function handleImportICS(){setEditingId(null);setPrefillData({_importICS:true});setView('saisie');}
   function handleSaved(){setView('historique');}

@@ -624,3 +624,23 @@ describe('creneauxLibres', () => {
     assert.deepEqual(r, [{date:'2026-11-09',demi:'AM'}]);
   });
 });
+
+// ── Contrôles de saisie (12/10/2026) ─────────────────────────────────────────
+const {conflitsConseiller, demiSaisie} = require('./logic.js');
+describe('conflitsConseiller', () => {
+  const e = (id, date, horaire, extra) => ({_id:id, date, horaire, conseiller:'Alice', statut:'Planifié', ...extra});
+  const base = [e('a','2026-10-14','09:30'), e('b','2026-10-14','14:00',{statut:'Annulé'}), e('c','2026-10-14','15:00',{conseiller:'Bruno', co_animateur:'Alice'}), e('d','2026-10-15','',{ampm:''})];
+  it('même matinée : conflit ; annulé ignoré ; co-animation compte', () => {
+    assert.deepEqual(conflitsConseiller(base, {_id:'n', date:'2026-10-14', horaire:'10:30', conseiller:'Alice'}).map(x=>x._id), ['a']);
+    assert.deepEqual(conflitsConseiller(base, {_id:'n', date:'2026-10-14', horaire:'14:30', conseiller:'Alice'}).map(x=>x._id), ['c']);
+  });
+  it('l\'atelier lui-même exclu ; journée sans horaire bloque ; autre conseiller libre', () => {
+    assert.deepEqual(conflitsConseiller(base, {_id:'a', date:'2026-10-14', horaire:'09:30', conseiller:'Alice'}), []);
+    assert.deepEqual(conflitsConseiller(base, {_id:'n', date:'2026-10-15', horaire:'16:00', conseiller:'Alice'}).map(x=>x._id), ['d']);
+    assert.deepEqual(conflitsConseiller(base, {_id:'n', date:'2026-10-14', horaire:'09:00', conseiller:'Chloé'}), []);
+  });
+  it('demiSaisie : l\'heure tapée prime sur l\'AM/PM enregistré', () => {
+    assert.equal(demiSaisie({horaire:'10:30', ampm:'PM'}), 'AM');
+    assert.equal(demiSaisie({horaire:'', ampm:'PM'}), 'PM');
+  });
+});
