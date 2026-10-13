@@ -5035,12 +5035,16 @@ function CreneauxLibres({entries,conseillers,conseillerFixe,onNouveau,onCycle,on
   const bascule=(liste,set,v)=>set(liste.includes(v)?liste.filter(x=>x!==v):[...liste,v].sort());
   const libres=React.useMemo(()=>creneauxLibres(entries,{conseiller:cons,du,au,jours,moments,bloques:olkActif?olkActif.occupees:[],
     estFerie:d=>joursFeries(+d.slice(0,4))[d]||''}),[entries,cons,du,au,jours,moments,olkActif]);
-  const parDate=[];libres.forEach(c=>{const l=parDate[parDate.length-1];if(l&&l.date===c.date)l.demis.push(c.demi);else parDate.push({date:c.date,demis:[c.demi]});});
+  // Sélection active (13/10/2026) : « Copier » ne prend que les cases cochées.
+  const choisis=libres.filter(c=>sel.includes(c.date+'|'+c.demi));
+  const grouper=liste=>{const g=[];liste.forEach(c=>{const l=g[g.length-1];if(l&&l.date===c.date)l.demis.push(c.demi);else g.push({date:c.date,demis:[c.demi]});});return g;};
+  const parDate=grouper(libres);
   const libJour=iso=>{const[y,m,j]=iso.split('-').map(Number);return NOMS_JOURS[new Date(y,m-1,j).getDay()]+' '+String(j).padStart(2,'0')+'/'+String(m).padStart(2,'0');};
   const libDemis=d=>d.length===2?'matin et après-midi':d[0]==='AM'?'matin':'après-midi';
   function copier(){
-    const txt=parDate.map(x=>libJour(x.date)+' — '+libDemis(x.demis)).join('\n');
-    const ok=()=>showToast('✅ Liste copiée ('+parDate.length+' jour'+(parDate.length>1?'s':'')+')');
+    const g=choisis.length?grouper(choisis):parDate;
+    const txt=g.map(x=>libJour(x.date)+' — '+libDemis(x.demis)).join('\n');
+    const ok=()=>showToast('✅ '+(choisis.length?'Sélection':'Liste')+' copiée ('+g.length+' jour'+(g.length>1?'s':'')+')');
     try{navigator.clipboard.writeText(txt).then(ok,()=>showToast('Copie impossible sur cet appareil',false));}catch(_){showToast('Copie impossible sur cet appareil',false);}
   }
   const puce=(actif,lib,onClick,key)=>CE('button',{key,type:'button',onClick,style:{padding:'4px 10px',borderRadius:14,fontSize:12,fontWeight:700,cursor:'pointer',
@@ -5084,7 +5088,7 @@ function CreneauxLibres({entries,conseillers,conseillerFixe,onNouveau,onCycle,on
             onClick:()=>{const l=libres.filter(c=>sel.includes(c.date+'|'+c.demi));if(l.length)onCycle(l,cons);}},
             '🔄 Créer un cycle avec la sélection ('+sel.filter(k=>libres.some(c=>c.date+'|'+c.demi===k)).length+')'),
           sel.length>0&&CE('button',{className:'btn btn-secondary btn-sm',onClick:()=>setSel([])},'Vider'),
-          CE('button',{className:'btn btn-secondary btn-sm',onClick:copier},'📋 Copier la liste'))),
+          CE('button',{className:'btn btn-secondary btn-sm',onClick:copier},choisis.length?'📋 Copier la sélection ('+choisis.length+')':'📋 Copier la liste'))),
       CE('div',{style:{maxHeight:320,overflowY:'auto',border:'1px solid var(--border,#e2e8f0)',borderRadius:8}},
         parDate.map(x=>CE('div',{key:x.date,style:{display:'flex',alignItems:'center',gap:8,padding:'6px 10px',borderBottom:'1px solid var(--border,#e2e8f0)'}},
           CE('span',{style:{fontSize:13,fontWeight:700,minWidth:120}},libJour(x.date)),
