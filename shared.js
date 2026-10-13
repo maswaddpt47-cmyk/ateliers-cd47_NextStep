@@ -6243,6 +6243,10 @@ function VueUsageOnglets(){
 // même jour, fondu avec la 28 (avis des stagiaires par QR code).
 // 29 le 04/10/2026 (conflits d'ordinateurs à l'heure près), à la demande
 // de l'utilisateur : pas d'annonce.
+// `date` : gardée sur chaque annonce mais plus affichée depuis le 13/10/2026
+// (demande de l'utilisateur). Ne pas la supprimer : elle date l'annonce si
+// on veut un jour la réafficher (ligne retirée : `fmtDate(n.date)` dans
+// VueNouveautes, voir git log).
 // ═══════════════════════════════════════════════════════════
 const NOUVEAUTES=[
   {id:1,date:'2026-10-01',titre:'Votre nom proposé d\'office',texte:'Écran conseillers : à la création d\'un atelier, le champ Conseiller est déjà rempli avec votre nom. Il reste modifiable pour saisir pour un collègue.'},
