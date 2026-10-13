@@ -6717,7 +6717,6 @@ function VueNouveautes({onVu}){
           onKeyDown:e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();basculer(n.id);}},
           style:{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap',cursor:'pointer',userSelect:'none'}},
         CE('span',{style:{fontSize:12,color:'var(--text-3)',width:12}},ouverts.has(n.id)?'▾':'▸'),
-        CE('span',{style:{fontSize:12,color:'var(--text-3)',fontWeight:600}},fmtDate(n.date)),
         n.id>vuAvant&&CE('span',{style:{fontSize:10,fontWeight:800,color:'#fff',background:'#dc2626',borderRadius:6,padding:'1px 6px'}},'Nouveau'),
         CE('span',{style:{fontSize:14,fontWeight:700}},n.titre),
         n.admin&&CE('span',{style:{fontSize:10,fontWeight:700,color:'#1e3a8a',background:'#dbeafe',borderRadius:6,padding:'1px 6px'}},'Admin')
