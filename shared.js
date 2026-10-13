@@ -2245,7 +2245,9 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
             form.date&&CE('div',{style:{fontSize:12,fontWeight:600,marginTop:4,color:/férié/.test(jourDeLaDate(form.date))?'#b91c1c':'var(--text-3,#64748b)'}},jourDeLaDate(form.date)),
             errors.date&&CE('span',{style:{color:'#e53e3e',fontSize:11,fontWeight:600}},errors.date)),
           CE('div',null,
-            Lbl({t:'Horaire *',err:!!errors.horaire}),
+            // Demi-journée touchée dans le Calendrier ou Disponibilités (13/10/2026) :
+            // rappelée à côté du libellé, comme dans la saisie par cycle.
+            Lbl({t:'Horaire *'+(creneauUnique&&form.date===creneauUnique.date?(creneauUnique.demi==='AM'?' (matin)':' (après-midi)'):''),err:!!errors.horaire}),
             CE('input',{type:'time',style:iStyle(errors.horaire),value:form.horaire,onChange:e=>set('horaire',e.target.value)}),
             CE(BlocAlertes,{liste:alertesSaisie(entries,{...form,_id:form._id||editId||''},creneauUnique)}),
             errors.horaire&&CE('span',{style:{color:'#e53e3e',fontSize:11,fontWeight:600}},errors.horaire)),
