@@ -6716,7 +6716,7 @@ function VueCorbeille({peutPurger}={}){
     if(!confirm('Supprimer définitivement '+ids.length+' atelier'+(ids.length>1?'s':'')+' ?\n\nIls ne pourront plus être restaurés.')) return;
     setEnCours('purge');
     try{
-      const r=await window.apiFetch('purgerCorbeille',{_id:ids.join(',')});
+      const r=await window.apiFetch('purgerCorbeille',{ids:JSON.stringify(ids)});
       if(r&&r.ok){
         setListe(l=>l.filter(x=>!ids.includes(x._id)));setSel(new Set());
         showToast('✅ '+r.supprimes+' atelier'+(r.supprimes>1?'s':'')+' supprimé'+(r.supprimes>1?'s':'')+' définitivement');
