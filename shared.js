@@ -5005,7 +5005,7 @@ function VueAgendaSemaine({entries,onEdit,onDelete,onDuplicate,canDelete,initCon
 // d'un conseiller sur les jours choisis (calcul : creneauxLibres, logic.js).
 // Index : le conseiller connecté seulement ; Admin : au choix.
 // ═══════════════════════════════════════════════════════════
-function CreneauxLibres({entries,conseillers,conseillerFixe,onNouveau,onCycle,onFermer,ac}){
+function CreneauxLibres({annees,entries,conseillers,conseillerFixe,onNouveau,onCycle,onFermer,ac}){
   const JOURS_SEM=[[1,'Lun'],[2,'Mar'],[3,'Mer'],[4,'Jeu'],[5,'Ven']];
   const NOMS_JOURS=['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
   const auj=todayLocal();
@@ -5087,6 +5087,12 @@ function CreneauxLibres({entries,conseillers,conseillerFixe,onNouveau,onCycle,on
           CE('button',{className:'btn btn-secondary btn-sm',style:{fontSize:11},onClick:retirerOlk},'Retirer'))
         :CE('span',{style:{color:'var(--text-3,#64748b)'}},'Dans Outlook : Fichier → Enregistrer le calendrier → « Disponibilité uniquement » → fichier .ics.'),
       CE('span',{style:{flexBasis:'100%',color:'#92400e'}},'Congés et absences : dans Outlook, réglez « Afficher en tant que » sur « Absent(e) » — un événement laissé en « Libre » n\'est pas exporté. L\'import reste sur cet appareil : après un effacement des cookies et données du site, rechargez votre fichier.')),
+    // Années de la période non chargées (13/10/2026) : leurs ateliers sont
+    // absents d'`entries`, ces jours paraîtraient libres à tort.
+    (()=>{if(!annees||!du||!au)return null;const ch=anneesListe(annees),manque=[];
+      for(let y=+du.slice(0,4);y<=+au.slice(0,4);y++)if(!ch.includes(String(y)))manque.push(y);
+      return manque.length?CE('div',{style:{fontSize:13,fontWeight:600,color:'#b45309',background:'#fffbeb',border:'1px solid #fcd34d',borderRadius:8,padding:'8px 10px',marginBottom:10}},
+        '⚠️ Ateliers de '+manque.join(' et ')+' non chargés : ces jours peuvent être déjà pris. Cochez '+manque.join(' et ')+' dans le choix des années, en haut.'):null;})(),
     !cons?CE('p',{style:{fontSize:13}},'Choisissez un conseiller.')
     :!parDate.length?CE('p',{style:{fontSize:13,color:'var(--text-3,#64748b)'}},'Aucun créneau libre sur cette période.')
     :CE(React.Fragment,null,
@@ -5114,7 +5120,7 @@ function CreneauxLibres({entries,conseillers,conseillerFixe,onNouveau,onCycle,on
   );
 }
 
-function VuePlanning({entries,onEdit,onDelete,onDuplicate,canDelete,accentColor,conseillers,onNouveau,onCycle,conseillerFixe}){
+function VuePlanning({annees,entries,onEdit,onDelete,onDuplicate,canDelete,accentColor,conseillers,onNouveau,onCycle,conseillerFixe}){
   const[weekOffset,setWeekOffset]=React.useState(0);
   const[selectedEntry,setSelectedEntry]=React.useState(null);
   const[confirmDel,setConfirmDel]=React.useState(null);
@@ -5248,7 +5254,7 @@ function VuePlanning({entries,onEdit,onDelete,onDuplicate,canDelete,accentColor,
       'Haut de case : matin ; bas : après-midi ; chiffre : plusieurs ateliers ; contour rouge : à mettre à jour ; estompé : annulé, non réalisé ou reporté. Clic : détails.'));
 
   return CE('div',null,
-    creneauxOuvert&&CE(CreneauxLibres,{entries,conseillers:noms,conseillerFixe,onNouveau,onCycle,onFermer:()=>setCreneauxOuvert(false),ac}),
+    creneauxOuvert&&CE(CreneauxLibres,{annees,entries,conseillers:noms,conseillerFixe,onNouveau,onCycle,onFermer:()=>setCreneauxOuvert(false),ac}),
     mode==='mois'?vueMois:CE('div',{className:'card'},
       CE('div',{style:{display:'flex',alignItems:'center',gap:8,marginBottom:12,flexWrap:'wrap'}},
         CE('div',{style:{display:'flex',gap:4}},

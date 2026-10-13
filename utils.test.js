@@ -807,3 +807,14 @@ describe('buildICS — matériel', () => {
     assert.ok(!buildICS([{_id:'n', date:'2026-10-12', horaire:'09:30'}]).includes('Ordinateurs'));
   });
 });
+
+// ── Années chargées par défaut (13/10/2026) ──────────────────────────────────
+describe('anneesParDefaut / ajouterAnnee', () => {
+  const {anneesParDefaut, ajouterAnnee} = require('./utils.js');
+  it('N et N+1 par défaut ; N+1 ajoutée à un choix enregistré, sans doublon', () => {
+    assert.equal(anneesParDefaut(2026), '2026,2027');
+    assert.equal(ajouterAnnee('2026', 2027), '2026,2027');
+    assert.equal(ajouterAnnee('2025,2026', 2027), '2025,2026,2027');
+    assert.equal(ajouterAnnee('2026,2027', 2027), '2026,2027');
+  });
+});

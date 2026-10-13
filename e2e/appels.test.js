@@ -440,12 +440,13 @@ test('années — cocher une seconde année recharge en UN appel years=', async 
 
   const c = new Date().getFullYear();
   await page.locator('button.sidebar-year').click();
-  await page.getByRole('checkbox').nth(2).check();   // année suivante
+  // N et N+1 cochées par défaut depuis le 13/10/2026 : on ajoute N-1.
+  await page.getByRole('checkbox').nth(0).check();   // année précédente
   await page.getByRole('button', { name:'OK', exact:true }).click();
   await page.waitForTimeout(1000);
 
-  expect(getAlls, getAlls.join(' | ')).toEqual([`${c},${c+1}`]);
-  await expect(page.locator('button.sidebar-year')).toContainText(`${c} + ${c+1}`);
+  expect(getAlls, getAlls.join(' | ')).toEqual([`${c-1},${c},${c+1}`]);
+  await expect(page.locator('button.sidebar-year')).toContainText(`${c-1} + ${c} + ${c+1}`);
 });
 
 // ── Bascule du 25/09/2026 : plus aucun appel au GAS ────────────────────────

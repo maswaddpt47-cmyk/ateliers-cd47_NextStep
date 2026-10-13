@@ -286,9 +286,14 @@ function anneeReference(s) {
   return l.indexOf(c) >= 0 ? c : l[l.length - 1];
 }
 function anneeIncluse(s, date) { return anneesListe(s).indexOf(String(date || '').slice(0, 4)) >= 0; }
+// Années chargées par défaut (13/10/2026) : l'année en cours et la suivante.
+// Sans N+1, Disponibilités affichait libres des jours de janvier déjà pris.
+function anneesParDefaut(c) { c = c || new Date().getFullYear(); return c + ',' + (c + 1); }
+// Ajoute une année à un choix enregistré (« 2026 » + 2027 → « 2026,2027 »).
+function ajouterAnnee(s, a) { return anneesListe(s + ',' + a).join(','); }
 if (typeof window !== 'undefined') {
   window.anneesListe = anneesListe; window.anneeReference = anneeReference;
-  window.anneeIncluse = anneeIncluse;
+  window.anneeIncluse = anneeIncluse; window.anneesParDefaut = anneesParDefaut; window.ajouterAnnee = ajouterAnnee;
 }
 
 // Une suppression dont la réponse s'est perdue a quand même été faite : son
@@ -919,7 +924,7 @@ if (typeof module !== 'undefined') {
     suppressionAboutie,
     anneesListe,
     anneeReference,
-    anneeIncluse,
+    anneeIncluse, anneesParDefaut, ajouterAnnee,
   lsKey, migrerLocalStorage, LS_A_MIGRER, purgerCacheAteliers,
   comparerHistorique,
   ampmDepuisHoraire, statutSelonDate,

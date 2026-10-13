@@ -276,7 +276,18 @@ function App(){
   const[filtreConseiller,setFiltreConseiller] = React.useState(null);
   const[editingId,setEditingId]    = React.useState(null);
   const[prefillData,setPrefillData] = React.useState(null);
-  const[annee,setAnneeState]       = React.useState(()=>localStorage.getItem(lsKey('f_annee'))||String(new Date().getFullYear()));
+  // Années chargées (13/10/2026) : par défaut l'année en cours et la suivante ;
+  // un choix déjà enregistré reçoit l'année suivante une seule fois (drapeau
+  // par année), le conum peut ensuite la décocher.
+  const[annee,setAnneeState]       = React.useState(()=>{
+    const c=new Date().getFullYear(),drapeau=lsKey('f_annee_plus_'+(c+1));
+    let v=null;try{v=localStorage.getItem(lsKey('f_annee'));}catch(_){}
+    try{
+      if(!v)v=anneesParDefaut(c);
+      else if(!localStorage.getItem(drapeau)){v=ajouterAnnee(v,c+1);localStorage.setItem(lsKey('f_annee'),v);}
+      localStorage.setItem(drapeau,'1');
+    }catch(_){v=v||anneesParDefaut(c);}
+    return v;});
   const[visibility,setVisibility]   = React.useState(visibiliteEffective({}));
   const[lists,setLists]            = React.useState({
     statuts:[...STATUTS_DEFAULT],conseillers:[...CONSEILLERS_DEFAULT],
@@ -868,7 +879,7 @@ function App(){
           view==='saisie'&&visibility.saisie&&CE(VueSaisie,{conseillerDefaut:(()=>{try{return sessionStorage.getItem('gs_conseiller')||'';}catch(_){return '';}})(),entries,onSaved:handleSaved,onNewEntry:e=>{setNewEntries(n=>[e,...n]);setSeenIds(s=>{const ns=new Set(s);ns.add(e._id);return ns;});},lists,editingId,onClearEdit:()=>setEditingId(null),prefillData,onClearPrefill:()=>setPrefillData(null),accentColor:conseillerColor(filtreConseiller||''),materielsMasques}),
           view==='historique'&&visibility.historique&&CE(VueHistorique,{onOuvrirGestionOrdi:visibility.gestion_ordi?(d=>{setDateGestionOrdi(d||null);setView('gestion_ordi');}):null,entries,onEdit:handleEdit,onDelete:handleDelete,onRefresh:()=>loadData(),onDuplicate:handleDuplicate,initConseiller:filtreConseiller,onResetConseiller:()=>{},canDelete:true}),
           view==='agenda'&&visibility.agenda&&CE(VueAgendaSemaine,{onNouveau:visibility.saisie?handleNouveauLe:undefined,entries,onEdit:handleEdit,onDelete:handleDelete,onDuplicate:handleDuplicate,canDelete:true,initConseiller:filtreConseiller,accentColor}),
-          view==='planning'&&visibility.planning&&CE(VuePlanning,{onCycle:visibility.saisie?handleCycleCreneaux:undefined,onNouveau:visibility.saisie?handleNouveauLe:undefined,conseillerFixe:(()=>{try{return sessionStorage.getItem('gs_conseiller')||'';}catch(_){return '';}})(),entries,onEdit:handleEdit,onDelete:handleDelete,onDuplicate:handleDuplicate,canDelete:true,accentColor,conseillers:conseillerActifs}),
+          view==='planning'&&visibility.planning&&CE(VuePlanning,{annees:annee,onCycle:visibility.saisie?handleCycleCreneaux:undefined,onNouveau:visibility.saisie?handleNouveauLe:undefined,conseillerFixe:(()=>{try{return sessionStorage.getItem('gs_conseiller')||'';}catch(_){return '';}})(),entries,onEdit:handleEdit,onDelete:handleDelete,onDuplicate:handleDuplicate,canDelete:true,accentColor,conseillers:conseillerActifs}),
           view==='calendrier'&&visibility.calendrier&&CE(VueCalendrier,{onNouveau:visibility.saisie?handleNouveauLe:undefined,onImportICS:visibility.saisie?handleImportICS:undefined,entries,onEdit:handleEdit,onDelete:handleDelete,onRefresh:()=>loadData(),onDuplicate:handleDuplicate,initConseiller:filtreConseiller,onResetConseiller:()=>{},canDelete:true}),
           view==='dashboard'&&visibility.dashboard&&CE(VueDashboardTabs,{entries,conseillers:lists.conseillers,sansBilans:true}),
           view==='bilans'&&visibility.bilans&&CE(VueMesBilans,{entries}),
