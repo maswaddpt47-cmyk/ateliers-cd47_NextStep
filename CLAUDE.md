@@ -110,7 +110,7 @@ dans le code. Contradiction d'une proposition : `AGORA.md` d'ATELIERS_NEWGEN
 
 Toujours committer et pousser directement sur `main`. Ne pas créer de branche intermédiaire.
 
-**Avant d'écrire « en ligne »** : `scripts/attendre-deploiement.sh` (hook
+**Avant d'écrire « en ligne »** : `MD-LIB/outils/attendre-deploiement.sh` (hook
 automatique après un push, sinon à lancer à la main) doit avoir dit ✅.
 
 ## Avant toute intervention sur les fichiers
