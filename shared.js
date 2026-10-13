@@ -486,8 +486,8 @@ tr:hover td{background:#f7fafc}
 .cal-event-label{display:flex;flex-direction:column;min-width:0;flex:1;color:#1a202c}
 .cal-event-label>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .cal-event-orienteur{opacity:.7;font-style:italic;font-size:9px}
-/* Calendrier sur téléphone (13/10/2026) : sans le partenaire (illisible, « 🤝 … »), moitiés vides réduites. */
-@media(max-width:640px){.cal-event-orienteur{display:none}.cal-demi-vide{min-height:14px!important;padding:0!important}.cal-demi-vide .cal-demi-ico{font-size:9px!important;line-height:14px!important}}
+/* Calendrier sur téléphone (13/10/2026) : sans le partenaire (illisible, « 🤝 … »), moitiés vides un peu moins hautes. */
+@media(max-width:640px){.cal-event-orienteur{display:none}.cal-demi-vide{min-height:20px!important}.cal-demi-vide .cal-demi-ico{line-height:18px!important}}
 .cal-more{font-size:9.5px;color:#6b7280;cursor:pointer;margin-top:2px;font-weight:600;padding:1px 4px;background:#f1f5f9;border-radius:3px;display:inline-block}
 .cal-more:hover{color:#1e3a8a;background:#dbeafe}
 .cal-year-sel{padding:4px 8px;border:1.5px solid rgba(255,255,255,.35);border-radius:6px;background:rgba(255,255,255,.12);color:#fff;font-size:12px;font-weight:700;cursor:pointer;outline:none}
@@ -3104,8 +3104,10 @@ function VueCalendrier({entries,onEdit,onDelete,onRefresh,onEntryUpdated,onDupli
               const vis=expanded?l:l.slice(0,2),cach=l.length-vis.length;
               return CE('div',{key:dm,className:'cal-demi'+(l.length?'':' cal-demi-vide'),title:onNouveau?'Saisir un atelier le '+fmtDate(ds)+(dm==='AM'?' au matin':' l\'après-midi'):undefined,
                   onClick:onNouveau?ev=>{ev.stopPropagation();onNouveau(ds,filtConseiller!=='Tous'?filtConseiller:undefined,dm);}:undefined,
-                  style:{minHeight:24,padding:'2px 0',borderRadius:3,background:dm==='AM'?'rgba(37,99,235,.05)':'rgba(217,119,6,.07)',borderTop:dm==='PM'?'1px dashed #cbd5e1':'none'}},
-                !l.length&&CE('div',{className:'cal-demi-ico',style:{fontSize:11,opacity:.35,textAlign:'center',lineHeight:'20px'}},dm==='AM'?'☀️':'🌙'),
+                  // Liseré et fond aux couleurs de l'Agenda (bleu matin, orange après-midi) :
+                  // visibles même quand les ateliers recouvrent la moitié.
+                  style:{minHeight:24,padding:'2px 2px 2px 4px',borderRadius:3,background:dm==='AM'?'#eff6ff':'#fff7ed',borderLeft:'3px solid '+(dm==='AM'?'#3b82f6':'#f59e0b'),marginTop:dm==='PM'?3:0}},
+                !l.length&&CE('div',{className:'cal-demi-ico',style:{fontSize:12,opacity:.6,textAlign:'center',lineHeight:'20px'}},dm==='AM'?'☀️':'🌙'),
                 vis.map(e=>{
               const sc=conseillerColor(e.conseiller);
               const retard=isRetard(e);
