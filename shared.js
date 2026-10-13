@@ -1906,7 +1906,7 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
   // Lignes produites par l'encart Périodicité ; remplace le tableau, après
   // confirmation s'il contient déjà des saisies.
   function genererLignes(dates,horaire,thematique){
-    const remplies=lotRows.filter(r=>r.date||r.horaire||(r.thematique||'').trim()).length;
+    const remplies=lotRows.filter(ligneRemplie).length;
     if(remplies&&!window.confirm(`Remplacer les ${remplies} ligne(s) déjà saisie(s) par ${dates.length} séance(s) ?`))return false;
     setLotRows(dates.map(d=>({...emptyRow(),date:d,horaire:horaire||'',ampm:ampmDepuisHoraire(horaire)||'',thematique:thematique||''})));
     setLotRowErrors({});
@@ -1916,7 +1916,7 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
   // stable de son rendez-vous (idOutlook) pour qu'un second import le
   // reconnaisse au lieu de créer un doublon.
   function importerOutlook(liste){
-    const remplies=lotRows.filter(r=>r.date||r.horaire||(r.thematique||'').trim()).length;
+    const remplies=lotRows.filter(ligneRemplie).length;
     if(remplies&&!window.confirm(`Remplacer les ${remplies} ligne(s) déjà saisie(s) par ${liste.length} rendez-vous Outlook ?`))return false;
     setLotRows(liste.map(o=>({...emptyRow(),date:o.date,horaire:o.horaire,duree:o.duree||DUREE_DEFAUT,ampm:ampmDepuisHoraire(o.horaire)||'',thematique:o.thematique,olkId:o.olkId})));
     setLotRowErrors({});
@@ -1927,6 +1927,9 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
   function dupRow(id){setLotRows(r=>{const i=r.findIndex(x=>x.id===id);if(i<0)return r;return[...r.slice(0,i+1),{...r[i],id:genId(),horaire:'',ampm:'',olkId:''},...r.slice(i+1)];});}
   // Horaire et durée de la 1re séance recopiés sur les suivantes (13/10/2026,
   // propagerPremiereLigne dans logic.js) ; une ligne changée à la main garde la sienne.
+  // Ligne saisie : date, thème, ou horaire tapé à la main. Un horaire recopié
+  // depuis la 1re séance ne rend pas « remplie » une ligne laissée vide (13/10/2026).
+  const ligneRemplie=(r,i)=>!!(r.date||(r.thematique||'').trim()||(r.horaire&&(i===0||r.horaire!==(lotRows[0]||{}).horaire)));
   function setRow(id,k,v){const a=k==='horaire'?ampmDepuisHoraire(v):'';setLotRows(r=>propagerPremiereLigne(r,id,k,v));
     setLotRowErrors(er=>{const n={...er,[id]:{...(er[id]||{}),[k]:'',...(a?{ampm:''}:{})}};
       if(k==='horaire'||k==='duree')Object.keys(n).forEach(i=>{if(n[i]&&n[i][k])n[i]={...n[i],[k]:'',...(a?{ampm:''}:{})};});return n;});}
@@ -2035,7 +2038,7 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
   }
   // ── submit mode lot ──
   async function handleSubmitLot(){
-    const rowsFilled=lotRows.filter(r=>r.date||r.horaire||(r.thematique||'').trim());
+    const rowsFilled=lotRows.filter(ligneRemplie);
     if(rowsFilled.length===0){setFormError('Ajoutez au moins une date dans le tableau.');showToast('⚠️ Ajoutez au moins une date dans le tableau.',false);return;}
     if(rowsFilled.length<lotRows.length)setLotRows(rowsFilled);
     if(!validateLot(rowsFilled)){showToast('⚠️ Champs obligatoires manquants',false);return;}
@@ -2817,13 +2820,8 @@ function VueHistorique({onOuvrirGestionOrdi,entries,onEdit,onDelete,onRefresh,on
         CE('div',{style:{fontSize:12,color:'#b45309'}},'Statut "Planifié" mais date déjà passée — cliquez sur un atelier pour le clôturer rapidement')
       )
     ),
-    // Filtre conseiller (frontend)
-    // Bandeau lié au filtre réel, pas au conseiller de départ : sinon « Voir
-    // tous » vidait le filtre mais laissait le bandeau (26/09/2026).
-    filtConseiller!=='Tous'&&CE('div',{className:'filtre-banner'},
-      CE('span',null,'👤 Affichage filtré : ',CE('strong',null,filtConseiller)),
-      CE('button',{onClick:()=>resetFiltres()},'Voir tous')
-    ),
+    // Bandeau « Affichage filtré » retiré le 13/10/2026 : redondant avec
+    // l'en-tête des filtres (compteur d'actifs, bouton Effacer).
     // Filtres — repliables (demande de l'utilisateur, 26/09/2026) : en-tête
     // toujours visible avec le nombre de filtres actifs, état mémorisé.
     CE('div',{className:'card',style:{marginBottom:10}},
