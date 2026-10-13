@@ -5230,7 +5230,14 @@ function VuePlanning({annees,entries,onEdit,onDelete,onDuplicate,canDelete,accen
   const vueMois=CE('div',{className:'card'},
     CE('div',{style:{display:'flex',alignItems:'center',gap:8,marginBottom:12,flexWrap:'wrap'}},
       navMois,
-      CE('h2',{style:{margin:0,flex:1,textAlign:'center',fontSize:14,fontWeight:700}},'📊 Planning — '+MOIS_LONG[debutMois.getMonth()]+' '+debutMois.getFullYear()),
+      // Choix direct du mois (13/10/2026) : de janvier de l'année en cours à
+      // décembre de la suivante, plus le mois affiché s'il sort de cette plage.
+      CE('h2',{style:{margin:0,flex:1,textAlign:'center',fontSize:14,fontWeight:700}},'📊 Planning — ',
+        (()=>{const t=new Date(),base=-t.getMonth(),offs=[];for(let o=base;o<base+24;o++)offs.push(o);
+          if(!offs.includes(moisOffset))offs.push(moisOffset);offs.sort((x,y)=>x-y);
+          return CE('select',{value:moisOffset,'aria-label':'Mois affiché',onChange:e=>{setMoisOffset(parseInt(e.target.value,10));setChoix(null);setSurvol(null);},
+              style:{fontSize:14,fontWeight:700,padding:'2px 6px',borderRadius:6,border:'1.5px solid var(--border,#e2e8f0)',background:'transparent',color:'inherit',width:'auto',cursor:'pointer'}},
+            offs.map(o=>{const d=new Date(t.getFullYear(),t.getMonth()+o,1);return CE('option',{key:o,value:o},MOIS_LONG[d.getMonth()]+' '+d.getFullYear());}));})()),
       bascule,
       CE('span',{style:{fontSize:11,background:'#f1f5f9',borderRadius:20,padding:'3px 10px',color:'#475569'}},duMois.length+' atelier'+(duMois.length!==1?'s':''))),
     CE('div',{ref:defilRef,style:{overflowX:'auto',border:'1px solid var(--border,#e2e8f0)',borderRadius:10}},
