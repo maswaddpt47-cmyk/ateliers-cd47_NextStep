@@ -647,7 +647,7 @@ describe('conflitsConseiller', () => {
 
 // ── Cycle : la 1re séance donne le ton (13/10/2026) ──────────────────────────
 global.ampmDepuisHoraire = require('./utils.js').ampmDepuisHoraire;
-const {propagerPremiereLigne} = require('./logic.js');
+const {propagerPremiereLigne, basculerDemiLigne} = require('./logic.js');
 describe('propagerPremiereLigne', () => {
   const r = (id, extra) => ({id, date:'', horaire:'', ampm:'', duree:120, ...extra});
   it('horaire et durée de la 1re ligne recopiés ; une ligne modifiée à la main garde la sienne', () => {
@@ -664,5 +664,25 @@ describe('propagerPremiereLigne', () => {
     const rows = [r('a'), r('b'), r('c', {creneau:'PM'})];
     assert.deepEqual(propagerPremiereLigne(rows, 'b', 'horaire', '09:30').map(x => x.horaire), ['', '09:30', '']);
     assert.deepEqual(propagerPremiereLigne(rows, 'a', 'horaire', '09:30').map(x => x.horaire), ['09:30', '09:30', '']);
+  });
+});
+describe('cycle alterné matin / après-midi', () => {
+  const r = (id, extra) => ({id, date:'', horaire:'', ampm:'', duree:120, ...extra});
+  it('1re ligne du matin pour les matins, 1re de l\'après-midi pour les après-midis', () => {
+    let rows = [r('a'), r('b', {creneau:'PM'}), r('c'), r('d', {creneau:'PM'})];
+    rows = propagerPremiereLigne(rows, 'a', 'horaire', '09:30');
+    assert.deepEqual(rows.map(x => x.horaire), ['09:30', '', '09:30', '']);
+    rows = propagerPremiereLigne(rows, 'b', 'horaire', '14:00');
+    assert.deepEqual(rows.map(x => x.horaire), ['09:30', '14:00', '09:30', '14:00']);
+    rows = propagerPremiereLigne(rows, 'b', 'horaire', '13:30');
+    assert.deepEqual(rows.map(x => x.horaire), ['09:30', '13:30', '09:30', '13:30']);
+  });
+  it('bouton 🌙 : la ligne prend l\'horaire des après-midis ; ☀️ celui des matins', () => {
+    let rows = [r('a', {horaire:'09:30', ampm:'AM'}), r('b', {horaire:'14:00', ampm:'PM', creneau:'PM'}), r('c', {horaire:'09:30', ampm:'AM'})];
+    rows = basculerDemiLigne(rows, 'c', 'PM');
+    assert.equal(rows[2].horaire, '14:00'); assert.equal(rows[2].creneau, 'PM');
+    rows = basculerDemiLigne(rows, 'c', 'AM');
+    assert.equal(rows[2].horaire, '09:30');
+    assert.equal(basculerDemiLigne([r('a'), r('b')], 'b', 'PM')[1].horaire, '', 'aucun après-midi connu : vide');
   });
 });

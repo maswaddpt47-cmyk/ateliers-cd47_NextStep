@@ -478,27 +478,49 @@ function conflitsConseiller(entries, cand) {
 }
 
 // ── Cycle : la 1re séance donne le ton (13/10/2026) ──────────
-// Modifier l'horaire ou la durée de la 1re ligne recopie la valeur sur les
-// autres lignes qui la suivaient encore : vide (horaire) ou égale à
-// l'ancienne valeur de la 1re. Une ligne modifiée à la main garde la sienne.
-// Horaire : pas recopié sur une ligne réservée à l'autre demi-journée
-// (créneau choisi dans Disponibilités). Rend les lignes mises à jour.
+// Durée : celle de la 1re ligne est recopiée sur les lignes qui avaient encore
+// son ancienne valeur. Horaire, par demi-journée (cycles alternés, 13/10) :
+// la 1re ligne du matin donne l'horaire des matins, la 1re de l'après-midi
+// celui des après-midis ; la 1re ligne du cycle donne aussi le sien aux lignes
+// sans demi-journée choisie. Seules suivent les lignes vides ou encore égales
+// à l'ancienne valeur : une ligne modifiée à la main garde la sienne.
+// Demi-journée d'une ligne : bouton ☀️/🌙 (ou créneau de Disponibilités),
+// sinon celle de son horaire. Rend les lignes mises à jour.
+function demiLigne(x) {
+  return (x && (x.creneau || ampmDepuisHoraire(x.horaire))) || '';
+}
 function propagerPremiereLigne(rows, id, k, v) {
-  const p = (rows || [])[0];
-  const maj = x => {
+  rows = rows || [];
+  const i = rows.findIndex(x => x.id === id);
+  if (i < 0) return rows;
+  const x = rows[i];
+  const maj = y => {
     const a = k === 'horaire' ? ampmDepuisHoraire(v) : '';
-    return { ...x, [k]: v, ...(a ? { ampm: a } : {}) };
+    return { ...y, [k]: v, ...(a ? { ampm: a } : {}) };
   };
-  const suivre = p && p.id === id && (k === 'horaire' || k === 'duree');
-  return (rows || []).map((x, i) => {
-    if (x.id === id) return maj(x);
-    if (!suivre || i === 0) return x;
-    if (k === 'horaire') {
-      const a = ampmDepuisHoraire(v);
-      if (x.creneau && a && a !== x.creneau) return x;
-      return !x.horaire || x.horaire === p.horaire ? maj(x) : x;
-    }
-    return String(x.duree) === String(p.duree) ? maj(x) : x;
+  if (k === 'duree') {
+    return rows.map((y, j) => j === i || (i === 0 && j > 0 && String(y.duree) === String(x.duree)) ? maj(y) : y);
+  }
+  if (k !== 'horaire') return rows.map(y => y.id === id ? maj(y) : y);
+  const d = ampmDepuisHoraire(v) || demiLigne(x);
+  const refDemi = !!d && !rows.slice(0, i).some(z => demiLigne(z) === d);
+  return rows.map((y, j) => {
+    if (j === i) return maj(y);
+    if (j < i || (y.horaire && y.horaire !== x.horaire)) return y;
+    const suit = (refDemi && y.creneau === d) || (i === 0 && !y.creneau);
+    return suit ? maj(y) : y;
+  });
+}
+// Bouton ☀️/🌙 d'une ligne : elle passe sur cette demi-journée et prend
+// l'horaire de la 1re ligne qui en a un dans cette demi-journée (vide sinon).
+// Un horaire déjà dans la bonne demi-journée est gardé.
+function basculerDemiLigne(rows, id, demi) {
+  rows = rows || [];
+  const ref = rows.find(z => z.id !== id && z.horaire && ampmDepuisHoraire(z.horaire) === demi);
+  return rows.map(y => {
+    if (y.id !== id) return y;
+    const garde = y.horaire && ampmDepuisHoraire(y.horaire) === demi;
+    return { ...y, creneau: demi, ampm: demi, horaire: garde ? y.horaire : (ref ? ref.horaire : '') };
   });
 }
 
@@ -514,6 +536,6 @@ if (typeof module !== 'undefined') {
     estWeekend, veilleOuvree, lendemainOuvre,
     creneauAtelier, demisAtelier, analyseJourMateriel, MARGE_MATERIEL_MIN, hhmm,
     bornesTrimestre, trimestrePrecedent, bilanTrimestriel,
-    creneauxLibres, demiSaisie, conflitsConseiller, propagerPremiereLigne,
+    creneauxLibres, demiSaisie, conflitsConseiller, propagerPremiereLigne, basculerDemiLigne, demiLigne,
   };
 }

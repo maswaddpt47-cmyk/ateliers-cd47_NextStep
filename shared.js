@@ -1928,8 +1928,10 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
   // Horaire et durée de la 1re séance recopiés sur les suivantes (13/10/2026,
   // propagerPremiereLigne dans logic.js) ; une ligne changée à la main garde la sienne.
   // Ligne saisie : date, thème, ou horaire tapé à la main. Un horaire recopié
-  // depuis la 1re séance ne rend pas « remplie » une ligne laissée vide (13/10/2026).
-  const ligneRemplie=(r,i)=>!!(r.date||(r.thematique||'').trim()||(r.horaire&&(i===0||r.horaire!==(lotRows[0]||{}).horaire)));
+  // d'une ligne au-dessus ne rend pas « remplie » une ligne laissée vide (13/10/2026).
+  const ligneRemplie=(r,i)=>!!(r.date||(r.thematique||'').trim()||(r.horaire&&!lotRows.slice(0,i).some(z=>z.horaire===r.horaire)));
+  // Bouton ☀️/🌙 (13/10/2026, cycles alternés) : basculerDemiLigne dans logic.js.
+  function setDemiRow(id,demi){setLotRows(r=>basculerDemiLigne(r,id,demi));setLotRowErrors(er=>({...er,[id]:{...(er[id]||{}),horaire:'',ampm:''}}));}
   function setRow(id,k,v){const a=k==='horaire'?ampmDepuisHoraire(v):'';setLotRows(r=>propagerPremiereLigne(r,id,k,v));
     setLotRowErrors(er=>{const n={...er,[id]:{...(er[id]||{}),[k]:'',...(a?{ampm:''}:{})}};
       if(k==='horaire'||k==='duree')Object.keys(n).forEach(i=>{if(n[i]&&n[i][k])n[i]={...n[i],[k]:'',...(a?{ampm:''}:{})};});return n;});}
@@ -2308,7 +2310,11 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
             CE('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr auto 32px 32px',gap:8,alignItems:'end',padding:'9px 10px 8px'}},
               CE('div',null,lbl('Date *',rErr.date),inp('date',row.date,'date',rErr.date),
                 row.date&&CE('div',{style:{fontSize:11,fontWeight:600,marginTop:3,color:/férié/.test(jourDeLaDate(row.date))?'#b91c1c':'#64748b'}},jourDeLaDate(row.date))),
-              CE('div',null,lbl('Horaire *'+(row.creneau&&!row.horaire?(row.creneau==='AM'?' (matin)':' (après-midi)'):''),rErr.horaire),inp('time',row.horaire,'horaire',rErr.horaire),
+              CE('div',null,lbl('Horaire *'+(row.creneau&&!row.horaire?(row.creneau==='AM'?' (matin)':' (après-midi)'):''),rErr.horaire),CE('div',{style:{display:'flex',gap:4,alignItems:'center'}},
+                  CE('div',{style:{flex:1,minWidth:0}},inp('time',row.horaire,'horaire',rErr.horaire)),
+                  ...[['AM','☀️','Matin'],['PM','🌙','Après-midi']].map(([dm,ic,t])=>{const on=demiLigne(row)===dm;
+                    return CE('button',{key:dm,type:'button',title:t+' : prendre l\'horaire des '+(dm==='AM'?'matins':'après-midis')+' du cycle','aria-label':t,'aria-pressed':on,onClick:()=>setDemiRow(row.id,dm),
+                      style:{width:30,height:30,flex:'0 0 30px',padding:0,borderRadius:6,cursor:'pointer',fontSize:14,border:`1.5px solid ${on?ac:'#e2e8f0'}`,background:on?'#fff':'transparent',opacity:on?1:.45}},ic);})),
                 CE(BlocAlertes,{liste:alertesLigne(row)})),
               CE('div',null,lbl('Durée *',rErr.duree),
                 CE('select',{value:row.duree,onChange:e=>setRow(row.id,'duree',parseInt(e.target.value)),style:{padding:'8px 6px',border:brd(rErr.duree),borderRadius:8,fontSize:12,background:bg(rErr.duree)}},
