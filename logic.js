@@ -477,6 +477,31 @@ function conflitsConseiller(entries, cand) {
   });
 }
 
+// ── Cycle : la 1re séance donne le ton (13/10/2026) ──────────
+// Modifier l'horaire ou la durée de la 1re ligne recopie la valeur sur les
+// autres lignes qui la suivaient encore : vide (horaire) ou égale à
+// l'ancienne valeur de la 1re. Une ligne modifiée à la main garde la sienne.
+// Horaire : pas recopié sur une ligne réservée à l'autre demi-journée
+// (créneau choisi dans Disponibilités). Rend les lignes mises à jour.
+function propagerPremiereLigne(rows, id, k, v) {
+  const p = (rows || [])[0];
+  const maj = x => {
+    const a = k === 'horaire' ? ampmDepuisHoraire(v) : '';
+    return { ...x, [k]: v, ...(a ? { ampm: a } : {}) };
+  };
+  const suivre = p && p.id === id && (k === 'horaire' || k === 'duree');
+  return (rows || []).map((x, i) => {
+    if (x.id === id) return maj(x);
+    if (!suivre || i === 0) return x;
+    if (k === 'horaire') {
+      const a = ampmDepuisHoraire(v);
+      if (x.creneau && a && a !== x.creneau) return x;
+      return !x.horaire || x.horaire === p.horaire ? maj(x) : x;
+    }
+    return String(x.duree) === String(p.duree) ? maj(x) : x;
+  });
+}
+
 if (typeof module !== 'undefined') {
   module.exports = {
     filterMaterielsVisibles,
@@ -489,6 +514,6 @@ if (typeof module !== 'undefined') {
     estWeekend, veilleOuvree, lendemainOuvre,
     creneauAtelier, demisAtelier, analyseJourMateriel, MARGE_MATERIEL_MIN, hhmm,
     bornesTrimestre, trimestrePrecedent, bilanTrimestriel,
-    creneauxLibres, demiSaisie, conflitsConseiller,
+    creneauxLibres, demiSaisie, conflitsConseiller, propagerPremiereLigne,
   };
 }

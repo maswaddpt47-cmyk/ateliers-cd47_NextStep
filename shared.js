@@ -1898,7 +1898,7 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
   function toggleLotMat(m){setLotForm(f=>{const already=matIncludes(f.materiel,m);return{...f,materiel:already?f.materiel.filter(x=>normalizeMat(x)!==normalizeMat(m)):[...f.materiel,m]};});}
 
   // ── lignes du lot ──
-  function addRow(){setLotRows(r=>[...r,emptyRow()]);}
+  function addRow(){setLotRows(r=>{const p=r[0]||{};return[...r,{...emptyRow(),horaire:p.horaire||'',ampm:ampmDepuisHoraire(p.horaire)||'',duree:p.duree||DUREE_DEFAUT}];});}
   function removeRow(id){if(lotRows.length<=1)return;setLotRows(r=>r.filter(x=>x.id!==id));}
   // Dupliquer une séance juste en dessous (01/10/2026) : deux groupes le même
   // jour, l'un après l'autre (G1 14 h, G2 15 h). L'horaire est vidé pour être
@@ -1925,7 +1925,11 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
     return true;
   }
   function dupRow(id){setLotRows(r=>{const i=r.findIndex(x=>x.id===id);if(i<0)return r;return[...r.slice(0,i+1),{...r[i],id:genId(),horaire:'',ampm:'',olkId:''},...r.slice(i+1)];});}
-  function setRow(id,k,v){const a=k==='horaire'?ampmDepuisHoraire(v):'';setLotRows(r=>r.map(x=>x.id===id?{...x,[k]:v,...(a?{ampm:a}:{})}:x));setLotRowErrors(er=>({...er,[id]:{...(er[id]||{}),[k]:'',...(a?{ampm:''}:{})}}));}
+  // Horaire et durée de la 1re séance recopiés sur les suivantes (13/10/2026,
+  // propagerPremiereLigne dans logic.js) ; une ligne changée à la main garde la sienne.
+  function setRow(id,k,v){const a=k==='horaire'?ampmDepuisHoraire(v):'';setLotRows(r=>propagerPremiereLigne(r,id,k,v));
+    setLotRowErrors(er=>{const n={...er,[id]:{...(er[id]||{}),[k]:'',...(a?{ampm:''}:{})}};
+      if(k==='horaire'||k==='duree')Object.keys(n).forEach(i=>{if(n[i]&&n[i][k])n[i]={...n[i],[k]:'',...(a?{ampm:''}:{})};});return n;});}
 
   // ── validation mode unique ──
   const FIELD_LABELS={'statut':'Statut','date':'Date','horaire':'Horaire','duree':'Durée','ampm':'AM/PM','commune':'Commune','lieu':'Lieu','thematique':'Thématique','conseiller':'Conseiller','orienteur':'Orienteur','public':'Type de public','inscrits':'Inscrits','nb_ordinateurs':'Ordinateurs prêtés'};

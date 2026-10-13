@@ -644,3 +644,25 @@ describe('conflitsConseiller', () => {
     assert.equal(demiSaisie({horaire:'', ampm:'PM'}), 'PM');
   });
 });
+
+// ── Cycle : la 1re séance donne le ton (13/10/2026) ──────────────────────────
+global.ampmDepuisHoraire = require('./utils.js').ampmDepuisHoraire;
+const {propagerPremiereLigne} = require('./logic.js');
+describe('propagerPremiereLigne', () => {
+  const r = (id, extra) => ({id, date:'', horaire:'', ampm:'', duree:120, ...extra});
+  it('horaire et durée de la 1re ligne recopiés ; une ligne modifiée à la main garde la sienne', () => {
+    let rows = [r('a'), r('b'), r('c', {horaire:'14:00', ampm:'PM'})];
+    rows = propagerPremiereLigne(rows, 'a', 'horaire', '09:30');
+    assert.deepEqual(rows.map(x => x.horaire), ['09:30', '09:30', '14:00']);
+    assert.equal(rows[1].ampm, 'AM');
+    rows = propagerPremiereLigne(rows, 'a', 'horaire', '10:00');
+    assert.deepEqual(rows.map(x => x.horaire), ['10:00', '10:00', '14:00']);
+    rows = propagerPremiereLigne(rows, 'a', 'duree', 90);
+    assert.deepEqual(rows.map(x => x.duree), [90, 90, 90]);
+  });
+  it('rien ne part d\'une autre ligne ; pas d\'horaire du matin sur un créneau d\'après-midi', () => {
+    const rows = [r('a'), r('b'), r('c', {creneau:'PM'})];
+    assert.deepEqual(propagerPremiereLigne(rows, 'b', 'horaire', '09:30').map(x => x.horaire), ['', '09:30', '']);
+    assert.deepEqual(propagerPremiereLigne(rows, 'a', 'horaire', '09:30').map(x => x.horaire), ['09:30', '09:30', '']);
+  });
+});
