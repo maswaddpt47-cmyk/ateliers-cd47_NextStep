@@ -672,7 +672,7 @@ const LOGS_KEY = lsKey('adm_logs');
 
           view==='admin'&&role==='admin'&&CE(VueAdmin,{entries,onRefresh:()=>loadData(),addLog,conseillersList:lists.conseillers,onSaveColors:(c)=>{applyColors(c);},annee:anneeReference(annee),adminConseiller}),
           view==='logs_connexion'&&(role==='admin'||role==='superviseur')&&CE(React.Fragment,null,CE(VueUsageOnglets,null),CE(VueLogs,null)),
-          view==='corbeille'&&(role==='admin'||role==='superviseur')&&CE(VueCorbeille,null),
+          view==='corbeille'&&(role==='admin'||role==='superviseur')&&CE(VueCorbeille,{peutPurger:true}),
           view==='sauvegardes'&&(role==='admin'||role==='superviseur')&&CE(VueSauvegardes,null),
           view==='tickets'&&(role==='admin'||role==='superviseur')&&CE(VueTickets,{admin:true,onglets:Object.values(VIEW_META).map(m=>m.label)}),
           view==='logs'&&CE('div',{className:'card'},

@@ -611,7 +611,7 @@ const GAS_ACTIONS_ECRITURE = new Set([
   // consommerait deux fois le quota de 3 demandes par heure.
   'demanderReinit','reinitMotDePasse','envoyerLienReinit',
   // Corbeille et copie à la demande (AG-014) : écritures, jamais doublées.
-  'restaurerCorbeille','copieMaintenant',
+  'restaurerCorbeille','purgerCorbeille','copieMaintenant',
   // Tickets (AG-016) : creerTicket est rejouable sans effet (id client), mais
   // jamais doublé en vol ; repondreTicket non plus.
   'creerTicket','repondreTicket','supprimerTicket','supprimerAvis',
@@ -6681,8 +6681,11 @@ function VueTickets({admin,onglets,ongletCourant,onVu}){
 // quel (refusé si un atelier de même identifiant a été recréé entre-temps).
 // Dans shared.js depuis le 02/10/2026 : l'Admin peut l'ouvrir sur Index
 // (Admin → Visibilité), l'API n'ouvre alors que getCorbeille et sa restauration.
-function VueCorbeille(){
+// peutPurger (13/10/2026, AG-024) : cases à cocher et suppression définitive,
+// passés par l'Admin seulement ; l'API la refuse de toute façon aux conseillers.
+function VueCorbeille({peutPurger}={}){
   const[liste,setListe]=React.useState(null);
+  const[sel,setSel]=React.useState(()=>new Set());
   const[jours,setJours]=React.useState(30);
   const[err,setErr]=React.useState('');
   const[enCours,setEnCours]=React.useState('');
@@ -6706,6 +6709,21 @@ function VueCorbeille(){
     }catch(e){ showToast('❌ '+(e.message||'Erreur réseau'),false); }
     finally{ setEnCours(''); }
   }
+  const cocher=id=>setSel(x=>{const n=new Set(x);n.has(id)?n.delete(id):n.add(id);return n;});
+  async function purger(){
+    const ids=(liste||[]).map(a=>a._id).filter(id=>sel.has(id));
+    if(!ids.length) return;
+    if(!confirm('Supprimer définitivement '+ids.length+' atelier'+(ids.length>1?'s':'')+' ?\n\nIls ne pourront plus être restaurés.')) return;
+    setEnCours('purge');
+    try{
+      const r=await window.apiFetch('purgerCorbeille',{_id:ids.join(',')});
+      if(r&&r.ok){
+        setListe(l=>l.filter(x=>!ids.includes(x._id)));setSel(new Set());
+        showToast('✅ '+r.supprimes+' atelier'+(r.supprimes>1?'s':'')+' supprimé'+(r.supprimes>1?'s':'')+' définitivement');
+      } else showToast('❌ '+((r&&r.error)||'Erreur'),false);
+    }catch(e){ showToast('❌ '+(e.message||'Erreur réseau'),false); }
+    finally{ setEnCours(''); }
+  }
   const th={padding:'6px 10px',textAlign:'left',fontSize:11,color:'var(--text-2,#718096)',borderBottom:'1px solid var(--border,#e2e8f0)'};
   const td={padding:'6px 10px',fontSize:12,borderBottom:'1px solid var(--border,#f0f0f0)'};
   return CE('div',{className:'card'},
@@ -6715,10 +6733,16 @@ function VueCorbeille(){
     err&&CE('p',{style:{color:'#c53030',fontSize:13}},err),
     liste===null&&!err&&CE('p',{style:{fontSize:13}},'Chargement…'),
     liste&&liste.length===0&&CE('p',{style:{fontSize:13,color:'var(--text-2,#718096)'}},'La corbeille est vide.'),
+    peutPurger&&liste&&liste.length>0&&CE('div',{style:{display:'flex',alignItems:'center',gap:10,flexWrap:'wrap',margin:'4px 0 10px'}},
+      CE('label',{style:{fontSize:12,display:'flex',alignItems:'center',gap:6,cursor:'pointer'}},
+        CE('input',{type:'checkbox',checked:sel.size>0&&sel.size===liste.length,onChange:e=>setSel(e.target.checked?new Set(liste.map(a=>a._id)):new Set())}),'Tout cocher'),
+      CE('button',{disabled:!sel.size||!!enCours,onClick:purger,style:{padding:'5px 12px',fontSize:12,fontWeight:700,border:'1px solid #c53030',color:sel.size?'#fff':'#c53030',background:sel.size?'#c53030':'transparent',borderRadius:6,cursor:sel.size?'pointer':'default',opacity:sel.size?1:.5}},
+        enCours==='purge'?'…':'🗑️ Supprimer définitivement ('+sel.size+')')),
     liste&&liste.length>0&&CE('div',{style:{overflowX:'auto'}},
       CE('table',{style:{width:'100%',borderCollapse:'collapse'}},
-        CE('thead',null,CE('tr',null,['Atelier','Commune','Conseiller','Supprimé le','Par',''].map(h=>CE('th',{key:h,style:th},h)))),
+        CE('thead',null,CE('tr',null,[...(peutPurger?['']:[]),'Atelier','Commune','Conseiller','Supprimé le','Par',''].map((h,i)=>CE('th',{key:i,style:th},h)))),
         CE('tbody',null,liste.map(a=>CE('tr',{key:a._id},
+          peutPurger&&CE('td',{style:{...td,width:28}},CE('input',{type:'checkbox','aria-label':'Cocher pour supprimer définitivement',checked:sel.has(a._id),onChange:()=>cocher(a._id)})),
           CE('td',{style:td},CE('strong',null,fmtDate(a.date)+(a.horaire?' '+a.horaire:'')),' — ',a.thematique||'—',
             // Détails pour repérer l'atelier (02/10/2026) : numéro, statut, lieu, orienteur, public.
             CE('div',{style:{fontSize:11,color:'var(--text-2,#718096)',marginTop:2}},
