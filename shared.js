@@ -3086,16 +3086,25 @@ function VueCalendrier({entries,onEdit,onDelete,onRefresh,onEntryUpdated,onDupli
           const isToday=ds===todayStr;
           const ferie=joursFeries(yr)[ds];
           const dayAteliers=dayMap[day]||[];
-          const MAX_VISIBLE=3;
-          const hidden=dayAteliers.length-MAX_VISIBLE;
+          // Ateliers masqués quelque part (2 par demi-journée) : bouton Réduire.
+          const hidden=['AM','PM'].some(dm=>dayAteliers.filter(e=>(demiJourneeAtelier(e)==='PM'?'PM':'AM')===dm).length>2)?1:0;
           const expanded=expandDay===day;
-          const visible=expanded?dayAteliers:dayAteliers.slice(0,MAX_VISIBLE);
           return CE('div',{key:day,className:'cal-cell'+(isToday?' cal-today':''),style:{...(ferie&&!isToday?{background:'#fef2f2'}:{}),...(onNouveau?{cursor:'pointer'}:{})},title:[ferie,onNouveau&&'Cliquer pour saisir un atelier le '+fmtDate(ds)].filter(Boolean).join(' — ')||undefined,onClick:onNouveau?()=>onNouveau(ds):undefined},
             CE('div',{className:'cal-day-num'},
               isToday?CE('span',{className:'cal-today-num'},day):day
             ),
             ferie&&CE('div',{style:{fontSize:9,fontWeight:700,color:'#b91c1c',lineHeight:1.2,marginBottom:2}},ferie),
-            visible.map(e=>{
+            // Matin / après-midi (13/10/2026, à l'image de l'Agenda) : deux moitiés,
+            // 2 ateliers chacune puis « +N » ; clic sur une moitié = saisie à cette
+            // date et sur cette demi-journée.
+            ['AM','PM'].map(dm=>{
+              const l=dayAteliers.filter(e=>(demiJourneeAtelier(e)==='PM'?'PM':'AM')===dm);
+              const vis=expanded?l:l.slice(0,2),cach=l.length-vis.length;
+              return CE('div',{key:dm,title:onNouveau?'Saisir un atelier le '+fmtDate(ds)+(dm==='AM'?' au matin':' l\'après-midi'):undefined,
+                  onClick:onNouveau?ev=>{ev.stopPropagation();onNouveau(ds,filtConseiller!=='Tous'?filtConseiller:undefined,dm);}:undefined,
+                  style:{minHeight:24,padding:'2px 0',borderRadius:3,background:dm==='AM'?'rgba(37,99,235,.05)':'rgba(217,119,6,.07)',borderTop:dm==='PM'?'1px dashed #cbd5e1':'none'}},
+                !l.length&&CE('div',{style:{fontSize:11,opacity:.35,textAlign:'center',lineHeight:'20px'}},dm==='AM'?'☀️':'🌙'),
+                vis.map(e=>{
               const sc=conseillerColor(e.conseiller);
               const retard=isRetard(e);
               return CE('div',{key:e._id,className:'cal-event',
@@ -3104,8 +3113,9 @@ function VueCalendrier({entries,onEdit,onDelete,onRefresh,onEntryUpdated,onDupli
                 CE('span',{className:'cal-event-time',style:{color:retard?'#991b1b':sc}},e.horaire||''),
                 CE('span',{className:'cal-event-label',title:[e.thematique||e.lieu,e.orienteur].filter(Boolean).join(' — ')},CE('span',null,e.thematique||e.lieu||'—'),e.orienteur&&CE('span',{className:'cal-event-orienteur'},'🤝 '+e.orienteur))
               );
+                }),
+                cach>0&&CE('div',{className:'cal-more',onClick:ev=>{ev.stopPropagation();setExpandDay(day);}},`+${cach} autre${cach>1?'s':''}`));
             }),
-            hidden>0&&!expanded&&CE('div',{className:'cal-more',onClick:ev=>{ev.stopPropagation();setExpandDay(day);}},`+${hidden} autre${hidden>1?'s':''}`),
             expanded&&hidden>0&&CE('div',{className:'cal-more',style:{color:'#dc2626'},onClick:ev=>{ev.stopPropagation();setExpandDay(null);}},`Réduire ▲`)
           );
         })
