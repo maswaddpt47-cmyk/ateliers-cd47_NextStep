@@ -2721,7 +2721,6 @@ function VueHistorique({onOuvrirGestionOrdi,entries,onEdit,onDelete,onRefresh,on
   const moisDispo=React.useMemo(()=>{const s=new Set(entries.map(e=>e.date?e.date.slice(0,7):'').filter(Boolean));return[...s].sort();},[entries]);
   const conseillersHist=React.useMemo(()=>{const s=new Set();entries.forEach(e=>{if(e.conseiller)s.add(e.conseiller);});return[...Array.from(s).sort()];},[entries]);
   const CHIP_STATUTS=[{key:'Tous',label:'Tous',cls:'chip-all'},{key:'Planifié',label:'Planifié',cls:'chip-planifie',dot:'#3b82f6'},{key:'Réalisé',label:'Réalisé',cls:'chip-realise',dot:'#22c55e'},{key:'Annulé',label:'Annulé',cls:'chip-annule',dot:'#ef4444'},{key:'Reporté',label:'Reporté',cls:'chip-reporte',dot:'#f59e0b'},{key:'Non réalisé',label:'Non réalisé',cls:'chip-nonrealise',dot:'#94a3b8'}];
-  const counts=React.useMemo(()=>{const c={Tous:entries.length};STATUTS.forEach(s=>{c[s]=entries.filter(e=>e.statut===s).length;});return c;},[entries]);
   // Tous les filtres sauf le statut : base des tuiles (kpiHistorique).
   const sansStatut=React.useMemo(()=>{
     let r=entries;
@@ -2745,6 +2744,9 @@ function VueHistorique({onOuvrirGestionOrdi,entries,onEdit,onDelete,onRefresh,on
   const nbFiltresActifs=(filtStatut!=='Tous'?1:0)+(search?1:0)+(filtMois!=='Tous'?1:0)+(filtCommune!=='Toutes'?1:0)+(filtConseiller!=='Tous'?1:0)+(filtPublic.length?1:0)+(dateFrom||dateTo?1:0);
 
   const kpi=React.useMemo(()=>kpiHistorique(sansStatut),[sansStatut]);
+  // Compteurs des pastilles de statut sur la même base que les tuiles (13/10/2026) :
+  // ils comptaient tous les ateliers, sans le filtre conseiller ni les autres.
+  const counts=React.useMemo(()=>{const c={Tous:sansStatut.length};STATUTS.forEach(s=>{c[s]=sansStatut.filter(e=>e.statut===s).length;});return c;},[sansStatut]);
   const nRetard=entries.filter(e=>isRetard(e)&&(filtConseiller==='Tous'||e.conseiller===filtConseiller)).length;
 
   function openPanel(e){setPanel(e);}
