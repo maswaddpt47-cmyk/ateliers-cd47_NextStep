@@ -1,6 +1,6 @@
 # Chantiers en cours — Ateliers CD47 NextStep
 
-État au **07/10/2026**. NextStep (équipe) et NEWGEN (utilisateur) parlent à
+État au **16/10/2026**. NextStep (équipe) et NEWGEN (utilisateur) parlent à
 la même API Alwaysdata et à la même base depuis la bascule du 25/09/2026 :
 **les restes communs** (registres, audit trimestriel, sauvegardes,
 sécurité, import Outlook à valider, rubrique Nouveautés) et les
@@ -11,17 +11,14 @@ Fichier transitoire : à mettre à jour à chaque avancée, à supprimer quand t
 est soldé. Ce n'est pas de la documentation permanente (cf.
 `MD-LIB/hygiene-instructions.md`).
 
-**Ménage du 26/09/2026** : l'époque GAS (banc, doublage, relevés de pertes,
+**Ménages des 26/09 et 16/10/2026** : l'époque GAS (banc, doublage, relevés de pertes,
 AG-003 à AG-008, ordre du jour de la bascule) a été retirée. Texte complet :
 `git log -p CHANTIERS.md`, avant `807db21`.
 
 ---
 
 ## Reste ouvert
-- **Propre à NextStep (01-02/10/2026)** : titres de groupe de la barre
-  latérale masqués quand tous leurs onglets le sont (Stats seul sous Info).
-
-- **Parité avec NEWGEN (AG-015)** : 5 écarts au 07/10/2026, tous voulus
+- **Parité avec NEWGEN (AG-015)** : 5 écarts au 16/10/2026, tous voulus
   (dont l'Historique : chacun garde son design, décision du 26/09). Suivi et
   **ordre de push (NextStep d'abord)** : `CHANTIERS.md` d'ATELIERS_NEWGEN,
   section parité — le compte fait foi là-bas, pas ici.
