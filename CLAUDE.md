@@ -45,6 +45,12 @@ Extrait du guide de collaboration multi-projets, adapté pour ce dépôt.
 
 20. **Pistes d'amélioration à moments fixés** (MD-LIB `collaboration.md`, règle 22, 03/10/2026). À la fin d'une fonctionnalité livrée et validée, et sur toute demande de revue de l'interface : au plus 3 pistes, classées par utilité, non développées. Chercher **dans** l'outil (écran confus, saisie en double, clics inutiles) **et autour** : ce que les utilisateurs font encore à côté (tableur, mail, papier), ce que la hiérarchie redemande — l'angle qu'on rate en ne lisant que le code. S'appuyer sur des faits (compteurs d'usage, remontées, `CHANTIERS.md`), pas une impression. Consigner chaque piste dans la section « Pistes » de `CHANTIERS.md` : *proposées, en attente*, ou *écartées* avec date et raison ; une piste écartée ne se repropose pas sans fait nouveau.
 
+21. **Avant de décrire un correctif, suivre la valeur sur tout son chemin** (MD-LIB `collaboration.md`, règle 27) — `then`/`catch`, appelants, valeurs par défaut — pas seulement la ligne à changer. Constat du 23/09/2026 : un correctif annoncé comme suffisant était **inopérant**, le `catch` de fin de chaîne écrasant la décision prise juste avant dans le `then`.
+
+22. **Un nombre annoncé se compte par une commande dont la sortie est le nombre** (règle 29), pas à l'œil sur une liste ; sinon le dire comme une estimation. Constat du 27/09/2026 : « 13 » annoncé d'après une sortie de `grep`, recompté à 12 par une autre session.
+
+23. **Fichier partagé entre sessions** (`AGORA.md`, `CHANTIERS.md`, `CLAUDE.md`) **: refaire un `git fetch` et relire juste avant de rédiger** (règle 30), pas seulement à l'ouverture — le pull de départ ne couvre pas la fenêtre entre la lecture et le commit. Constat du 27/09/2026 : un commit préparé a été rejeté en non-fast-forward, le travail était déjà fait par une autre session, dans un autre format.
+
 **Bonnes pratiques à maintenir**
 
 12. Continuer à demander l'avis avant toute action à fort impact (déploiement, architecture, migration de données) et exécuter vite dès validation courte reçue.
