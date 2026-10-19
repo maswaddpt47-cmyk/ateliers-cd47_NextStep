@@ -304,7 +304,7 @@ test('admin — Cycle : suggestions thématique au focus', async ({ page }) => {
   await themeInput.type('nav');
   await page.waitForTimeout(400);
   // Le dropdown portal est dans le body — cherche un thème connu
-  const found = await page.evaluate(() => document.body.innerText.includes('Naviguer sur internet'));
+  const found = await page.evaluate(() => document.body.innerText.includes('Savoir naviguer sur Internet'));
   expect(found, 'Aucune suggestion thématique en mode Cycle (portal non rendu)').toBe(true);
 });
 
