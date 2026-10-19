@@ -1388,58 +1388,56 @@ function ComboOrienteur({value,onChange,entries,hasError}){
   );
 }
 
+// Catalogue des ateliers 2026-2027 du Département (mis à jour le 19/10/2026).
+// Libellé = titre de l'atelier, sans le détail qui suit les deux-points dans
+// le catalogue. La thématique reste un texte libre : un atelier saisi avec un
+// ancien libellé le garde, et le libellé reste proposé sous « Thèmes précédents ».
 const CATALOGUE_THEMATIQUES_GROUPED=[
   {cat:'A — Le numérique par l\'outil',items:[
     'Prendre en main l\'ordinateur',
-    'Prendre en main la tablette',
-    'Prendre en main le smartphone',
-    'Télécharger et gérer ses applis (iOS, Android)',
-    'Naviguer sur internet',
+    'Prendre en main le smartphone / la tablette',
+    'Télécharger et gérer ses applications',
+    'Savoir naviguer sur Internet',
     'Sécuriser son environnement numérique',
   ]},
   {cat:'B — Le numérique pour le quotidien',items:[
-    'Prendre en main sa boite mail',
-    'Recevoir et envoyer un mail avec pièce jointe',
-    'Créer son identité numérique (FranceConnect)',
-    'Démarches administratives en ligne (servicepublic.fr, boussole des jeunes…)',
-    'Espace personnel site administratif (Ameli, CAF, MSA, Impôts…)',
-    'Espace personnel site médical (Mon espace santé, Doctolib…)',
-    'Outils numériques de scolarité (Pronote, Educonnect, Parcoursup…)',
-    'Solutions numériques pour la gestion de budget',
+    'Prendre en main et gérer sa boite mail',
+    'Démarches administratives en ligne, comment s\'y retrouver ?',
+    'Créer et gérer un espace personnel d\'un site médical (Mon espace santé, Doctolib…)',
+    'Découvrir les solutions numériques liées à la gestion de son budget',
     'Sécuriser ses achats en ligne et éviter les arnaques',
+    'S\'initier aux outils d\'Intelligence Artificielle (IA)',
   ]},
-  {cat:'C — Bureautique & stockage',items:[
-    'Traitement de texte',
-    'Tableur',
-    'Manier les PDF',
-    'Transférer et stocker ses fichiers (Drive, Cloud…)',
-    'Organiser ses fichiers multimédias',
+  {cat:'C — Le numérique pour le bureau',items:[
+    'S\'initier au traitement de texte',
+    'S\'initier au tableur',
+    'Gérer ses contenus numériques',
   ]},
-  {cat:'D — Emploi & formation',items:[
-    'Recherche d\'emploi (CV, lettre de motivation…)',
-    'Compte Personnel de Formation (CPF)',
-    'Sites JOB47 et France Travail',
+  {cat:'D — Le numérique pour l\'emploi et la mobilité',items:[
+    'Découvrir les solutions numériques liées à la recherche d\'emploi',
+    'Découvrir les solutions numériques liées à la mobilité',
+    'Découvrir les solutions numériques d\'autoformation',
   ]},
-  {cat:'E — Mobilité',items:[
-    'Solutions numériques liées à la mobilité (GPS, bus, covoiturage…)',
-  ]},
-  {cat:'F — Sécurité & citoyenneté numérique',items:[
+  {cat:'E — Le numérique responsable',items:[
     'Cybersécurité',
-    'Découverte des réseaux sociaux',
-    'Réseaux sociaux et jeunesse',
-    'E-réputation',
-    'Écrans et jeunesse',
-  ]},
-  {cat:'G — Environnement & IA',items:[
+    'Données personnelles',
+    'Souveraineté numérique',
     'Numérique et environnement',
-    'Intelligence artificielle (IA)',
   ]},
-  {cat:'H — Culture & loisirs numériques',items:[
-    'Plateforme ressources numériques de la Médiathèque Départementale',
-    'Regarder et écouter (films, musiques)',
-    'Lire (e-book)',
-    'Apprendre et s\'informer (autoformation, presse)',
-    'Visites virtuelles (musées, opéras, théâtres…)',
+  {cat:'F — Le numérique pour la jeunesse',items:[
+    'Réseaux sociaux et jeunesse',
+    'Cyberharcèlement',
+    'Éducation aux médias et à l\'information (EMI)',
+    'Écrans et jeunesse',
+    'Être parent à l\'ère du numérique',
+    'Contrôle parental',
+  ]},
+  {cat:'G — Le numérique pour se divertir',items:[
+    'Découvrir la plateforme des ressources numériques de la Médiathèque Départementale',
+    'Découvrir les sites de visites virtuelles',
+    'Découvrir les réseaux sociaux',
+    'Atelier débat « Café IA »',
+    'Découvrir les outils de création numérique',
   ]},
 ];
 const CATALOGUE_THEMATIQUES=CATALOGUE_THEMATIQUES_GROUPED.flatMap(g=>g.items);
