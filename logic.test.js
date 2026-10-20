@@ -686,3 +686,63 @@ describe('cycle alterné matin / après-midi', () => {
     assert.equal(basculerDemiLigne([r('a'), r('b')], 'b', 'PM')[1].horaire, '', 'aucun après-midi connu : vide');
   });
 });
+
+// ── Un même chiffre, une même population (20/10/2026) ─────────────────────────
+// Le « taux de présence » est calculé à trois endroits : kpiHistorique()
+// (utils.js, onglet Historique), bilanTrimestriel() (logic.js, bilan de la
+// superviseure) et bilan_chiffres() (api/lib/bilan.php, mail mensuel). Ces
+// tests ne les font pas passer pour identiques : ils fixent ce qui doit
+// concorder et rendent visible l'écart qui reste. Ajoutés après l'audit Codex
+// de GDINV2 du 20/10/2026 (251 tests verts, 14 défauts de calcul) —
+// MD-LIB `chiffres-diffuses.md`, familles B et E.
+describe('même population : kpiHistorique et bilanTrimestriel', () => {
+  const { kpiHistorique } = require('./utils.js');
+  const atelier = (id, date, statut, inscrits, presents) => ({
+    _id: id, date, statut, thematique: 'IA', inscrits, presents, duree: 60, commune: 'AGEN', fiche_bilan: '',
+  });
+  const PERIODE = ['2026-07-01', '2026-09-30'];
+
+  it('ateliers réalisés, inscrits et présents concordent quand tout est saisi', () => {
+    const E = [
+      atelier('a', '2026-07-02', 'Réalisé', 8, 6), atelier('b', '2026-08-10', 'Réalisé', 4, 4),
+      atelier('c', '2026-09-01', 'Annulé', 5, null), atelier('d', '2026-10-01', 'Réalisé', 9, 9),   // hors période
+    ];
+    const dansPeriode = E.filter(e => e.date >= PERIODE[0] && e.date <= PERIODE[1]);
+    const k = kpiHistorique(dansPeriode);
+    const b = bilanTrimestriel(E, PERIODE[0], PERIODE[1], []);
+    assert.equal(b.activite.realises, k.realises);
+    assert.equal(b.activite.presents, k.presents);
+    assert.equal(b.activite.tauxPresence, k.tx);
+  });
+
+  it('les statuts du bilan retrouvent le total de l\'Historique', () => {
+    const E = [atelier('a', '2026-07-02', 'Réalisé', 8, 6), atelier('c', '2026-09-01', 'Annulé', 5, null), atelier('p', '2026-09-15', 'Planifié', 4, null)];
+    const k = kpiHistorique(E);
+    const b = bilanTrimestriel(E, PERIODE[0], PERIODE[1], []);
+    assert.equal(Object.values(b.activite.statuts).reduce((x, y) => x + y, 0), k.total);
+  });
+
+  // Règle arrêtée par l'utilisateur le 20/10/2026 : le taux porte sur les seuls
+  // ateliers réalisés dont les présents sont saisis (75 %, pas 50 %). Le même
+  // nombre sort de l'Historique, du bilan trimestriel et du mail mensuel
+  // (api/lib/bilan.php, testé sur MySQL par api-tests/bilan.test.php).
+  it('présents non saisis : 75 % partout, jamais 50 %', () => {
+    const E = [atelier('a', '2026-07-02', 'Réalisé', 8, 6), atelier('b', '2026-08-10', 'Réalisé', 4, '')];
+    assert.equal(kpiHistorique(E).tx, 75);
+    assert.equal(bilanTrimestriel(E, PERIODE[0], PERIODE[1], []).activite.tauxPresence, 75);
+  });
+  it('0 présent saisi compte ; présents absents (null, vide) sortent du taux', () => {
+    const E = [atelier('a', '2026-07-02', 'Réalisé', 10, 0), atelier('b', '2026-08-10', 'Réalisé', 10, null), atelier('c', '2026-08-11', 'Réalisé', 10, undefined)];
+    assert.equal(kpiHistorique(E).tx, 0);
+    assert.equal(bilanTrimestriel(E, PERIODE[0], PERIODE[1], []).activite.tauxPresence, 0);
+  });
+  it('un atelier sans inscrits n\'entre pas dans le taux', () => {
+    const E = [atelier('a', '2026-07-02', 'Réalisé', 0, 5), atelier('b', '2026-08-10', 'Réalisé', 10, 5)];
+    assert.equal(kpiHistorique(E).tx, 50);
+    assert.equal(bilanTrimestriel(E, PERIODE[0], PERIODE[1], []).activite.tauxPresence, 50);
+  });
+  it('seuls les ateliers réalisés comptent', () => {
+    const E = [atelier('a', '2026-07-02', 'Annulé', 10, 0), atelier('b', '2026-08-10', 'Réalisé', 10, 10)];
+    assert.equal(kpiHistorique(E).tx, 100);
+  });
+});
