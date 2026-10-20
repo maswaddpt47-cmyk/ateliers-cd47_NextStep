@@ -29,7 +29,7 @@ Extrait du guide de collaboration multi-projets, adapté pour ce dépôt.
 6. Sur tout appel Bash touchant un repo précis en contexte multi-repo, utiliser `cd /chemin/complet &&` systématiquement ; vérifier `git status`/`git log` et la cohérence CLAUDE.md vs instructions de session avant d'agir, pas après.
 7. Toujours faire un `git pull origin main` avant de lire ou modifier le moindre fichier, même si le repo semble à jour — l'oubli est une cause récurrente d'écrasement de travail. Respecter la politique de push définie ci-dessous (push direct sur `main`, sauf instruction de session explicite contraire) et signaler tout conflit entre les deux avant d'agir, pas après.
 8. Après toute reprise de session ou résumé de contexte, relire l'état réel du fichier concerné avant de le modifier ou de le renvoyer — ne jamais présumer qu'un correctif précédent est encore en place.
-8bis. Utiliser des dates explicites (JJ/MM ou JJ/MM/AAAA) plutôt que des termes relatifs ("hier", "aujourd'hui", "la semaine dernière", "demain") : la perception du temps de Claude vient d'un contexte injecté en début de session, pas d'une horloge en temps réel — elle devient peu fiable sur une session qui s'étale sur plusieurs jours ou plusieurs reprises.
+8bis. Utiliser des dates explicites (JJ/MM ou JJ/MM/AAAA) plutôt que des termes relatifs ("hier", "aujourd'hui", "la semaine dernière", "demain") : la perception du temps de Claude vient d'un contexte injecté en début de session, pas d'une horloge en temps réel — elle devient peu fiable sur une session qui s'étale sur plusieurs jours ou plusieurs reprises. Toute heure donnée à l'utilisateur est en **heure de Paris** : GitHub, les API et les journaux affichent l'UTC, à convertir avant de l'écrire (MD-LIB `collaboration.md` 8bis, 02/10/2026).
 9. Avant de pousser un changement visuel (CSS/layout), vérifier mentalement les interactions connues à risque (stacking context, overflow, position sticky/fixed) sur les zones sensibles existantes.
 10. Sur tout problème réseau qui dure plus de 3 itérations : demander une capture Network DevTools ou le journal Admin avant de continuer à supposer.
 11. Dès qu'un bug réseau ou serveur est signalé, vérifier d'abord que le dernier `deploy-api.yml` d'ATELIERS_NEWGEN a réussi et à quelle heure.
@@ -51,6 +51,10 @@ Extrait du guide de collaboration multi-projets, adapté pour ce dépôt.
 22. **Un nombre annoncé se compte par une commande dont la sortie est le nombre** (règle 29), pas à l'œil sur une liste ; sinon le dire comme une estimation. Constat du 27/09/2026 : « 13 » annoncé d'après une sortie de `grep`, recompté à 12 par une autre session.
 
 23. **Fichier partagé entre sessions** (`AGORA.md`, `CHANTIERS.md`, `CLAUDE.md`) **: refaire un `git fetch` et relire juste avant de rédiger** (règle 30), pas seulement à l'ouverture — le pull de départ ne couvre pas la fenêtre entre la lecture et le commit. Constat du 27/09/2026 : un commit préparé a été rejeté en non-fast-forward, le travail était déjà fait par une autre session, dans un autre format.
+
+24. **Un comportement qui change emporte ses textes** (MD-LIB `collaboration.md`, règle 23) : dans la même livraison, chercher tous les textes visibles qui décrivent l'ancien comportement (dialogues de confirmation, aide, annonces publiées, messages d'erreur) et les corriger, ou les signaler s'ils sortent du périmètre. Constat du 02/10/2026 (ATELIERS) : la Corbeille ouverte aux conseillers, trois textes disaient encore « passez par l'administrateur ».
+
+25. **Une capture envoyée pour valider un point se lit en entier** (règle 24) : toute incohérence visible hors du point demandé (doublon, valeur impossible, ordre anormal) se signale, en hypothèse non vérifiée, avec la proposition de vérifier — sans corriger d'office. Constat du 02/10/2026 (ATELIERS) : des numéros en double sur une capture de la Corbeille ont révélé une faute de l'API.
 
 **Bonnes pratiques à maintenir**
 
