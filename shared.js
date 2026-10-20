@@ -5108,12 +5108,20 @@ function CreneauxLibres({annees,entries,conseillers,conseillerFixe,onNouveau,onC
             '🔄 Créer un cycle avec la sélection ('+sel.filter(k=>libres.some(c=>c.date+'|'+c.demi===k)).length+')'),
           sel.length>0&&CE('button',{className:'btn btn-secondary btn-sm',onClick:()=>setSel([])},'Vider'),
           CE('button',{className:'btn btn-secondary btn-sm',onClick:copier},choisis.length?'📋 Copier la sélection ('+choisis.length+')':'📋 Copier la liste'))),
-      CE('div',{style:{maxHeight:320,overflowY:'auto',border:'1px solid var(--border,#e2e8f0)',borderRadius:8}},
-        parDate.map(x=>CE('div',{key:x.date,style:{display:'flex',alignItems:'center',gap:8,padding:'6px 10px',borderBottom:'1px solid var(--border,#e2e8f0)'}},
-          CE('span',{style:{fontSize:13,fontWeight:700,minWidth:120}},libJour(x.date)),
-          moments.map(dm=>!x.demis.includes(dm)?(pris[x.date+'|'+dm]&&CE('span',{key:dm,title:'Déjà pris',style:{fontSize:12,color:'var(--text-3,#64748b)',padding:'3px 6px'}},
-            '🔒 '+(dm==='AM'?'Matin':'Après-midi')+' : '+pris[x.date+'|'+dm]))
-          :CE('span',{key:dm,style:{display:'inline-flex',alignItems:'center',gap:3}},
+      // Colonnes fixes (20/10/2026) : matin et après-midi toujours au même
+      // endroit d'une ligne à l'autre ; une demi-journée prise = pastille 🔒,
+      // le partenaire au survol (PC) ou au toucher (bandeau, téléphone).
+      CE('div',{style:{maxHeight:320,overflowY:'auto',overflowX:'auto',border:'1px solid var(--border,#e2e8f0)',borderRadius:8}},
+        parDate.map(x=>CE('div',{key:x.date,style:{display:'grid',gridTemplateColumns:'7.5em '+moments.map(()=>'9.5em').join(' '),alignItems:'center',gap:8,padding:'6px 10px',borderBottom:'1px solid var(--border,#e2e8f0)'}},
+          CE('span',{style:{fontSize:13,fontWeight:700,whiteSpace:'nowrap'}},libJour(x.date)),
+          moments.map(dm=>!x.demis.includes(dm)?CE('span',{key:dm,style:{display:'inline-flex',alignItems:'center',gap:3}},
+            pris[x.date+'|'+dm]&&CE(React.Fragment,null,
+              onCycle&&CE('span',{style:{width:16,flex:'0 0 16px'}}),
+              CE('button',{type:'button',title:pris[x.date+'|'+dm],'aria-label':(dm==='AM'?'Matin':'Après-midi')+' pris : '+pris[x.date+'|'+dm],
+                onClick:()=>showToast('🔒 '+libJour(x.date)+', '+(dm==='AM'?'matin':'après-midi')+' : '+pris[x.date+'|'+dm]),
+                style:{padding:'3px 10px',borderRadius:12,fontSize:12,cursor:'help',border:'1px solid #cbd5e1',background:'#f1f5f9',color:'#64748b',whiteSpace:'nowrap'}},
+                '🔒 '+(dm==='AM'?'Matin':'Après-midi'))))
+          :CE('span',{key:dm,style:{display:'inline-flex',alignItems:'center',gap:3,whiteSpace:'nowrap'}},
             onCycle&&CE('input',{type:'checkbox',checked:sel.includes(x.date+'|'+dm),onChange:()=>cocher(x.date+'|'+dm),
               title:'Ajouter au cycle','aria-label':'Ajouter '+libJour(x.date)+' '+(dm==='AM'?'matin':'après-midi')+' au cycle',style:{width:16,height:16,margin:0,cursor:'pointer'}}),
             CE('button',{type:'button',disabled:!onNouveau,title:onNouveau?'Saisir un atelier ce '+(dm==='AM'?'matin':'après-midi'):undefined,
