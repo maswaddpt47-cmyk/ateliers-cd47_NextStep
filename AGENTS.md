@@ -12,8 +12,11 @@ spécifiques du projet restent applicables.
 2. Lire `CLAUDE.md`, `CHANTIERS.md` et les instructions des sous-dossiers
    lorsqu’ils existent. Respecter leurs règles de branche, tests et publication.
    Un chantier ancien ne remplace pas la demande actuelle de l’utilisateur.
-3. Lire `collaboration.md` dans `maswaddpt47-cmyk/MD-LIB` si cet accès est
-   disponible. Consulter les autres documents selon la tâche : Git, hygiène,
+3. Avant toute intervention, lire intégralement le `collaboration.md` local
+   et appliquer ses règles pendant toute la session, y compris après une
+   reprise de contexte. À défaut de copie locale, lire celui de
+   `maswaddpt47-cmyk/MD-LIB` si cet accès est disponible.
+   Consulter les autres documents selon la tâche : Git, hygiène,
    déploiement, sécurité, AGORA, PWA. Les références CD47 ne s’appliquent
    qu’aux projets concernés, jamais automatiquement aux projets personnels.
 4. Si une ressource manque, le signaler une fois, sans inventer son contenu.
@@ -36,6 +39,9 @@ spécifiques du projet restent applicables.
 
 - L’utilisateur décide des déviations à une spécification ou référence :
   exposer la proposition et demander l’arbitrage avant de changer le périmètre.
+- Signaler toute contradiction entre les consignes avant l’action concernée.
+  Proposer toute nouvelle règle de collaboration à l’utilisateur et attendre
+  son accord avant de l’ajouter aux fichiers d’instructions.
 - Poser une question si une ambiguïté réelle empêche de choisir correctement ;
   les tâches indépendantes continuent pendant l’attente.
 - Distinguer fait mesuré et « hypothèse non vérifiée ». Lire une capture entière
