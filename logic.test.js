@@ -625,6 +625,21 @@ describe('creneauxLibres', () => {
   });
 });
 
+// Ce qui occupe une demi-journée (20/10/2026) : le partenaire, sinon « Outlook ».
+const {creneauxPris} = require('./logic.js');
+describe('creneauxPris', () => {
+  it('orienteur de l\'atelier, Outlook seul, annulé ignoré, deux ateliers joints', () => {
+    const at = (date, horaire, extra) => ({date, horaire, conseiller:'Alice', statut:'Planifié', ...extra});
+    const r = creneauxPris([
+      at('2026-10-22','14:00',{orienteur:'La Régie'}),
+      at('2026-10-27','09:00',{orienteur:'CMS', statut:'Annulé'}),
+      at('2026-10-29','09:00',{orienteur:'', lieu:'Médiathèque'}),
+      at('2026-10-29','10:30',{orienteur:'CCAS'}),
+    ], {conseiller:'Alice', du:'2026-10-20', au:'2026-11-16', bloques:['2026-10-27|AM']});
+    assert.deepEqual(r, {'2026-10-22|PM':'La Régie', '2026-10-27|AM':'Outlook', '2026-10-29|AM':'Médiathèque + CCAS'});
+  });
+});
+
 // ── Contrôles de saisie (12/10/2026) ─────────────────────────────────────────
 const {conflitsConseiller, demiSaisie} = require('./logic.js');
 describe('conflitsConseiller', () => {

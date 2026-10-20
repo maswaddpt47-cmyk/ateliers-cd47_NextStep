@@ -452,6 +452,32 @@ function creneauxLibres(entries, o) {
   return res;
 }
 
+// Ce qui occupe chaque demi-journée (20/10/2026), affiché à côté des créneaux
+// libres : « Matin libre — après-midi : La Régie ». Mêmes règles que
+// creneauxLibres. Libellé : orienteur (le partenaire), sinon lieu, commune,
+// thématique ; plusieurs ateliers joints par « + ». Bloqué par Outlook seul :
+// « Outlook » (l'import ne garde pas les titres).
+// Rend { 'AAAA-MM-JJ|AM': libellé, … }.
+function creneauxPris(entries, o) {
+  const pris = {};
+  (o.bloques || []).forEach(k => { pris[k] = 'Outlook'; });
+  const vus = {};
+  (entries || []).forEach(e => {
+    if (!e || (e.conseiller !== o.conseiller && e.co_animateur !== o.conseiller)) return;
+    if (e.statut === 'Annulé' || e.statut === 'Reporté') return;
+    const d = normalizeDate(e.date);
+    if (!d || (o.du && d < o.du) || (o.au && d > o.au)) return;
+    const lib = String(e.orienteur || e.lieu || e.commune || e.thematique || 'Atelier').trim();
+    const demi = demiJourneeAtelier(e);
+    (demi ? [demi] : ['AM', 'PM']).forEach(dm => {
+      const k = d + '|' + dm;
+      const l = vus[k] || (vus[k] = []);
+      if (!l.includes(lib)) l.push(lib);
+    });
+  });
+  Object.keys(vus).forEach(k => { pris[k] = vus[k].join(' + '); });
+  return pris;
+}
 
 // ── Contrôles de saisie (12/10/2026) ──────────────────────────
 // Demi-journée d'un atelier en cours de saisie : l'heure tapée prime sur
@@ -536,6 +562,6 @@ if (typeof module !== 'undefined') {
     estWeekend, veilleOuvree, lendemainOuvre,
     creneauAtelier, demisAtelier, analyseJourMateriel, MARGE_MATERIEL_MIN, hhmm,
     bornesTrimestre, trimestrePrecedent, bilanTrimestriel,
-    creneauxLibres, demiSaisie, conflitsConseiller, propagerPremiereLigne, basculerDemiLigne, demiLigne,
+    creneauxLibres, creneauxPris, demiSaisie, conflitsConseiller, propagerPremiereLigne, basculerDemiLigne, demiLigne,
   };
 }

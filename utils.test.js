@@ -746,6 +746,15 @@ describe('basculerBilan', () => {
 
 // ── Rendez-vous Outlook → demi-journées occupées (12/10/2026) ─────────────────
 const {demiJourneesOccupeesICS} = require('./utils.js');
+describe('periodeExportICS', () => {
+  it('lit X-CLIPSTART/X-CLIPEND en heure de Paris, fin exclue ; absente = null (20/10/2026)', () => {
+    const { periodeExportICS } = require('./utils.js');
+    // Export Outlook « journée en cours » du 20/10 : un seul jour couvert.
+    assert.deepEqual(periodeExportICS('X-CLIPSTART:20261019T220000Z\r\nX-CLIPEND:20261020T220000Z\r\n'), { de: '2026-10-20', a: '2026-10-20' });
+    assert.deepEqual(periodeExportICS('X-CLIPSTART:20261019T220000Z\nX-CLIPEND:20261116T230000Z'), { de: '2026-10-20', a: '2026-11-16' });
+    assert.equal(periodeExportICS('BEGIN:VCALENDAR\nEND:VCALENDAR'), null);
+  });
+});
 describe('demiJourneesOccupeesICS', () => {
   const ics = (...evts) => 'BEGIN:VCALENDAR\r\n' + evts.map(e => 'BEGIN:VEVENT\r\n' + e.join('\r\n') + '\r\nEND:VEVENT\r\n').join('') + 'END:VCALENDAR';
   it('matin, chevauchement de midi, journée entière de deux jours, libre ignoré', () => {

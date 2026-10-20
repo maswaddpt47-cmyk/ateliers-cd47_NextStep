@@ -881,7 +881,19 @@ function demiJourneesOccupeesICS(texte) {
       dates.filter(d => !exclues.has(d)).forEach(d => marquer(d, e));
     } else marquer(e.debut.date, e);
   }
-  return { occupees: [...occ].sort(), ignores };
+  return { occupees: [...occ].sort(), ignores, couvre: periodeExportICS(texte) };
+}
+// Période couverte par un export Outlook (20/10/2026) : en-tête X-CLIPSTART /
+// X-CLIPEND, en UTC, la fin exclue. Par défaut Outlook n'exporte que la
+// journée en cours : sans cette période, les jours suivants paraissaient
+// libres alors que l'agenda était plein. Rend { de, a } (inclus) ou null.
+function periodeExportICS(texte) {
+  const lire = nom => { const m = String(texte || '').match(new RegExp('^' + nom + ':(\\d{8}T\\d{6}Z?)', 'm')); return m ? _icsDate(m[1]) : null; };
+  const de = lire('X-CLIPSTART'), fin = lire('X-CLIPEND');
+  if (!de || !fin) return null;
+  // Fin exclue : minuit pile appartient au jour suivant, on recule d'un jour.
+  const a = fin.horaire === '00:00' ? addJoursIso(fin.date, -1) : fin.date;
+  return a >= de.date ? { de: de.date, a } : null;
 }
 // _id d'atelier stable pour une occurrence Outlook : réimporter le même
 // rendez-vous retrouve l'atelier déjà créé au lieu d'en créer un second.
@@ -934,7 +946,7 @@ function idOutlook(cle) {
 
 if (typeof module !== 'undefined') {
   module.exports={
-    lireICS, evenementsOutlook, idOutlook, rapprocherOutlook, demiJourneesOccupeesICS,
+    lireICS, evenementsOutlook, idOutlook, rapprocherOutlook, demiJourneesOccupeesICS, periodeExportICS,
     genererDatesCycle, joursFeries,
     nouveautesNonVues, nouveautesPourPage, semainesEntre,
     visibiliteEffective,

@@ -5031,7 +5031,7 @@ function CreneauxLibres({annees,entries,conseillers,conseillerFixe,onNouveau,onC
   function importerOlk(f){
     if(!f)return;const r=new FileReader();
     r.onload=()=>{const res=demiJourneesOccupeesICS(String(r.result||''));
-      const v={conseiller:cons,le:todayLocal(),occupees:res.occupees,ignores:res.ignores};
+      const v={conseiller:cons,le:todayLocal(),occupees:res.occupees,ignores:res.ignores,couvre:res.couvre||null};
       setOlk(v);try{localStorage.setItem(CLE_OLK,JSON.stringify(v));}catch(_){}
       showToast('✅ '+res.occupees.length+' demi-journée(s) occupée(s) lue(s) dans Outlook'+(res.ignores?' — '+res.ignores+' série(s) non lue(s)':''));};
     r.readAsText(f);
@@ -5041,6 +5041,8 @@ function CreneauxLibres({annees,entries,conseillers,conseillerFixe,onNouveau,onC
   const bascule=(liste,set,v)=>set(liste.includes(v)?liste.filter(x=>x!==v):[...liste,v].sort());
   const libres=React.useMemo(()=>creneauxLibres(entries,{conseiller:cons,du,au,jours,moments,bloques:olkActif?olkActif.occupees:[],
     estFerie:d=>joursFeries(+d.slice(0,4))[d]||''}),[entries,cons,du,au,jours,moments,olkActif]);
+  // Demi-journées prises (20/10/2026) : le partenaire affiché à côté du créneau libre.
+  const pris=React.useMemo(()=>creneauxPris(entries,{conseiller:cons,du,au,bloques:olkActif?olkActif.occupees:[]}),[entries,cons,du,au,olkActif]);
   // Sélection active (13/10/2026) : « Copier » ne prend que les cases cochées.
   const choisis=libres.filter(c=>sel.includes(c.date+'|'+c.demi));
   const grouper=liste=>{const g=[];liste.forEach(c=>{const l=g[g.length-1];if(l&&l.date===c.date)l.demis.push(c.demi);else g.push({date:c.date,demis:[c.demi]});});return g;};
@@ -5083,6 +5085,11 @@ function CreneauxLibres({annees,entries,conseillers,conseillerFixe,onNouveau,onC
           CE('button',{className:'btn btn-secondary btn-sm',style:{fontSize:11},onClick:retirerOlk},'Retirer'))
         :CE('span',{style:{color:'var(--text-3,#64748b)'}},'Dans Outlook : Fichier → Enregistrer le calendrier → « Disponibilité uniquement » → fichier .ics.'),
       CE('span',{style:{flexBasis:'100%',color:'#92400e'}},'Congés et absences : dans Outlook, réglez « Afficher en tant que » sur « Absent(e) » — un événement laissé en « Libre » n\'est pas exporté. L\'import reste sur cet appareil : après un effacement des cookies et données du site, rechargez votre fichier.')),
+    // Export Outlook plus court que la période (20/10/2026) : Outlook n'exporte
+    // par défaut que la journée en cours, les jours suivants paraissaient libres.
+    (()=>{const c=olkActif&&olkActif.couvre;if(!c||!du||!au||(du>=c.de&&au<=c.a))return null;
+      return CE('div',{style:{fontSize:13,fontWeight:600,color:'#b45309',background:'#fffbeb',border:'1px solid #fcd34d',borderRadius:8,padding:'8px 10px',marginBottom:10}},
+        '⚠️ Votre export Outlook ne couvre que '+(c.de===c.a?'le '+fmtDate(c.de):'du '+fmtDate(c.de)+' au '+fmtDate(c.a))+' : vos rendez-vous en dehors sont inconnus et ces jours peuvent paraître libres à tort. Dans Outlook : Fichier → Enregistrer le calendrier → Plus d\'options → Plage de dates « Spécifier les dates » (du '+fmtDate(du)+' au '+fmtDate(au)+'), puis rechargez le fichier ici.');})(),
     // Années de la période non chargées (13/10/2026) : leurs ateliers sont
     // absents d'`entries`, ces jours paraîtraient libres à tort.
     (()=>{if(!annees||!du||!au)return null;const ch=anneesListe(annees),manque=[];
@@ -5104,7 +5111,9 @@ function CreneauxLibres({annees,entries,conseillers,conseillerFixe,onNouveau,onC
       CE('div',{style:{maxHeight:320,overflowY:'auto',border:'1px solid var(--border,#e2e8f0)',borderRadius:8}},
         parDate.map(x=>CE('div',{key:x.date,style:{display:'flex',alignItems:'center',gap:8,padding:'6px 10px',borderBottom:'1px solid var(--border,#e2e8f0)'}},
           CE('span',{style:{fontSize:13,fontWeight:700,minWidth:120}},libJour(x.date)),
-          x.demis.map(dm=>CE('span',{key:dm,style:{display:'inline-flex',alignItems:'center',gap:3}},
+          moments.map(dm=>!x.demis.includes(dm)?(pris[x.date+'|'+dm]&&CE('span',{key:dm,title:'Déjà pris',style:{fontSize:12,color:'var(--text-3,#64748b)',padding:'3px 6px'}},
+            '🔒 '+(dm==='AM'?'Matin':'Après-midi')+' : '+pris[x.date+'|'+dm]))
+          :CE('span',{key:dm,style:{display:'inline-flex',alignItems:'center',gap:3}},
             onCycle&&CE('input',{type:'checkbox',checked:sel.includes(x.date+'|'+dm),onChange:()=>cocher(x.date+'|'+dm),
               title:'Ajouter au cycle','aria-label':'Ajouter '+libJour(x.date)+' '+(dm==='AM'?'matin':'après-midi')+' au cycle',style:{width:16,height:16,margin:0,cursor:'pointer'}}),
             CE('button',{type:'button',disabled:!onNouveau,title:onNouveau?'Saisir un atelier ce '+(dm==='AM'?'matin':'après-midi'):undefined,
