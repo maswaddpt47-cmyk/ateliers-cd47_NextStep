@@ -328,7 +328,11 @@ function App(){
       const noms=res.comptes.filter(c=>c.role!=='superviseur').map(c=>c.conseiller).filter(Boolean);
       if(noms.length>0) setLoginConseillers(noms);
       if(res.maintenance) setMaintenance({msg:res.maintenance_msg||''});
-    }).catch(()=>{});
+    }).catch(e=>{
+      // 403/503 : API coupée volontairement (coupure d'urgence) ou hors service.
+      // Message par défaut de MaintenanceScreen plutôt qu'une liste vide.
+      if(e&&(e.httpStatus===403||e.httpStatus===503)) setMaintenance({msg:''});
+    });
   },[]);
   const[sidebarPinned,setSidebarPinned] = React.useState(()=>localStorage.getItem(lsKey('sidebar_pinned'))==='1');
 
