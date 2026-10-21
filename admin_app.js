@@ -21,7 +21,7 @@ function clearSession(){
 // ════════════════════════════════════════════════════════════
 // 3 échecs → blocage 5 min, countdown visible, reset auto.
 // ════════════════════════════════════════════════════════════
-function AdminLogin({onLogin,savedName,onResetProfil,conseillers:conseillersProp}){
+function AdminLogin({onLogin,savedName,onResetProfil,conseillers:conseillersProp,indispo}){
   const MAX_FAILS=3, LOCK_MS=5*60*1000;
 
   const[pwd,setPwd]=React.useState('');
@@ -112,6 +112,7 @@ function AdminLogin({onLogin,savedName,onResetProfil,conseillers:conseillersProp
   return CE('div',{className:'login-wrap'},
     CE('div',{className:'login-card'},
       CE('h2',null,'🔐 Accès Admin '+NOM_APPLI),
+      indispo&&CE('div',{style:{background:'#fef9c3',color:'#92400e',border:'1px solid #fcd34d',borderRadius:8,padding:'10px 14px',fontSize:13,lineHeight:1.5,marginBottom:12}},'🔧 Service en maintenance : connexion impossible pour le moment. Réessaie plus tard.'),
       isLocked
         ? CE('div',{style:{textAlign:'center',padding:'28px 0'}},
             CE('div',{style:{fontSize:44,marginBottom:10}},'🔒'),
@@ -197,11 +198,12 @@ function App(){
   });
   // Chargé avant l'auth pour alimenter le dropdown de login
   const[loginConseillers,setLoginConseillers]=React.useState(CONSEILLERS_DEFAULT);
+  const[apiIndispo,setApiIndispo]=React.useState(false); // 403/503 sur getComptes
   // Dropdown construit sur getComptes seul : la feuille Comptes porte déjà le
   // nom, le rôle et l'état actif de chacun. Le getAll qui servait à récupérer
   // lists.conseillers coûtait ~20 s pour la même information.
   React.useEffect(()=>{
-    apiFetch('getComptes').catch(()=>null).then(res=>{
+    apiFetch('getComptes').catch(e=>{ if(e&&(e.httpStatus===403||e.httpStatus===503)) setApiIndispo(true); return null; }).then(res=>{
       const comptes=res?.ok&&res.comptes?res.comptes:[];
       if(comptes.length===0)return; // on garde CONSEILLERS_DEFAULT
       // Labo : l'API filtre déjà (source=admin → interrupteurs activés seuls)
@@ -512,7 +514,7 @@ const LOGS_KEY = lsKey('adm_logs');
 
   const[role,setRole]=React.useState('');
   if(jetonReinit)return CE('div',{className:'login-wrap'},CE('div',{className:'login-card'},CE(VueReinitMotDePasse,{jeton:jetonReinit,onFini:()=>setJetonReinit(null)})));
-  if(!auth)return CE(AdminLogin,{onLogin:(r,nom)=>{setAuth(true);setRole(r||'user');const key=r==='superviseur'?'admin':nom;if(nom){localStorage.setItem(lsKey('adm_conseiller'),key);setAdminConseiller(key);}},savedName:adminConseiller,onResetProfil:()=>{localStorage.removeItem(lsKey('adm_conseiller'));setAdminConseiller('');},conseillers:loginConseillers})
+  if(!auth)return CE(AdminLogin,{onLogin:(r,nom)=>{setAuth(true);setRole(r||'user');const key=r==='superviseur'?'admin':nom;if(nom){localStorage.setItem(lsKey('adm_conseiller'),key);setAdminConseiller(key);}},savedName:adminConseiller,onResetProfil:()=>{localStorage.removeItem(lsKey('adm_conseiller'));setAdminConseiller('');},conseillers:loginConseillers,indispo:apiIndispo})
 
   if(!adminConseiller)return CE('div',{className:'login-wrap'},
     CE('div',{className:'login-card'},
