@@ -513,6 +513,7 @@ const LOGS_KEY = lsKey('adm_logs');
   },[entries]);
 
   const[role,setRole]=React.useState('');
+  const veilleKo=etatVeille(useVeille(auth&&(role==='admin'||role==='superviseur')))===false;
   if(jetonReinit)return CE('div',{className:'login-wrap'},CE('div',{className:'login-card'},CE(VueReinitMotDePasse,{jeton:jetonReinit,onFini:()=>setJetonReinit(null)})));
   if(!auth)return CE(AdminLogin,{onLogin:(r,nom)=>{setAuth(true);setRole(r||'user');const key=r==='superviseur'?'admin':nom;if(nom){localStorage.setItem(lsKey('adm_conseiller'),key);setAdminConseiller(key);}},savedName:adminConseiller,onResetProfil:()=>{localStorage.removeItem(lsKey('adm_conseiller'));setAdminConseiller('');},conseillers:loginConseillers,indispo:apiIndispo})
 
@@ -599,7 +600,7 @@ const LOGS_KEY = lsKey('adm_logs');
       role==='admin'&&sideBtn('admin','⚙️','Admin'),
       (role==='admin'||role==='superviseur')&&sideBtn('logs_connexion','🔐','Connexions'),
       (role==='admin'||role==='superviseur')&&sideBtn('corbeille','🗑️','Corbeille'),
-      (role==='admin'||role==='superviseur')&&sideBtn('sauvegardes','💾','Sauvegardes'),
+      (role==='admin'||role==='superviseur')&&CE('div',{style:{position:'relative'}},sideBtn('sauvegardes','💾','Sauvegardes'),veilleKo&&CE(PastilleAlerte,{titre:'Surveillance du serveur interrompue'})),
       (role==='admin'||role==='superviseur')&&CE('div',{style:{position:'relative'}},sideBtn('tickets','🎫','Tickets'),CE(PastilleNouveautes,{nb:nbTickets,libelle:'nouveau(x) ticket(s)'})),
 
       // Bas : sélecteur année + notifs
@@ -895,6 +896,40 @@ window.addEventListener('ateliers:deconnexion',()=>{ logsCache=null; });   // pa
 // ── Sauvegardes (AG-014, 25/09/2026) ───────────────────────────────────────
 // Lecture seule + copie à la demande. Pas de restauration complète ici, par
 // choix : une session Admin volée ne doit pas pouvoir effacer la base.
+// Veilleur du contrôle d'intégrité (AG-028) : lu sur l'API publique de GitHub,
+// sans jeton. Une lecture partagée par la pastille de 💾 Sauvegardes (lue à
+// l'ouverture de l'Admin, 24/10/2026) et la tuile de l'onglet, refaite au plus
+// toutes les 10 min. Le contrôle tourne dans ATELIERS_NEWGEN pour les deux sites.
+let veilleCache=null;
+function lireVeille(){
+  if(veilleCache&&Date.now()-veilleCache.ts<10*60000) return veilleCache.p;
+  const gh=w=>fetch('https://api.github.com/repos/maswaddpt47-cmyk/ATELIERS_NEWGEN/actions/workflows/'+w)
+    .then(r=>{ if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); });
+  const p=Promise.all([gh('integrite-api.yml/runs?status=success&per_page=1'),gh('veilleur.yml/runs?per_page=5')])
+    .then(([c,v])=>({
+      dernier:(c.workflow_runs&&c.workflow_runs[0]&&c.workflow_runs[0].run_started_at)||'',
+      // Relève : le successeur attend en file, pas encore « en cours ».
+      actif:(v.workflow_runs||[]).some(x=>x.status!=='completed')}))
+    .catch(()=>({erreur:true}));
+  veilleCache={ts:Date.now(),p};
+  return p;
+}
+// null : pas encore lu ; {erreur:true} : GitHub injoignable ; {dernier,actif}.
+function useVeille(actif){
+  const[v,setV]=React.useState(null);
+  React.useEffect(()=>{
+    if(!actif) return;
+    let vivant=true;
+    lireVeille().then(r=>{ if(vivant) setV(r); });
+    return()=>{ vivant=false; };
+  },[actif]);
+  return v;
+}
+// true / false / null (inconnu). Même seuil que le veilleur : 125 min sans
+// contrôle réussi = surveillance interrompue.
+const etatVeille=v=>(!v||v.erreur)?null:(v.actif&&Date.now()-new Date(v.dernier).getTime()<125*60000);
+const PastilleAlerte=({titre})=>CE('span',{title:titre,'aria-label':titre,style:{position:'absolute',top:2,right:2,width:16,height:16,borderRadius:8,background:'#dc2626',color:'#fff',fontSize:11,fontWeight:800,lineHeight:'16px',textAlign:'center',boxShadow:'0 0 0 2px rgba(255,255,255,.85)',pointerEvents:'none'}},'!');
+
 function VueSauvegardes(){
   const[etat,setEtat]=React.useState(null);
   const[err,setErr]=React.useState('');
@@ -906,20 +941,7 @@ function VueSauvegardes(){
       .catch(e=>setErr(e.message||'Erreur réseau'));
   }
   React.useEffect(charger,[]);
-  // Veilleur du contrôle d'intégrité (AG-028, demande du 24/10/2026) : lu sur
-  // l'API publique de GitHub, sans jeton, à l'ouverture de cet onglet
-  // seulement. Le contrôle tourne dans ATELIERS_NEWGEN pour les deux sites.
-  const[veille,setVeille]=React.useState(null);
-  React.useEffect(()=>{
-    const gh=w=>fetch('https://api.github.com/repos/maswaddpt47-cmyk/ATELIERS_NEWGEN/actions/workflows/'+w)
-      .then(r=>{ if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); });
-    Promise.all([gh('integrite-api.yml/runs?status=success&per_page=1'),gh('veilleur.yml/runs?per_page=5')])
-      .then(([c,v])=>setVeille({
-        dernier:(c.workflow_runs&&c.workflow_runs[0]&&c.workflow_runs[0].run_started_at)||'',
-        // Relève : le successeur attend en file, pas encore « en cours ».
-        actif:(v.workflow_runs||[]).some(x=>x.status!=='completed')}))
-      .catch(()=>setVeille({erreur:true}));
-  },[]);
+  const veille=useVeille(true);
   async function copierMaintenant(){
     setCopie(true);
     try{
@@ -935,8 +957,7 @@ function VueSauvegardes(){
   const derniere=etat&&etat.copies&&etat.copies[0];
   const p2=n=>String(n).padStart(2,'0');
   const affIso=s=>{ const d=new Date(s); return isNaN(d)?'jamais':affDate(d.getFullYear()+'-'+p2(d.getMonth()+1)+'-'+p2(d.getDate())+' '+p2(d.getHours())+':'+p2(d.getMinutes())); };
-  // Même seuil que le veilleur : 125 min sans contrôle réussi = interrompu.
-  const veilleOk=veille&&!veille.erreur?(veille.actif&&age(veille.dernier)<125/60):null;
+  const veilleOk=etatVeille(veille);
   // ok === null : état inconnu (GitHub injoignable), ni vert ni rouge.
   const tuile=(titre,ok,ligne,detail)=>CE('div',{style:{flex:'1 1 240px',padding:'12px 14px',borderRadius:10,border:'1px solid '+(ok===null?'#e5e7eb':ok?'#bbf7d0':'#fecaca'),background:ok===null?'#f9fafb':ok?'#f0fdf4':'#fef2f2'}},
     CE('div',{style:{fontSize:12,fontWeight:700,color:'#374151'}},titre),
