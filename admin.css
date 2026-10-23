@@ -322,9 +322,17 @@ nav { display: none !important; }
 /* Téléphone : le titre se tronque au lieu de passer sous les boutons de droite
    (chevauchement constaté sur l'Admin NEWGEN le 28/09/2026). */
 @media (max-width: 640px) {
-  .app-topbar { padding: 0 8px; gap: 6px; }
-  .app-topbar-right { gap: 4px; flex-shrink: 0; }
-  .app-topbar-sub, .topbar-sync-info { display: none; }
+  /* « .app-content » en tête : des règles placées plus bas (.topbar-sync-info)
+     écrasaient celles-ci à spécificité égale (constaté le 24/10/2026). */
+  .app-content .app-topbar { padding: 0 8px; gap: 4px; justify-content: flex-end; }
+  .app-content .app-topbar-right { gap: 4px; flex-shrink: 0; }
+  .app-content .app-topbar-sub, .app-content .topbar-sync-info { display: none; }
+  /* Le bandeau débordait de l'écran (458 px pour 390, 24/10/2026) : titre de
+     l'onglet masqué (déjà surligné dans la barre latérale), nom tronqué,
+     « Changer » et « Déconnexion » réduits à leur icône. */
+  .app-content .app-topbar > .topbar-onglet, .app-content .app-topbar-title { display: none; }
+  .app-content .app-topbar-conseiller { max-width: 56px; padding: 4px 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .app-content .app-topbar-right .topbar-lbl { display: none; }
 }
 
 .app-topbar-conseiller {

@@ -629,7 +629,7 @@ const LOGS_KEY = lsKey('adm_logs');
     CE('div',{className:'app-content'+(pinned?' app-content--pinned':'')},
 
       CE('div',{className:'app-topbar'},
-        CE('span',{style:{fontSize:16}},meta.ico),
+        CE('span',{className:'topbar-onglet',style:{fontSize:16}},meta.ico),
         CE('span',{className:'app-topbar-title'},meta.label),
         meta.group&&CE('span',{className:'app-topbar-sub'},'— '+meta.group),
         CE('div',{className:'app-topbar-right'},
@@ -646,12 +646,12 @@ const LOGS_KEY = lsKey('adm_logs');
             onClick:()=>{localStorage.removeItem(lsKey('adm_conseiller'));setAdminConseiller('');},
             title:'Changer d\'identité',
             style:{background:'none',border:'1px solid #e2e8f0',borderRadius:6,padding:'3px 8px',fontSize:11,color:'#718096',cursor:'pointer'}
-          },'👤 Changer'),
+          },'👤',CE('span',{className:'topbar-lbl'},' Changer')),
           CE('button',{
             onClick:handleLogout,
             title:'Déconnexion',
             style:{background:'none',border:'1px solid #e2e8f0',borderRadius:6,padding:'3px 8px',fontSize:11,color:'#718096',cursor:'pointer'}
-          },'🚪 Déconnexion')
+          },'🚪',CE('span',{className:'topbar-lbl'},' Déconnexion'))
         )
       ),
 
