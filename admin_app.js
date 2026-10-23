@@ -990,6 +990,11 @@ function VueSauvegardes(){
             veille===null||veille.erreur?'Dernier contrôle réussi : non lu':
               !veille.actif?'⚠️ Aucun veilleur en cours : la surveillance horaire est arrêtée':
               age(veille.dernier)<125/60?'Veilleur en service':'⚠️ Veilleur en service, mais aucun contrôle réussi depuis plus de 2 h : voir son dernier rapport',
+            // Consigne visible seulement quand il faut agir (24/10/2026).
+            veilleOk===false&&CE('div',{style:{marginTop:8,padding:'6px 8px',borderRadius:6,background:'#fff',border:'1px solid #fecaca',color:'#991b1b',fontSize:12,lineHeight:1.4}},
+              !veille.actif
+                ?'⚠️ Le serveur n\'est plus contrôlé toutes les heures (ce n\'est pas une panne du serveur). Touchez « Voir le veilleur sur GitHub », puis « Run workflow » et le bouton vert « Run workflow ». Un mail « Run failed » suit : normal, c\'est l\'alerte de reprise. Rechargez ici après quelques minutes : la tuile doit repasser au vert.'
+                :'⚠️ Les contrôles du serveur échouent. Sur GitHub, ouvrez le dernier « Intégrité API Alwaysdata » en rouge et lisez son rapport. Lignes IMPOSSIBLE : contrôle non fait (serveur ou connexion en panne), vérifiez que les sites répondent puis relancez-le. Lignes ALERTE : intrusion possible, appliquez la procédure d\'incident du registre de sécurité (§6.7), coupure d\'urgence de l\'API si le doute est sérieux ; ne relancez pas les contrôles en boucle.'),
             CE('br'),
             CE('a',{href:'https://github.com/maswaddpt47-cmyk/ATELIERS_NEWGEN/actions/workflows/veilleur.yml',target:'_blank',rel:'noopener',
               style:{display:'inline-block',marginTop:8,padding:'4px 10px',fontSize:12,fontWeight:700,borderRadius:6,textDecoration:'none',border:'1px solid #374151',color:'#374151'}},
