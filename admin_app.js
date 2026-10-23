@@ -932,7 +932,7 @@ function VueSauvegardes(){
       CE('div',{style:{display:'flex',gap:12,flexWrap:'wrap',marginBottom:14}},
         tuile('Copie de nuit (Alwaysdata, 03:00)',age(derniere&&derniere.date)<26,affDate(derniere&&derniere.date),
           (etat.copies||[]).length+' copie(s) gardée(s), '+etat.jours+' jours'),
-        tuile('Copie chiffrée hors site (04:15)',age(etat.chiffree)<26,affDate(etat.chiffree),
+        tuile('Copie chiffrée hors site (chaque matin)',age(etat.chiffree)<26,affDate(etat.chiffree),
           CE(React.Fragment,null,'Dépôt GitHub privé, lisible avec la clé privée seulement',CE('br'),
             // Consigne visible seulement quand il faut agir (26/09/2026).
             age(etat.chiffree)>=26&&CE('div',{style:{marginTop:8,padding:'6px 8px',borderRadius:6,background:'#fff',border:'1px solid #fecaca',color:'#991b1b',fontSize:12,lineHeight:1.4}},
