@@ -959,9 +959,11 @@ function VueSauvegardes(){
   const affIso=s=>{ const d=new Date(s); return isNaN(d)?'jamais':affDate(d.getFullYear()+'-'+p2(d.getMonth()+1)+'-'+p2(d.getDate())+' '+p2(d.getHours())+':'+p2(d.getMinutes())); };
   const veilleOk=etatVeille(veille);
   // ok === null : état inconnu (GitHub injoignable), ni vert ni rouge.
-  const tuile=(titre,ok,ligne,detail)=>CE('div',{style:{flex:'1 1 240px',padding:'12px 14px',borderRadius:10,border:'1px solid '+(ok===null?'#e5e7eb':ok?'#bbf7d0':'#fecaca'),background:ok===null?'#f9fafb':ok?'#f0fdf4':'#fef2f2'}},
+  // bleu : la surveillance, en bleu quand tout va bien pour ne pas se
+  // confondre avec les deux copies (demande du 24/10/2026).
+  const tuile=(titre,ok,ligne,detail,bleu)=>CE('div',{style:{flex:'1 1 240px',padding:'12px 14px',borderRadius:10,border:'1px solid '+(ok===null?'#e5e7eb':ok?(bleu?'#bfdbfe':'#bbf7d0'):'#fecaca'),background:ok===null?'#f9fafb':ok?(bleu?'#eff6ff':'#f0fdf4'):'#fef2f2'}},
     CE('div',{style:{fontSize:12,fontWeight:700,color:'#374151'}},titre),
-    CE('div',{style:{fontSize:15,fontWeight:800,margin:'4px 0',color:ok===null?'#4b5563':ok?'#166534':'#991b1b'}},(ok===null?'❔ ':ok?'✅ ':'⚠️ ')+ligne),
+    CE('div',{style:{fontSize:15,fontWeight:800,margin:'4px 0',color:ok===null?'#4b5563':ok?(bleu?'#1e40af':'#166534'):'#991b1b'}},(ok===null?'❔ ':ok?(bleu?'🛡️ ':'✅ '):'⚠️ ')+ligne),
     CE('div',{style:{fontSize:11,color:'#6b7280'}},detail));
   const td={padding:'4px 10px',fontSize:12,borderBottom:'1px solid var(--border,#f0f0f0)'};
   return CE('div',{className:'card'},
@@ -998,7 +1000,7 @@ function VueSauvegardes(){
             CE('br'),
             CE('a',{href:'https://github.com/maswaddpt47-cmyk/ATELIERS_NEWGEN/actions/workflows/veilleur.yml',target:'_blank',rel:'noopener',
               style:{display:'inline-block',marginTop:8,padding:'4px 10px',fontSize:12,fontWeight:700,borderRadius:6,textDecoration:'none',border:'1px solid #374151',color:'#374151'}},
-              '▶ Voir le veilleur sur GitHub')))
+              '▶ Voir le veilleur sur GitHub')),true)
       ),
       CE('button',{disabled:copie,onClick:copierMaintenant,style:{padding:'8px 16px',fontSize:13,fontWeight:700,background:'#1e3a8a',color:'#fff',border:'none',borderRadius:8,cursor:copie?'progress':'pointer'}},
         copie?'Copie en cours…':'💾 Faire une copie maintenant'),
