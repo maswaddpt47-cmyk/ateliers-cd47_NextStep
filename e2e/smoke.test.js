@@ -43,10 +43,10 @@ const path = require('path');
 
 const REACT_JS     = fs.readFileSync(path.join(__dirname, '../node_modules/react/umd/react.production.min.js'), 'utf8');
 const REACT_DOM_JS = fs.readFileSync(path.join(__dirname, '../node_modules/react-dom/umd/react-dom.production.min.js'), 'utf8');
+const ECHARTS_JS   = fs.readFileSync(path.join(__dirname, '../vendor/echarts-5.4.3/echarts.min.js'), 'utf8');
 
 // Stubs légers pour les libs non nécessaires au rendu React
 const LEAFLET_STUB = `window.L={map:()=>({setView:()=>({on:()=>{},addLayer:()=>{}})}),tileLayer:()=>({addTo:()=>{}}),marker:()=>({addTo:()=>{},bindPopup:()=>({}),openPopup:()=>{},remove:()=>{}}),Icon:{Default:{mergeOptions:()=>{}}},latLngBounds:()=>({isValid:()=>false}),divIcon:()=>({})};`;
-const ECHARTS_STUB = `window.echarts={init:()=>({setOption:()=>{},resize:()=>{},dispose:()=>{},on:()=>{}})};`;
 const XLSX_STUB    = `window.XLSX={utils:{book_new:()=>({}),aoa_to_sheet:()=>({}),book_append_sheet:()=>{}},writeFile:()=>{}};`;
 
 test.beforeEach(async ({ page }) => {
@@ -55,11 +55,12 @@ test.beforeEach(async ({ page }) => {
     route.fulfill({ status: 200, contentType: 'application/javascript', body: REACT_JS }));
   await page.route('**/react-dom.production.min.js', route =>
     route.fulfill({ status: 200, contentType: 'application/javascript', body: REACT_DOM_JS }));
-  // Stubs pour Leaflet, ECharts, XLSX CDN
+  // ECharts réel : les graphiques utilisent aussi color.parse et graphic.LinearGradient.
+  // Stubs pour Leaflet et XLSX, non nécessaires au rendu des graphiques.
   await page.route('**/vendor/leaflet-*/leaflet.js', route =>
     route.fulfill({ status: 200, contentType: 'application/javascript', body: LEAFLET_STUB }));
   await page.route('**/echarts.min.js', route =>
-    route.fulfill({ status: 200, contentType: 'application/javascript', body: ECHARTS_STUB }));
+    route.fulfill({ status: 200, contentType: 'application/javascript', body: ECHARTS_JS }));
   await page.route('**/xlsx.full.min.js', route =>
     route.fulfill({ status: 200, contentType: 'application/javascript', body: XLSX_STUB }));
   // Intercepte script.google.com (GAS)
