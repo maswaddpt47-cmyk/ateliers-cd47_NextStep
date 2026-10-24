@@ -22,6 +22,11 @@ nav button.notif:hover{background:#b91c1c}
 .main{padding:20px;max-width:1200px;margin:0 auto}
 .card{background:#fff;border-radius:10px;padding:20px;box-shadow:0 1px 4px rgba(0,0,0,.08);margin-bottom:16px}
 .card h2{font-size:16px;font-weight:600;color:#1e3a8a;margin-bottom:16px;padding-bottom:10px;border-bottom:2px solid #e2e8f0}
+.ec-liquid-glass{position:relative;border-radius:18px;background:radial-gradient(ellipse at 12% 0%,rgba(255,255,255,.95),transparent 65%),linear-gradient(135deg,rgba(219,234,254,.38),rgba(255,255,255,.3) 48%,rgba(204,251,241,.24));box-shadow:inset 0 1px 1px rgba(255,255,255,.95),inset 0 -1px 1px rgba(148,163,184,.2),0 5px 16px rgba(30,64,100,.06);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
+[data-theme="dark"] .ec-liquid-glass{background:radial-gradient(ellipse at 12% 0%,rgba(148,163,184,.13),transparent 65%),linear-gradient(135deg,rgba(59,130,246,.08),rgba(15,23,42,.18) 48%,rgba(45,212,191,.06));box-shadow:inset 0 1px 1px rgba(255,255,255,.16),inset 0 -1px 1px rgba(255,255,255,.04),0 5px 16px rgba(0,0,0,.14)}
+@media print{.ec-liquid-glass{background:none!important;box-shadow:none!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important}}
+/* Sur mobile, la topbar Conseillers défile dans .app-content, déjà sous le bandeau. */
+@media(max-width:640px){#bandeau-bac-a-sable~#root .sidebar[role="navigation"]+.app-content .app-topbar{top:0!important}}
 label{display:block;font-size:12px;font-weight:600;color:#4a5568;margin-bottom:4px;margin-top:12px}
 input,select,textarea{width:100%;padding:8px 10px;border:1.5px solid #e2e8f0;border-radius:6px;font-size:13px;color:#1a202c;background:#fff;transition:border .2s}
 input:focus,select:focus,textarea:focus{outline:none;border-color:#1e3a8a}
@@ -532,9 +537,19 @@ const API_PHP_URL = urlApiPour(location.hostname, location.pathname);
 // production.
 if(API_PHP_URL.indexOf('/api-sandbox/')>=0){
   const poser=()=>{if(document.getElementById('bandeau-bac-a-sable'))return;const b=document.createElement('div');b.id='bandeau-bac-a-sable';
-    b.textContent='BAC À SABLE — fausses données, rien n\'arrive en production';
-    b.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#ea580c;color:#fff;font:700 11px/18px sans-serif;text-align:center;pointer-events:none;letter-spacing:.04em';
-    document.body.appendChild(b);document.title='[BAC À SABLE] '+document.title;};
+    b.style.cssText='position:sticky;top:0;z-index:99999;background:#c2410c;color:#fff;font:700 11px/18px sans-serif;text-align:center;letter-spacing:.02em;padding:3px 8px;display:flex;gap:4px 14px;align-items:center;justify-content:center;flex-wrap:wrap';
+    const texte=document.createElement('span');texte.textContent='BAC À SABLE — fausses données, rien n\'arrive en production';b.appendChild(texte);
+    [['Conseillers','index.html'],['Administration','admin.html']].forEach(([label,href])=>{
+      const a=document.createElement('a');a.textContent=label;a.href=href;
+      a.style.cssText='color:#fff;text-decoration:underline;text-underline-offset:3px;padding:3px 5px';
+      if(location.pathname.endsWith(href)||(href==='index.html'&&location.pathname.endsWith('/')))a.setAttribute('aria-current','page');
+      b.appendChild(a);
+    });
+    document.body.prepend(b);document.title='[BAC À SABLE] '+document.title;
+    const s=document.createElement('style');s.textContent='.app-topbar-v2,.app-topbar,nav{top:var(--sandbox-banner-height)!important}';document.head.appendChild(s);
+    const ajuster=()=>document.documentElement.style.setProperty('--sandbox-banner-height',b.offsetHeight+'px');
+    ajuster();new ResizeObserver(ajuster).observe(b);
+  };
   if(document.body)poser();else document.addEventListener('DOMContentLoaded',poser);
 }
 // Un onglet resté sur ?backend=gas l'avait mémorisé : on l'efface.
@@ -3138,6 +3153,51 @@ function barH(n,base){return Math.max(base,base+(Math.max(0,n-6)*8));}
 
 // ── Base wrapper ECharts ────────────────────────────────────
 const EC_ANIM={animation:true,animationDuration:800,animationEasing:'cubicOut',animationDurationUpdate:500,animationEasingUpdate:'cubicInOut'};
+// Liquid Glass : habillage seul, sans modifier valeurs, échelles, empilements ou filtres.
+function liquidGlassOption(option){
+  const ec=window.echarts;
+  if(!ec)return option;
+  const dark=document.documentElement.getAttribute('data-theme')==='dark';
+  const text=getComputedStyle(document.documentElement).getPropertyValue('--text-2').trim()||'#64748b';
+  const glass=(color,horizontal)=>{
+    if(typeof color==='function')return p=>glass(color(p),horizontal);
+    if(typeof color!=='string')return color;
+    const rgba=ec.color.parse(color);
+    if(!rgba)return color;
+    const tone=(target,weight)=>ec.color.stringify([...rgba.slice(0,3).map(c=>Math.round(c+(target-c)*weight)),rgba[3]],'rgba');
+    return new ec.graphic.LinearGradient(0,0,horizontal?0:1,horizontal?1:0,[
+      {offset:0,color:tone(255,.65)},
+      {offset:.18,color:tone(255,.38)},
+      {offset:.32,color},
+      {offset:.62,color:tone(255,.12)},
+      {offset:1,color:tone(0,.24)}
+    ]);
+  };
+  const map=(value,fn)=>Array.isArray(value)?value.map(fn):value?fn(value):value;
+  const axis=a=>({...a,axisLabel:{...a.axisLabel,color:typeof a.axisLabel?.color==='function'?a.axisLabel.color:text},
+    splitLine:{...a.splitLine,lineStyle:{...a.splitLine?.lineStyle,color:dark?'rgba(148,163,184,.14)':'rgba(78,98,112,.13)'}}});
+  const yAxes=Array.isArray(option.yAxis)?option.yAxis:[option.yAxis];
+  return {...option,
+    xAxis:map(option.xAxis,axis),yAxis:map(option.yAxis,axis),
+    legend:map(option.legend,l=>({...l,textStyle:{...l.textStyle,color:text}})),
+    tooltip:map(option.tooltip,t=>({...t,backgroundColor:'rgba(17,24,39,.9)',borderColor:'rgba(203,213,225,.4)',
+      extraCssText:(t.extraCssText||'')+';border-radius:14px;backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);box-shadow:inset 0 1px 0 rgba(255,255,255,.18),0 8px 24px rgba(15,23,42,.2)'})),
+    series:(option.series||[]).map((s,i)=>{
+      if(!['bar','pie','line'].includes(s.type))return s;
+      const horizontal=s.type==='bar'&&yAxes[s.yAxisIndex||0]?.type==='category';
+      const base=s.itemStyle?.color||option.color?.[i]||'#3b82f6';
+      const style=(item={})=>({...item,color:glass(item.color||base,horizontal),
+        borderColor:'rgba(255,255,255,.65)',borderWidth:.7,
+        shadowColor:dark?'rgba(0,0,0,.3)':'rgba(30,64,100,.18)',shadowBlur:5,shadowOffsetX:1,shadowOffsetY:3});
+      return {...s,itemStyle:style(s.itemStyle),
+        ...(s.type==='pie'&&['inside','inner'].includes(s.label?.position)?{label:{...s.label,color:'#fff',backgroundColor:'rgba(15,23,42,.8)',borderRadius:4,padding:[2,4]}}:{}),
+        ...(s.type==='line'?{lineStyle:{...s.lineStyle,width:Math.max(2.5,s.lineStyle?.width||0),shadowColor:dark?'rgba(96,165,250,.3)':'rgba(59,130,246,.2)',shadowBlur:5,shadowOffsetY:2}}:{}),
+        data:s.data?.map(d=>d&&typeof d==='object'&&!Array.isArray(d)&&d.itemStyle?{...d,itemStyle:style(d.itemStyle)}:d)
+      };
+    })
+  };
+}
+function chartTooltipColor(color){return typeof color==='string'?color:color?.colorStops?.[2]?.color||'#60a5fa';}
 function EChart({option,height}){
   const ref=React.useRef(null);
   const inst=React.useRef(null);
@@ -3153,12 +3213,13 @@ function EChart({option,height}){
     }
     if(!isNew&&optRef.current===option)return;
     optRef.current=option;
-    const merged={...EC_ANIM,...option};
-    if(isNew){requestAnimationFrame(()=>requestAnimationFrame(()=>{if(inst.current)inst.current.setOption(merged,{notMerge:true,lazyUpdate:false});}));}
-    else{inst.current.setOption(merged,{notMerge:false,lazyUpdate:false});}
+    // Lire les couleurs après l'effet du parent qui applique le thème clair/sombre.
+    const appliquer=()=>{if(inst.current)inst.current.setOption({...EC_ANIM,...liquidGlassOption(optRef.current)},{notMerge:isNew,lazyUpdate:false});};
+    if(isNew){requestAnimationFrame(()=>requestAnimationFrame(appliquer));}
+    else{requestAnimationFrame(appliquer);}
   });
   React.useEffect(()=>{return()=>{if(inst.current){if(inst.current._ro)inst.current._ro.disconnect();inst.current.dispose();inst.current=null;}};},[]); 
-  return CE('div',{ref,style:{width:'100%',height:height||200}});
+  return CE('div',{ref,className:'ec-liquid-glass',style:{width:'100%',height:height||200}});
 }
 
 function mkGrad(c1,c2,dir='v'){
@@ -3263,7 +3324,7 @@ function DonutChart({data,colors,height=220}){
   const total=data.reduce((s,d)=>s+d.value,0);
   const option={
     backgroundColor:'transparent',
-    tooltip:{trigger:'item',...EC_TT,formatter:params=>`<b style="color:${params.color}">${htmlEsc(params.name)}</b><br/>${params.value} (${Math.round(params.value/total*100)}%)`},
+    tooltip:{trigger:'item',...EC_TT,formatter:params=>`<b style="color:${chartTooltipColor(params.color)}">${htmlEsc(params.name)}</b><br/>${params.value} (${Math.round(params.value/total*100)}%)`},
     legend:{orient:'horizontal',bottom:0,textStyle:{color:'#94a3b8',fontSize:11},icon:'circle',itemWidth:8,itemHeight:8},
     series:[{type:'pie',radius:['38%','65%'],center:['50%','46%'],
       itemStyle:{borderRadius:5,borderColor:'#1a1d27',borderWidth:3},
@@ -3275,30 +3336,57 @@ function DonutChart({data,colors,height=220}){
   return CE(EChart,{option,height});
 }
 
-// ── StackedActivityChart barres empilées ─────────────────────
+// ── Activité mensuelle : une barre empilée par année ────────
 function StackedActivityChart({data}){
-  if(!data||Object.keys(data).length===0)return CE(NoData,null);
-  const todayYM=new Date().toISOString().slice(0,7);
-  const fmtML=ym=>`${ym.slice(5,7)}/${ym.slice(2,4)}`;
-  const keys=Object.keys(data).sort();
-  const labels=keys.map(k=>fmtML(k));
+  const keys=Object.keys(data||{}).filter(k=>/^\d{4}-(0[1-9]|1[0-2])$/.test(k)).sort();
+  if(!keys.length)return CE(NoData,null);
+  const years=[...new Set(keys.map(k=>k.slice(0,4)))];
+  const months=['Jan','Fév','Mar','Avr','Mai','Juin','Juil','Août','Sep','Oct','Nov','Déc'];
+  const statuses=[
+    {name:'Réalisés',field:'realises',color:'#22c55e'},
+    {name:'Annulés',field:'annules',color:'#ef4444'},
+    {name:'Planifiés',field:'planifies',color:'#3b82f6'}
+  ];
+  const monthKey=(year,i)=>`${year}-${String(i+1).padStart(2,'0')}`;
+  const columns=months.flatMap((month,i)=>years.map(year=>({year,key:monthKey(year,i)})));
+  const axisColor=getComputedStyle(document.documentElement).getPropertyValue('--text-2').trim()||'#64748b';
   const option={
-    backgroundColor:'transparent',grid:{top:28,right:8,bottom:48,left:28,containLabel:true},
-    tooltip:{trigger:'axis',...EC_TT,...EC_APN,
-      formatter:params=>{const k=keys[params[0].dataIndex];const d=data[k];const futur=k>=todayYM?' (à venir)':'';return`<b style="color:#60a5fa">${fmtML(k)}${futur}</b><br/><span style="color:#22c55e">✅ ${d.realises} réalisés</span><br/><span style="color:#3b82f6">📅 ${d.planifies} planifiés</span><br/><span style="color:#ef4444">❌ ${d.annules} annulés</span>`;}},
-    legend:{data:['Réalisés','Annulés','Planifiés'],textStyle:{color:'#94a3b8',fontSize:10},bottom:0,icon:'roundRect',itemWidth:10,itemHeight:8},
-    xAxis:{data:labels,...EC_AXIS_BASE,splitLine:{show:false},axisLabel:{...EC_AXIS_LABEL,rotate:-35,interval:0}},
-    yAxis:{...EC_AXIS_BASE},
-    series:[
-      {name:'Réalisés',type:'bar',stackId:'a',barMaxWidth:30,data:keys.map(k=>data[k].realises),
-        itemStyle:{color:'#22c55e'}},
-      {name:'Annulés',type:'bar',stackId:'a',barMaxWidth:30,data:keys.map(k=>data[k].annules),
-        itemStyle:{color:'#ef4444'}},
-      {name:'Planifiés',type:'bar',barMaxWidth:30,data:keys.map(k=>data[k].planifies),
-        itemStyle:{color:'#3b82f6',borderRadius:[4,4,0,0]}}
-    ]
+    backgroundColor:'transparent',grid:{top:16,right:8,bottom:70,left:8,containLabel:true},
+    tooltip:{trigger:'axis',...EC_TT,...EC_APN,confine:true,
+      formatter:params=>{
+        if(!params.length)return'';
+        const i=Math.floor(params[0].dataIndex/years.length);
+        return`<b style="color:#60a5fa">${months[i]}</b>`+years.map(year=>{
+          const d=data[monthKey(year,i)];
+          if(!d)return`<br/><b>${year}</b> : aucune donnée dans la sélection`;
+          return`<br/><b>${year}</b>`+statuses.map(s=>`<br/><span style="color:${s.color}">${s.name} : ${d[s.field]}</span>`).join('');
+        }).join('');
+      }},
+    legend:{data:statuses.map(s=>s.name),textStyle:{color:axisColor,fontSize:11},bottom:0,icon:'roundRect',itemWidth:10,itemHeight:8},
+    xAxis:[
+      {type:'category',data:columns.map(c=>c.year),...EC_AXIS_BASE,splitLine:{show:false},
+        axisLabel:{...EC_AXIS_LABEL,color:axisColor,interval:0,rotate:90,margin:8}},
+      {type:'category',data:months,...EC_AXIS_BASE,position:'bottom',offset:36,
+        splitLine:{show:true,lineStyle:{color:'rgba(148,163,184,.16)'}},
+        axisLabel:{...EC_AXIS_LABEL,color:axisColor,fontSize:11,fontWeight:600,interval:0,margin:8}}
+    ],
+    yAxis:{...EC_AXIS_BASE,minInterval:1,axisLabel:{...EC_AXIS_LABEL,color:axisColor}},
+    series:statuses.map(s=>({
+      id:s.field,name:s.name,type:'bar',stack:'activity',barMaxWidth:24,barCategoryGap:'28%',
+      data:columns.map(c=>data[c.key]?.[s.field]??null),
+      itemStyle:{color:s.color}
+    }))
   };
-  return CE(EChart,{option,height:220});
+  return CE('div',null,
+    CE('p',{style:{fontSize:12,color:'var(--text-2,#64748b)',margin:'0 0 8px'}},
+      `${years.length>1?'Comparaison':'Année'} : ${years.join(' · ')} — selon les filtres actifs`),
+    CE('div',{style:{overflowX:'auto'}},
+      CE('div',{style:{minWidth:Math.max(300,years.length*150)}},
+        // Recréer le graphique si les années changent : ECharts fusionne sinon les anciennes séries.
+        CE(EChart,{key:years.join('-'),option,height:280})
+      )
+    )
+  );
 }
 
 // ── ConseillerBarChart groupé horizontal ─────────────────────
@@ -4499,9 +4587,9 @@ function VuePowerBI({entries, conseillers: conseillersList}){
   // ── Style PBI aligné sur GDIN ────────────────────
   const ecTT={backgroundColor:'#111827',borderColor:'#374151',textStyle:{color:'#f1f5f9',fontSize:11},extraCssText:'border-radius:8px;padding:10px 14px;box-shadow:none'};
   const _ecAPN={axisPointer:{type:'none'}};
-  // Pas de dégradé — couleurs solides pour fiabilité mobile
+  // La teinte reste ici ; le relief Liquid Glass est appliqué par PBIChart.
   function mkGradPBI(c1,c2,dir='v'){return c1;}
-  // Plus d'ombre 3D
+  // Les ombres et les reflets sont communs aux autres graphiques.
   const _bar3D={borderRadius:[3,3,0,0]};
   function PBIChart({option,height}){
     const ref=React.useRef(null);const inst=React.useRef(null);const prevOpt=React.useRef(option);
@@ -4511,12 +4599,12 @@ function VuePowerBI({entries, conseillers: conseillersList}){
       if(isNew){inst.current=window.echarts.init(ref.current);const ro=new ResizeObserver(()=>{if(inst.current)inst.current.resize();});ro.observe(ref.current);inst.current._ro=ro;}
       if(!isNew&&prevOpt.current===option)return;
       prevOpt.current=option;
-      const merged={...EC_ANIM,...option};
-      if(isNew){requestAnimationFrame(()=>requestAnimationFrame(()=>{if(inst.current)inst.current.setOption(merged,{notMerge:true,lazyUpdate:false});}));}
-      else{inst.current.setOption(merged,{notMerge:false,lazyUpdate:false});}
+      const appliquer=()=>{if(inst.current)inst.current.setOption({...EC_ANIM,...liquidGlassOption(prevOpt.current)},{notMerge:isNew,lazyUpdate:false});};
+      if(isNew){requestAnimationFrame(()=>requestAnimationFrame(appliquer));}
+      else{requestAnimationFrame(appliquer);}
     });
     React.useEffect(()=>{return()=>{if(inst.current){if(inst.current._ro)inst.current._ro.disconnect();inst.current.dispose();inst.current=null;}};},[]);
-    return CE('div',{ref,style:{width:'100%',height:height||180}});
+    return CE('div',{ref,className:'ec-liquid-glass',style:{width:'100%',height:height||180}});
   }
 
   // ── Pages ──────────────────────────────────────────────────
@@ -5901,12 +5989,12 @@ function VueDashboard({entries}){
     ),
 
     // ── Ligne 1 : Activité mensuelle + Donut statuts ──
-    CE('div',{style:{display:'grid',gridTemplateColumns:'2fr 1fr',gap:16,marginBottom:16}},
-      CE('div',{className:'card'},
+    CE('div',{style:{display:'flex',flexWrap:'wrap',gap:16,marginBottom:16}},
+      CE('div',{className:'card',style:{flex:'2 1 400px',minWidth:0}},
         CE('h2',null,'📈 Activité mensuelle'),
         CE(StackedActivityChart,{data:byMoisAct})
       ),
-      CE('div',{className:'card'},
+      CE('div',{className:'card',style:{flex:'1 1 220px',minWidth:0}},
         CE('h2',null,'🔵 Répartition statuts'),
         CE(DonutChart,{data:dataStat,colors:dataStat.map(d=>STATUS_COLORS[d.label]||'#718096'),height:220})
       )
