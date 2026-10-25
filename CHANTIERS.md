@@ -18,22 +18,13 @@ AG-003 à AG-008, ordre du jour de la bascule) a été retirée. Texte complet :
 ---
 
 ## Reste ouvert
-- **Analyse et conservation de la saisie (25/10/2026)** : trois pistes
-  approuvées par l’utilisateur, en cours sur les deux interfaces. Suivi
-  commun et décisions dans `ATELIERS_NEWGEN/CHANTIERS.md`.
 
-- **AM/PM, 25/10/2026** : donut livré après Distribution horaire, avec
-  pourcentages visibles et mêmes calculs/exclusions. `main` `9b45d53`
-  (`shared.js?v=215`), run `40191535769` vert : tests et déploiement
-  vérifiés. Suivi commun dans `ATELIERS_NEWGEN/CHANTIERS.md`.
+- **Contrôle utilisateur — Analyse et saisie (25/10/2026)** : livré sur
+  `main` `a644767` (`shared.js?v=228`), CI et déploiement
+  run `40222723294` verts. Vérifier Nouveau → Agenda → Nouveau et la
+  lisibilité de l'Analyse. Suivi commun, décisions et limites dans
+  `ATELIERS_NEWGEN/CHANTIERS.md` ; aucune annonce Nouveautés avant validation.
 
-- **Analyse, 25/10/2026** : tableaux « Thématiques par commune » et
-  « Partenaires par conseiller » retirés à la demande de l'utilisateur.
-  Livré sur `main`, `61c50f2` (`shared.js?v=212`, `logic.js?v=22`) :
-  run `40188180578` vert, 46 tests navigateur passés, déploiement vérifié.
-  Comparaison N/N−1 conservée ; suivi dans `ATELIERS_NEWGEN/CHANTIERS.md`.
-  Tableaux écartés car trop lourds et inutiles : ne pas les reproposer
-  sans fait nouveau.
 - **Parité avec NEWGEN (AG-015)** : 5 écarts au 16/10/2026, tous voulus
   (dont l'Historique : chacun garde son design, décision du 26/09). Suivi et
   **ordre de push (NextStep d'abord)** : `CHANTIERS.md` d'ATELIERS_NEWGEN,
