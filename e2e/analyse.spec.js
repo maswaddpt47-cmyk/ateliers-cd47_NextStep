@@ -3,7 +3,7 @@ const assert=require('node:assert/strict');
 const {test,expect}=require('@playwright/test');
 const path=require('path');
 const ROOT=path.resolve(__dirname,'..');
-const entries=Array.from({length:6},(_,i)=>({_id:'atelier-'+i,date:'2026-09-'+String(i+1).padStart(2,'0'),statut:'Réalisé',horaire:i%2?'14:00':'09:30',thematique:'Thématique '+(i+1),commune:'Commune '+(i+1),orienteur:'Partenaire',conseiller:'Alice Martin',inscrits:8,presents:6,public:'Adultes'}));
+const entries=Array.from({length:6},(_,i)=>({_id:'atelier-'+i,date:'2026-09-'+String(i+1).padStart(2,'0'),statut:'Réalisé',horaire:i%2?'14:00':'09:30',thematique:'Thématique '+(i+1),commune:'Commune '+(i+1),orienteur:'Partenaire',conseiller:'Alice Martin',inscrits:8,presents:i<4?6:i===4?'':null,public:'Adultes'}));
 entries.push({_id:'sans-creneau',date:'2026-09-20',statut:'Planifié',horaire:'',ampm:'',thematique:'Thématique 1',commune:'Commune 1',orienteur:'Partenaire',conseiller:'Alice Martin',public:'Adultes'});
 
 // Le parcours exécute la bibliothèque et les composants réellement publiés,
@@ -30,6 +30,22 @@ test('Analyse : comparaison annuelle et historique au clic à 390/1280 px', asyn
  const seriesNames=()=>annual.locator('.ec-liquid-glass').evaluate(el=>echarts.getInstanceByDom(el)?.getOption()?.series?.map(s=>s.name)||[]);
  await page.getByRole('heading',{name:'📊 Comparaison N / N−1',exact:true}).waitFor();
  await page.getByRole('button',{name:'2026',exact:true}).click();
+ const presenceKpi=page.locator('[data-presence-kpi="1"]'),participationsKpi=page.locator('[data-participations-kpi="1"]');
+ await expect(presenceKpi.locator('.val')).toHaveText('75 %');
+ await expect(presenceKpi).toContainText('Calculé sur 4 / 6 ateliers réalisés');
+ await expect(participationsKpi.locator('.val')).toHaveText('24');
+ const horaire=page.locator('[data-horaire-detail="1"]');
+ await expect.poll(()=>horaire.evaluate(el=>el.open)).toBe(false);
+ await horaire.locator('summary').focus();
+ await horaire.locator('summary').press('Enter');
+ await expect.poll(()=>horaire.evaluate(el=>el.open)).toBe(true);
+ await horaire.locator('.ec-liquid-glass').scrollIntoViewIfNeeded();
+ await expect.poll(()=>horaire.locator('.ec-liquid-glass').evaluate(el=>{
+  const chart=echarts.getInstanceByDom(el),option=chart?.getOption();
+  return option?.series?.length?{hours:option.xAxis[0].data,values:option.series[0].data.map(d=>typeof d==='object'?d.value:d),sized:chart.getWidth()>0}:null;
+ })).toEqual({hours:['9h','14h'],values:[3,3],sized:true});
+ await horaire.locator('summary').press('Enter');
+ await expect.poll(()=>horaire.evaluate(el=>el.open)).toBe(false);
  const ampm=page.locator('[data-ampm-chart="1"]');
  await expect(ampm).toBeVisible();
  const ampmOption=()=>ampm.locator('.ec-liquid-glass').evaluate(el=>{
@@ -90,6 +106,16 @@ test('Analyse : comparaison annuelle et historique au clic à 390/1280 px', asyn
  await expect(annual.locator('.ec-liquid-glass')).toHaveCount(0);
  await expect(page.getByText('Aucun atelier classé AM ou PM sur cette période.',{exact:true})).toBeVisible();
  await expect(ampm).toHaveCount(0);
+ await expect(presenceKpi.locator('.val')).toHaveText('—');
+ await expect(presenceKpi).toContainText('Calculé sur 0 / 0 ateliers réalisés');
+ await page.evaluate(()=>window.__root.render(CE(VueGraphiques,{key:'presence-zero',entries:[{date:'2026-09-01',statut:'Réalisé',inscrits:4,presents:0}],anneesChargees:'2026'})));
+ await expect(presenceKpi.locator('.val')).toHaveText('0 %');
+ await expect(presenceKpi).toContainText('Calculé sur 1 / 1 ateliers réalisés');
+ await expect(participationsKpi.locator('.val')).toHaveText('0');
+ await page.evaluate(()=>window.__root.render(CE(VueGraphiques,{key:'presence-inconnue',entries:[{date:'2026-09-01',statut:'Réalisé',inscrits:4,presents:''}],anneesChargees:'2026'})));
+ await expect(presenceKpi.locator('.val')).toHaveText('—');
+ await expect(presenceKpi).toContainText('Calculé sur 0 / 1 ateliers réalisés');
+ await expect(participationsKpi.locator('.val')).toHaveText('—');
  assert.deepEqual(errors,[],'Analyse sans erreur JavaScript');
  await context.close();
 });

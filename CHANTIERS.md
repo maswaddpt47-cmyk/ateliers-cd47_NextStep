@@ -1,6 +1,6 @@
 # Chantiers en cours — Ateliers CD47 NextStep
 
-État au **16/10/2026**. NextStep (équipe) et NEWGEN (utilisateur) parlent à
+État au **25/10/2026**. NextStep (équipe) et NEWGEN (utilisateur) parlent à
 la même API Alwaysdata et à la même base depuis la bascule du 25/09/2026 :
 **les restes communs** (registres, audit trimestriel, sauvegardes,
 sécurité, import Outlook à valider, rubrique Nouveautés) et les
@@ -18,6 +18,10 @@ AG-003 à AG-008, ordre du jour de la bascule) a été retirée. Texte complet :
 ---
 
 ## Reste ouvert
+- **Analyse et conservation de la saisie (25/10/2026)** : trois pistes
+  approuvées par l’utilisateur, en cours sur les deux interfaces. Suivi
+  commun et décisions dans `ATELIERS_NEWGEN/CHANTIERS.md`.
+
 - **AM/PM, 25/10/2026** : donut livré après Distribution horaire, avec
   pourcentages visibles et mêmes calculs/exclusions. `main` `9b45d53`
   (`shared.js?v=215`), run `40191535769` vert : tests et déploiement

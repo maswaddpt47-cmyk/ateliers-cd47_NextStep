@@ -1819,6 +1819,10 @@ function BlocAlertes({liste}) {
   return liste.length ? CE('div', {style:{marginTop:4, padding:'4px 8px', borderRadius:6, background:'#fff7ed', border:'1px solid #fdba74', color:'#9a3412', fontSize:11, fontWeight:600, lineHeight:1.4}},
     liste.map((t, i) => CE('div', {key:i}, '⚠️ ' + t))) : null;
 }
+// Saisie conservée uniquement en mémoire tant que la session reste ouverte.
+// Le premier montage attend l'ouverture de Saisie : aucun travail ajouté au démarrage.
+
+
 function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefillData,onClearPrefill,accentColor,conseillerDefaut}){
   const statuts    = lists?.statuts     || STATUTS_DEFAULT;
   const conseillers= lists?.conseillers || CONSEILLERS_DEFAULT;
@@ -3071,7 +3075,7 @@ function VueCalendrier({entries,onEdit,onDelete,onRefresh,onEntryUpdated,onDupli
           CE('div',{className:'kpi-mini',style:{flex:'1 1 70px',borderLeft:'3px solid #16a34a',background:'rgba(22,163,74,.08)',animationDelay:'.07s'}},CE('div',{className:'v',style:{color:'#16a34a',fontSize:20}},kpi.realises),CE('div',{className:'l'},'Réalisés')),
           CE('div',{className:'kpi-mini',style:{flex:'1 1 70px',borderLeft:'3px solid #2563eb',background:'rgba(37,99,235,.06)',animationDelay:'.14s'}},CE('div',{className:'v',style:{color:'#2563eb',fontSize:20}},kpi.planifies),CE('div',{className:'l'},'Planifiés')),
           CE('div',{className:'kpi-mini',style:{flex:'1 1 70px',borderLeft:'3px solid #7c3aed',background:'rgba(124,58,237,.08)',animationDelay:'.21s'}},CE('div',{className:'v',style:{color:'#7c3aed',fontSize:20}},kpi.inscrits),CE('div',{className:'l'},'Inscrits')),
-          CE('div',{className:'kpi-mini',style:{flex:'1 1 70px',borderLeft:'3px solid #0891b2',background:'rgba(8,145,178,.08)',animationDelay:'.28s'}},CE('div',{className:'v',style:{color:'#0891b2',fontSize:20}},kpi.presents),CE('div',{className:'l'},'Présents'))
+          CE('div',{className:'kpi-mini',style:{flex:'1 1 70px',borderLeft:'3px solid #0891b2',background:'rgba(8,145,178,.08)',animationDelay:'.28s'}},CE('div',{className:'v',style:{color:'#0891b2',fontSize:20}},aDesParticipationsSaisies(monthEntries)?kpi.presents:'—'),CE('div',{className:'l'},'Participations'))
         )
       )
     ),
@@ -3321,14 +3325,14 @@ function DualLineChart({data}){
   const option={
     backgroundColor:'transparent',grid:{...EC_GRID,bottom:50},
     tooltip:{trigger:'axis',...EC_TT,...EC_APN},
-    legend:{data:['Inscrits','Présents'],textStyle:{color:'#94a3b8',fontSize:11},bottom:0,icon:'circle',itemWidth:8,itemHeight:8},
+    legend:{data:['Inscrits','Participations'],textStyle:{color:'#94a3b8',fontSize:11},bottom:0,icon:'circle',itemWidth:8,itemHeight:8},
     xAxis:{data:data.map(d=>d.label),...EC_AXIS_BASE,splitLine:{show:false},axisLabel:{...EC_AXIS_LABEL,rotate:data.length>8?-35:0,interval:0}},
     yAxis:{...EC_AXIS_BASE},
     series:[
       {name:'Inscrits',type:'line',data:data.map(d=>d.inscrits),smooth:true,symbol:'circle',symbolSize:4,
        lineStyle:{width:2,color:'#3b82f6'},itemStyle:{color:'#3b82f6'},
        areaStyle:{color:mkGrad('rgba(59,130,246,0.2)','rgba(59,130,246,0.02)')}},
-      {name:'Présents',type:'line',data:data.map(d=>d.presents),smooth:true,symbol:'circle',symbolSize:4,
+      {name:'Participations',type:'line',data:data.map(d=>d.presents),smooth:true,symbol:'circle',symbolSize:4,
        lineStyle:{width:2,color:'#22c55e'},itemStyle:{color:'#22c55e'},
        areaStyle:{color:mkGrad('rgba(34,197,94,0.2)','rgba(34,197,94,0.02)')}}
     ]
@@ -3451,13 +3455,13 @@ function ConseillerBarChart({entries}){
     });
   });
   const data=Object.entries(cons).sort((a,b)=>b[1].realises-a[1].realises)
-    .map(([name,d])=>{const tp=tauxPresence(d.liste);return{name:trunc(name,14),...d,tx:tp.tx,presentsTx:tp.presents,inscritsTx:tp.inscrits};});
+    .map(([name,d])=>{const tp=tauxPresence(d.liste);const presentsSaisis=d.liste.some(e=>e.presents!==''&&e.presents!=null&&!isNaN(parseInt(e.presents,10)));return{name:trunc(name,14),...d,tx:tp.tx,presentsTx:tp.presents,inscritsTx:tp.inscrits,ateliersTx:tp.ateliers,presentsSaisis};});
   if(!data.length)return CE(NoData,null);
   const h=Math.max(180,100+data.length*34);
   const option={
     backgroundColor:'transparent',grid:{top:8,right:60,bottom:30,left:8,containLabel:true},
     tooltip:{trigger:'axis',...EC_TT,...EC_APN,
-      formatter:params=>{const d=data[params[0].dataIndex];return`<b style="color:#60a5fa">${htmlEsc(d.name)}</b><br/><span style="color:#22c55e">✅ Réalisés : ${d.realises}</span><br/><span style="color:#3b82f6">📅 Planifiés : ${d.planifies}</span><br/><span style="color:#ef4444">❌ Annulés : ${d.annules}</span><br/><span style="color:#a78bfa;font-weight:700">👥 Présents : ${d.presents}/${d.inscrits} — taux ${d.tx}% (${d.presentsTx}/${d.inscritsTx} saisis)</span>`;}},
+      formatter:params=>{const d=data[params[0].dataIndex];return`<b style="color:#60a5fa">${htmlEsc(d.name)}</b><br/><span style="color:#22c55e">✅ Réalisés : ${d.realises}</span><br/><span style="color:#3b82f6">📅 Planifiés : ${d.planifies}</span><br/><span style="color:#ef4444">❌ Annulés : ${d.annules}</span><br/><span style="color:#a78bfa;font-weight:700">👥 Participations : ${d.presentsSaisis?d.presents:'—'} · Inscrits : ${d.inscrits}</span><br/>Taux de présence : ${d.inscritsTx>0?d.tx+' %':'—'} — Calculé sur ${d.ateliersTx} / ${d.realises} ateliers réalisés`;}},
     legend:{data:['Réalisés','Planifiés','Annulés'],textStyle:{color:'#94a3b8',fontSize:10},bottom:0,icon:'roundRect',itemWidth:10,itemHeight:8},
     xAxis:{...EC_AXIS_BASE},
     yAxis:{type:'category',data:data.map(d=>d.name),axisLabel:{...EC_AXIS_LABEL,fontSize:11},axisLine:{show:false},axisTick:{show:false},splitLine:{show:false}},
@@ -3494,7 +3498,7 @@ function KpiCard({val,lbl,sub,trend,color,icon,bgColor,delay=0}){
       CE('div',null,
         CE('div',{style:{fontSize:11,color:'#94a3b8',fontWeight:600,marginBottom:4,display:'flex',alignItems:'center',gap:4}},icon,' ',lbl),
         CE('div',{className:'val',style:{color:color||'#1e3a8a',fontSize:26,lineHeight:1.1}},val),
-        sub&&CE('div',{style:{fontSize:11,color:'#94a3b8',marginTop:3}},sub)
+        sub&&CE('div',{style:{fontSize:11,color:'#475569',marginTop:3}},sub)
       ),
       trend!==undefined&&CE('div',{style:{
         fontSize:11,fontWeight:700,
@@ -3581,11 +3585,17 @@ function VueComparaisonAnnuelle({entries,anneesChargees,dateFrom,dateTo,onHistor
         yAxis:{type:'value',...EC_AXIS_BASE,min:0,minInterval:1,name:'Ateliers'},series}})));
 }
 
+// Un cumul inconnu n'est pas une absence : conserver le zéro réellement saisi.
+function aDesParticipationsSaisies(liste){
+  return (liste||[]).some(e=>e&&e.statut==='Réalisé'&&e.presents!==''&&e.presents!==null&&e.presents!==undefined&&!isNaN(parseInt(e.presents,10)));
+}
+
 function VueGraphiques({entries,anneesChargees}){
   if(!window.echarts)return CE('div',{className:'card'},CE('p',{style:{color:'#718096',textAlign:'center',padding:'40px 0'}},'⚠️ ECharts non chargé — vérifiez la connexion internet.'));
 
   const[dateFrom,setDateFrom]=React.useState('');
   const[dateTo,setDateTo]=React.useState('');
+  const[horaireOuvert,setHoraireOuvert]=React.useState(false);
   const[archivesAnalyse,setArchivesAnalyse]=React.useState({});
   React.useEffect(()=>{setArchivesAnalyse({});},[entries,anneesChargees]);
   const anneesBase=anneesListe(anneesChargees);
@@ -3604,7 +3614,7 @@ function VueGraphiques({entries,anneesChargees}){
   const total=passes.length;
   const totalInscrits=passes.reduce((s,e)=>s+(parseInt(e.inscrits)||0),0);
   const totalPresents=passes.reduce((s,e)=>s+(parseInt(e.presents)||0),0);
-  const txPresence=tauxPresence(passes).tx;
+  const presence=tauxPresence(passes);
   const annules=filtered.filter(e=>e.statut==='Annulé').length;
   const todayYM=new Date().toISOString().slice(0,7);
   const fmtML=ym=>ym==='?'?'?':`${ym.slice(5,7)}-${ym.slice(0,4)}`;
@@ -3612,18 +3622,15 @@ function VueGraphiques({entries,anneesChargees}){
   const byCommune={};passes.forEach(e=>{byCommune[e.commune]=(byCommune[e.commune]||0)+1;});
   const dataCommune=Object.entries(byCommune).sort((a,b)=>b[1]-a[1]).map(([label,value])=>({label,value}));
 
-  const byPublic={};passes.forEach(e=>{const p=e.public||'Autres';if(!byPublic[p])byPublic[p]={value:0,inscrits:0,presents:0};byPublic[p].value++;byPublic[p].inscrits+=(parseInt(e.inscrits)||0);byPublic[p].presents+=(parseInt(e.presents)||0);});
-  const dataPublic=Object.entries(byPublic).sort((a,b)=>b[1].value-a[1].value).map(([label,d])=>({label,value:d.value,tip:`${label} : ${d.value} atelier(s) — ${d.inscrits} inscrits / ${d.presents} présents`}));
+  const byPublic={};passes.forEach(e=>{const p=e.public||'Autres';if(!byPublic[p])byPublic[p]={value:0,inscrits:0,presents:0,liste:[]};byPublic[p].value++;byPublic[p].inscrits+=(parseInt(e.inscrits)||0);byPublic[p].presents+=(parseInt(e.presents)||0);byPublic[p].liste.push(e);});
+  const dataPublic=Object.entries(byPublic).sort((a,b)=>b[1].value-a[1].value).map(([label,d])=>({label,value:d.value,tip:`${label} : ${d.value} atelier(s) — ${d.inscrits} inscriptions / ${aDesParticipationsSaisies(d.liste)?d.presents:'—'} participations`}));
 
   const byMois={};filtered.forEach(e=>{const m=e.date?e.date.slice(0,7):'?';if(m>='2000'&&m<todayYM){if(!byMois[m])byMois[m]={realises:0,annules:0};if(e.statut==='Réalisé')byMois[m].realises++;if(e.statut==='Annulé')byMois[m].annules++;}});
   const dataMois=Object.keys(byMois).sort().map(k=>({label:fmtML(k),value:byMois[k].realises+byMois[k].annules,tip:`${fmtML(k)} : ${byMois[k].realises} réalisé(s) / ${byMois[k].annules} annulé(s)`}));
 
-  const byMoisPresents={};passes.forEach(e=>{const m=e.date?e.date.slice(0,7):'?';if(m<todayYM)byMoisPresents[m]=(byMoisPresents[m]||0)+(parseInt(e.presents)||0);});
-  const dataMoisPresents=Object.keys(byMoisPresents).sort().map(k=>({label:fmtML(k),value:byMoisPresents[k],tip:`${fmtML(k)} : ${byMoisPresents[k]} présent(s)`}));
-
-  // Inscrits vs Présents par mois
-  const byMoisDual={};passes.forEach(e=>{const m=e.date?e.date.slice(0,7):'?';if(m<todayYM){if(!byMoisDual[m])byMoisDual[m]={inscrits:0,presents:0};byMoisDual[m].inscrits+=(parseInt(e.inscrits)||0);byMoisDual[m].presents+=(parseInt(e.presents)||0);}});
-  const dataDual=Object.keys(byMoisDual).sort().map(k=>({label:fmtML(k),...byMoisDual[k]}));
+  // Inscriptions et participations sur un seul graphique mensuel.
+  const byMoisDual={};passes.forEach(e=>{const m=e.date?e.date.slice(0,7):'?';if(m<todayYM){if(!byMoisDual[m])byMoisDual[m]={inscrits:0,presents:0,liste:[]};byMoisDual[m].inscrits+=(parseInt(e.inscrits)||0);byMoisDual[m].presents+=(parseInt(e.presents)||0);byMoisDual[m].liste.push(e);}});
+  const dataDual=Object.keys(byMoisDual).sort().map(k=>({label:fmtML(k),inscrits:byMoisDual[k].inscrits,presents:aDesParticipationsSaisies(byMoisDual[k].liste)?byMoisDual[k].presents:null}));
 
   // Répartition AM / PM (uniquement entrées avec ampm ou horaire renseigné)
   const withAmPm=filtered.filter(e=>e.ampm==='AM'||e.ampm==='PM'||(e.horaire&&!isNaN(parseInt(e.horaire))));
@@ -3631,7 +3638,7 @@ function VueGraphiques({entries,anneesChargees}){
   const pmCount=withAmPm.filter(e=>e.ampm==='PM'||(!e.ampm&&parseInt(e.horaire)>=12)).length;
   const ampmTotal=amCount+pmCount;
   const ampmNonRenseignes=filtered.length-ampmTotal;
-  // Arrondi au dixième partagé par les graphiques AM/PM : somme 100 %.
+  // Arrondi au dixième du graphique AM/PM : somme 100 %.
   // Aucun pourcentage n'est inventé lorsque les deux effectifs sont nuls.
   const amDixiemes=ampmTotal?Math.round(amCount*1000/ampmTotal):null;
   const dataAmPm=[
@@ -3649,7 +3656,7 @@ function VueGraphiques({entries,anneesChargees}){
 
   // 1. Taux de réalisation mensuel
   const byMoisTx={};filtered.forEach(e=>{const m=e.date?e.date.slice(0,7):'?';if(m<'2000'||m>=todayYM)return;if(!byMoisTx[m])byMoisTx[m]={realises:0,total:0};if(['Réalisé','Annulé','Non réalisé','Reporté'].includes(e.statut))byMoisTx[m].total++;if(e.statut==='Réalisé')byMoisTx[m].realises++;});
-  const dataTxRealisation=Object.keys(byMoisTx).sort().map(k=>({label:fmtML(k),value:byMoisTx[k].total>0?Math.round(byMoisTx[k].realises/byMoisTx[k].total*100):0}));
+  const dataTxRealisation=Object.keys(byMoisTx).sort().filter(k=>byMoisTx[k].total>0).map(k=>({label:fmtML(k),value:Math.round(byMoisTx[k].realises/byMoisTx[k].total*100)}));
 
   // 5. Distribution horaire
   const byHeure={};filtered.forEach(e=>{if(!e.horaire)return;const h=parseInt(String(e.horaire).replace(/[Hh:].*/,''));if(isNaN(h)||h<6||h>19)return;byHeure[h]=(byHeure[h]||0)+1;});
@@ -3683,18 +3690,16 @@ function VueGraphiques({entries,anneesChargees}){
           CE('div',{className:'kpi-grid'},
             CE(FadeItem,{delay:0,style:{display:'contents'}},CE('div',{className:'kpi',style:{borderLeft:'4px solid #16a34a',background:'#f0fdf4',textAlign:'left'}},CE('div',{className:'val',style:{color:'#16a34a'}},total),CE('div',{className:'lbl'},'Ateliers réalisés'))),
             CE(FadeItem,{delay:0.08,style:{display:'contents'}},CE('div',{className:'kpi',style:{borderLeft:'4px solid #dc2626',background:'#fff5f5',textAlign:'left'}},CE('div',{className:'val',style:{color:'#dc2626'}},annules),CE('div',{className:'lbl'},'Annulés'))),
-            CE(FadeItem,{delay:0.16,style:{display:'contents'}},CE('div',{className:'kpi',style:{borderLeft:'4px solid #7c3aed',background:'#faf5ff',textAlign:'left'}},CE('div',{className:'val',style:{color:'#7c3aed'}},totalPresents),CE('div',{className:'lbl'},'Participants présents'))),
-            CE(FadeItem,{delay:0.24,style:{display:'contents'}},CE('div',{className:'kpi',style:{borderLeft:'4px solid #0891b2',background:'#ecfeff',textAlign:'left'}},CE('div',{className:'val',style:{color:'#0891b2'}},txPresence+'%'),CE('div',{className:'lbl'},'Taux de présence')))
+            CE(FadeItem,{delay:0.16,style:{display:'contents'}},CE('div',{className:'kpi','data-participations-kpi':'1',title:'Présences cumulées aux ateliers, pas de personnes uniques.',style:{borderLeft:'4px solid #7c3aed',background:'#faf5ff',textAlign:'left'}},CE('div',{className:'val',style:{color:'#7c3aed'}},aDesParticipationsSaisies(passes)?totalPresents:'—'),CE('div',{className:'lbl'},'Participations'))),
+            CE(FadeItem,{delay:0.24,style:{display:'contents'}},CE('div',{className:'kpi','data-presence-kpi':'1',style:{borderLeft:'4px solid #0891b2',background:'#ecfeff',textAlign:'left'}},CE('div',{className:'val',style:{color:'#0891b2'}},presence.inscrits>0?presence.tx+' %':'—'),CE('div',{className:'lbl'},'Taux de présence'),CE('div',{style:{fontSize:11,marginTop:6,color:'#475569'}},`Calculé sur ${presence.ateliers} / ${total} ateliers réalisés`)))
           ),
           CE('div',{className:'dashboard-charts',style:{display:'grid',gridTemplateColumns:'repeat(2,minmax(0,1fr))',gap:16}},
             CE('div',{className:'card'},CE('h2',null,'Ateliers par mois (révolus)'),CE(LineChart,{data:dataMois})),
-            CE('div',{className:'card'},CE('h2',null,'Présents par mois (révolus)'),CE(LineChart,{data:dataMoisPresents})),
             CE('div',{className:'card'},CE('h2',null,'Par commune'),CE(RadialChart,{data:topEtAutres(dataCommune),inverse:true,height:Math.max(160,topEtAutres(dataCommune).length*28+16),colors:['#1e3a8a','#3b82f6','#60a5fa','#93c5fd','#1e40af','#2563eb','#1d4ed8','#1e3a8a']})),
             CE('div',{className:'card'},CE('h2',null,'Par type de public'),CE(RadialChart,{data:topEtAutres(dataPublic),inverse:true,height:Math.max(160,topEtAutres(dataPublic).length*28+16),colors:['#7C3AED','#2563EB','#059669','#DB2777','#d97706','#0891b2','#65a30d','#dc2626']})),
             CE('div',{className:'card'},CE('h2',null,'📅 Planifiés — mois à venir'),CE(BarChart,{data:dataFutur,colors:['#7c3aed','#8b5cf6','#a78bfa','#c4b5fd']})),
             CE('div',{className:'card'},CE('h2',null,'Par statut'),CE(RadialChart,{data:dataStat,colors:['#276749','#2a69ac','#9b2c2c','#718096','#744210']})),
-            CE('div',{className:'card',style:{gridColumn:'1 / -1'}},CE('h2',null,'📈 Inscrits vs Présents par mois'),CE(DualLineChart,{data:dataDual})),
-            CE('div',{className:'card'},CE('h2',null,'🌅 Répartition Matin / Après-midi'),CE(DonutChart,{data:dataAmPm,colors:['#f97316','#0891b2'],height:200})),
+            CE('div',{className:'card',style:{gridColumn:'1 / -1'}},CE('h2',null,'📈 Inscrits vs participations par mois'),CE(DualLineChart,{data:dataDual})),
 
             // ── Taux de réalisation mensuel ──
             dataTxRealisation.length>1&&CE('div',{className:'card',style:{gridColumn:'1 / -1'}},
@@ -3706,11 +3711,9 @@ function VueGraphiques({entries,anneesChargees}){
                 series:[
                   {type:'line',data:dataTxRealisation.map(d=>d.value),smooth:true,symbol:'circle',symbolSize:5,
                     lineStyle:{width:2.5,color:'#22c55e'},
-                    itemStyle:{color:p=>dataTxRealisation[p.dataIndex].value>=70?'#22c55e':dataTxRealisation[p.dataIndex].value>=40?'#f97316':'#ef4444'},
+                    itemStyle:{color:'#22c55e'},
                     areaStyle:{color:mkGrad('rgba(34,197,94,0.2)','rgba(34,197,94,0.02)')},
-                    label:{show:true,position:'top',color:'#94a3b8',fontSize:9,fontWeight:'bold',formatter:p=>p.value+'%'}},
-                  {type:'line',data:dataTxRealisation.map(()=>70),silent:true,symbol:'none',
-                    lineStyle:{width:1.5,color:'#f97316',type:'dashed'}}
+                    label:{show:true,position:'top',color:'#94a3b8',fontSize:9,fontWeight:'bold',formatter:p=>p.value+'%'}}
                 ]
               }})
             ),
@@ -3718,9 +3721,9 @@ function VueGraphiques({entries,anneesChargees}){
             CE(VueComparaisonAnnuelle,{entries,anneesChargees,dateFrom,dateTo,onHistorique:ajout=>setArchivesAnalyse(prev=>({...prev,...ajout}))}),
 
             // ── Distribution horaire ──
-            dataHoraire.some(d=>d.value>0)&&CE('div',{className:'card'},
-              CE('h2',null,'🕐 Distribution horaire'),
-              CE(EChart,{height:200,option:{backgroundColor:'transparent',grid:{...EC_GRID},
+            dataHoraire.some(d=>d.value>0)&&CE('details',{className:'card','data-horaire-detail':'1',open:horaireOuvert,style:{gridColumn:'1 / -1'},onToggle:e=>{const zone=e.currentTarget;setHoraireOuvert(zone.open);if(zone.open)requestAnimationFrame(()=>zone.querySelectorAll('.ec-liquid-glass').forEach(el=>window.echarts.getInstanceByDom(el)?.resize()));}},
+              CE('summary',{style:{cursor:'pointer',fontSize:16,fontWeight:600,color:'var(--text,#1e3a8a)'}},'🕐 Distribution horaire'),
+              horaireOuvert&&CE(EChart,{height:200,option:{backgroundColor:'transparent',grid:{...EC_GRID},
                 tooltip:{trigger:'axis',...EC_TT,...EC_APN,formatter:p=>`<b style="color:#60a5fa">${p[0].name}</b><br/>${p[0].value} atelier(s)`},
                 xAxis:{data:dataHoraire.map(d=>d.label),...EC_AXIS_BASE,splitLine:{show:false},axisLabel:{...EC_AXIS_LABEL,interval:0}},
                 yAxis:{...EC_AXIS_BASE},
@@ -4451,8 +4454,9 @@ function TableCommunesDashboard({fd}){
     const rl=r.filter(d=>d.statut==='Réalisé').length;
     const ins=kpiHistorique(r).inscrits;
     const pre=kpiHistorique(r).presents;
-    const tp=kpiHistorique(r).tx;
-    return{name:c,ateliers:r.length,realises:rl,inscrits:ins,presents:pre,presence:tp};
+    const tp=tauxPresence(r);
+    const presentsSaisis=r.some(e=>e.statut==='Réalisé'&&e.presents!==''&&e.presents!=null&&!isNaN(parseInt(e.presents,10)));
+    return{name:c,ateliers:r.length,realises:rl,inscrits:ins,presents:pre,presence:tp.tx,inscritsTx:tp.inscrits,ateliersTx:tp.ateliers,presentsSaisis};
   }).sort((a,b)=>sortDir*(a[sortKey]>b[sortKey]?1:a[sortKey]<b[sortKey]?-1:0));
 
   const COLS=[
@@ -4460,7 +4464,7 @@ function TableCommunesDashboard({fd}){
     {key:'ateliers', label:'Atl.'},
     {key:'realises', label:'Réal.'},
     {key:'inscrits', label:'Inscrits'},
-    {key:'presents', label:'Présents'},
+    {key:'presents', label:'Participations'},
     {key:'presence', label:'Présence'},
   ];
 
@@ -4489,14 +4493,15 @@ function TableCommunesDashboard({fd}){
           CE('td',{style:{padding:'6px 8px'}},c.ateliers),
           CE('td',{style:{padding:'6px 8px',color:'#16a34a',fontWeight:600}},c.realises),
           CE('td',{style:{padding:'6px 8px'}},c.inscrits),
-          CE('td',{style:{padding:'6px 8px'}},c.presents),
+          CE('td',{style:{padding:'6px 8px'}},c.presentsSaisis?c.presents:'—'),
           CE('td',{style:{padding:'6px 8px'}},
             CE('div',{style:{display:'flex',alignItems:'center',gap:5}},
-              CE('div',{style:{height:5,width:36,background:'#f3f4f6',borderRadius:3}},
+              c.inscritsTx>0&&CE('div',{style:{height:5,width:36,background:'#f3f4f6',borderRadius:3}},
                 CE('div',{style:{height:5,borderRadius:3,width:c.presence+'%',background:tpColor}})
               ),
-              CE('span',{style:{fontSize:10,fontWeight:700,color:tpColor}},c.presence+'%')
-            )
+              CE('span',{style:{fontSize:10,fontWeight:700,color:c.inscritsTx>0?tpColor:'#6b7280'}},c.inscritsTx>0?c.presence+'%':'—')
+            ),
+            CE('small',{style:{display:'block',fontSize:9,color:'#6b7280',marginTop:3}},`Calculé sur ${c.ateliersTx} / ${c.realises} ateliers réalisés`)
           )
         );
       }))
@@ -4568,7 +4573,7 @@ function VuePowerBI({entries, conseillers: conseillersList}){
   const tReal=total?Math.round(real/total*100):0;
   const totPre=kpiHistorique(fd).presents;
   const totIns=kpiHistorique(fd).inscrits;
-  const tPres=kpiHistorique(fd).tx;
+  const presence=tauxPresence(fd),tPres=presence.tx;
 
   // Par mois
   const pMois=MOIS_PBI.map((l,i)=>{
@@ -4577,7 +4582,7 @@ function VuePowerBI({entries, conseillers: conseillersList}){
       Réalisés:r.filter(d=>d.statut==='Réalisé').length,
       Planifiés:r.filter(d=>d.statut==='Planifié').length,
       Annulés:r.filter(d=>d.statut==='Annulé').length,
-      Présents:kpiHistorique(r).presents
+      Participations:aDesParticipationsSaisies(r)?kpiHistorique(r).presents:null
     };
   });
 
@@ -4605,7 +4610,7 @@ function VuePowerBI({entries, conseillers: conseillersList}){
   const allComm=[...new Set(fd.map(d=>normCommune(d.commune)).filter(Boolean))];
   const pComm=allComm.map(c=>({
     name:c.length>14?c.slice(0,14)+'…':c,fullName:c,
-    presents:kpiHistorique(fd.filter(d=>normCommune(d.commune)===c)).presents,
+    presents:aDesParticipationsSaisies(fd.filter(d=>normCommune(d.commune)===c))?kpiHistorique(fd.filter(d=>normCommune(d.commune)===c)).presents:null,
     ateliers:fd.filter(d=>normCommune(d.commune)===c).length
   })).sort((a,b)=>b.presents-a.presents).slice(0,8);
 
@@ -4625,7 +4630,7 @@ function VuePowerBI({entries, conseillers: conseillersList}){
         CE('div',{style:{minWidth:0}},
           CE('div',{style:{fontSize:10,color:PBI_TEXT2,fontWeight:700,textTransform:'uppercase',letterSpacing:'.06em',marginBottom:5,overflow:'hidden',textOverflow:'ellipsis'}},label),
           CE('div',{style:{fontSize:28,fontWeight:800,color:PBI_TEXT,lineHeight:1}},value),
-          sub&&CE('div',{style:{fontSize:11,color:'#94a3b8',marginTop:4}},sub)
+          sub&&CE('div',{style:{fontSize:11,color:PBI_TEXT2,marginTop:4}},sub)
         ),
         CE('div',{style:{width:38,height:38,flexShrink:0,borderRadius:8,background:color+'22',display:'flex',alignItems:'center',justifyContent:'center',fontSize:20}},icon)
       )
@@ -4744,9 +4749,9 @@ function VuePowerBI({entries, conseillers: conseillersList}){
         // téléphone, elles élargissaient la page (25/10/2026).
         CE('div',{style:{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(max(150px,calc(50% - 10px)),1fr))',gap:10,marginBottom:12}},
           CE(KpiPBI,{label:'Ateliers',value:total,sub:real+' réalisés',color:'#2563EB',icon:'🖥️',delay:0}),
-          CE(KpiPBI,{label:'Réalisation',value:tReal+'%',sub:'Objectif 80%',color:'#16a34a',icon:'✅',delay:0.08}),
-          CE(KpiPBI,{label:'Participants',value:totPre,sub:totIns+' inscrits',color:'#7C3AED',icon:'👥',delay:0.16}),
-          CE(KpiPBI,{label:'Présence',value:tPres+'%',sub:'Sur réalisés',color:'#d97706',icon:'📊',delay:0.24})
+          CE(KpiPBI,{label:'Réalisation',value:total?tReal+'%':'—',sub:real+' / '+total+' ateliers',color:'#16a34a',icon:'✅',delay:0.08}),
+          CE(KpiPBI,{label:'Participations',value:aDesParticipationsSaisies(fd)?totPre:'—',sub:totIns+' inscriptions aux réalisés',color:'#7C3AED',icon:'👥',delay:0.16}),
+          CE(KpiPBI,{label:'Présence',value:presence.inscrits>0?tPres+' %':'—',sub:`Calculé sur ${presence.ateliers} / ${real} ateliers réalisés`,color:'#d97706',icon:'📊',delay:0.24})
         ),
 
         CE(CardPBI,{title:'Ateliers par mois',style:{marginBottom:12}},
@@ -4780,13 +4785,13 @@ function VuePowerBI({entries, conseillers: conseillersList}){
               ))
             )
           ),
-          CE(CardPBI,{title:'Présents / mois',style:{}},
+          CE(CardPBI,{title:'Participations / mois',style:{}},
             CE(PBIChart,{height:150,option:{backgroundColor:'transparent',
               grid:{top:8,right:4,bottom:22,left:0,containLabel:true},
               tooltip:{trigger:'axis',..._ecAPN,...ecTT},
               xAxis:{data:pMoisFilt.map(d=>d.mois),axisLine:{show:false},axisTick:{show:false},axisLabel:{color:'#94a3b8',fontSize:9}},
               yAxis:{splitLine:{lineStyle:{color:'#2d3250',type:'dashed'}},axisLabel:{color:'#94a3b8',fontSize:9},axisLine:{show:false},axisTick:{show:false}},
-              series:[{type:'line',data:pMoisFilt.map(d=>d['Présents']),smooth:true,symbol:'none',
+              series:[{name:'Participations',type:'line',data:pMoisFilt.map(d=>d['Participations']),smooth:true,symbol:'none',
                 lineStyle:{width:2,color:'#22c55e'},
                 areaStyle:{color:mkGradPBI('rgba(34,197,94,0.35)','rgba(34,197,94,0.02)')}}]}}))
         ),
@@ -4827,8 +4832,8 @@ function VuePowerBI({entries, conseillers: conseillersList}){
               CE('div',{style:{fontSize:11,fontWeight:700,color:cColor(c),marginBottom:8,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}},c),
               CE('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6,marginBottom:8}},
                 CE('div',null,CE('div',{style:{fontSize:20,fontWeight:800,color:PBI_TEXT}},r.length),CE('div',{style:{fontSize:9,color:PBI_TEXT2}},'Ateliers')),
-                CE('div',null,CE('div',{style:{fontSize:20,fontWeight:800,color:cColor(c)}},pct+'%'),CE('div',{style:{fontSize:9,color:PBI_TEXT2}},'Réalisation')),
-                CE('div',null,CE('div',{style:{fontSize:16,fontWeight:700,color:PBI_TEXT}},pre),CE('div',{style:{fontSize:9,color:PBI_TEXT2}},'Présents')),
+                CE('div',null,CE('div',{style:{fontSize:20,fontWeight:800,color:cColor(c)}},r.length?pct+'%':'—'),CE('div',{style:{fontSize:9,color:PBI_TEXT2}},'Réalisation')),
+                CE('div',null,CE('div',{style:{fontSize:16,fontWeight:700,color:PBI_TEXT}},aDesParticipationsSaisies(r)?pre:'—'),CE('div',{style:{fontSize:9,color:PBI_TEXT2}},'Participations')),
                 CE('div',null,CE('div',{style:{fontSize:16,fontWeight:700,color:'#ef4444'}},ann),CE('div',{style:{fontSize:9,color:PBI_TEXT2}},'Annulés'))
               ),
               CE('div',{style:{height:5,background:PBI_BG2,borderRadius:3}},
@@ -4851,7 +4856,7 @@ function VuePowerBI({entries, conseillers: conseillersList}){
           CE('div',{style:{overflowX:'auto'}},
             CE('table',{style:{width:'100%',borderCollapse:'collapse',fontSize:11}},
               CE('thead',null,CE('tr',{style:{background:PBI_BG2}},
-                ['','Total','Réal.','Ann.','Présents','Taux'].map(h=>CE('th',{key:h,style:{padding:'7px 8px',textAlign:'left',fontWeight:700,color:'#6b7280',borderBottom:'2px solid #e5e7eb',fontSize:10,whiteSpace:'nowrap'}},h))
+                ['','Total','Réal.','Ann.','Participations','Réalisation'].map(h=>CE('th',{key:h,style:{padding:'7px 8px',textAlign:'left',fontWeight:700,color:'#6b7280',borderBottom:'2px solid #e5e7eb',fontSize:10,whiteSpace:'nowrap'}},h))
               )),
               CE('tbody',null,CONS.map((c,i)=>{
                 const r=fd.filter(d=>d.conseiller===c);
@@ -4867,12 +4872,12 @@ function VuePowerBI({entries, conseillers: conseillersList}){
                   CE('td',{style:{padding:'6px 8px',fontWeight:700}},r.length),
                   CE('td',{style:{padding:'6px 8px',color:'#16a34a',fontWeight:600}},rl),
                   CE('td',{style:{padding:'6px 8px',color:'#dc2626',fontWeight:600}},ann),
-                  CE('td',{style:{padding:'6px 8px'}},pre),
+                  CE('td',{style:{padding:'6px 8px'}},aDesParticipationsSaisies(r)?pre:'—'),
                   CE('td',{style:{padding:'6px 8px'}},CE('div',{style:{display:'flex',alignItems:'center',gap:5}},
                     CE('div',{style:{height:5,width:40,background:PBI_BG2,borderRadius:3}},
                       CE('div',{style:{height:5,background:cColor(c),borderRadius:3,width:pct+'%'}})
                     ),
-                    CE('span',{style:{fontSize:10,fontWeight:700,color:cColor(c)}},pct+'%')
+                    CE('span',{style:{fontSize:10,fontWeight:700,color:cColor(c)}},r.length?pct+'%':'—')
                   ))
                 );
               }))
@@ -4884,7 +4889,7 @@ function VuePowerBI({entries, conseillers: conseillersList}){
 
       // PAGE TERRITOIRE
       page==='territoire'&&CE(React.Fragment,null,
-        pComm.length>0&&CE(CardPBI,{title:'Présents par commune',style:{marginBottom:12}},
+        pComm.length>0&&CE(CardPBI,{title:'Participations par commune',style:{marginBottom:12}},
           CE(PBIChart,{height:220,option:{backgroundColor:'transparent',
             grid:{top:8,right:50,bottom:8,left:8,containLabel:true},
             tooltip:{trigger:'axis',..._ecAPN,...ecTT},
@@ -5077,7 +5082,7 @@ function VueAgendaSemaine({entries,onEdit,onDelete,onDuplicate,canDelete,initCon
         CE('div',{className:'kpi-mini',style:{flex:'1 1 70px',borderLeft:'3px solid #16a34a',background:'#f0fdf4',animationDelay:'.07s'}},CE('div',{className:'v',style:{color:'#166534',fontSize:20}},realises),CE('div',{className:'l'},'Réalisés')),
         CE('div',{className:'kpi-mini',style:{flex:'1 1 70px',borderLeft:'3px solid #2563eb',background:'#eff6ff',animationDelay:'.14s'}},CE('div',{className:'v',style:{color:'#2563eb',fontSize:20}},planifies),CE('div',{className:'l'},'Planifiés')),
         CE('div',{className:'kpi-mini',style:{flex:'1 1 70px',borderLeft:'3px solid #7c3aed',background:'#faf5ff',animationDelay:'.21s'}},CE('div',{className:'v',style:{color:'#7c3aed',fontSize:20}},inscritsW),CE('div',{className:'l'},'Inscrits')),
-        CE('div',{className:'kpi-mini',style:{flex:'1 1 70px',borderLeft:'3px solid #0891b2',background:'#ecfeff',animationDelay:'.28s'}},CE('div',{className:'v',style:{color:'#0891b2',fontSize:20}},presentsW),CE('div',{className:'l'},'Présents'))
+        CE('div',{className:'kpi-mini',style:{flex:'1 1 70px',borderLeft:'3px solid #0891b2',background:'#ecfeff',animationDelay:'.28s'}},CE('div',{className:'v',style:{color:'#0891b2',fontSize:20}},aDesParticipationsSaisies(filtered)?presentsW:'—'),CE('div',{className:'l'},'Participations'))
       ),
 
       // ── Grille ────────────────────────────────────────────
@@ -5669,7 +5674,7 @@ function VueRoadmap({entries,annee,conseillers}){
         [
           {label:'Ateliers',value:kpis.total,color:'#1e3a8a'},
           {label:'Réalisés',value:kpis.realises,color:'#16a34a'},
-          {label:'Participants',value:kpis.presents,color:'#d97706'},
+          {label:'Participations',value:aDesParticipationsSaisies(filtered)?kpis.presents:'—',color:'#d97706'},
           {label:'Taux réalisation',value:kpis.taux+'%',color:kpis.taux>=75?'#16a34a':kpis.taux>=50?'#d97706':'#dc2626'},
         ].map(k=>CE('div',{key:k.label,style:{
           background:'#f8fafc',borderRadius:8,padding:'10px 14px',
@@ -5988,7 +5993,7 @@ function VueDashboard({entries}){
   const planifies=filtered.filter(e=>e.statut==='Planifié'&&e.date>=todayStr);
   const presents=realises.reduce((s,e)=>s+(parseInt(e.presents)||0),0);
   const inscrits=realises.reduce((s,e)=>s+(parseInt(e.inscrits)||0),0);
-  const txPresence=tauxPresence(realises).tx;
+  const presence=tauxPresence(realises),txPresence=presence.tx;
   const txAnnul=filtered.length>0?Math.round(annules.length/filtered.length*100):0;
   const prevR=prevFiltered.filter(e=>e.statut==='Réalisé');
   const prevPresents=prevR.reduce((s,e)=>s+(parseInt(e.presents)||0),0);
@@ -6056,12 +6061,12 @@ function VueDashboard({entries}){
     CE('div',{style:{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))',gap:12,marginBottom:16}},
       CE(KpiCard,{val:realises.length,lbl:'Ateliers réalisés',icon:'✅',color:'#16a34a',bgColor:'#f0fdf4',trend:mkTrend(realises.length,prevR.length)}),
       CE(KpiCard,{val:planifies.length,lbl:'Planifiés à venir',icon:'📅',color:'#2563eb',bgColor:'#eff6ff'}),
-      CE(KpiCard,{val:presents,lbl:'Participants présents',icon:'👥',color:'#7c3aed',bgColor:'#faf5ff',trend:mkTrend(presents,prevPresents)}),
+      CE(KpiCard,{val:aDesParticipationsSaisies(realises)?presents:'—',lbl:'Participations',sub:'Présences renseignées, cumulées',icon:'👥',color:'#7c3aed',bgColor:'#faf5ff',trend:aDesParticipationsSaisies(realises)&&aDesParticipationsSaisies(prevR)?mkTrend(presents,prevPresents):undefined}),
       CE(KpiCard,{val:inscrits,lbl:'Inscrits total',icon:'📝',color:'#0891b2',bgColor:'#ecfeff'}),
-      CE(KpiCard,{val:txPresence+'%',lbl:'Taux de présence',icon:'🎯',
-        color:txPresence>=70?'#16a34a':txPresence>=50?'#d97706':'#dc2626',
-        bgColor:txPresence>=70?'#f0fdf4':txPresence>=50?'#fffbeb':'#fef2f2'}),
-      CE(KpiCard,{val:txAnnul+'%',lbl:'Taux d\'annulation',icon:'❌',
+      CE(KpiCard,{val:presence.inscrits>0?txPresence+' %':'—',lbl:'Taux de présence',sub:`Calculé sur ${presence.ateliers} / ${realises.length} ateliers réalisés`,icon:'🎯',
+        color:!presence.inscrits?'#64748b':txPresence>=70?'#16a34a':txPresence>=50?'#d97706':'#dc2626',
+        bgColor:!presence.inscrits?'#f8fafc':txPresence>=70?'#f0fdf4':txPresence>=50?'#fffbeb':'#fef2f2'}),
+      CE(KpiCard,{val:filtered.length?txAnnul+'%':'—',lbl:'Taux d\'annulation',icon:'❌',
         color:txAnnul<=10?'#16a34a':txAnnul<=20?'#d97706':'#dc2626',
         bgColor:txAnnul<=10?'#f0fdf4':txAnnul<=20?'#fffbeb':'#fef2f2'})
     ),
@@ -6137,7 +6142,8 @@ function htmlBilanTrimestriel(b,titre,remarques,avisErreur){
   const statuts=Object.entries(a.statuts).filter(([k])=>k!=='Réalisé').map(([k,n])=>`${e(k)} : ${n}`).join(' · ');
   const reste=a.statuts['Planifié']||0;
   let h=`<h1>${e(titre)}</h1><div class="bt-sous">Du ${fmtDate(b.debut)} au ${fmtDate(b.fin)} — statistiques sur les ateliers « Réalisé »</div>`;
-  h+=`<h2>Activité</h2><div class="bt-kpis">${chiffre(a.realises,'ateliers réalisés')}${chiffre(a.presents,'participants')}${chiffre(a.tauxPresence===null?null:a.tauxPresence+' %','taux de présence')}${chiffre(String(a.heures).replace('.',','),'heures d\'animation')}${chiffre(a.communes,'communes')}</div>`;
+  h+=`<h2>Activité</h2><div class="bt-kpis">${chiffre(a.realises,'ateliers réalisés')}${chiffre(a.presents,'participations')}${chiffre(a.tauxPresence===null?null:a.tauxPresence+' %','taux de présence')}${chiffre(String(a.heures).replace('.',','),'heures d\'animation')}${chiffre(a.communes,'communes')}</div>`;
+  h+='<div class="bt-note">Participations : présences cumulées aux ateliers, pas de personnes uniques.</div>';
   if(statuts)h+=`<div class="bt-note">Autres ateliers de la période : ${statuts}.</div>`;
   if(reste)h+=`<div class="bt-alerte">⚠️ ${reste} atelier${reste>1?'s':''} encore « Planifié » sur la période : statut à mettre à jour, sinon ${reste>1?'ils manquent':'il manque'} au bilan.</div>`;
   h+=`<h2>Fiches bilan</h2><div class="bt-note">${f.remplies} fiche${f.remplies>1?'s':''} remplie${f.remplies>1?'s':''} sur ${a.realises} atelier${a.realises>1?'s':''} réalisé${a.realises>1?'s':''}${a.realises>f.remplies?` (${a.realises-f.remplies} sans fiche)`:''}. Pourcentages sur les fiches remplies${BILAN_MULTIPLES.length?' ; plusieurs réponses possibles pour les difficultés et les supports':''}.</div><div class="bt-grille">`;
@@ -6154,7 +6160,7 @@ function htmlBilanTrimestriel(b,titre,remarques,avisErreur){
     }
   }
   if(b.parTheme.length){
-    h+=`<h2>Par thématique</h2><table class="bt-table"><thead><tr><th>Thématique</th><th>Ateliers</th><th>Participants</th><th>Avis</th><th>Attentes</th></tr></thead><tbody>`;
+    h+=`<h2>Par thématique</h2><table class="bt-table"><thead><tr><th>Thématique</th><th>Ateliers</th><th>Participations</th><th>Avis</th><th>Attentes</th></tr></thead><tbody>`;
     b.parTheme.forEach(t=>{h+=`<tr><td>${e(t.theme)}</td><td>${t.ateliers}</td><td>${t.presents}</td><td>${t.avis}</td><td>${t.attentes===null?'—':String(t.attentes).replace('.',',')+'/5'}</td></tr>`;});
     h+='</tbody></table>';
   }
