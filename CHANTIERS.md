@@ -75,9 +75,10 @@ AG-003 à AG-008, ordre du jour de la bascule) a été retirée. Texte complet :
 
 ## Pistes d'amélioration
 
-Règle 22 de MD-LIB `collaboration.md` : au plus 3 pistes, à la fin d'une
-fonctionnalité validée ou sur demande de revue. Une piste écartée ne se
-repropose pas sans fait nouveau.
+Consigne renforcée et propagation approuvée par l'utilisateur le 25/10/2026 :
+initiative dès l'analyse, recommandations argumentées et examen de la pertinence
+de l'existant. Règle 22 de MD-LIB copiée dans `CLAUDE.md` ; ce registre garde
+les pistes et les décisions, sans reproposer une piste écartée sans fait nouveau.
 
 **Proposées, en attente** : tenues dans `CHANTIERS.md` d'ATELIERS_NEWGEN
 (mêmes interfaces, même base).
