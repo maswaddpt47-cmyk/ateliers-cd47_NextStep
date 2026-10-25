@@ -3163,6 +3163,7 @@ function liquidGlassOption(option){
   if(!ec)return option;
   const dark=document.documentElement.getAttribute('data-theme')==='dark';
   const text=getComputedStyle(document.documentElement).getPropertyValue('--text-2').trim()||'#64748b';
+  const foreground=getComputedStyle(document.documentElement).getPropertyValue('--text').trim()||text;
   const glass=(color,horizontal)=>{
     if(typeof color==='function')return p=>glass(color(p),horizontal);
     if(typeof color!=='string')return color;
@@ -3194,6 +3195,7 @@ function liquidGlassOption(option){
         borderColor:'rgba(255,255,255,.65)',borderWidth:.7,
         shadowColor:dark?'rgba(0,0,0,.3)':'rgba(30,64,100,.18)',shadowBlur:5,shadowOffsetX:1,shadowOffsetY:3});
       return {...s,itemStyle:style(s.itemStyle),
+        ...(s.label?.color==='currentColor'?{label:{...s.label,color:foreground}}:{}),
         ...(s.type==='pie'&&['inside','inner'].includes(s.label?.position)?{label:{...s.label,color:'#fff',backgroundColor:'rgba(15,23,42,.8)',borderRadius:4,padding:[2,4]}}:{}),
         ...(s.type==='line'?{lineStyle:{...s.lineStyle,width:Math.max(2.5,s.lineStyle?.width||0),shadowColor:dark?'rgba(96,165,250,.3)':'rgba(59,130,246,.2)',shadowBlur:5,shadowOffsetY:2}}:{}),
         data:s.data?.map(d=>d&&typeof d==='object'&&!Array.isArray(d)&&d.itemStyle?{...d,itemStyle:style(d.itemStyle)}:d)
@@ -3588,14 +3590,14 @@ function VueGraphiques({entries,anneesChargees}){
   const pmCount=withAmPm.filter(e=>e.ampm==='PM'||(!e.ampm&&parseInt(e.horaire)>=12)).length;
   const ampmTotal=amCount+pmCount;
   const ampmNonRenseignes=filtered.length-ampmTotal;
-  // Arrondi au dixième partagé par le tableau et le graphique : somme 100 %.
+  // Arrondi au dixième partagé par les graphiques AM/PM : somme 100 %.
   // Aucun pourcentage n'est inventé lorsque les deux effectifs sont nuls.
   const amDixiemes=ampmTotal?Math.round(amCount*1000/ampmTotal):null;
   const dataAmPm=[
     {label:'Matin (AM)',value:amCount,part:amDixiemes},
     {label:'Après-midi (PM)',value:pmCount,part:amDixiemes===null?null:1000-amDixiemes},
   ].map(d=>({...d,percentageText:d.part===null?'—':(d.part/10).toLocaleString('fr-FR',{maximumFractionDigits:1})+' %'}));
-  const ampmCell={padding:'8px 6px',background:'var(--surface,var(--bg2,#fff))',whiteSpace:'normal',borderBottom:'1px solid var(--border,#e2e8f0)',textAlign:'right',color:'var(--text,#1a202c)',overflowWrap:'anywhere'};
+  const ampmTextColor=()=>getComputedStyle(document.documentElement).getPropertyValue('--text').trim()||'#1a202c';
 
   const byFutur={};filtered.filter(e=>e.statut==='Planifié'&&e.date&&e.date.slice(0,7)>=todayYM).forEach(e=>{const m=e.date.slice(0,7);byFutur[m]=(byFutur[m]||0)+1;});
   const dataFutur=Object.keys(byFutur).sort().map(k=>({label:fmtML(k),value:byFutur[k],tip:`${fmtML(k)} : ${byFutur[k]} atelier(s) planifié(s)`}));
@@ -3691,24 +3693,18 @@ function VueGraphiques({entries,anneesChargees}){
             CE('div',{className:'card',style:{gridColumn:'1 / -1',minWidth:0}},
               CE('h2',null,'🌅 Pourcentage AM / PM'),
               CE('p',{className:'analyse-note'},'Ateliers chargés sur la période sélectionnée, tous statuts. Pourcentages sur les créneaux AM/PM renseignés, arrondis au dixième.'),
-              CE('table',{'aria-label':'Pourcentage AM / PM',style:{width:'100%',tableLayout:'fixed',borderCollapse:'collapse',fontSize:12}},
-                CE('thead',null,CE('tr',null,
-                  CE('th',{scope:'col',style:{...ampmCell,textAlign:'left',width:'44%'}},'Créneau'),
-                  CE('th',{scope:'col',style:{...ampmCell,width:'28%'}},'Ateliers'),
-                  CE('th',{scope:'col',style:{...ampmCell,width:'28%'}},'Pourcentage'))),
-                CE('tbody',null,
-                  dataAmPm.map(d=>CE('tr',{key:d.label},
-                    CE('th',{scope:'row',style:{...ampmCell,textAlign:'left',fontWeight:500}},d.label),
-                    CE('td',{style:ampmCell},d.value),
-                    CE('td',{style:ampmCell},d.percentageText))),
-                  ampmNonRenseignes>0&&CE('tr',null,
-                    CE('th',{scope:'row',style:{...ampmCell,textAlign:'left',fontWeight:500}},'Non renseigné'),
-                    CE('td',{style:ampmCell},ampmNonRenseignes),CE('td',{style:ampmCell},'—'))),
-                CE('tfoot',null,CE('tr',null,
-                  CE('th',{scope:'row',style:{...ampmCell,textAlign:'left'}},'Total renseigné'),
-                  CE('td',{style:{...ampmCell,fontWeight:700}},ampmTotal),
-                  CE('td',{style:{...ampmCell,fontWeight:700}},ampmTotal?'100 %':'—')))),
-              ampmNonRenseignes>0&&CE('p',{className:'analyse-note',style:{marginTop:8,marginBottom:0}},'Les ateliers non renseignés sont exclus des pourcentages.'),
+              ampmTotal>0&&CE('div',{'data-ampm-chart':'1',role:'img','aria-label':dataAmPm.map(d=>`${d.label} : ${d.percentageText}, ${d.value} atelier(s)`).join(' ; ')},
+                CE(EChart,{height:200,option:{backgroundColor:'transparent',
+                  grid:{top:12,right:70,bottom:28,left:8,containLabel:true},
+                  tooltip:{trigger:'item',...EC_TT,...EC_APN,formatter:p=>{const d=dataAmPm[p.dataIndex];return`<b>${htmlEsc(d.label)}</b><br/>${d.value} atelier(s) · ${htmlEsc(d.percentageText)}`;}},
+                  xAxis:{type:'value',min:0,max:100,interval:25,...EC_AXIS_BASE,axisLabel:{...EC_AXIS_LABEL,color:ampmTextColor,formatter:v=>v+' %'}},
+                  yAxis:{type:'category',data:dataAmPm.map(d=>d.label),inverse:true,axisLine:{show:false},axisTick:{show:false},axisLabel:{...EC_AXIS_LABEL,fontSize:11,color:ampmTextColor},splitLine:{show:false}},
+                  series:[{name:'Part des ateliers',type:'bar',barMaxWidth:30,
+                    data:dataAmPm.map((d,i)=>({value:d.part/10,itemStyle:{color:i===0?'#f97316':'#0891b2',borderRadius:[0,5,5,0]}})),
+                    label:{show:true,position:'right',color:'currentColor',fontSize:12,fontWeight:700,formatter:p=>dataAmPm[p.dataIndex].percentageText}}]
+                }})),
+              ampmTotal>0&&CE('p',{className:'analyse-note',style:{marginTop:8,marginBottom:0}},`${ampmTotal} atelier(s) avec un créneau renseigné.`),
+              ampmNonRenseignes>0&&CE('p',{className:'analyse-note',style:{marginTop:8,marginBottom:0}},`${ampmNonRenseignes} atelier(s) sans créneau renseigné, exclus des pourcentages.`),
               ampmTotal===0&&CE('p',{className:'analyse-note',style:{marginTop:8,marginBottom:0}},'Aucun atelier classé AM ou PM sur cette période.')
             )
           )

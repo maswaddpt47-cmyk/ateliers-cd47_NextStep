@@ -30,21 +30,26 @@ test('Analyse : comparaison annuelle et historique au clic à 390/1280 px', asyn
  const seriesNames=()=>annual.locator('.ec-liquid-glass').evaluate(el=>echarts.getInstanceByDom(el)?.getOption()?.series?.map(s=>s.name)||[]);
  await page.getByRole('heading',{name:'📊 Comparaison N / N−1',exact:true}).waitFor();
  await page.getByRole('button',{name:'2026',exact:true}).click();
- const ampm=page.getByRole('table',{name:'Pourcentage AM / PM',exact:true});
- const ampmCells=label=>ampm.getByRole('row').filter({hasText:label}).locator('th,td').allTextContents().then(cells=>cells.map(text=>text.replace(/\s+/g,'').replace(/[,.]0(?=%$)/,'')));
+ const ampm=page.locator('[data-ampm-chart="1"]');
  await expect(ampm).toBeVisible();
- await expect.poll(()=>ampmCells('Matin (AM)')).toEqual(['Matin(AM)','3','50%']);
- await expect.poll(()=>ampmCells('Après-midi (PM)')).toEqual(['Après-midi(PM)','3','50%']);
- assert.deepEqual(await ampmCells('Non renseigné'),['Nonrenseigné','1','—'],'le créneau absent reste hors du dénominateur');
- assert.deepEqual(await ampmCells('Total renseigné'),['Totalrenseigné','6','100%']);
+ const ampmOption=()=>ampm.locator('.ec-liquid-glass').evaluate(el=>{
+  const option=echarts.getInstanceByDom(el)?.getOption(),series=option?.series?.[0];
+  if(!series)return null;
+  const values=series.data.map(d=>typeof d==='object'?d.value:d);
+  const labels=values.map((value,dataIndex)=>series.label.formatter({value,dataIndex,data:series.data[dataIndex]}).replace(/\s+/g,'').replace(/[,.]0(?=%$)/,''));
+  return {type:series.type,values,labels,min:option.xAxis[0].min,max:option.xAxis[0].max};
+ });
+ await expect.poll(ampmOption).toEqual({type:'bar',values:[50,50],labels:['50%','50%'],min:0,max:100});
+ await expect(page.getByText('1 atelier(s) sans créneau renseigné, exclus des pourcentages.',{exact:true})).toBeVisible();
+ await expect(page.getByText('6 atelier(s) avec un créneau renseigné.',{exact:true})).toBeVisible();
  assert.equal(await page.evaluate(()=>window.__calls.length),0,'aucun appel ajouté au démarrage');
  for(const sheet of ['app.css','admin.css']){
   await style.evaluate((el,css)=>el.textContent=css,fs.readFileSync(path.join(ROOT,sheet),'utf8'));
   for(const width of [390,1280])for(const theme of ['light','dark']){
    await page.setViewportSize({width,height:720});
-   await page.evaluate(theme=>document.documentElement.setAttribute('data-theme',theme),theme);
+   await page.evaluate(theme=>{document.documentElement.setAttribute('data-theme',theme);window.__root.render(CE(VueGraphiques,{entries:window.__lignes,anneesChargees:'2026,2027'}));},theme);
    await page.waitForTimeout(100);
-   const dimensions=await page.evaluate(()=>({viewport:innerWidth,page:document.documentElement.scrollWidth,notes:[...document.querySelectorAll('.analyse-note, table[aria-label="Pourcentage AM / PM"] th, table[aria-label="Pourcentage AM / PM"] td')].map(e=>({color:getComputedStyle(e).color,background:getComputedStyle(e.closest('.card')||document.body).backgroundColor}))}));
+   const dimensions=await page.evaluate(()=>({viewport:innerWidth,page:document.documentElement.scrollWidth,notes:[...document.querySelectorAll('.analyse-note')].map(e=>({color:getComputedStyle(e).color,background:getComputedStyle(e.closest('.card')||document.body).backgroundColor}))}));
    assert.ok(dimensions.page<=width+1,JSON.stringify(dimensions));
    for(const note of dimensions.notes){
     const lum=c=>{const a=c.match(/[\d.]+/g).slice(0,3).map(Number).map(v=>{v/=255;return v<=.04045?v/12.92:Math.pow((v+.055)/1.055,2.4);});return .2126*a[0]+.7152*a[1]+.0722*a[2];};
@@ -79,9 +84,8 @@ test('Analyse : comparaison annuelle et historique au clic à 390/1280 px', asyn
  await page.evaluate(()=>window.__root.render(CE(VueGraphiques,{entries:[],anneesChargees:'2026,2027'})));
  await expect(annual.getByText('Aucun atelier enregistré en 2026 dans les données chargées.',{exact:true})).toBeVisible();
  await expect(annual.locator('.ec-liquid-glass')).toHaveCount(0);
- await expect.poll(()=>ampmCells('Matin (AM)')).toEqual(['Matin(AM)','0','—']);
- assert.deepEqual(await ampmCells('Après-midi (PM)'),['Après-midi(PM)','0','—']);
- assert.deepEqual(await ampmCells('Total renseigné'),['Totalrenseigné','0','—'],'aucun pourcentage artificiel sans atelier renseigné');
+ await expect(page.getByText('Aucun atelier classé AM ou PM sur cette période.',{exact:true})).toBeVisible();
+ await expect(ampm).toHaveCount(0);
  assert.deepEqual(errors,[],'Analyse sans erreur JavaScript');
  await context.close();
 });
