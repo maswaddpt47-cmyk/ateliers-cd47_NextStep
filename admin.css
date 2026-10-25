@@ -278,6 +278,10 @@ nav { display: none !important; }
 .app-content {
   margin-left: 72px;
   flex: 1;
+  /* Sans lui, la barre d'onglets du Dashboard (une ligne, ~675 px) élargissait
+     toute la page sur téléphone, et le redimensionnement qui suivait coupait
+     l'animation des graphiques de l'Analyse (constaté le 25/10/2026). */
+  min-width: 0;
   min-height: 100vh;
   display: flex;
   flex-direction: column;

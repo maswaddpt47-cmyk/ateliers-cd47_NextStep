@@ -4600,13 +4600,13 @@ function VuePowerBI({entries, conseillers: conseillersList}){
 
   function KpiPBI({label,value,sub,color,icon,delay=0}){
     return CE(FadeItem,{delay},CE('div',{style:{background:PBI_BG,borderRadius:6,padding:'14px',borderLeft:`4px solid ${color}`,boxShadow:'0 1px 6px rgba(0,0,0,.15)'}},
-      CE('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}},
-        CE('div',null,
-          CE('div',{style:{fontSize:10,color:PBI_TEXT2,fontWeight:700,textTransform:'uppercase',letterSpacing:'.06em',marginBottom:5}},label),
+      CE('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:6}},
+        CE('div',{style:{minWidth:0}},
+          CE('div',{style:{fontSize:10,color:PBI_TEXT2,fontWeight:700,textTransform:'uppercase',letterSpacing:'.06em',marginBottom:5,overflow:'hidden',textOverflow:'ellipsis'}},label),
           CE('div',{style:{fontSize:28,fontWeight:800,color:PBI_TEXT,lineHeight:1}},value),
           sub&&CE('div',{style:{fontSize:11,color:'#94a3b8',marginTop:4}},sub)
         ),
-        CE('div',{style:{width:38,height:38,borderRadius:8,background:color+'22',display:'flex',alignItems:'center',justifyContent:'center',fontSize:20}},icon)
+        CE('div',{style:{width:38,height:38,flexShrink:0,borderRadius:8,background:color+'22',display:'flex',alignItems:'center',justifyContent:'center',fontSize:20}},icon)
       )
     ));
   }
@@ -4718,7 +4718,9 @@ function VuePowerBI({entries, conseillers: conseillersList}){
 
       // PAGE GÉNÉRAL
       page==='general'&&CE(React.Fragment,null,
-        CE('div',{style:{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:10,marginBottom:12}},
+        // Deux cartes par ligne, une seule quand elles n'ont plus 150 px : sur
+        // téléphone, elles élargissaient la page (25/10/2026).
+        CE('div',{style:{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(max(150px,calc(50% - 10px)),1fr))',gap:10,marginBottom:12}},
           CE(KpiPBI,{label:'Ateliers',value:total,sub:real+' réalisés',color:'#2563EB',icon:'🖥️',delay:0}),
           CE(KpiPBI,{label:'Réalisation',value:tReal+'%',sub:'Objectif 80%',color:'#16a34a',icon:'✅',delay:0.08}),
           CE(KpiPBI,{label:'Participants',value:totPre,sub:totIns+' inscrits',color:'#7C3AED',icon:'👥',delay:0.16}),
@@ -6140,7 +6142,8 @@ const BILAN_TRIM_CSS=`.bt h1{font-size:20px;color:#0f766e;margin:0 0 2px}.bt h2{
 .bt-grille{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px}.bt-bloc{border:1px solid #e2e8f0;border-radius:8px;padding:8px 10px;break-inside:avoid}
 .bt-barre{display:grid;grid-template-columns:42% 1fr auto;gap:6px;align-items:center;font-size:12px;margin:3px 0}.bt-lib{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.bt-fond{background:#f1f5f9;border-radius:4px;height:9px;overflow:hidden}.bt-fond span{display:block;height:100%;background:#14b8a6}.bt-val{color:#475569;white-space:nowrap}
 .bt-rem{font-size:12px;color:#475569;font-style:italic;padding-left:18px}.bt-table{width:100%;border-collapse:collapse;font-size:12px}.bt-table th,.bt-table td{border-bottom:1px solid #e2e8f0;padding:5px 6px;text-align:left}.bt-table th{background:#f8fafc}
-@media print{.bt *{-webkit-print-color-adjust:exact;print-color-adjust:exact}}`;
+@media print{.bt *{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+@media screen{.bt{overflow-x:auto}}`;
 function VueBilanTrimestriel({entries,moi}){
   const defaut=trimestrePrecedent(todayLocal());
   const[annee,setAnnee]=React.useState(defaut.annee);
