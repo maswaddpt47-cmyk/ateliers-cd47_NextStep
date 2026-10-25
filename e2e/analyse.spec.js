@@ -36,10 +36,11 @@ test('Analyse : comparaison annuelle et historique au clic à 390/1280 px', asyn
   const option=echarts.getInstanceByDom(el)?.getOption(),series=option?.series?.[0];
   if(!series)return null;
   const values=series.data.map(d=>typeof d==='object'?d.value:d);
-  const labels=values.map((value,dataIndex)=>series.label.formatter({value,dataIndex,data:series.data[dataIndex]}).replace(/\s+/g,'').replace(/[,.]0(?=%$)/,''));
-  return {type:series.type,values,labels,min:option.xAxis[0].min,max:option.xAxis[0].max};
+  const total=values.reduce((sum,value)=>sum+value,0);
+  const labels=values.map((value,dataIndex)=>series.label.formatter({value,dataIndex,data:series.data[dataIndex],percent:value/total*100}).replace(/\s+/g,'').replace(/[,.]0(?=%$)/,''));
+  return {type:series.type,values,labels,radius:series.radius};
  });
- await expect.poll(ampmOption).toEqual({type:'bar',values:[50,50],labels:['50%','50%'],min:0,max:100});
+ await expect.poll(ampmOption).toEqual({type:'pie',values:[3,3],labels:['50%','50%'],radius:['38%','65%']});
  await expect(page.getByText('1 atelier(s) sans créneau renseigné, exclus des pourcentages.',{exact:true})).toBeVisible();
  await expect(page.getByText('6 atelier(s) avec un créneau renseigné.',{exact:true})).toBeVisible();
  assert.equal(await page.evaluate(()=>window.__calls.length),0,'aucun appel ajouté au démarrage');

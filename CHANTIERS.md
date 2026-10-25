@@ -18,11 +18,9 @@ AG-003 à AG-008, ordre du jour de la bascule) a été retirée. Texte complet :
 ---
 
 ## Reste ouvert
-- **AM/PM, 25/10/2026** : tableau remplacé par un graphique à deux barres
-  de pourcentage après Distribution horaire, selon la demande utilisateur.
-  `main` `4c46383` (`shared.js?v=214`), run `40190024768` vert,
-  tests navigateur et déploiement vérifiés ; mêmes calculs et exclusions.
-  Suivi commun dans `ATELIERS_NEWGEN/CHANTIERS.md`, « Analyse des ateliers ».
+- **AM/PM, 25/10/2026** : format donut demandé après Distribution horaire,
+  avec pourcentages visibles et mêmes calculs/exclusions. Suivi commun des
+  contrôles et de la publication dans `ATELIERS_NEWGEN/CHANTIERS.md`.
 
 - **Analyse, 25/10/2026** : tableaux « Thématiques par commune » et
   « Partenaires par conseiller » retirés à la demande de l'utilisateur.
