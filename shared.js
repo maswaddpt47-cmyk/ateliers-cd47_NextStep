@@ -3337,16 +3337,25 @@ function DualLineChart({data}){
 }
 
 // ── RadialChart barres horizontales ──────────────────────────
-function RadialChart({data,colors,height=220}){
+// Graphiques trop chargés (« Par commune », 25/10/2026) : les n premiers, le
+// reste regroupé dans une barre « Autres (N) » dont l'info-bulle les détaille.
+function topEtAutres(data,n=10){
+  if(!data||data.length<=n+1)return data;
+  const reste=data.slice(n);
+  const liste=reste.slice(0,12).map(d=>d.label+' : '+d.value).join(', ')+(reste.length>12?'…':'');
+  return [...data.slice(0,n),{label:`Autres (${reste.length})`,value:reste.reduce((t,d)=>t+d.value,0),tip:liste}];
+}
+// inverse : la première donnée en haut (classements).
+function RadialChart({data,colors,height=220,inverse}){
   if(!data||data.length===0)return CE(NoData,null);
   const colArr=Array.isArray(colors)?colors:['#3b82f6'];
   const total=data.reduce((s,d)=>s+d.value,0);
   const option={
     backgroundColor:'transparent',grid:{top:8,right:50,bottom:8,left:8,containLabel:true},
     tooltip:{trigger:'axis',...EC_TT,...EC_APN,
-      formatter:params=>{const i=params[0];const d=data[i.dataIndex];const pct=Math.round(d.value/total*100);return`<b style="color:#60a5fa">${htmlEsc(d.label)}</b><br/>${d.value} — ${pct}%`;}},
+      formatter:params=>{const i=params[0];const d=data[i.dataIndex];const pct=Math.round(d.value/total*100);return`<b style="color:#60a5fa">${htmlEsc(d.label)}</b><br/>${d.value} — ${pct}%`+(d.tip?'<br/><span style="color:#94a3b8;font-size:11px">'+htmlEsc(d.tip)+'</span>':'');}},
     xAxis:{...EC_AXIS_BASE},
-    yAxis:{type:'category',data:data.map(d=>d.label),axisLabel:{...EC_AXIS_LABEL,fontSize:11},axisLine:{show:false},axisTick:{show:false},splitLine:{show:false}},
+    yAxis:{type:'category',inverse:!!inverse,data:data.map(d=>d.label),axisLabel:{...EC_AXIS_LABEL,fontSize:11,width:150,overflow:'truncate'},axisLine:{show:false},axisTick:{show:false},splitLine:{show:false}},
     series:[{type:'bar',barMaxWidth:32,
       data:data.map((d,i)=>({value:d.value,itemStyle:{color:colArr[i%colArr.length],borderRadius:[0,4,4,0]}})),
       label:{show:true,position:'right',color:'#94a3b8',fontSize:10,fontWeight:'bold'}
@@ -3680,8 +3689,8 @@ function VueGraphiques({entries,anneesChargees}){
           CE('div',{className:'dashboard-charts',style:{display:'grid',gridTemplateColumns:'repeat(2,minmax(0,1fr))',gap:16}},
             CE('div',{className:'card'},CE('h2',null,'Ateliers par mois (révolus)'),CE(LineChart,{data:dataMois})),
             CE('div',{className:'card'},CE('h2',null,'Présents par mois (révolus)'),CE(LineChart,{data:dataMoisPresents})),
-            CE('div',{className:'card'},CE('h2',null,'Par commune'),CE(BarChart,{data:dataCommune,colors:['#1e3a8a','#3b82f6','#60a5fa','#93c5fd','#1e40af','#2563eb','#1d4ed8','#1e3a8a']})),
-            CE('div',{className:'card'},CE('h2',null,'Par type de public'),CE(BarChart,{data:dataPublic,colors:['#7C3AED','#2563EB','#059669','#DB2777','#d97706','#0891b2','#65a30d','#dc2626']})),
+            CE('div',{className:'card'},CE('h2',null,'Par commune'),CE(RadialChart,{data:topEtAutres(dataCommune),inverse:true,height:Math.max(160,topEtAutres(dataCommune).length*28+16),colors:['#1e3a8a','#3b82f6','#60a5fa','#93c5fd','#1e40af','#2563eb','#1d4ed8','#1e3a8a']})),
+            CE('div',{className:'card'},CE('h2',null,'Par type de public'),CE(RadialChart,{data:topEtAutres(dataPublic),inverse:true,height:Math.max(160,topEtAutres(dataPublic).length*28+16),colors:['#7C3AED','#2563EB','#059669','#DB2777','#d97706','#0891b2','#65a30d','#dc2626']})),
             CE('div',{className:'card'},CE('h2',null,'📅 Planifiés — mois à venir'),CE(BarChart,{data:dataFutur,colors:['#7c3aed','#8b5cf6','#a78bfa','#c4b5fd']})),
             CE('div',{className:'card'},CE('h2',null,'Par statut'),CE(RadialChart,{data:dataStat,colors:['#276749','#2a69ac','#9b2c2c','#718096','#744210']})),
             CE('div',{className:'card',style:{gridColumn:'1 / -1'}},CE('h2',null,'📈 Inscrits vs Présents par mois'),CE(DualLineChart,{data:dataDual})),
