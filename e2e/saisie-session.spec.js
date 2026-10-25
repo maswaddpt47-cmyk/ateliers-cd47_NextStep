@@ -36,6 +36,7 @@ async function preparer(page){
     if(action==='getComptes')rep={ok:true,comptes:[{conseiller:NOM,role:'admin',actif:'OUI'}]};
     else if(action==='checkPassword')rep={ok:true,role:'admin',conseiller:NOM,token:'a'.repeat(64)};
     else if(action==='getAll')rep={ok:true,entries:[TEMOIN],
+      years:(params.get('years')||params.get('year')||'').split(',').filter(Boolean),
       lists:{statuts:['Planifié','Réalisé','Annulé','Reporté','Non réalisé'],
         conseillers:[NOM],publics:['Adultes'],materiels:['Ordinateur']},
       visibility:VISIBILITE,config:{},conseillers_inactifs:[],conseiller_colors:{},
