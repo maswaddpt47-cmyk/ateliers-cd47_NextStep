@@ -3,7 +3,8 @@ const assert=require('node:assert/strict');
 const {test,expect}=require('@playwright/test');
 const path=require('path');
 const ROOT=path.resolve(__dirname,'..');
-const entries=Array.from({length:6},(_,i)=>({_id:'atelier-'+i,date:'2026-09-'+String(i+1).padStart(2,'0'),statut:'Réalisé',horaire:'09:30',thematique:'Thématique '+(i+1),commune:'Commune '+(i+1),orienteur:'Partenaire',conseiller:'Alice Martin',inscrits:8,presents:6,public:'Adultes'}));
+const entries=Array.from({length:6},(_,i)=>({_id:'atelier-'+i,date:'2026-09-'+String(i+1).padStart(2,'0'),statut:'Réalisé',horaire:i%2?'14:00':'09:30',thematique:'Thématique '+(i+1),commune:'Commune '+(i+1),orienteur:'Partenaire',conseiller:'Alice Martin',inscrits:8,presents:6,public:'Adultes'}));
+entries.push({_id:'sans-creneau',date:'2026-09-20',statut:'Planifié',horaire:'',ampm:'',thematique:'Thématique 1',commune:'Commune 1',orienteur:'Partenaire',conseiller:'Alice Martin',public:'Adultes'});
 
 // Le parcours exécute la bibliothèque et les composants réellement publiés,
 // avec des données fictives ; aucun appel ne sort vers le serveur métier.
@@ -29,6 +30,13 @@ test('Analyse : comparaison annuelle et historique au clic à 390/1280 px', asyn
  const seriesNames=()=>annual.locator('.ec-liquid-glass').evaluate(el=>echarts.getInstanceByDom(el)?.getOption()?.series?.map(s=>s.name)||[]);
  await page.getByRole('heading',{name:'📊 Comparaison N / N−1',exact:true}).waitFor();
  await page.getByRole('button',{name:'2026',exact:true}).click();
+ const ampm=page.getByRole('table',{name:'Pourcentage AM / PM',exact:true});
+ const ampmCells=label=>ampm.getByRole('row').filter({hasText:label}).locator('th,td').allTextContents().then(cells=>cells.map(text=>text.replace(/\s+/g,'').replace(/[,.]0(?=%$)/,'')));
+ await expect(ampm).toBeVisible();
+ await expect.poll(()=>ampmCells('Matin (AM)')).toEqual(['Matin(AM)','3','50%']);
+ await expect.poll(()=>ampmCells('Après-midi (PM)')).toEqual(['Après-midi(PM)','3','50%']);
+ assert.deepEqual(await ampmCells('Non renseigné'),['Nonrenseigné','1','—'],'le créneau absent reste hors du dénominateur');
+ assert.deepEqual(await ampmCells('Total renseigné'),['Totalrenseigné','6','100%']);
  assert.equal(await page.evaluate(()=>window.__calls.length),0,'aucun appel ajouté au démarrage');
  for(const sheet of ['app.css','admin.css']){
   await style.evaluate((el,css)=>el.textContent=css,fs.readFileSync(path.join(ROOT,sheet),'utf8'));
@@ -36,7 +44,7 @@ test('Analyse : comparaison annuelle et historique au clic à 390/1280 px', asyn
    await page.setViewportSize({width,height:720});
    await page.evaluate(theme=>document.documentElement.setAttribute('data-theme',theme),theme);
    await page.waitForTimeout(100);
-   const dimensions=await page.evaluate(()=>({viewport:innerWidth,page:document.documentElement.scrollWidth,notes:[...document.querySelectorAll('.analyse-note')].map(e=>({color:getComputedStyle(e).color,background:getComputedStyle(e.closest('.card')||document.body).backgroundColor}))}));
+   const dimensions=await page.evaluate(()=>({viewport:innerWidth,page:document.documentElement.scrollWidth,notes:[...document.querySelectorAll('.analyse-note, table[aria-label="Pourcentage AM / PM"] th, table[aria-label="Pourcentage AM / PM"] td')].map(e=>({color:getComputedStyle(e).color,background:getComputedStyle(e.closest('.card')||document.body).backgroundColor}))}));
    assert.ok(dimensions.page<=width+1,JSON.stringify(dimensions));
    for(const note of dimensions.notes){
     const lum=c=>{const a=c.match(/[\d.]+/g).slice(0,3).map(Number).map(v=>{v/=255;return v<=.04045?v/12.92:Math.pow((v+.055)/1.055,2.4);});return .2126*a[0]+.7152*a[1]+.0722*a[2];};
@@ -71,6 +79,9 @@ test('Analyse : comparaison annuelle et historique au clic à 390/1280 px', asyn
  await page.evaluate(()=>window.__root.render(CE(VueGraphiques,{entries:[],anneesChargees:'2026,2027'})));
  await expect(annual.getByText('Aucun atelier enregistré en 2026 dans les données chargées.',{exact:true})).toBeVisible();
  await expect(annual.locator('.ec-liquid-glass')).toHaveCount(0);
+ await expect.poll(()=>ampmCells('Matin (AM)')).toEqual(['Matin(AM)','0','—']);
+ assert.deepEqual(await ampmCells('Après-midi (PM)'),['Après-midi(PM)','0','—']);
+ assert.deepEqual(await ampmCells('Total renseigné'),['Totalrenseigné','0','—'],'aucun pourcentage artificiel sans atelier renseigné');
  assert.deepEqual(errors,[],'Analyse sans erreur JavaScript');
  await context.close();
 });

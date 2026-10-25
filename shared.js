@@ -3323,16 +3323,16 @@ function RadialChart({data,colors,height=220}){
 
 // ── DonutChart ───────────────────────────────────────────────
 function DonutChart({data,colors,height=220}){
-  if(!data||data.length===0)return CE(NoData,null);
+  if(!data||data.length===0||data.every(d=>d.percentageText==='—'))return CE(NoData,null);
   const colArr=Array.isArray(colors)?colors:['#3b82f6'];
   const total=data.reduce((s,d)=>s+d.value,0);
   const option={
     backgroundColor:'transparent',
-    tooltip:{trigger:'item',...EC_TT,formatter:params=>`<b style="color:${chartTooltipColor(params.color)}">${htmlEsc(params.name)}</b><br/>${params.value} (${Math.round(params.value/total*100)}%)`},
+    tooltip:{trigger:'item',...EC_TT,formatter:params=>`<b style="color:${chartTooltipColor(params.color)}">${htmlEsc(params.name)}</b><br/>${params.value} (${htmlEsc(data[params.dataIndex]?.percentageText??Math.round(params.value/total*100)+'%')})`},
     legend:{orient:'horizontal',bottom:0,textStyle:{color:'#94a3b8',fontSize:11},icon:'circle',itemWidth:8,itemHeight:8},
     series:[{type:'pie',radius:['38%','65%'],center:['50%','46%'],
       itemStyle:{borderRadius:5,borderColor:'#1a1d27',borderWidth:3},
-      label:{show:true,position:'inside',color:'#fff',fontSize:10,fontWeight:'bold',formatter:p=>p.percent>6?Math.round(p.percent)+'%':''},
+      label:{show:true,position:'inside',color:'#fff',fontSize:10,fontWeight:'bold',formatter:p=>p.percent>6?(data[p.dataIndex]?.percentageText??Math.round(p.percent)+'%'):''},
       data:data.map((d,i)=>({name:d.label,value:d.value,itemStyle:{color:colArr[i%colArr.length]}})),
       emphasis:{scale:true,scaleSize:5}
     }]
@@ -3586,11 +3586,16 @@ function VueGraphiques({entries,anneesChargees}){
   const withAmPm=filtered.filter(e=>e.ampm==='AM'||e.ampm==='PM'||(e.horaire&&!isNaN(parseInt(e.horaire))));
   const amCount=withAmPm.filter(e=>e.ampm==='AM'||(!e.ampm&&parseInt(e.horaire)<12)).length;
   const pmCount=withAmPm.filter(e=>e.ampm==='PM'||(!e.ampm&&parseInt(e.horaire)>=12)).length;
-  const ampmBase=amCount+pmCount||1;
+  const ampmTotal=amCount+pmCount;
+  const ampmNonRenseignes=filtered.length-ampmTotal;
+  // Arrondi au dixième partagé par le tableau et le graphique : somme 100 %.
+  // Aucun pourcentage n'est inventé lorsque les deux effectifs sont nuls.
+  const amDixiemes=ampmTotal?Math.round(amCount*1000/ampmTotal):null;
   const dataAmPm=[
-    {label:'Matin (AM)',value:amCount,tip:`Matin : ${amCount} atelier(s) — ${Math.round(amCount/ampmBase*100)}%`},
-    {label:'Après-midi (PM)',value:pmCount,tip:`Après-midi : ${pmCount} atelier(s) — ${Math.round(pmCount/ampmBase*100)}%`},
-  ];
+    {label:'Matin (AM)',value:amCount,part:amDixiemes},
+    {label:'Après-midi (PM)',value:pmCount,part:amDixiemes===null?null:1000-amDixiemes},
+  ].map(d=>({...d,percentageText:d.part===null?'—':(d.part/10).toLocaleString('fr-FR',{maximumFractionDigits:1})+' %'}));
+  const ampmCell={padding:'8px 6px',background:'var(--surface,var(--bg2,#fff))',whiteSpace:'normal',borderBottom:'1px solid var(--border,#e2e8f0)',textAlign:'right',color:'var(--text,#1a202c)',overflowWrap:'anywhere'};
 
   const byFutur={};filtered.filter(e=>e.statut==='Planifié'&&e.date&&e.date.slice(0,7)>=todayYM).forEach(e=>{const m=e.date.slice(0,7);byFutur[m]=(byFutur[m]||0)+1;});
   const dataFutur=Object.keys(byFutur).sort().map(k=>({label:fmtML(k),value:byFutur[k],tip:`${fmtML(k)} : ${byFutur[k]} atelier(s) planifié(s)`}));
@@ -3681,6 +3686,30 @@ function VueGraphiques({entries,anneesChargees}){
                   label:{show:true,position:'top',color:'#94a3b8',fontSize:9,fontWeight:'bold',formatter:p=>p.value||''}
                 }]
               }})
+            ),
+
+            CE('div',{className:'card',style:{gridColumn:'1 / -1',minWidth:0}},
+              CE('h2',null,'🌅 Pourcentage AM / PM'),
+              CE('p',{className:'analyse-note'},'Ateliers chargés sur la période sélectionnée, tous statuts. Pourcentages sur les créneaux AM/PM renseignés, arrondis au dixième.'),
+              CE('table',{'aria-label':'Pourcentage AM / PM',style:{width:'100%',tableLayout:'fixed',borderCollapse:'collapse',fontSize:12}},
+                CE('thead',null,CE('tr',null,
+                  CE('th',{scope:'col',style:{...ampmCell,textAlign:'left',width:'44%'}},'Créneau'),
+                  CE('th',{scope:'col',style:{...ampmCell,width:'28%'}},'Ateliers'),
+                  CE('th',{scope:'col',style:{...ampmCell,width:'28%'}},'Pourcentage'))),
+                CE('tbody',null,
+                  dataAmPm.map(d=>CE('tr',{key:d.label},
+                    CE('th',{scope:'row',style:{...ampmCell,textAlign:'left',fontWeight:500}},d.label),
+                    CE('td',{style:ampmCell},d.value),
+                    CE('td',{style:ampmCell},d.percentageText))),
+                  ampmNonRenseignes>0&&CE('tr',null,
+                    CE('th',{scope:'row',style:{...ampmCell,textAlign:'left',fontWeight:500}},'Non renseigné'),
+                    CE('td',{style:ampmCell},ampmNonRenseignes),CE('td',{style:ampmCell},'—'))),
+                CE('tfoot',null,CE('tr',null,
+                  CE('th',{scope:'row',style:{...ampmCell,textAlign:'left'}},'Total renseigné'),
+                  CE('td',{style:{...ampmCell,fontWeight:700}},ampmTotal),
+                  CE('td',{style:{...ampmCell,fontWeight:700}},ampmTotal?'100 %':'—')))),
+              ampmNonRenseignes>0&&CE('p',{className:'analyse-note',style:{marginTop:8,marginBottom:0}},'Les ateliers non renseignés sont exclus des pourcentages.'),
+              ampmTotal===0&&CE('p',{className:'analyse-note',style:{marginTop:8,marginBottom:0}},'Aucun atelier classé AM ou PM sur cette période.')
             )
           )
         )

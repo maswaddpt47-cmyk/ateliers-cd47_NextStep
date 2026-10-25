@@ -18,6 +18,9 @@ AG-003 à AG-008, ordre du jour de la bascule) a été retirée. Texte complet :
 ---
 
 ## Reste ouvert
+- **AM/PM, 25/10/2026** : petit tableau nombre/pourcentage demandé après
+  Distribution horaire. Suivi des contrôles et de la publication commune
+  dans `ATELIERS_NEWGEN/CHANTIERS.md`, « Analyse des ateliers ».
 - **Analyse, 25/10/2026** : tableaux « Thématiques par commune » et
   « Partenaires par conseiller » retirés à la demande de l'utilisateur.
   Livré sur `main`, `61c50f2` (`shared.js?v=212`, `logic.js?v=22`) :
