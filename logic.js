@@ -550,8 +550,122 @@ function basculerDemiLigne(rows, id, demi) {
   });
 }
 
+// ── Analyse : comparaison annuelle et tableaux complets ─────────────────
+function _analyseDateValide(value) {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const d = new Date(value + 'T12:00:00Z');
+  return Number.isFinite(d.getTime()) && d.toISOString().slice(0, 10) === value;
+}
+function _analyseAujourdhui(value) {
+  if (value) return value;
+  return typeof LOGIC_UTILS !== 'undefined' ? LOGIC_UTILS.todayLocal() : todayLocal();
+}
+function _analyseAnneePrecedente(date, year) {
+  const month = date.slice(5, 7), day = date.slice(8, 10);
+  const leap = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+  return String(year).padStart(4, '0') + '-' + month + '-' + (month === '02' && day === '29' && !leap ? '28' : day);
+}
+// Les années chargées viennent de l'appel getAll, jamais des seules lignes.
+// hasData/records décrivent toute l'année (tous statuts), pas la période :
+// zéro en mars est connu même si les seuls ateliers de l'année sont en avril.
+// monthly = null hors période, année non chargée ou sans historique enregistré.
+function comparaisonAnnuelle(entries, options = {}) {
+  const year = Number(options.year), previousYear = year - 1;
+  const from = options.from || '', to = options.to || '';
+  const today = _analyseAujourdhui(options.today);
+  const loaded = new Set((Array.isArray(options.loadedYears) ? options.loadedYears : String(options.loadedYears || '').split(',')).map(Number));
+  const make = y => ({ from: '', to: '', monthly: Array(12).fill(null), total: 0, loaded: loaded.has(y), hasData: false, records: 0 });
+  const result = { year, previousYear, current: make(year), previous: make(previousYear), status: 'invalid-range' };
+  if (!Number.isInteger(year) || year < 1000 || year > 9999 || !_analyseDateValide(today) ||
+      (from && !_analyseDateValide(from)) || (to && !_analyseDateValide(to)) ||
+      (from && to && (from > to || from.slice(0, 4) !== to.slice(0, 4)))) return result;
+
+  const valid = (entries || []).filter(e => e && _analyseDateValide(e.date));
+  for (const [y, bucket] of [[year, result.current], [previousYear, result.previous]]) {
+    bucket.records = valid.filter(e => Number(e.date.slice(0, 4)) === y).length;
+    bucket.hasData = bucket.records > 0;
+  }
+  const yearStart = year + '-01-01', yearEnd = year + '-12-31';
+  const start = from && from > yearStart ? from : yearStart;
+  let end = to && to < yearEnd ? to : yearEnd;
+  const yesterday = new Date(today + 'T12:00:00Z');
+  yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+  const lastPastDay = yesterday.toISOString().slice(0, 10);
+  if (end > lastPastDay) end = lastPastDay;
+  if (start > end) { result.status = 'outside'; return result; }
+  result.current.from = start; result.current.to = end;
+  result.previous.from = _analyseAnneePrecedente(start, previousYear);
+  result.previous.to = _analyseAnneePrecedente(end, previousYear);
+
+  for (const bucket of [result.current, result.previous]) {
+    if (!bucket.loaded || !bucket.hasData) continue;
+    const firstMonth = Number(bucket.from.slice(5, 7)) - 1, lastMonth = Number(bucket.to.slice(5, 7)) - 1;
+    for (let m = firstMonth; m <= lastMonth; m++) bucket.monthly[m] = 0;
+    valid.forEach(e => {
+      if (e.statut !== 'Réalisé' || e.date >= today || e.date < bucket.from || e.date > bucket.to) return;
+      bucket.monthly[Number(e.date.slice(5, 7)) - 1]++;
+      bucket.total++;
+    });
+  }
+  result.status = !result.current.loaded || !result.previous.loaded ? 'unloaded'
+    : !result.current.hasData || !result.previous.hasData ? 'empty' : 'ready';
+  return result;
+}
+
+// Matrices sans top-N. total = ateliers distincts ; affectations = participations
+// des conseillers (un atelier coanimé compte une fois pour chacun, jamais deux
+// fois si le même nom est présent dans les deux champs). Les noms de la liste
+// configurée restent visibles à zéro ; horsEquipe garde les autres noms.
+// Les tableaux values/totals suivent l'ordre de themes ou de conseillers.
+function tableauxAnalyse(entries, options = {}) {
+  const today = _analyseAujourdhui(options.today);
+  const label = value => String(value == null ? '' : value).trim() || 'Non renseigné';
+  const sort = values => [...values].sort((a, b) => a.localeCompare(b, 'fr'));
+  const actuels = sort(new Set((options.conseillers || []).map(c => String(c || '').trim()).filter(Boolean)));
+  const current = new Set(actuels), others = new Set(), themes = new Set();
+  const communes = new Map(), partenaires = new Map();
+  let total = 0, affectations = 0, unassigned = false;
+  (entries || []).forEach(e => {
+    if (!e || e.statut !== 'Réalisé' || !_analyseDateValide(e.date) || !_analyseDateValide(today) ||
+        e.date >= today || (options.from && e.date < options.from) || (options.to && e.date > options.to)) return;
+    const commune = label(e.commune), theme = label(e.thematique), partenaire = label(e.orienteur);
+    themes.add(theme);
+    if (!communes.has(commune)) communes.set(commune, { counts: new Map(), total: 0 });
+    const row = communes.get(commune);
+    row.counts.set(theme, (row.counts.get(theme) || 0) + 1); row.total++;
+    if (!partenaires.has(partenaire)) partenaires.set(partenaire, { counts: new Map(), total: 0, affectations: 0 });
+    const partner = partenaires.get(partenaire);
+    const advisors = new Set([e.conseiller, e.co_animateur].map(c => String(c || '').trim()).filter(Boolean));
+    if (!advisors.size) { advisors.add('Non renseigné'); unassigned = true; }
+    advisors.forEach(c => {
+      if (c === 'Non renseigné' && !current.has(c)) unassigned = true;
+      if (!current.has(c) && c !== 'Non renseigné') others.add(c);
+      partner.counts.set(c, (partner.counts.get(c) || 0) + 1);
+      partner.affectations++; affectations++;
+    });
+    partner.total++; total++;
+  });
+  const themeList = sort(themes), horsEquipe = sort(others);
+  const advisorList = [...actuels, ...horsEquipe];
+  if (unassigned && !advisorList.includes('Non renseigné')) advisorList.push('Non renseigné');
+  const communeRows = sort(communes.keys()).map(commune => {
+    const row = communes.get(commune);
+    return { commune, values: themeList.map(t => row.counts.get(t) || 0), total: row.total };
+  });
+  const partnerRows = sort(partenaires.keys()).map(partenaire => {
+    const row = partenaires.get(partenaire);
+    return { partenaire, values: advisorList.map(c => row.counts.get(c) || 0), total: row.total, affectations: row.affectations };
+  });
+  return {
+    total,
+    communeTheme: { themes: themeList, rows: communeRows, totals: themeList.map((_, i) => communeRows.reduce((s, r) => s + r.values[i], 0)), total },
+    partenaires: { conseillers: advisorList, actuels, horsEquipe, rows: partnerRows, totals: advisorList.map((_, i) => partnerRows.reduce((s, r) => s + r.values[i], 0)), total, affectations }
+  };
+}
+
 if (typeof module !== 'undefined') {
   module.exports = {
+    comparaisonAnnuelle, tableauxAnalyse,
     filterMaterielsVisibles,
     findMobileClassConflicts,
     demiJourneeAtelier, finOccupationMateriel, occupeCreneauMateriel,

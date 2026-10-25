@@ -887,7 +887,7 @@ function App(){
           view==='agenda'&&visibility.agenda&&CE(VueAgendaSemaine,{onNouveau:visibility.saisie?handleNouveauLe:undefined,entries,onEdit:handleEdit,onDelete:handleDelete,onDuplicate:handleDuplicate,canDelete:true,initConseiller:filtreConseiller,accentColor}),
           view==='planning'&&visibility.planning&&CE(VuePlanning,{annees:annee,onCycle:visibility.saisie?handleCycleCreneaux:undefined,onNouveau:visibility.saisie?handleNouveauLe:undefined,conseillerFixe:(()=>{try{return sessionStorage.getItem('gs_conseiller')||'';}catch(_){return '';}})(),entries,onEdit:handleEdit,onDelete:handleDelete,onDuplicate:handleDuplicate,canDelete:true,accentColor,conseillers:conseillerActifs}),
           view==='calendrier'&&visibility.calendrier&&CE(VueCalendrier,{onNouveau:visibility.saisie?handleNouveauLe:undefined,onImportICS:visibility.saisie?handleImportICS:undefined,entries,onEdit:handleEdit,onDelete:handleDelete,onRefresh:()=>loadData(),onDuplicate:handleDuplicate,initConseiller:filtreConseiller,onResetConseiller:()=>{},canDelete:true}),
-          view==='dashboard'&&visibility.dashboard&&CE(VueDashboardTabs,{entries,conseillers:lists.conseillers,sansBilans:true}),
+          view==='dashboard'&&visibility.dashboard&&CE(VueDashboardTabs,{entries,anneesChargees:annee,conseillers:lists.conseillers,sansBilans:true}),
           view==='bilans'&&visibility.bilans&&CE(VueMesBilans,{entries}),
           view==='carte'&&visibility.carte&&CE(VueCarte,{entries,active:view==='carte'}),
           view==='roadmap'&&visibility.roadmap&&CE(VueRoadmap,{entries,annee:anneeReference(annee),conseillers:lists.conseillers}),

@@ -10,6 +10,105 @@ const {
 } = require('./logic.js');
 const { presentsSuperieursInscrits } = require('./utils.js');
 
+describe('Analyse : comparaison annuelle', () => {
+  const { comparaisonAnnuelle } = require('./logic.js');
+  it('compare les mêmes dates passées et ramène le 29 février au 28 de N−1', () => {
+    const entries = [
+      { date: '2024-02-29', statut: 'Réalisé' }, { date: '2023-02-28', statut: 'Réalisé' },
+      { date: '2024-03-01', statut: 'Réalisé' }, { date: '2023-03-01', statut: 'Réalisé' },
+      { date: '2024-02-30', statut: 'Réalisé' }, { date: '2023-02-29', statut: 'Réalisé' },
+      { date: '2024-02-27', statut: 'Annulé' }
+    ];
+    const options = { year: 2024, today: '2024-03-01', loadedYears: [2023, 2024] };
+    const cmp = comparaisonAnnuelle(entries, options);
+    assert.equal(cmp.status, 'ready');
+    assert.equal(cmp.current.to, '2024-02-29');
+    assert.equal(cmp.previous.to, '2023-02-28');
+    assert.deepEqual(cmp.current.monthly, [0, 1, ...Array(10).fill(null)]);
+    assert.deepEqual(cmp.previous.monthly, [0, 1, ...Array(10).fill(null)]);
+    assert.equal(cmp.current.total, 1);
+    assert.equal(cmp.previous.total, 1);
+    assert.equal(cmp.current.records, 3); // date du jour et Annulé : historique, pas activité réalisée passée
+    const leapDay = comparaisonAnnuelle(entries, { ...options, from: '2024-02-29', to: '2024-02-29' });
+    assert.equal(leapDay.previous.from, '2023-02-28');
+    assert.equal(leapDay.previous.to, '2023-02-28');
+    assert.equal(leapDay.previous.total, 1);
+  });
+  it('distingue année non chargée, année vide et zéro connu dans la période filtrée', () => {
+    const entries = [{ date: '2023-04-01', statut: 'Planifié' }, { date: '2022-04-01', statut: 'Annulé' }];
+    const options = { year: 2023, from: '2023-03-10', to: '2023-03-20', today: '2026-10-25', loadedYears: ['2022', '2023'] };
+    const knownZero = comparaisonAnnuelle(entries, options);
+    assert.equal(knownZero.status, 'ready');
+    assert.equal(knownZero.previous.hasData, true);
+    assert.deepEqual(knownZero.previous.monthly, [null, null, 0, ...Array(9).fill(null)]);
+    const unloaded = comparaisonAnnuelle(entries, { ...options, loadedYears: [2023] });
+    assert.equal(unloaded.status, 'unloaded');
+    assert.equal(unloaded.previous.loaded, false);
+    assert.ok(unloaded.previous.monthly.every(v => v === null));
+    const empty = comparaisonAnnuelle(entries.slice(0, 1), options);
+    assert.equal(empty.status, 'empty');
+    assert.equal(empty.previous.hasData, false);
+    assert.ok(empty.previous.monthly.every(v => v === null));
+    const fullPastYear = comparaisonAnnuelle(entries, { ...options, from: '', to: '' });
+    assert.equal(fullPastYear.current.to, '2023-12-31');
+    assert.equal(fullPastYear.previous.to, '2022-12-31');
+    assert.equal(comparaisonAnnuelle(entries, { ...options, year: 2027, from: '', to: '' }).status, 'outside');
+    assert.equal(comparaisonAnnuelle(entries, { ...options, from: '2022-12-01' }).status, 'invalid-range');
+    assert.equal(comparaisonAnnuelle(entries, { ...options, from: '2023-02-30' }).status, 'invalid-range');
+  });
+});
+
+describe('Analyse : tableaux complets', () => {
+  const { tableauxAnalyse } = require('./logic.js');
+  it('garde toutes les communes/thématiques, les conseillers à zéro et les données non renseignées', () => {
+    const entries = Array.from({ length: 6 }, (_, i) => ({
+      date: '2026-10-01', statut: 'Réalisé', commune: 'Commune ' + (i + 1), thematique: 'Thème ' + (i + 1),
+      orienteur: ' Structure ', conseiller: ' Alice ', co_animateur: i === 0 ? 'Bob' : i === 1 ? 'Alice' : ''
+    }));
+    entries.push(
+      { date: '2026-10-02', statut: 'Réalisé', commune: '', thematique: ' ', orienteur: ' ', conseiller: '', co_animateur: ' ' },
+      { date: '2026-10-03', statut: 'Réalisé', commune: '__proto__', thematique: 'constructor', orienteur: '__proto__', conseiller: 'Hors équipe', co_animateur: ' Hors équipe ' }
+    );
+    const result = tableauxAnalyse(entries, { today: '2026-10-25', conseillers: [' Diane ', 'Alice', 'Bob', 'Chloé', 'Alice '] });
+    assert.equal(result.total, 8);
+    assert.equal(result.communeTheme.rows.length, 8);
+    assert.equal(result.communeTheme.themes.length, 8);
+    assert.ok(result.communeTheme.rows.some(r => r.commune === 'Commune 6'));
+    assert.ok(result.communeTheme.themes.includes('Thème 6'));
+    assert.equal(result.communeTheme.rows.find(r => r.commune === 'Non renseigné').total, 1);
+    assert.equal(result.communeTheme.totals.reduce((s, n) => s + n, 0), 8);
+    const partners = result.partenaires;
+    assert.deepEqual(partners.actuels, ['Alice', 'Bob', 'Chloé', 'Diane']);
+    assert.deepEqual(partners.horsEquipe, ['Hors équipe']);
+    assert.deepEqual(partners.conseillers, ['Alice', 'Bob', 'Chloé', 'Diane', 'Hors équipe', 'Non renseigné']);
+    const structure = partners.rows.find(r => r.partenaire === 'Structure');
+    assert.deepEqual(structure.values, [6, 1, 0, 0, 0, 0]);
+    assert.equal(structure.total, 6);
+    assert.equal(structure.affectations, 7);
+    assert.equal(partners.rows.find(r => r.partenaire === 'Non renseigné').values[5], 1);
+    assert.equal(partners.rows.find(r => r.partenaire === '__proto__').values[4], 1);
+    assert.deepEqual(partners.totals, [6, 1, 0, 0, 1, 1]);
+    assert.equal(partners.total, 8);
+    assert.equal(partners.affectations, 9); // l'atelier coanimé compte pour les deux conseillers
+  });
+  it('applique les bornes inclusives sur les seuls réalisés strictement passés', () => {
+    const entries = [
+      { date: '2026-10-01', statut: 'Réalisé' }, { date: '2026-10-02', statut: 'Réalisé' },
+      { date: '2026-10-03', statut: 'Réalisé' }, { date: '2026-10-04', statut: 'Réalisé' },
+      { date: '2026-02-30', statut: 'Réalisé' }, { date: '2026-10-02', statut: 'Annulé' }
+    ];
+    const result = tableauxAnalyse(entries, { from: '2026-10-02', to: '2026-10-04', today: '2026-10-04', conseillers: ['Alice'] });
+    assert.equal(result.total, 2);
+    assert.deepEqual(result.communeTheme.themes, ['Non renseigné']);
+    assert.deepEqual(result.communeTheme.rows[0].values, [2]);
+    assert.deepEqual(result.partenaires.conseillers, ['Alice', 'Non renseigné']);
+    assert.deepEqual(result.partenaires.totals, [0, 2]);
+    const empty = tableauxAnalyse([], { today: '2026-10-04', conseillers: ['Bob', 'Alice'] });
+    assert.deepEqual(empty.partenaires.conseillers, ['Alice', 'Bob']);
+    assert.deepEqual(empty.partenaires.totals, [0, 0]);
+  });
+});
+
 describe('findMobileClassConflicts', () => {
   it('détecte 2 conseillers distincts avec Classe mobile le même jour', () => {
     const entries = [

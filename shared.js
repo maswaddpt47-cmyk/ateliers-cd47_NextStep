@@ -22,6 +22,10 @@ nav button.notif:hover{background:#b91c1c}
 .main{padding:20px;max-width:1200px;margin:0 auto}
 .card{background:#fff;border-radius:10px;padding:20px;box-shadow:0 1px 4px rgba(0,0,0,.08);margin-bottom:16px}
 .card h2{font-size:16px;font-weight:600;color:#1e3a8a;margin-bottom:16px;padding-bottom:10px;border-bottom:2px solid #e2e8f0}
+.analyse-vue .kpi-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
+.analyse-vue .card,.analyse-vue .kpi{min-width:0}
+@media(max-width:600px){.analyse-vue .kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}.analyse-vue .dashboard-charts{grid-template-columns:minmax(0,1fr)!important}}
+.analyse-note{font-size:12px;line-height:1.6;color:var(--text-2,#64748b);margin:0 0 12px}
 .ec-liquid-glass{position:relative;border-radius:18px;background:radial-gradient(ellipse at 12% 0%,rgba(255,255,255,.95),transparent 65%),linear-gradient(135deg,rgba(219,234,254,.38),rgba(255,255,255,.3) 48%,rgba(204,251,241,.24));box-shadow:inset 0 1px 1px rgba(255,255,255,.95),inset 0 -1px 1px rgba(148,163,184,.2),0 5px 16px rgba(30,64,100,.06);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
 [data-theme="dark"] .ec-liquid-glass{background:radial-gradient(ellipse at 12% 0%,rgba(148,163,184,.13),transparent 65%),linear-gradient(135deg,rgba(59,130,246,.08),rgba(15,23,42,.18) 48%,rgba(45,212,191,.06));box-shadow:inset 0 1px 1px rgba(255,255,255,.16),inset 0 -1px 1px rgba(255,255,255,.04),0 5px 16px rgba(0,0,0,.14)}
 @media print{.ec-liquid-glass{background:none!important;box-shadow:none!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important}}
@@ -3477,18 +3481,130 @@ function KpiCard({val,lbl,sub,trend,color,icon,bgColor,delay=0}){
 // ═══════════════════════════════════════════════════════════
 // VUE GRAPHIQUES (stats détaillées — inchangé)
 // ═══════════════════════════════════════════════════════════
-function VueGraphiques({entries}){
+// Tableau complet : les nombres sont des ateliers, les zéros restent visibles.
+function TableauAnalyse({label,firstLabel,columns,rows,totals,total,horsEquipe=[]}){
+  const cell={padding:'10px 12px',borderBottom:'1px solid var(--border,#e2e8f0)',textAlign:'right',fontVariantNumeric:'tabular-nums'};
+  const head={...cell,textAlign:'left',fontWeight:600,whiteSpace:'normal',overflowWrap:'anywhere',minWidth:130,maxWidth:220};
+  const fixed={...head,position:'sticky',left:0,zIndex:1,background:'var(--surface,#fff)',minWidth:160};
+  return CE('div',{className:'analyse-matrice',role:'region','aria-label':label,tabIndex:0,style:{overflowX:'auto',maxWidth:'100%',border:'1px solid var(--border,#e2e8f0)',borderRadius:8}},
+    CE('table',{style:{width:'100%',borderCollapse:'separate',borderSpacing:0,fontSize:12}},
+      CE('caption',{style:{textAlign:'left',padding:10,color:'var(--text-2,#64748b)'}},label+' — nombre d’ateliers'),
+      CE('thead',null,CE('tr',null,
+        CE('th',{scope:'col',style:fixed},firstLabel),
+        columns.map(c=>CE('th',{key:c,scope:'col',style:head},c,horsEquipe.includes(c)&&CE('small',{style:{display:'block',fontWeight:400,color:'var(--text-2,#64748b)'}},'Hors équipe configurée'))),
+        CE('th',{scope:'col',style:head},'Ateliers distincts'))),
+      CE('tbody',null,rows.map(row=>CE('tr',{key:row.label},
+        CE('th',{scope:'row',style:fixed},row.label),
+        row.values.map((v,i)=>CE('td',{key:columns[i],style:{...cell,color:v?'var(--text,#1a202c)':'var(--text-2,#64748b)'}},v)),
+        CE('td',{style:{...cell,fontWeight:700}},row.total)))),
+      CE('tfoot',null,CE('tr',null,
+        CE('th',{scope:'row',style:{...fixed,fontWeight:700}},'Total'),
+        totals.map((v,i)=>CE('td',{key:columns[i],style:{...cell,fontWeight:700}},v)),
+        CE('td',{style:{...cell,fontWeight:700}},total)))));
+}
+
+function VueTableauxAnalyse({entries,conseillers,dateFrom,dateTo,anneesChargees}){
+  const data=React.useMemo(()=>tableauxAnalyse(entries,{from:dateFrom,to:dateTo,today:todayLocal(),conseillers}),[entries,conseillers,dateFrom,dateTo]);
+  const themes=data.communeTheme,partenaires=data.partenaires;
+  const years=anneesListe(anneesChargees).map(Number),missing=[];
+  if(dateFrom||dateTo){
+    const start=Number(dateFrom.slice(0,4))||Math.min(...years,Number(dateTo.slice(0,4))||Infinity);
+    const end=Number(dateTo.slice(0,4))||Math.max(...years,Number(dateFrom.slice(0,4))||0);
+    for(let y=start;y<=end;y++)if(!years.includes(y))missing.push(y);
+  }
+  if(missing.length)return CE('div',{className:'card',style:{gridColumn:'1 / -1',minWidth:0}},
+    CE('h2',null,'Tableaux d’analyse'),
+    CE('p',{className:'analyse-note'},'Années non chargées pour cette période : '+missing.join(', ')+'. Sélectionnez-les dans « Années chargées » ou chargez l’historique proposé dans la comparaison.'));
+  if(dateFrom&&dateTo&&dateFrom>dateTo)return CE('p',{className:'analyse-note',style:{gridColumn:'1 / -1'}},'La date de fin doit suivre la date de début.');
+  return CE(React.Fragment,null,
+    CE('div',{className:'card',style:{gridColumn:'1 / -1',minWidth:0}},
+      CE('h2',null,'🗂️ Thématiques par commune'),
+      CE('p',{className:'analyse-note'},'Ateliers réalisés avant aujourd’hui, selon la période sélectionnée. Toutes les communes et toutes les thématiques sont incluses.'),
+      themes.rows.length?CE(TableauAnalyse,{label:'Thématiques par commune',firstLabel:'Commune',columns:themes.themes,rows:themes.rows.map(r=>({...r,label:r.commune})),totals:themes.totals,total:themes.total})
+        :CE('p',{className:'analyse-note'},'Aucun atelier réalisé sur cette période.')),
+    CE('div',{className:'card',style:{gridColumn:'1 / -1',minWidth:0}},
+      CE('h2',null,'🔀 Partenaires par conseiller'),
+      CE('p',{className:'analyse-note'},'Ateliers réalisés avant aujourd’hui, animés ou coanimés. Les conseillers de l’équipe configurée restent affichés, même à zéro. « Non renseigné » signale une information manquante.'),
+      !partenaires.actuels.length&&CE('p',{className:'analyse-note'},'Aucun conseiller dans la liste de l’équipe configurée.'),
+      partenaires.horsEquipe.length>0&&CE('p',{className:'analyse-note'},'Les autres noms présents dans les ateliers sont identifiés « Hors équipe configurée ».'),
+      CE(TableauAnalyse,{label:'Partenaires par conseiller',firstLabel:'Partenaire',columns:partenaires.conseillers,rows:partenaires.rows.map(r=>({...r,label:r.partenaire})),totals:partenaires.totals,total:partenaires.total,horsEquipe:partenaires.horsEquipe}),
+      CE('p',{className:'analyse-note'},'Un atelier coanimé compte pour chacun de ses conseillers. Le total « Ateliers distincts » le compte une seule fois ; il peut donc être inférieur à la somme des colonnes.')));
+}
+
+// Lecture de l'historique au clic seulement, par le getAll existant. Les
+// archives restent en mémoire dans cette vue et ne changent pas les années
+// chargées dans les autres écrans. Aucun zéro ne remplace un échec de lecture.
+function VueComparaisonAnnuelle({entries,anneesChargees,dateFrom,dateTo,onHistorique}){
+  const[archives,setArchives]=React.useState({});
+  const[chargement,setChargement]=React.useState(false);
+  const[erreur,setErreur]=React.useState('');
+  const version=React.useRef(0);
+  React.useEffect(()=>{version.current++;setArchives({});setErreur('');setChargement(false);return()=>{version.current++;};},[entries,anneesChargees]);
+  const loaded=anneesListe(anneesChargees);
+  const year=Number((dateFrom||dateTo||'').slice(0,4)||anneeReference(anneesChargees));
+  const known=[...new Set([...loaded,...Object.keys(archives)])];
+  const source=entries.concat(Object.entries(archives).filter(([y])=>!loaded.includes(y)).flatMap(([,rows])=>rows));
+  const cmp=comparaisonAnnuelle(source,{year,from:dateFrom,to:dateTo,today:todayLocal(),loadedYears:known});
+  const manquantes=[year,year-1].filter(y=>!known.includes(String(y)));
+  async function charger(){
+    if(chargement||!manquantes.length)return;
+    const requete=version.current,force=!!erreur;
+    setChargement(true);setErreur('');
+    try{
+      const data=await fetchAll(manquantes.join(','),{source:window.location.pathname.endsWith('admin.html')?'admin':'index',force});
+      if(!data||data.maintenance||!Array.isArray(data.entries))throw new Error('Lecture impossible');
+      if((manquantes.length>1&&!Array.isArray(data.years))||(Array.isArray(data.years)&&manquantes.some(y=>!data.years.map(String).includes(String(y)))))throw new Error('Historique incomplet');
+      if(version.current===requete){
+        const ajout=Object.fromEntries(manquantes.map(y=>[y,data.entries.filter(e=>String(e.date||'').startsWith(y+'-'))]));
+        setArchives(prev=>({...prev,...ajout}));
+        if(onHistorique)onHistorique(ajout);
+      }
+    }catch(_){if(version.current===requete)setErreur('Impossible de charger l’historique. Vous pouvez réessayer.');}
+    finally{if(version.current===requete)setChargement(false);}
+  }
+  const textColor=getComputedStyle(document.documentElement).getPropertyValue('--text-2').trim()||'#64748b';
+  const mois=['Jan','Fév','Mar','Avr','Mai','Juin','Juil','Août','Sep','Oct','Nov','Déc'];
+  const series=[
+    cmp.current.loaded&&cmp.current.hasData&&{name:`N · ${year}`,type:'bar',barMaxWidth:24,data:cmp.current.monthly,itemStyle:{color:'#3b82f6',borderRadius:[4,4,0,0]}},
+    cmp.previous.loaded&&cmp.previous.hasData&&{name:`N−1 · ${year-1}`,type:'bar',barMaxWidth:24,data:cmp.previous.monthly,itemStyle:{color:'#94a3b8',borderRadius:[4,4,0,0]}}
+  ].filter(Boolean).map(s=>({...s,label:{show:true,position:'top',color:textColor,fontSize:10}}));
+  return CE('div',{className:'card',style:{gridColumn:'1 / -1',minWidth:0}},
+    CE('h2',null,'📊 Comparaison N / N−1'),
+    CE('p',{className:'analyse-note'},`N = ${year} · N−1 = ${year-1}. Ateliers réalisés, sur la même période écoulée.`),
+    cmp.status==='invalid-range'?CE('p',{className:'analyse-note'},'Choisissez une période dans une seule année pour comparer N et N−1.')
+    :cmp.status==='outside'?CE('p',{className:'analyse-note'},'Cette période n’est pas encore écoulée : aucune comparaison d’activité réalisée.')
+    :CE(React.Fragment,null,
+      CE('p',{className:'analyse-note'},`${year} : ${fmtPeriode(cmp.current.from,cmp.current.to)} · ${year-1} : ${fmtPeriode(cmp.previous.from,cmp.previous.to)}`),
+      manquantes.length>0&&CE('div',{className:'analyse-note'},
+        CE('p',null,`Historique ${manquantes.join(' et ')} non chargé.`),
+        CE('button',{className:'btn btn-secondary btn-sm',onClick:charger,disabled:chargement,style:{marginTop:8}},chargement?'Chargement…':`Charger ${manquantes.join(' et ')} pour comparer`)),
+      erreur&&CE('p',{role:'alert',style:{color:'var(--danger,#b91c1c)',marginBottom:10}},erreur),
+      cmp.previous.loaded&&!cmp.previous.hasData&&CE('p',{className:'analyse-note'},`Historique ${year-1} indisponible : aucun atelier enregistré dans les données chargées. Seule l’activité de ${year} est présentée.`),
+      cmp.current.loaded&&!cmp.current.hasData&&CE('p',{className:'analyse-note'},`Aucun atelier enregistré en ${year} dans les données chargées.`),
+      series.length>0&&CE(EChart,{key:series.map(s=>s.name).join('|'),height:240,option:{backgroundColor:'transparent',grid:{...EC_GRID,bottom:55},
+        tooltip:{trigger:'axis',...EC_TT,...EC_APN},
+        legend:{data:series.map(s=>s.name),textStyle:{fontSize:11},bottom:0,icon:'roundRect',itemWidth:10,itemHeight:8},
+        xAxis:{type:'category',data:mois,...EC_AXIS_BASE,splitLine:{show:false},axisLabel:{...EC_AXIS_LABEL,interval:0}},
+        yAxis:{type:'value',...EC_AXIS_BASE,min:0,minInterval:1,name:'Ateliers'},series}})));
+}
+
+function VueGraphiques({entries,conseillers=[],anneesChargees}){
   if(!window.echarts)return CE('div',{className:'card'},CE('p',{style:{color:'#718096',textAlign:'center',padding:'40px 0'}},'⚠️ ECharts non chargé — vérifiez la connexion internet.'));
 
   const[dateFrom,setDateFrom]=React.useState('');
   const[dateTo,setDateTo]=React.useState('');
+  const[archivesAnalyse,setArchivesAnalyse]=React.useState({});
+  React.useEffect(()=>{setArchivesAnalyse({});},[entries,anneesChargees]);
+  const anneesBase=anneesListe(anneesChargees);
+  const anneesAnalyse=[...new Set([...anneesBase,...Object.keys(archivesAnalyse)])].sort();
+  const entriesAnalyse=React.useMemo(()=>entries.concat(Object.entries(archivesAnalyse).filter(([y])=>!anneesListe(anneesChargees).includes(y)).flatMap(([,rows])=>rows)),[entries,anneesChargees,archivesAnalyse]);
 
   const filtered=React.useMemo(()=>{
-    let r=entries;
+    let r=entriesAnalyse;
     if(dateFrom)r=r.filter(e=>e.date&&e.date>=dateFrom);
     if(dateTo)r=r.filter(e=>e.date&&e.date<=dateTo);
     return r;
-  },[entries,dateFrom,dateTo]);
+  },[entriesAnalyse,dateFrom,dateTo]);
 
   const hasFilter=dateFrom||dateTo;
   const passes=filtered.filter(isPasse);
@@ -3538,33 +3654,14 @@ function VueGraphiques({entries}){
   const byMoisTx={};filtered.forEach(e=>{const m=e.date?e.date.slice(0,7):'?';if(m<'2000'||m>=todayYM)return;if(!byMoisTx[m])byMoisTx[m]={realises:0,total:0};if(['Réalisé','Annulé','Non réalisé','Reporté'].includes(e.statut))byMoisTx[m].total++;if(e.statut==='Réalisé')byMoisTx[m].realises++;});
   const dataTxRealisation=Object.keys(byMoisTx).sort().map(k=>({label:fmtML(k),value:byMoisTx[k].total>0?Math.round(byMoisTx[k].realises/byMoisTx[k].total*100):0}));
 
-  // 2. Comparaison N vs N-1 — year derived from entries (most recent réalisé), never hardcoded
-  const cmpYear=entries.reduce((mx,e)=>e.statut==='Réalisé'&&e.date?Math.max(mx,parseInt(e.date.slice(0,4))||0):mx,new Date().getFullYear());const prevCmpYear=cmpYear-1;
-  const byMoisCmp={};entries.forEach(e=>{if(e.statut!=='Réalisé')return;const yr=e.date?parseInt(e.date.slice(0,4)):0;if(yr!==cmpYear&&yr!==prevCmpYear)return;const mo=e.date.slice(5,7);if(!byMoisCmp[mo])byMoisCmp[mo]={curr:0,prev:0};if(yr===cmpYear)byMoisCmp[mo].curr++;else byMoisCmp[mo].prev++;});
-  const CMP_MOIS=['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
-  const dataCmpCurr=Array.from({length:12},(_,i)=>{const m=String(i+1).padStart(2,'0');return byMoisCmp[m]?byMoisCmp[m].curr:0;});
-  const dataCmpPrev=Array.from({length:12},(_,i)=>{const m=String(i+1).padStart(2,'0');return byMoisCmp[m]?byMoisCmp[m].prev:0;});
-
-  // 3. Top thématiques × communes
-  const byCommTheme={};passes.forEach(e=>{const c=e.commune||'?';const t=e.thematique||'Autre';if(!byCommTheme[c])byCommTheme[c]={};byCommTheme[c][t]=(byCommTheme[c][t]||0)+1;});
-  const topComm5=Object.entries(byCommune).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([k])=>k);
-  const topThemes5=[...new Set(passes.map(e=>e.thematique||'Autre'))].map(t=>[t,passes.filter(e=>(e.thematique||'Autre')===t).length]).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([t])=>t);
-  const THEME_COLORS=['#6366f1','#8b5cf6','#ec4899','#f97316','#eab308'];
-
-  // 4. Orienteurs par conseiller (uniquement entrées avec orienteur renseigné)
-  const byConsOri={};passes.forEach(e=>{if(!e.orienteur||!e.orienteur.trim())return;const c=e.conseiller||'?';const o=e.orienteur.trim();if(!byConsOri[c])byConsOri[c]={};byConsOri[c][o]=(byConsOri[c][o]||0)+1;});
-  const consListOri=Object.keys(byConsOri).sort();
-  const allOri=[...new Set(passes.filter(e=>e.orienteur&&e.orienteur.trim()).map(e=>e.orienteur.trim()))].map(o=>[o,passes.filter(e=>e.orienteur===o).length]).sort((a,b)=>b[1]-a[1]).map(([o])=>o);
-  const ORI_COLORS=['#3b82f6','#22c55e','#f97316','#ec4899','#a78bfa','#14b8a6','#f59e0b','#ef4444','#6366f1','#84cc16'];
-
   // 5. Distribution horaire
   const byHeure={};filtered.forEach(e=>{if(!e.horaire)return;const h=parseInt(String(e.horaire).replace(/[Hh:].*/,''));if(isNaN(h)||h<6||h>19)return;byHeure[h]=(byHeure[h]||0)+1;});
   const dataHoraire=Array.from({length:14},(_,i)=>({label:`${i+6}h`,value:byHeure[i+6]||0}));
 
   // Années disponibles
-  const annees=[...new Set(entries.map(e=>e.date?e.date.slice(0,4):'').filter(Boolean))].sort();
+  const annees=anneesAnalyse;
 
-  return CE('div',null,
+  return CE('div',{className:'analyse-vue'},
     // Barre filtre période
     CE('div',{className:'card',style:{marginBottom:12}},
       CE('div',{style:{display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}},
@@ -3573,26 +3670,25 @@ function VueGraphiques({entries}){
         CE('button',{onClick:()=>{setDateFrom('');setDateTo('');},style:{padding:'5px 12px',borderRadius:6,border:`1.5px solid ${!hasFilter?'#1e3a8a':'#e2e8f0'}`,background:!hasFilter?'#1e3a8a':'#fff',color:!hasFilter?'#fff':'#718096',fontSize:12,fontWeight:600,cursor:'pointer'}},'Tout'),
         annees.map(yr=>CE('button',{key:yr,onClick:()=>{setDateFrom(`${yr}-01-01`);setDateTo(`${yr}-12-31`);},style:{padding:'5px 12px',borderRadius:6,border:`1.5px solid ${dateFrom===`${yr}-01-01`&&dateTo===`${yr}-12-31`?'#1e3a8a':'#e2e8f0'}`,background:dateFrom===`${yr}-01-01`&&dateTo===`${yr}-12-31`?'#1e3a8a':'#fff',color:dateFrom===`${yr}-01-01`&&dateTo===`${yr}-12-31`?'#fff':'#718096',fontSize:12,fontWeight:600,cursor:'pointer'}},yr)),
         // Saisie manuelle
-        CE('div',{style:{display:'flex',alignItems:'center',gap:6,marginLeft:4}},
+        CE('div',{style:{display:'flex',alignItems:'center',gap:6,marginLeft:4,flexWrap:'wrap',maxWidth:'100%'}},
           CE('span',{style:{fontSize:12,color:'#718096'}},'Du'),
-          CE('input',{type:'date',value:dateFrom,onChange:e=>setDateFrom(e.target.value),style:{padding:'5px 8px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:12}}),
+          CE('input',{type:'date','aria-label':'Début de période',value:dateFrom,onChange:e=>setDateFrom(e.target.value),style:{width:'auto',minWidth:0,maxWidth:'100%',padding:'5px 8px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:12}}),
           CE('span',{style:{fontSize:12,color:'#718096'}},'Au'),
-          CE('input',{type:'date',value:dateTo,onChange:e=>setDateTo(e.target.value),style:{padding:'5px 8px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:12}})
+          CE('input',{type:'date','aria-label':'Fin de période',value:dateTo,onChange:e=>setDateTo(e.target.value),style:{width:'auto',minWidth:0,maxWidth:'100%',padding:'5px 8px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:12}})
         ),
-        hasFilter&&CE('span',{style:{fontSize:12,color:'#1e3a8a',fontWeight:600,background:'#eff6ff',padding:'4px 10px',borderRadius:6}},`${filtered.length} / ${entries.length}`),
+        hasFilter&&CE('span',{style:{fontSize:12,color:'#1e3a8a',fontWeight:600,background:'#eff6ff',padding:'4px 10px',borderRadius:6}},`${filtered.length} / ${entriesAnalyse.length}`),
         CE('button',{className:'btn btn-print btn-sm',style:{marginLeft:'auto'},onClick:()=>window.print()},'🖨️ Imprimer')
       )
     ),
-    passes.length===0
-      ?CE('div',{className:'card'},CE('p',{style:{color:'#718096',textAlign:'center',padding:'40px 0'}},hasFilter?'Aucun atelier réalisé sur cette période.':'Aucun atelier réalisé.'))
-      :CE('div',null,
+    CE('div',null,
+           passes.length===0&&CE('p',{className:'analyse-note'},hasFilter?'Aucun atelier réalisé sur cette période.':'Aucun atelier réalisé.'),
           CE('div',{className:'kpi-grid'},
             CE(FadeItem,{delay:0,style:{display:'contents'}},CE('div',{className:'kpi',style:{borderLeft:'4px solid #16a34a',background:'#f0fdf4',textAlign:'left'}},CE('div',{className:'val',style:{color:'#16a34a'}},total),CE('div',{className:'lbl'},'Ateliers réalisés'))),
             CE(FadeItem,{delay:0.08,style:{display:'contents'}},CE('div',{className:'kpi',style:{borderLeft:'4px solid #dc2626',background:'#fff5f5',textAlign:'left'}},CE('div',{className:'val',style:{color:'#dc2626'}},annules),CE('div',{className:'lbl'},'Annulés'))),
             CE(FadeItem,{delay:0.16,style:{display:'contents'}},CE('div',{className:'kpi',style:{borderLeft:'4px solid #7c3aed',background:'#faf5ff',textAlign:'left'}},CE('div',{className:'val',style:{color:'#7c3aed'}},totalPresents),CE('div',{className:'lbl'},'Participants présents'))),
             CE(FadeItem,{delay:0.24,style:{display:'contents'}},CE('div',{className:'kpi',style:{borderLeft:'4px solid #0891b2',background:'#ecfeff',textAlign:'left'}},CE('div',{className:'val',style:{color:'#0891b2'}},txPresence+'%'),CE('div',{className:'lbl'},'Taux de présence')))
           ),
-          CE('div',{className:'dashboard-charts',style:{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:16}},
+          CE('div',{className:'dashboard-charts',style:{display:'grid',gridTemplateColumns:'repeat(2,minmax(0,1fr))',gap:16}},
             CE('div',{className:'card'},CE('h2',null,'Ateliers par mois (révolus)'),CE(LineChart,{data:dataMois})),
             CE('div',{className:'card'},CE('h2',null,'Présents par mois (révolus)'),CE(LineChart,{data:dataMoisPresents})),
             CE('div',{className:'card'},CE('h2',null,'Par commune'),CE(BarChart,{data:dataCommune,colors:['#1e3a8a','#3b82f6','#60a5fa','#93c5fd','#1e40af','#2563eb','#1d4ed8','#1e3a8a']})),
@@ -3621,54 +3717,8 @@ function VueGraphiques({entries}){
               }})
             ),
 
-            // ── Comparaison N vs N-1 ──
-            (dataCmpCurr.some(v=>v>0)||dataCmpPrev.some(v=>v>0))&&CE('div',{className:'card',style:{gridColumn:'1 / -1'}},
-              CE('h2',null,`📊 Comparaison ${cmpYear} vs ${prevCmpYear}`),
-              CE(EChart,{height:240,option:{backgroundColor:'transparent',grid:{...EC_GRID,bottom:55},
-                tooltip:{trigger:'axis',...EC_TT,...EC_APN},
-                legend:{data:[String(cmpYear),String(prevCmpYear)],textStyle:{color:'#94a3b8',fontSize:11},bottom:0,icon:'roundRect',itemWidth:10,itemHeight:8},
-                xAxis:{data:CMP_MOIS,...EC_AXIS_BASE,splitLine:{show:false},axisLabel:{...EC_AXIS_LABEL,interval:0}},
-                yAxis:{...EC_AXIS_BASE},
-                series:[
-                  {name:String(cmpYear),type:'bar',barMaxWidth:20,data:dataCmpCurr,itemStyle:{color:'#3b82f6',borderRadius:[4,4,0,0]},
-                    label:{show:true,position:'top',color:'#94a3b8',fontSize:9,fontWeight:'bold'}},
-                  {name:String(prevCmpYear),type:'bar',barMaxWidth:20,data:dataCmpPrev,itemStyle:{color:'rgba(148,163,184,0.4)',borderRadius:[4,4,0,0]},
-                    label:{show:true,position:'top',color:'#94a3b8',fontSize:9,fontWeight:'bold'}}
-                ]
-              }})
-            ),
-
-            // ── Top thématiques × communes ──
-            topComm5.length>0&&topThemes5.length>0&&CE('div',{className:'card',style:{gridColumn:'1 / -1'}},
-              CE('h2',null,'🗂️ Top thématiques × communes'),
-              CE(EChart,{height:Math.max(200,80+topComm5.length*32),option:{backgroundColor:'transparent',grid:{top:28,right:8,bottom:48,left:8,containLabel:true},
-                tooltip:{trigger:'axis',...EC_TT,...EC_APN},
-                legend:{data:topThemes5,textStyle:{color:'#94a3b8',fontSize:10},bottom:0,icon:'roundRect',itemWidth:10,itemHeight:8,type:'scroll'},
-                xAxis:{...EC_AXIS_BASE},
-                yAxis:{type:'category',data:topComm5.map(c=>trunc(c,18)),axisLabel:{...EC_AXIS_LABEL,fontSize:11},axisLine:{show:false},axisTick:{show:false},splitLine:{show:false}},
-                series:topThemes5.map((t,i)=>({name:t,type:'bar',stack:'total',barMaxWidth:28,
-                  data:topComm5.map(c=>(byCommTheme[c]&&byCommTheme[c][t])||0),
-                  itemStyle:{color:THEME_COLORS[i%THEME_COLORS.length],borderRadius:i===topThemes5.length-1?[0,4,4,0]:[]},
-                  label:{show:true,position:'inside',color:'#fff',fontSize:9,formatter:p=>p.value>0?p.value:''}
-                }))
-              }})
-            ),
-
-            // ── Orienteurs par conseiller ──
-            consListOri.length>0&&allOri.length>1&&CE('div',{className:'card',style:{gridColumn:'1 / -1'}},
-              CE('h2',null,'🔀 Orienteurs par conseiller'),
-              CE(EChart,{height:Math.max(200,80+consListOri.length*34),option:{backgroundColor:'transparent',grid:{top:28,right:8,bottom:55,left:8,containLabel:true},
-                tooltip:{trigger:'axis',...EC_TT,...EC_APN},
-                legend:{data:allOri.slice(0,10),textStyle:{color:'#94a3b8',fontSize:10},bottom:0,icon:'roundRect',itemWidth:10,itemHeight:8,type:'scroll'},
-                xAxis:{...EC_AXIS_BASE},
-                yAxis:{type:'category',data:consListOri.map(c=>trunc(c,14)),axisLabel:{...EC_AXIS_LABEL,fontSize:11},axisLine:{show:false},axisTick:{show:false},splitLine:{show:false}},
-                series:allOri.slice(0,10).map((o,i)=>({name:o,type:'bar',stack:'total',barMaxWidth:28,
-                  data:consListOri.map(c=>(byConsOri[c]&&byConsOri[c][o])||0),
-                  itemStyle:{color:ORI_COLORS[i%ORI_COLORS.length],borderRadius:i===Math.min(allOri.length,10)-1?[0,4,4,0]:[]},
-                  label:{show:true,position:'inside',color:'#fff',fontSize:9,formatter:p=>p.value>0?p.value:''}
-                }))
-              }})
-            ),
+            CE(VueComparaisonAnnuelle,{entries,anneesChargees,dateFrom,dateTo,onHistorique:ajout=>setArchivesAnalyse(prev=>({...prev,...ajout}))}),
+            CE(VueTableauxAnalyse,{entries:entriesAnalyse,conseillers,dateFrom,dateTo,anneesChargees:anneesAnalyse.join(',')}),
 
             // ── Distribution horaire ──
             dataHoraire.some(d=>d.value>0)&&CE('div',{className:'card'},
@@ -6261,7 +6311,7 @@ function VueMesBilans({entries}){
 }
 
 // ── VueDashboardTabs — Dashboard unifié (5 onglets) ──────────
-function VueDashboardTabs({entries, conseillers, sansBilans}){
+function VueDashboardTabs({entries, conseillers, sansBilans, anneesChargees}){
   const[tab,setTab]=React.useState('dashboard');
   const TABS=[
     {id:'dashboard', ico:'🚀', label:'Synthèse'},
@@ -6285,7 +6335,7 @@ function VueDashboardTabs({entries, conseillers, sansBilans}){
       }, t.ico+' '+t.label))
     ),
     tab==='dashboard'  && CE(VueDashboard,{entries}),
-    tab==='graphiques' && CE(VueGraphiques,{entries}),
+    tab==='graphiques' && CE(VueGraphiques,{entries,conseillers,anneesChargees}),
     tab==='powerbi'    && CE(VuePowerBI,{entries,conseillers}),
     tab==='avis'       && CE(VueAvisAteliers,{entries}),
     tab==='trimestre'  && CE(VueBilanTrimestriel,{entries})

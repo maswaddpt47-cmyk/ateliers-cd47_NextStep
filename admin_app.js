@@ -665,7 +665,7 @@ const LOGS_KEY = lsKey('adm_logs');
           view==='agenda'&&CE(VueAgendaSemaine,{onNouveau:handleNouveauLe,key:'agenda_'+adminConseiller,entries,onEdit:handleEdit,onDelete:handleDelete,onDuplicate:handleDuplicate,canDelete:true,initConseiller:adminConseiller&&adminConseiller!=='admin'?adminConseiller:null,accentColor}),
           view==='planning'&&CE(VuePlanning,{annees:annee,onCycle:handleCycleCreneaux,onNouveau:handleNouveauLe,entries,onEdit:handleEdit,onDelete:handleDelete,onDuplicate:handleDuplicate,canDelete:true,accentColor,conseillers:lists.conseillers}),
           view==='calendrier'&&CE(VueCalendrier,{onNouveau:handleNouveauLe,onImportICS:handleImportICS,key:'cal_'+adminConseiller,entries,onEdit:handleEdit,onDelete:handleDelete,onRefresh:()=>loadData(),onDuplicate:handleDuplicate,canDelete:true,initConseiller:adminConseiller&&adminConseiller!=='admin'?adminConseiller:null,onResetConseiller:()=>{},onChangeConseiller:(c)=>{const nom=c==='Tous'?'admin':c;localStorage.setItem(lsKey('adm_conseiller'),nom);setAdminConseiller(nom);}}),
-          view==='dashboard'&&CE(VueDashboardTabs,{entries,conseillers:lists.conseillers}),
+          view==='dashboard'&&CE(VueDashboardTabs,{entries,anneesChargees:annee,conseillers:lists.conseillers}),
           view==='carte'&&CE(VueCarte,{entries,active:view==='carte'}),
           view==='roadmap'&&CE(VueRoadmap,{entries,annee:anneeReference(annee),conseillers:lists.conseillers}),
           view==='bingo'&&CE(VueBingo,{entries}),
