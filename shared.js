@@ -3232,7 +3232,8 @@ function EChart({option,height}){
     // Lire les couleurs après l'effet du parent qui applique le thème clair/sombre.
     const appliquer=(premier,sansAnim)=>{if(inst.current)inst.current.setOption({...EC_ANIM,...(sansAnim||mouvementReduit()?{animation:false}:{}),...liquidGlassOption(optRef.current)},{notMerge:premier,lazyUpdate:false});};
     if(isNew){
-      inst.current=window.echarts.init(ref.current);
+      // Zoom du plein écran : dessiner à la bonne résolution, pas agrandir une image floue.
+      inst.current=window.echarts.init(ref.current,null,{devicePixelRatio:(window.devicePixelRatio||1)*(window.__zoomGraphiques||1)});
       const ro=new ResizeObserver(()=>{if(inst.current)inst.current.resize();});
       ro.observe(ref.current);
       inst.current._ro=ro;
@@ -4652,7 +4653,7 @@ function VuePowerBI({entries, conseillers: conseillersList}){
       const isNew=!inst.current;
       const appliquer=(premier,sansAnim)=>{if(inst.current)inst.current.setOption({...EC_ANIM,...(sansAnim||mouvementReduit()?{animation:false}:{}),...liquidGlassOption(prevOpt.current)},{notMerge:premier,lazyUpdate:false});};
       if(isNew){
-        inst.current=window.echarts.init(ref.current);const ro=new ResizeObserver(()=>{if(inst.current)inst.current.resize();});ro.observe(ref.current);inst.current._ro=ro;
+        inst.current=window.echarts.init(ref.current,null,{devicePixelRatio:(window.devicePixelRatio||1)*(window.__zoomGraphiques||1)});const ro=new ResizeObserver(()=>{if(inst.current)inst.current.resize();});ro.observe(ref.current);inst.current._ro=ro;
         prevOpt.current=option;inst.current._attente=true;
         // Entrée en mouvement à l'apparition à l'écran (voir quandVisible).
         inst.current._fin=quandVisible(ref.current,(premier,sansAnim)=>{
@@ -6346,17 +6347,29 @@ function VueDashboardTabs({entries, conseillers, sansBilans, anneesChargees}){
   // là où le navigateur ne le permet pas (iPhone). Échap pour sortir.
   const zoneRef=React.useRef(null);
   const[plein,setPlein]=React.useState(false);
+  // Taille du texte sur la télé (A− / A+, 25/10/2026) : zoom de 100 à 300 %,
+  // retenu sur l'appareil ; 150 % au premier passage sur un grand écran.
+  const[zoom,setZoom]=React.useState(1);
+  const lireZoom=()=>{try{const v=parseFloat(localStorage.getItem(lsKey('plein_zoom')));return v>=1&&v<=3?v:null;}catch(_){return null;}};
+  const changerZoom=d=>setZoom(z=>{const n=Math.min(3,Math.max(1,Math.round((z+d)*100)/100));try{localStorage.setItem(lsKey('plein_zoom'),String(n));}catch(_){}return n;});
   React.useEffect(()=>{
-    const f=()=>setPlein(!!zoneRef.current&&document.fullscreenElement===zoneRef.current);
+    const f=()=>{
+      const p=!!zoneRef.current&&document.fullscreenElement===zoneRef.current;
+      setPlein(p);
+      setZoom(p?(lireZoom()||(window.screen&&screen.width>=1200?1.5:1)):1);
+    };
     document.addEventListener('fullscreenchange',f);
-    return()=>document.removeEventListener('fullscreenchange',f);
+    return()=>{document.removeEventListener('fullscreenchange',f);window.__zoomGraphiques=1;};
   },[]);
+  window.__zoomGraphiques=plein?zoom:1;
   const pleinPossible=!!document.fullscreenEnabled;
   const basculerPlein=()=>{
     if(document.fullscreenElement){document.exitFullscreen().catch(()=>{});return;}
     if(zoneRef.current&&zoneRef.current.requestFullscreen)zoneRef.current.requestFullscreen().catch(()=>{});
   };
+  const btnPlein={flexShrink:0,padding:'5px 10px',marginBottom:4,borderRadius:6,border:'1px solid #e2e8f0',background:'var(--surface,#fff)',color:'#475569',fontSize:12,fontWeight:600,cursor:'pointer',whiteSpace:'nowrap'};
   return CE('div',{ref:zoneRef,style:plein?{background:'var(--bg,#f0f4f8)',overflowY:'auto',padding:16}:null},
+   CE('div',{style:plein&&zoom!==1?{zoom}:null},
     CE('div',{style:{display:'flex',alignItems:'center',gap:8,marginBottom:16,boxShadow:'inset 0 -2px 0 #e5e7eb'}},
     CE('div',{style:{display:'flex',flex:1,minWidth:0,gap:4,overflowX:'auto',overflowY:'hidden'}},
       TABS.map(t=>CE('button',{
@@ -6371,15 +6384,21 @@ function VueDashboardTabs({entries, conseillers, sansBilans, anneesChargees}){
         }
       }, t.ico+' '+t.label))
     ),
+    plein&&CE('button',{onClick:()=>changerZoom(-.25),disabled:zoom<=1,title:'Texte plus petit','aria-label':'Texte plus petit',className:'no-print',style:{...btnPlein,opacity:zoom<=1?.4:1}},'A−'),
+    plein&&CE('span',{className:'no-print',style:{fontSize:12,fontWeight:700,color:'#475569',marginBottom:4,minWidth:38,textAlign:'center'}},Math.round(zoom*100)+' %'),
+    plein&&CE('button',{onClick:()=>changerZoom(.25),disabled:zoom>=3,title:'Texte plus grand','aria-label':'Texte plus grand',className:'no-print',style:{...btnPlein,opacity:zoom>=3?.4:1}},'A+'),
     pleinPossible&&CE('button',{onClick:basculerPlein,title:plein?'Quitter le plein écran (Échap)':'Afficher en plein écran, pour une télé ou un écran de réunion',
-      className:'no-print',style:{flexShrink:0,padding:'5px 10px',marginBottom:4,borderRadius:6,border:'1px solid #e2e8f0',background:'var(--surface,#fff)',color:'#475569',fontSize:12,fontWeight:600,cursor:'pointer',whiteSpace:'nowrap'}},
+      className:'no-print',style:btnPlein},
       plein?'✕ Quitter':'📺 Plein écran')
     ),
-    tab==='dashboard'  && CE(VueDashboard,{entries}),
-    tab==='graphiques' && CE(VueGraphiques,{entries,anneesChargees}),
-    tab==='powerbi'    && CE(VuePowerBI,{entries,conseillers}),
-    tab==='avis'       && CE(VueAvisAteliers,{entries}),
-    tab==='trimestre'  && CE(VueBilanTrimestriel,{entries})
+    // key : un changement de zoom redessine les graphiques à la bonne résolution.
+    CE('div',{key:'zoom-'+(plein?zoom:1)},
+      tab==='dashboard'  && CE(VueDashboard,{entries}),
+      tab==='graphiques' && CE(VueGraphiques,{entries,anneesChargees}),
+      tab==='powerbi'    && CE(VuePowerBI,{entries,conseillers}),
+      tab==='avis'       && CE(VueAvisAteliers,{entries}),
+      tab==='trimestre'  && CE(VueBilanTrimestriel,{entries}))
+   )
   );
 }
 
