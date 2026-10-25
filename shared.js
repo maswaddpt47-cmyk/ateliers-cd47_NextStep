@@ -3202,6 +3202,19 @@ function liquidGlassOption(option){
   };
 }
 function chartTooltipColor(color){return typeof color==='string'?color:color?.colorStops?.[2]?.color||'#60a5fa';}
+// Entrée en mouvement (demande du 25/10/2026) : un graphique ne se dessine,
+// avec son animation, qu'une fois visible à l'écran ; avant, l'animation se
+// jouait hors de vue, avant qu'on descende jusqu'à lui. À l'impression, tout
+// ce qui attend encore se dessine d'un coup, sans animation.
+function quandVisible(el,fn){
+  let fait=false;
+  const lancer=sansAnim=>{if(fait)return;fait=true;if(io)io.disconnect();window.removeEventListener('beforeprint',imprimer);fn(sansAnim);};
+  const imprimer=()=>lancer(true);
+  const io='IntersectionObserver' in window?new IntersectionObserver(es=>{if(es.some(e=>e.isIntersecting))lancer(false);},{threshold:.2}):null;
+  if(!io){lancer(false);return()=>{};}
+  io.observe(el);window.addEventListener('beforeprint',imprimer);
+  return()=>{fait=true;io.disconnect();window.removeEventListener('beforeprint',imprimer);};
+}
 function EChart({option,height}){
   const ref=React.useRef(null);
   const inst=React.useRef(null);
@@ -3209,20 +3222,29 @@ function EChart({option,height}){
   React.useEffect(()=>{
     if(!ref.current||!window.echarts)return;
     const isNew=!inst.current;
+    // Lire les couleurs après l'effet du parent qui applique le thème clair/sombre.
+    const appliquer=(premier,sansAnim)=>{if(inst.current)inst.current.setOption({...EC_ANIM,...(sansAnim?{animation:false}:{}),...liquidGlassOption(optRef.current)},{notMerge:premier,lazyUpdate:false});};
     if(isNew){
       inst.current=window.echarts.init(ref.current);
       const ro=new ResizeObserver(()=>{if(inst.current)inst.current.resize();});
       ro.observe(ref.current);
       inst.current._ro=ro;
+      optRef.current=option;
+      inst.current._attente=true;
+      inst.current._fin=quandVisible(ref.current,sansAnim=>{
+        if(!inst.current)return;
+        inst.current._attente=false;
+        if(sansAnim)appliquer(true,true);
+        else requestAnimationFrame(()=>requestAnimationFrame(()=>appliquer(true)));
+      });
+      return;
     }
-    if(!isNew&&optRef.current===option)return;
+    if(optRef.current===option)return;
     optRef.current=option;
-    // Lire les couleurs après l'effet du parent qui applique le thème clair/sombre.
-    const appliquer=()=>{if(inst.current)inst.current.setOption({...EC_ANIM,...liquidGlassOption(optRef.current)},{notMerge:isNew,lazyUpdate:false});};
-    if(isNew){requestAnimationFrame(()=>requestAnimationFrame(appliquer));}
-    else{requestAnimationFrame(appliquer);}
+    if(inst.current._attente)return;   // sera dessiné, à jour, en devenant visible
+    requestAnimationFrame(()=>appliquer(false));
   });
-  React.useEffect(()=>{return()=>{if(inst.current){if(inst.current._ro)inst.current._ro.disconnect();inst.current.dispose();inst.current=null;}};},[]); 
+  React.useEffect(()=>{return()=>{if(inst.current){if(inst.current._fin)inst.current._fin();if(inst.current._ro)inst.current._ro.disconnect();inst.current.dispose();inst.current=null;}};},[]); 
   return CE('div',{ref,className:'ec-liquid-glass',style:{width:'100%',height:height||200}});
 }
 
@@ -4610,14 +4632,25 @@ function VuePowerBI({entries, conseillers: conseillersList}){
     React.useEffect(()=>{
       if(!ref.current||!window.echarts)return;
       const isNew=!inst.current;
-      if(isNew){inst.current=window.echarts.init(ref.current);const ro=new ResizeObserver(()=>{if(inst.current)inst.current.resize();});ro.observe(ref.current);inst.current._ro=ro;}
-      if(!isNew&&prevOpt.current===option)return;
+      const appliquer=(premier,sansAnim)=>{if(inst.current)inst.current.setOption({...EC_ANIM,...(sansAnim?{animation:false}:{}),...liquidGlassOption(prevOpt.current)},{notMerge:premier,lazyUpdate:false});};
+      if(isNew){
+        inst.current=window.echarts.init(ref.current);const ro=new ResizeObserver(()=>{if(inst.current)inst.current.resize();});ro.observe(ref.current);inst.current._ro=ro;
+        prevOpt.current=option;inst.current._attente=true;
+        // Entrée en mouvement à l'apparition à l'écran (voir quandVisible).
+        inst.current._fin=quandVisible(ref.current,sansAnim=>{
+          if(!inst.current)return;
+          inst.current._attente=false;
+          if(sansAnim)appliquer(true,true);
+          else requestAnimationFrame(()=>requestAnimationFrame(()=>appliquer(true)));
+        });
+        return;
+      }
+      if(prevOpt.current===option)return;
       prevOpt.current=option;
-      const appliquer=()=>{if(inst.current)inst.current.setOption({...EC_ANIM,...liquidGlassOption(prevOpt.current)},{notMerge:isNew,lazyUpdate:false});};
-      if(isNew){requestAnimationFrame(()=>requestAnimationFrame(appliquer));}
-      else{requestAnimationFrame(appliquer);}
+      if(inst.current._attente)return;
+      requestAnimationFrame(()=>appliquer(false));
     });
-    React.useEffect(()=>{return()=>{if(inst.current){if(inst.current._ro)inst.current._ro.disconnect();inst.current.dispose();inst.current=null;}};},[]);
+    React.useEffect(()=>{return()=>{if(inst.current){if(inst.current._fin)inst.current._fin();if(inst.current._ro)inst.current._ro.disconnect();inst.current.dispose();inst.current=null;}};},[]);
     return CE('div',{ref,className:'ec-liquid-glass',style:{width:'100%',height:height||180}});
   }
 

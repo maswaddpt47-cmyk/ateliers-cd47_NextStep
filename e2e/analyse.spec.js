@@ -40,6 +40,8 @@ test('Analyse : comparaison annuelle et historique au clic à 390/1280 px', asyn
   const labels=values.map((value,dataIndex)=>series.label.formatter({value,dataIndex,data:series.data[dataIndex],percent:value/total*100}).replace(/\s+/g,'').replace(/[,.]0(?=%$)/,''));
   return {type:series.type,values,labels,radius:series.radius};
  });
+ // Graphique dessiné en apparaissant à l'écran (entrée en mouvement, 25/10/2026).
+ await ampm.scrollIntoViewIfNeeded();
  await expect.poll(ampmOption).toEqual({type:'pie',values:[3,3],labels:['50%','50%'],radius:['38%','65%']});
  await expect(page.getByText('1 atelier(s) sans créneau renseigné, exclus des pourcentages.',{exact:true})).toBeVisible();
  await expect(page.getByText('6 atelier(s) avec un créneau renseigné.',{exact:true})).toBeVisible();
@@ -79,6 +81,7 @@ test('Analyse : comparaison annuelle et historique au clic à 390/1280 px', asyn
  await page.evaluate(()=>window.__root.render(CE(VueGraphiques,{key:'nouvelle-analyse',entries:window.__lignes,anneesChargees:'2026,2027'})));
  await page.getByRole('button',{name:'2026',exact:true}).click();
  await page.getByRole('button',{name:'Charger 2025 pour comparer',exact:true}).click();
+ await annual.scrollIntoViewIfNeeded();
  await expect.poll(seriesNames).toEqual(['N · 2026','N−1 · 2025']);
  const previousSeptember=await annual.locator('.ec-liquid-glass').evaluate(el=>echarts.getInstanceByDom(el).getOption().series.find(s=>s.name==='N−1 · 2025').data[8]);
  assert.equal(previousSeptember,1);
