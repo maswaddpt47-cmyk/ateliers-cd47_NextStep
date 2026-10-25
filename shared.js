@@ -3207,6 +3207,9 @@ function chartTooltipColor(color){return typeof color==='string'?color:color?.co
 // chaque fois qu'il y revient après en être sorti (en descendant comme en
 // remontant). À l'impression, ce qui n'a jamais été vu se dessine d'un coup,
 // sans animation. fn(premier, sansAnim) ; rend la fonction d'arrêt.
+// Réglage « réduire les animations » du téléphone ou du PC (accessibilité) :
+// graphiques dessinés sans animation, comme la pastille Nouveautés (25/10/2026).
+const mouvementReduit=()=>{try{return window.matchMedia('(prefers-reduced-motion: reduce)').matches;}catch(_){return false;}};
 function quandVisible(el,fn){
   let vu=false,dehors=true;
   const imprimer=()=>{if(!vu){vu=true;dehors=false;fn(true,true);}};
@@ -3227,7 +3230,7 @@ function EChart({option,height}){
     if(!ref.current||!window.echarts)return;
     const isNew=!inst.current;
     // Lire les couleurs après l'effet du parent qui applique le thème clair/sombre.
-    const appliquer=(premier,sansAnim)=>{if(inst.current)inst.current.setOption({...EC_ANIM,...(sansAnim?{animation:false}:{}),...liquidGlassOption(optRef.current)},{notMerge:premier,lazyUpdate:false});};
+    const appliquer=(premier,sansAnim)=>{if(inst.current)inst.current.setOption({...EC_ANIM,...(sansAnim||mouvementReduit()?{animation:false}:{}),...liquidGlassOption(optRef.current)},{notMerge:premier,lazyUpdate:false});};
     if(isNew){
       inst.current=window.echarts.init(ref.current);
       const ro=new ResizeObserver(()=>{if(inst.current)inst.current.resize();});
@@ -4645,7 +4648,7 @@ function VuePowerBI({entries, conseillers: conseillersList}){
     React.useEffect(()=>{
       if(!ref.current||!window.echarts)return;
       const isNew=!inst.current;
-      const appliquer=(premier,sansAnim)=>{if(inst.current)inst.current.setOption({...EC_ANIM,...(sansAnim?{animation:false}:{}),...liquidGlassOption(prevOpt.current)},{notMerge:premier,lazyUpdate:false});};
+      const appliquer=(premier,sansAnim)=>{if(inst.current)inst.current.setOption({...EC_ANIM,...(sansAnim||mouvementReduit()?{animation:false}:{}),...liquidGlassOption(prevOpt.current)},{notMerge:premier,lazyUpdate:false});};
       if(isNew){
         inst.current=window.echarts.init(ref.current);const ro=new ResizeObserver(()=>{if(inst.current)inst.current.resize();});ro.observe(ref.current);inst.current._ro=ro;
         prevOpt.current=option;inst.current._attente=true;
@@ -6070,7 +6073,8 @@ function VueDashboard({entries}){
     ),
 
     // ── Ligne 3 : Communes + Thématiques ──
-    CE('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,marginBottom:16}},
+    // minmax(0,…) : la grille ne déborde plus sur petit téléphone (25/10/2026).
+    CE('div',{style:{display:'grid',gridTemplateColumns:'repeat(2,minmax(0,1fr))',gap:16,marginBottom:16}},
       CE('div',{className:'card'},
         CE('h2',null,'📍 Top communes (réalisés)'),
         CE(BarChart,{data:topCommunes,colors:['#1e3a8a','#2563eb','#3b82f6','#60a5fa','#93c5fd']})
