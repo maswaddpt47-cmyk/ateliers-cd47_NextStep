@@ -24,7 +24,8 @@ AG-003 à AG-008, ordre du jour de la bascule) a été retirée. Texte complet :
   run `40222723294` verts. **Saisie validée par l'utilisateur le
   25/10/2026** (« La saisie est bonne, ça fonctionne »). La lisibilité
   de l'Analyse reste à valider. Suivi commun, décisions et limites dans
-  `ATELIERS_NEWGEN/CHANTIERS.md` ; aucune annonce sur l'Analyse avant validation.
+  `ATELIERS_NEWGEN/CHANTIERS.md`. Nouveautés n° 35 : saisie uniquement ;
+  aucune annonce sur l'Analyse avant validation.
 
 - **Parité avec NEWGEN (AG-015)** : 5 écarts au 16/10/2026, tous voulus
   (dont l'Historique : chacun garde son design, décision du 26/09). Suivi et
