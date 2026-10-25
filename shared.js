@@ -1821,9 +1821,17 @@ function BlocAlertes({liste}) {
 }
 // Saisie conservée uniquement en mémoire tant que la session reste ouverte.
 // Le premier montage attend l'ouverture de Saisie : aucun travail ajouté au démarrage.
-
-
-function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefillData,onClearPrefill,accentColor,conseillerDefaut}){
+function SaisiePersistante({active,children}){
+  const ouverte=React.useRef(false);
+  if(active)ouverte.current=true;
+  return ouverte.current?CE('div',{'data-saisie-session':'1',hidden:!active,style:active?undefined:{display:'none'}},children):null;
+}
+function champsSaisieModifies(valeur,origine,ignores=[]){
+  const normaliser=v=>v&&typeof v==='object'?JSON.stringify(v):String(v??'');
+  return [...new Set([...Object.keys(valeur),...Object.keys(origine)])]
+    .some(k=>!ignores.includes(k)&&normaliser(valeur[k])!==normaliser(origine[k]));
+}
+function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefillData,onClearPrefill,accentColor,conseillerDefaut,controleSaisie}){
   const statuts    = lists?.statuts     || STATUTS_DEFAULT;
   const conseillers= lists?.conseillers || CONSEILLERS_DEFAULT;
   const publics    = lists?.publics     || PUBLICS_DEFAULT;
@@ -1835,6 +1843,7 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
 
   // ── états mode unique ──
   const[form,setForm]   = React.useState(empty);
+  const origineUniqueRef=React.useRef(empty);
   const[errors,setErrors]= React.useState({});
   const[editId,setEditId]= React.useState(null);
   const[isDup,setIsDup]  = React.useState(false);
@@ -1850,11 +1859,14 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
 
   const[saving,setSaving]= React.useState(false);
   const[formError,setFormError]= React.useState('');
+  const[revisionSaisie,setRevisionSaisie]=React.useState(0);
+  const[preparatifsCycle,setPreparatifsCycle]=React.useState(false);
 
   // Les listes arrivent après le premier rendu : poser le conseiller par
   // défaut dès qu'il est connu, sans écraser un choix déjà fait.
   React.useEffect(()=>{
     if(!consDef)return;
+    if(!origineUniqueRef.current.conseiller&&!origineUniqueRef.current._id)origineUniqueRef.current={...origineUniqueRef.current,conseiller:consDef};
     setForm(f=>f.conseiller||f._id?f:{...f,conseiller:consDef});
     setLotForm(f=>f.conseiller?f:{...f,conseiller:consDef});
   },[consDef]);
@@ -1864,7 +1876,8 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
     if(!editingId)return;
     idNouveauRef.current=null;
     const e=entries.find(x=>x._id===editingId);if(!e)return;
-    setForm({...empty,...e,duree:parseInt(e.duree)||DUREE_DEFAUT,materiel:e.materiel||[]});setEditId(editingId);setIsDup(false);setModeLot(false);
+    origineUniqueRef.current={...empty,...e,duree:parseInt(e.duree)||DUREE_DEFAUT,materiel:e.materiel||[]};
+    setForm(origineUniqueRef.current);setEditId(editingId);setIsDup(false);setModeLot(false);
     window.scrollTo(0,0);if(onClearEdit)onClearEdit();
   },[editingId,entries]);
 
@@ -1875,6 +1888,7 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
     // Depuis le Calendrier ou l'Agenda (08/10/2026) : import ICS → saisie par
     // cycle, import ouvert ; clic sur une case → atelier unique à cette date.
     if(prefillData._importICS){
+      setRevisionSaisie(r=>r+1);
       setEditId(null);setIsDup(false);setImportOuvert(true);setModeLot(true);
       window.scrollTo(0,0);if(onClearPrefill)onClearPrefill();return;
     }
@@ -1906,8 +1920,46 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
   // Statut proposé selon la date tant que le conseiller n'en a pas choisi un
   // (statutSelonDate, utils.js) ; jamais en modification d'un atelier.
   const statutChoisiRef=React.useRef(false);
-  function reset(){idNouveauRef.current=null;statutChoisiRef.current=false;setForm(empty);setEditId(null);setIsDup(false);setErrors({});}
+  function reset(){origineUniqueRef.current=empty;idNouveauRef.current=null;statutChoisiRef.current=false;setForm(empty);setEditId(null);setIsDup(false);setErrors({});}
   function resetLot(){idsLotRef.current={};setLotForm({orienteur:'',commune:'',lieu:'',conseiller:consDef,co_animateur:'',public:'',materiel:[],residence:'',remarques:'',nb_ordinateurs:''});setLotRows([emptyRow(),emptyRow()]);setLotErrors({});setLotRowErrors({});}
+
+
+  const ligneVideRef=React.useRef(null);
+  if(!ligneVideRef.current)ligneVideRef.current=emptyRow();
+  const lotVide={orienteur:'',commune:'',lieu:'',conseiller:consDef,co_animateur:'',public:'',materiel:[],residence:'',remarques:'',nb_ordinateurs:''};
+  const modifiee=modeLot
+    ?preparatifsCycle||champsSaisieModifies(lotForm,lotVide)||lotRows.length!==2||lotRows.some(r=>champsSaisieModifies(r,ligneVideRef.current,['id']))
+    :champsSaisieModifies(form,origineUniqueRef.current);
+  function confirmerSortie(message){
+    if(saving){showToast('Enregistrement en cours : attendez sa fin avant de remplacer ou fermer la saisie.',false);return false;}
+    return !modifiee||window.confirm(message||'Abandonner la saisie en cours ? Les informations non enregistrées seront effacées.');
+  }
+  function nettoyerSaisie(){
+    reset();resetLot();setCreneauUnique(null);setFormError('');setImportOuvert(false);setRevisionSaisie(r=>r+1);setPreparatifsCycle(false);
+  }
+  function demanderRemplacement(){
+    if(!confirmerSortie('Remplacer la saisie en cours ? Les informations non enregistrées seront effacées.'))return false;
+    nettoyerSaisie();return true;
+  }
+  if(controleSaisie)controleSaisie.current={modifiee,demanderRemplacement,confirmerSortie};
+  React.useEffect(()=>()=>{if(controleSaisie)controleSaisie.current=null;},[controleSaisie]);
+  // Sortir vers un autre onglet de l'application conserve le composant ; fermer
+  // ou recharger la page détruit cette mémoire, d'où la confirmation du navigateur.
+  React.useEffect(()=>{
+    if(!modifiee&&!saving)return;
+    const avertir=e=>{e.preventDefault();e.returnValue='';};
+    window.addEventListener('beforeunload',avertir);
+    return()=>window.removeEventListener('beforeunload',avertir);
+  },[modifiee,saving]);
+  function changerMode(lot){
+    if(lot===modeLot)return;
+    if(!confirmerSortie('Changer de mode et abandonner la saisie en cours ?'))return;
+    nettoyerSaisie();setModeLot(lot);
+  }
+  function reinitialiserSaisie(){
+    if(!confirmerSortie('Effacer la saisie en cours ?'))return;
+    nettoyerSaisie();
+  }
 
   function set(k,v){
     if(k==='statut')statutChoisiRef.current=true;
@@ -2039,7 +2091,7 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
       entreeSauvegardee({...entry,materiel:form.materiel||[]});
       if(!editId)proposerICS([entry]);
       setCreneauUnique(null);
-      onSaved(!editId,{...entry,materiel:form.materiel||[]});reset();
+      nettoyerSaisie();onSaved(!editId,{...entry,materiel:form.materiel||[]});
     };
     try{
       const res=await apiFetch('saveEntry',{entry});
@@ -2079,7 +2131,7 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
         window._pendingHighlight=ids;
         document.dispatchEvent(new CustomEvent('ateliers:highlight',{detail:{ids}}));
       };
-      const reussir=(verifie)=>{appliquer(entries);showToast(`✅ ${entries.length} atelier(s) créé(s)`+(verifie?' — confirmé après vérification':''));proposerICS(entries);onSaved(true);resetLot();};
+      const reussir=(verifie)=>{appliquer(entries);showToast(`✅ ${entries.length} atelier(s) créé(s)`+(verifie?' — confirmé après vérification':''));proposerICS(entries);nettoyerSaisie();onSaved(true);};
       let res;
       try{ res=await apiFetch('saveMany',{entries}); }
       catch(err){
@@ -2236,6 +2288,7 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
   );};
 
   return CE('div',{'data-saisie':'1',style:{padding:'4px 0'}},
+    CE('p',{style:{fontSize:12,lineHeight:1.5,color:'var(--text-2,#475569)',margin:'0 0 12px'}},'Votre saisie est conservée pendant les changements d’onglet de l’application. Elle est effacée à la déconnexion, à la fermeture ou au rechargement de cette page.'),
     // Badge conseiller coloré
     // Seulement en modification ou duplication : en saisie, le bouton de
     // bascule juste dessous dit déjà le mode (lot 1 UX, 01/10/2026).
@@ -2245,8 +2298,8 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
 
     // Toggle One Shot / Cycle
     canToggle&&CE('div',{style:{display:'flex',gap:0,border:'1.5px solid #e2e8f0',borderRadius:8,overflow:'hidden',marginBottom:16,width:'fit-content'}},
-      CE('button',{style:{padding:'8px 20px',background:!modeLot?ac:'#fff',border:'none',cursor:'pointer',fontSize:13,fontWeight:700,color:!modeLot?'#fff':'#718096',transition:'all .15s'},onClick:()=>{setModeLot(false);resetLot();}},'⚡ Saisie One Shot'),
-      CE('button',{style:{padding:'8px 20px',background:modeLot?ac:'#fff',border:'none',cursor:'pointer',fontSize:13,fontWeight:700,color:modeLot?'#fff':'#718096',transition:'all .15s'},onClick:()=>{setModeLot(true);reset();}},'🔄 Saisie par cycle')
+      CE('button',{style:{padding:'8px 20px',background:!modeLot?ac:'#fff',border:'none',cursor:'pointer',fontSize:13,fontWeight:700,color:!modeLot?'#fff':'#718096',transition:'all .15s'},onClick:()=>changerMode(false)},'⚡ Saisie One Shot'),
+      CE('button',{style:{padding:'8px 20px',background:modeLot?ac:'#fff',border:'none',cursor:'pointer',fontSize:13,fontWeight:700,color:modeLot?'#fff':'#718096',transition:'all .15s'},onClick:()=>changerMode(true)},'🔄 Saisie par cycle')
     ),
 
     isDup&&CE('div',{className:'dup-badge'},'📋 Duplication — vérifiez et complétez avant d\'enregistrer'),
@@ -2305,7 +2358,7 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
       CE('div',{style:{display:'flex',gap:12,marginTop:4}},
         CE('button',{style:{padding:'13px 28px',border:'none',borderRadius:12,cursor:saving?'not-allowed':'pointer',fontSize:14,fontWeight:700,color:'#fff',background:saving?'#94a3b8':ac,opacity:saving?.7:1,display:'flex',alignItems:'center',gap:8},onClick:handleSubmit,disabled:saving},
           saving?CE('span',null,CE('span',{className:'spinner'}),'Enregistrement…'):(editId?'💾 Modifier l\'atelier':'💾 Enregistrer l\'atelier')),
-        CE('button',{style:{padding:'13px 24px',border:'2px solid #e2e8f0',borderRadius:12,cursor:'pointer',fontSize:14,fontWeight:600,color:'#718096',background:'#fff'},onClick:()=>{reset();setFormError('');}},isDup||editId?'✖ Annuler':'✖ Réinitialiser')
+        CE('button',{style:{padding:'13px 24px',border:'2px solid #e2e8f0',borderRadius:12,cursor:'pointer',fontSize:14,fontWeight:600,color:'#718096',background:'#fff'},onClick:reinitialiserSaisie},isDup||editId?'✖ Annuler':'✖ Réinitialiser')
       )
     ),
 
@@ -2321,8 +2374,8 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
       // Tableau des dates
       CE('div',{style:secStyle},
         CE('div',{style:{fontSize:13,fontWeight:700,color:ac,marginBottom:12}},'📅 Dates du cycle'),
-        CE(ImportOutlook,{entries,ac,acLight,onImporter:importerOutlook,ouvertInit:importOuvert}),
-        CE(PeriodiciteCycle,{entries,ac,acLight,onGenerer:genererLignes}),
+        CE(ImportOutlook,{key:'import-'+revisionSaisie,onPreparation:()=>setPreparatifsCycle(true),entries,ac,acLight,onImporter:importerOutlook,ouvertInit:importOuvert}),
+        CE(PeriodiciteCycle,{key:'periodicite-'+revisionSaisie,onPreparation:()=>setPreparatifsCycle(true),entries,ac,acLight,onGenerer:genererLignes}),
         lotRows.map((row)=>{
           const rErr=lotRowErrors[row.id]||{};
           const hasErr=Object.values(rErr).some(v=>v);
@@ -2388,7 +2441,7 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
       CE('div',{style:{display:'flex',gap:12,marginTop:4}},
         CE('button',{style:{padding:'13px 28px',border:'none',borderRadius:12,cursor:saving?'not-allowed':'pointer',fontSize:14,fontWeight:700,color:'#fff',background:saving?'#94a3b8':ac,opacity:saving?.7:1,display:'flex',alignItems:'center',gap:8},onClick:handleSubmitLot,disabled:saving},
           saving?CE('span',null,CE('span',{className:'spinner'}),'Création…'):`💾 Créer ${lotRows.length} atelier(s)`),
-        CE('button',{style:{padding:'13px 24px',border:'2px solid #e2e8f0',borderRadius:12,cursor:'pointer',fontSize:14,fontWeight:600,color:'#718096',background:'#fff'},onClick:()=>{resetLot();setFormError('');}}, '✖ Réinitialiser')
+        CE('button',{style:{padding:'13px 24px',border:'2px solid #e2e8f0',borderRadius:12,cursor:'pointer',fontSize:14,fontWeight:600,color:'#718096',background:'#fff'},onClick:reinitialiserSaisie}, '✖ Réinitialiser')
       )
     )
   );
@@ -6529,7 +6582,7 @@ const NOUVEAUTES=[
 // Thématique toujours « TBD » (02/10/2026, demande de l'utilisateur) : le
 // titre sert à filtrer (mot-clé), pas à décrire l'atelier.
 // ═══════════════════════════════════════════════════════════
-function ImportOutlook({entries,ac,acLight,onImporter,ouvertInit}){
+function ImportOutlook({entries,ac,acLight,onImporter,ouvertInit,onPreparation}){
   const lireMc=()=>{try{return localStorage.getItem(lsKey('outlook_motcle'))||'ATELIER';}catch(_){return 'ATELIER';}};
   const[ouvert,setOuvert]=React.useState(!!ouvertInit);
   const[texte,setTexte]=React.useState('');
@@ -6541,6 +6594,11 @@ function ImportOutlook({entries,ac,acLight,onImporter,ouvertInit}){
   const majMc=v=>{setMotCle(v);try{localStorage.setItem(lsKey('outlook_motcle'),v);}catch(_){}};
   const[cochesMaj,setCochesMaj]=React.useState({});
   const[envoiMaj,setEnvoiMaj]=React.useState(false);
+  const preparationInitiale=React.useRef(true);
+  React.useEffect(()=>{
+    if(preparationInitiale.current){preparationInitiale.current=false;return;}
+    if(onPreparation)onPreparation();
+  },[texte,nomFichier,motCle,aVenir,lieu,coches,cochesMaj]);
   const res=React.useMemo(()=>texte?evenementsOutlook(texte,motCle,aVenir?todayLocal():''):{occurrences:[],ignores:[],periode:{}},[texte,motCle,aVenir]);
   // Réimport (03/10/2026) : ce qui a changé dans Outlook depuis l'import.
   const rap=React.useMemo(()=>rapprocherOutlook(res.occurrences,entries,res.periode,aVenir?todayLocal():''),[res,entries,aVenir]);
@@ -6631,9 +6689,14 @@ function ImportOutlook({entries,ac,acLight,onImporter,ouvertInit}){
 // ═══════════════════════════════════════════════════════════
 const JOURS_COURTS=[{j:1,l:'Lun'},{j:2,l:'Mar'},{j:3,l:'Mer'},{j:4,l:'Jeu'},{j:5,l:'Ven'},{j:6,l:'Sam'}];
 const JOURS_LONGS=['dimanche','lundi','mardi','mercredi','jeudi','vendredi','samedi'];
-function PeriodiciteCycle({entries,ac,acLight,onGenerer}){
+function PeriodiciteCycle({entries,ac,acLight,onGenerer,onPreparation}){
   const[ouvert,setOuvert]=React.useState(false);
   const[p,setP]=React.useState({debut:'',horaire:'',thematique:'TBD',mode:'hebdo',intervalle:1,jours:[],rang:2,jourSemaine:2,typeFin:'nb',nb:6,jusquau:'',sauterFeries:true});
+  const preparationInitiale=React.useRef(true);
+  React.useEffect(()=>{
+    if(preparationInitiale.current){preparationInitiale.current=false;return;}
+    if(onPreparation)onPreparation();
+  },[p]);
   const maj=(k,v)=>setP(x=>{
     const n={...x,[k]:v};
     // Le jour de la première séance est proposé d'office (comme Outlook).

@@ -255,6 +255,7 @@ function VueLoginIndex({conseillers,onSuccess}){
 function App(){
   const[authed,setAuthed]          = React.useState(()=>!!window.authToken.get());
   const[view,setView]              = React.useState('accueil');
+  const controleSaisie=React.useRef(null);
   // Date d'ouverture de Gestion ordi depuis l'alerte d'une tuile (05/10/2026),
   // oubliée dès qu'on quitte l'onglet.
   const[dateGestionOrdi,setDateGestionOrdi]=React.useState(null);
@@ -356,6 +357,10 @@ function App(){
   // ── Helpers ───────────────────────────────────────────────────
   function setAnnee(v){ localStorage.setItem(lsKey('f_annee'),v); setAnneeState(v); }
   function resetConseiller(){ setFiltreConseiller(null); }
+  function retourAccueil(){
+    if(controleSaisie.current&&!controleSaisie.current.confirmerSortie())return;
+    resetConseiller();setView('accueil');
+  }
   function togglePin(){ setSidebarPinned(p=>{ const n=!p; localStorage.setItem(lsKey('sidebar_pinned'),n?'1':'0'); return n; }); }
   // Jeton refusé par l'API (expiré après 6 h) : retour à la connexion.
   React.useEffect(()=>{
@@ -367,9 +372,9 @@ function App(){
   // Même règle que l'Admin, pour les postes partagés (médiathèques, lieux
   // d'accueil) : une session oubliée restait ouverte jusqu'à 6 h. Clé propre
   // à Index : l'activité sur l'Admin ne prolonge pas Index. EXCEPTION
-  // volontaire : jamais pendant la saisie d'un atelier (aucun brouillon
-  // n'est gardé, un conseiller qui anime son atelier perdrait sa saisie) —
-  // le compteur reprend en sortant du formulaire.
+  // volontaire : jamais pendant la saisie d'un atelier. La saisie reste en
+  // mémoire entre les onglets (25/10/2026), mais pas après fermeture ou
+  // rechargement ; le compteur reprend en sortant du formulaire.
   const vueCourante=React.useRef(view);
   vueCourante.current=view;
   React.useEffect(()=>{
@@ -400,7 +405,9 @@ function App(){
     };
   },[authed]);
   function handleLogout(){
-    if(!window.confirm('Se déconnecter ?'))return;
+    const saisie=controleSaisie.current;
+    if(saisie&&!saisie.confirmerSortie(saisie.modifiee?'Se déconnecter et abandonner la saisie en cours ?':undefined))return;
+    if(!saisie?.modifiee&&!window.confirm('Se déconnecter ?'))return;
     window.authToken.clear();
     sessionStorage.removeItem('gs_conseiller');
     setAuthed(false);
@@ -621,17 +628,18 @@ function App(){
       sessionStorage.setItem('gs_conseiller', nom);
     }
   }
-  function handleEdit(id){setEditingId(id);setPrefillData(null);setView('saisie');}
+  function handleEdit(id){if(controleSaisie.current&&!controleSaisie.current.demanderRemplacement())return;setEditingId(id);setPrefillData(null);setView('saisie');}
   // Calendrier / Agenda (08/10/2026) : clic sur une case, import ICS.
-  function handleNouveauLe(date,conseiller,demi){setEditingId(null);setPrefillData({_creneau:date,_conseiller:conseiller||'',_demi:demi||''});setView('saisie');}
-  function handleCycleCreneaux(liste,conseiller){setEditingId(null);setPrefillData({_cycle:liste,_conseiller:conseiller||''});setView('saisie');}
-  function handleImportICS(){setEditingId(null);setPrefillData({_importICS:true});setView('saisie');}
+  function handleNouveauLe(date,conseiller,demi){if(controleSaisie.current&&!controleSaisie.current.demanderRemplacement())return;setEditingId(null);setPrefillData({_creneau:date,_conseiller:conseiller||'',_demi:demi||''});setView('saisie');}
+  function handleCycleCreneaux(liste,conseiller){if(controleSaisie.current&&!controleSaisie.current.demanderRemplacement())return;setEditingId(null);setPrefillData({_cycle:liste,_conseiller:conseiller||''});setView('saisie');}
+  function handleImportICS(){if(controleSaisie.current&&!controleSaisie.current.demanderRemplacement())return;setEditingId(null);setPrefillData({_importICS:true});setView('saisie');}
   function handleSaved(){setView('historique');}
   async function handleDelete(id){
     try{const res=await apiFetch('delete',{_id:id});if(!suppressionAboutie(res))throw new Error(res.error);showToast('✅ Atelier supprimé');retirerEntreeLocale(id);}
     catch(err){showToast('❌ '+err.message,false);}
   }
   function handleDuplicate(entry){
+    if(controleSaisie.current&&!controleSaisie.current.demanderRemplacement())return;
     const{_id,_n,date,horaire,ampm,inscrits,presents,remarques,...rest}=entry;
     setPrefillData({...rest});setEditingId(null);setView('saisie');
   }
@@ -808,7 +816,7 @@ function App(){
         }, CE('span',null,'🔔'), CE('span',null,newEntries.length)),
         CE('button',{
           className:'sidebar-accueil-btn', title:'Retour accueil',
-          onClick:()=>{ resetConseiller(); setView('accueil'); }
+          onClick:retourAccueil
         }, CE('span',null,'↩'), CE('span',{className:'sidebar-accueil-lbl'},'Accueil')),
         CE('button',{
           className:'sidebar-accueil-btn', title:'Déconnexion',
@@ -839,7 +847,7 @@ function App(){
           CE(ChoixAnnees,{className:'topbar-mobile-only topbar-mobile-year',value:annee,onChange:setAnnee,title:'Années chargées'}),
           CE('button',{
             className:'topbar-mobile-only topbar-mobile-btn',
-            onClick:()=>{ resetConseiller(); setView('accueil'); },
+            onClick:retourAccueil,
             title:'Retour accueil',
             'aria-label':'Retour accueil'
           },'↩'),
@@ -880,9 +888,9 @@ function App(){
           CE(AttenteGAS,null),
           [1,2,3].map(i=>CE('div',{key:i,className:'skeleton skeleton-card'}))
         ),
+        visibility.saisie&&CE(SaisiePersistante,{key:'saisie-session',active:!loading&&!error&&view==='saisie'},CE(VueSaisie,{controleSaisie,conseillerDefaut:(()=>{try{return sessionStorage.getItem('gs_conseiller')||'';}catch(_){return '';}})(),entries,onSaved:handleSaved,onNewEntry:e=>{setNewEntries(n=>[e,...n]);setSeenIds(s=>{const ns=new Set(s);ns.add(e._id);return ns;});},lists,editingId,onClearEdit:()=>setEditingId(null),prefillData,onClearPrefill:()=>setPrefillData(null),accentColor:conseillerColor(filtreConseiller||''),materielsMasques})),
         // viewRef sur le wrapper — capte les change events des selects internes
         !loading&&!error&&CE('div',{ref:viewRef,className:'view-anim',key:view+'_'+(filtreConseiller||'all')},
-          view==='saisie'&&visibility.saisie&&CE(VueSaisie,{conseillerDefaut:(()=>{try{return sessionStorage.getItem('gs_conseiller')||'';}catch(_){return '';}})(),entries,onSaved:handleSaved,onNewEntry:e=>{setNewEntries(n=>[e,...n]);setSeenIds(s=>{const ns=new Set(s);ns.add(e._id);return ns;});},lists,editingId,onClearEdit:()=>setEditingId(null),prefillData,onClearPrefill:()=>setPrefillData(null),accentColor:conseillerColor(filtreConseiller||''),materielsMasques}),
           view==='historique'&&visibility.historique&&CE(VueHistorique,{onOuvrirGestionOrdi:visibility.gestion_ordi?(d=>{setDateGestionOrdi(d||null);setView('gestion_ordi');}):null,entries,onEdit:handleEdit,onDelete:handleDelete,onRefresh:()=>loadData(),onDuplicate:handleDuplicate,initConseiller:filtreConseiller,onResetConseiller:()=>{},canDelete:true}),
           view==='agenda'&&visibility.agenda&&CE(VueAgendaSemaine,{onNouveau:visibility.saisie?handleNouveauLe:undefined,entries,onEdit:handleEdit,onDelete:handleDelete,onDuplicate:handleDuplicate,canDelete:true,initConseiller:filtreConseiller,accentColor}),
           view==='planning'&&visibility.planning&&CE(VuePlanning,{annees:annee,onCycle:visibility.saisie?handleCycleCreneaux:undefined,onNouveau:visibility.saisie?handleNouveauLe:undefined,conseillerFixe:(()=>{try{return sessionStorage.getItem('gs_conseiller')||'';}catch(_){return '';}})(),entries,onEdit:handleEdit,onDelete:handleDelete,onDuplicate:handleDuplicate,canDelete:true,accentColor,conseillers:conseillerActifs}),
