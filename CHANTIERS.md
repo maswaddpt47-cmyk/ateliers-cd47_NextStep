@@ -18,9 +18,10 @@ AG-003 à AG-008, ordre du jour de la bascule) a été retirée. Texte complet :
 ---
 
 ## Reste ouvert
-- **AM/PM, 25/10/2026** : format donut demandé après Distribution horaire,
-  avec pourcentages visibles et mêmes calculs/exclusions. Suivi commun des
-  contrôles et de la publication dans `ATELIERS_NEWGEN/CHANTIERS.md`.
+- **AM/PM, 25/10/2026** : donut livré après Distribution horaire, avec
+  pourcentages visibles et mêmes calculs/exclusions. `main` `9b45d53`
+  (`shared.js?v=215`), run `40191535769` vert : tests et déploiement
+  vérifiés. Suivi commun dans `ATELIERS_NEWGEN/CHANTIERS.md`.
 
 - **Analyse, 25/10/2026** : tableaux « Thématiques par commune » et
   « Partenaires par conseiller » retirés à la demande de l'utilisateur.
