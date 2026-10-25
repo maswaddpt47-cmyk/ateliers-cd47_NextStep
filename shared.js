@@ -25,7 +25,7 @@ nav button.notif:hover{background:#b91c1c}
 .analyse-vue .kpi-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
 .analyse-vue .card,.analyse-vue .kpi{min-width:0}
 @media(max-width:600px){.analyse-vue .kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}.analyse-vue .dashboard-charts{grid-template-columns:minmax(0,1fr)!important}}
-.analyse-note{font-size:12px;line-height:1.6;color:var(--text-2,#64748b);margin:0 0 12px}
+.analyse-note{font-size:12px;line-height:1.6;color:var(--text,#475569);margin:0 0 12px}
 .ec-liquid-glass{position:relative;border-radius:18px;background:radial-gradient(ellipse at 12% 0%,rgba(255,255,255,.95),transparent 65%),linear-gradient(135deg,rgba(219,234,254,.38),rgba(255,255,255,.3) 48%,rgba(204,251,241,.24));box-shadow:inset 0 1px 1px rgba(255,255,255,.95),inset 0 -1px 1px rgba(148,163,184,.2),0 5px 16px rgba(30,64,100,.06);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
 [data-theme="dark"] .ec-liquid-glass{background:radial-gradient(ellipse at 12% 0%,rgba(148,163,184,.13),transparent 65%),linear-gradient(135deg,rgba(59,130,246,.08),rgba(15,23,42,.18) 48%,rgba(45,212,191,.06));box-shadow:inset 0 1px 1px rgba(255,255,255,.16),inset 0 -1px 1px rgba(255,255,255,.04),0 5px 16px rgba(0,0,0,.14)}
 @media print{.ec-liquid-glass{background:none!important;box-shadow:none!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important}}
@@ -3485,17 +3485,17 @@ function KpiCard({val,lbl,sub,trend,color,icon,bgColor,delay=0}){
 function TableauAnalyse({label,firstLabel,columns,rows,totals,total,horsEquipe=[]}){
   const cell={padding:'10px 12px',borderBottom:'1px solid var(--border,#e2e8f0)',textAlign:'right',fontVariantNumeric:'tabular-nums'};
   const head={...cell,textAlign:'left',fontWeight:600,whiteSpace:'normal',overflowWrap:'anywhere',minWidth:130,maxWidth:220};
-  const fixed={...head,position:'sticky',left:0,zIndex:1,background:'var(--surface,#fff)',minWidth:160};
+  const fixed={...head,position:'sticky',left:0,zIndex:1,background:'var(--surface,var(--bg2,#fff))',minWidth:160};
   return CE('div',{className:'analyse-matrice',role:'region','aria-label':label,tabIndex:0,style:{overflowX:'auto',maxWidth:'100%',border:'1px solid var(--border,#e2e8f0)',borderRadius:8}},
     CE('table',{style:{width:'100%',borderCollapse:'separate',borderSpacing:0,fontSize:12}},
-      CE('caption',{style:{textAlign:'left',padding:10,color:'var(--text-2,#64748b)'}},label+' — nombre d’ateliers'),
+      CE('caption',{style:{textAlign:'left',padding:10,color:'var(--text,#475569)'}},label+' — nombre d’ateliers'),
       CE('thead',null,CE('tr',null,
         CE('th',{scope:'col',style:fixed},firstLabel),
-        columns.map(c=>CE('th',{key:c,scope:'col',style:head},c,horsEquipe.includes(c)&&CE('small',{style:{display:'block',fontWeight:400,color:'var(--text-2,#64748b)'}},'Hors équipe configurée'))),
+        columns.map(c=>CE('th',{key:c,scope:'col',style:head},c,horsEquipe.includes(c)&&CE('small',{style:{display:'block',fontWeight:400,color:'var(--text,#475569)'}},'Hors équipe configurée'))),
         CE('th',{scope:'col',style:head},'Ateliers distincts'))),
       CE('tbody',null,rows.map(row=>CE('tr',{key:row.label},
         CE('th',{scope:'row',style:fixed},row.label),
-        row.values.map((v,i)=>CE('td',{key:columns[i],style:{...cell,color:v?'var(--text,#1a202c)':'var(--text-2,#64748b)'}},v)),
+        row.values.map((v,i)=>CE('td',{key:columns[i],style:{...cell,color:v?'var(--text,#1a202c)':'var(--text,#475569)'}},v)),
         CE('td',{style:{...cell,fontWeight:700}},row.total)))),
       CE('tfoot',null,CE('tr',null,
         CE('th',{scope:'row',style:{...fixed,fontWeight:700}},'Total'),
@@ -3562,7 +3562,7 @@ function VueComparaisonAnnuelle({entries,anneesChargees,dateFrom,dateTo,onHistor
     }catch(_){if(version.current===requete)setErreur('Impossible de charger l’historique. Vous pouvez réessayer.');}
     finally{if(version.current===requete)setChargement(false);}
   }
-  const textColor=getComputedStyle(document.documentElement).getPropertyValue('--text-2').trim()||'#64748b';
+  const textColor=getComputedStyle(document.documentElement).getPropertyValue('--text').trim()||'#64748b';
   const mois=['Jan','Fév','Mar','Avr','Mai','Juin','Juil','Août','Sep','Oct','Nov','Déc'];
   const series=[
     cmp.current.loaded&&cmp.current.hasData&&{name:`N · ${year}`,type:'bar',barMaxWidth:24,data:cmp.current.monthly,itemStyle:{color:'#3b82f6',borderRadius:[4,4,0,0]}},

@@ -16,6 +16,7 @@ test('Analyse : populations, historique au clic et tableaux à 390/1280 px', asy
    await page.clock.setFixedTime(new Date('2026-10-25T10:00:00Z'));
  await page.goto('http://analyse.test/');
    const dir=ROOT;
+   const style=await page.addStyleTag({path:path.join(ROOT,'app.css')});
    for(const file of ['vendor/react-18.3.1/react.production.min.js','vendor/react-dom-18.3.1/react-dom.production.min.js','vendor/echarts-5.4.3/echarts.min.js','utils.js','logic.js','shared.js'])await page.addScriptTag({path:dir+'/'+file});
    await page.evaluate(({entries,team})=>{
     todayLocal=()=> '2026-10-25';window.__lignes=entries;window.__team=team;window.__calls=[];window.__mode='empty';
@@ -30,13 +31,21 @@ test('Analyse : populations, historique au clic et tableaux à 390/1280 px', asy
    for(const name of team)assert.equal(await partners.getByRole('columnheader',{name,exact:true}).count(),1);
    assert.equal(await page.locator('.analyse-matrice img').count(),0);
    assert.equal(await page.evaluate(()=>window.__calls.length),0,'aucun appel ajouté au démarrage');
+   for(const sheet of ['app.css','admin.css']){
+   await style.evaluate((el,css)=>el.textContent=css,fs.readFileSync(path.join(ROOT,sheet),'utf8'));
    for(const width of [390,1280])for(const theme of ['light','dark']){
     await page.setViewportSize({width,height:720});
     await page.evaluate(theme=>document.documentElement.setAttribute('data-theme',theme),theme);
     await page.waitForTimeout(100);
-    const dimensions=await page.evaluate(()=>({viewport:innerWidth,page:document.documentElement.scrollWidth,tables:[...document.querySelectorAll('.analyse-matrice')].map(e=>({width:e.clientWidth,scroll:e.scrollWidth})),notes:[...document.querySelectorAll('.analyse-note')].map(e=>({color:getComputedStyle(e).color,background:getComputedStyle(e.closest('.card')||document.body).backgroundColor}))}));
+    const dimensions=await page.evaluate(()=>({viewport:innerWidth,page:document.documentElement.scrollWidth,tables:[...document.querySelectorAll('.analyse-matrice')].map(e=>({width:e.clientWidth,scroll:e.scrollWidth})),notes:[...document.querySelectorAll('.analyse-note,.analyse-matrice caption')].map(e=>({color:getComputedStyle(e).color,background:getComputedStyle(e.closest('.card')||document.body).backgroundColor}))}));
     assert.ok(dimensions.page<=width+1,JSON.stringify(dimensions));
-    console.log(JSON.stringify({width,theme,dimensions}));
+    for(const note of dimensions.notes){
+     const lum=c=>{const a=c.match(/[\d.]+/g).slice(0,3).map(Number).map(v=>{v/=255;return v<=.04045?v/12.92:Math.pow((v+.055)/1.055,2.4);});return .2126*a[0]+.7152*a[1]+.0722*a[2];};
+     const a=lum(note.color),b=lum(note.background),ratio=(Math.max(a,b)+.05)/(Math.min(a,b)+.05);
+     assert.ok(ratio>=4.5,JSON.stringify({sheet,theme,note,ratio}));
+    }
+    console.log(JSON.stringify({sheet,width,theme,dimensions}));
+   }
    }
    await page.getByRole('button',{name:'2026',exact:true}).click();
    await page.getByRole('button',{name:'Charger 2025 pour comparer',exact:true}).click();
