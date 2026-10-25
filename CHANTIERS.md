@@ -18,11 +18,13 @@ AG-003 à AG-008, ordre du jour de la bascule) a été retirée. Texte complet :
 ---
 
 ## Reste ouvert
-- **Analyse, 25/10/2026** : comparaison N/N−1 et tableaux complets préparés
-  aussi ici, avec les mêmes calculs et le même traitement de la coanimation.
-  Push `main` demandé explicitement dans la session ; suivi, vérifications
-  et validation utilisateur dans `ATELIERS_NEWGEN/CHANTIERS.md`, section
-  « Analyse des ateliers ». Aucun autre graphe retiré.
+- **Analyse, 25/10/2026** : comparaison N/N−1 et tableaux complets livrés
+  sur `main` (`8e9723c`, `shared.js?v=211`, `logic.js?v=21`).
+  CI et déploiement verts : run `40184487768`, 46 tests navigateur passés,
+  feuilles conseillers/Admin, 390/1280 px clair/sombre. Même calcul et
+  coanimation que NEWGEN. Suivi des décisions et validation utilisateur dans
+  `ATELIERS_NEWGEN/CHANTIERS.md`, section « Analyse des ateliers ».
+  Aucun autre graphe retiré.
 - **Parité avec NEWGEN (AG-015)** : 5 écarts au 16/10/2026, tous voulus
   (dont l'Historique : chacun garde son design, décision du 26/09). Suivi et
   **ordre de push (NextStep d'abord)** : `CHANTIERS.md` d'ATELIERS_NEWGEN,
