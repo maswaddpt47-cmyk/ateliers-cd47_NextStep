@@ -466,6 +466,17 @@ function ordiSansClasseMobile(e) {
   return matierePanneau(e, false).length === liste.length;
 }
 
+// Anomalie : atelier qui commence après 15 h 30 (demande du 25/10/2026) ;
+// 15 h 30 pile n'en est pas une. Annulés exceptés : ils n'ont pas eu lieu.
+// Horaire vide ou illisible : pas concerné (un horaire vide est déjà un
+// « champ manquant »).
+const DEBUT_MAX_MIN = 15 * 60 + 30;
+function debutApres1530(e) {
+  if (!e || e.statut === 'Annulé') return false;
+  const m = minutesHoraire(e.horaire);
+  return m !== null && m > DEBUT_MAX_MIN;
+}
+
 // Export Partenaire (.ics et PDF, Admin) : ateliers datés d'un orienteur
 // (vide = tous), entre deux dates incluses (vide = sans borne), d'un statut
 // (vide = tous), triés par date (02/10/2026).
@@ -969,6 +980,7 @@ if (typeof module !== 'undefined') {
   ateliersPartenaire,
   matierePanneau,
   ordiSansClasseMobile,
+  debutApres1530,
     presentsSuperieursInscrits,
   };
 }

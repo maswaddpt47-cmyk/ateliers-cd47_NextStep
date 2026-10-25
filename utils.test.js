@@ -424,6 +424,21 @@ describe('matierePanneau', () => {
   });
 });
 
+// ── debutApres1530 (onglet Anomalies, 25/10/2026) ─────────────────────────
+describe('debutApres1530', () => {
+  const { debutApres1530 } = require('./utils.js');
+  it('signale un début après 15 h 30, quel que soit le format', () => {
+    assert.equal(debutApres1530({ horaire: '15:31', statut: 'Planifié' }), true);
+    assert.equal(debutApres1530({ horaire: '16H00', statut: 'Réalisé' }), true);
+  });
+  it('rien à 15 h 30 pile, avant, sans horaire, ou si annulé', () => {
+    assert.equal(debutApres1530({ horaire: '15:30', statut: 'Planifié' }), false);
+    assert.equal(debutApres1530({ horaire: '14:30', statut: 'Planifié' }), false);
+    assert.equal(debutApres1530({ horaire: '', statut: 'Planifié' }), false);
+    assert.equal(debutApres1530({ horaire: '17:00', statut: 'Annulé' }), false);
+  });
+});
+
 // ── ordiSansClasseMobile (onglet Anomalies) ────────────────────────────────
 describe('ordiSansClasseMobile', () => {
   const { ordiSansClasseMobile } = require('./utils.js');
