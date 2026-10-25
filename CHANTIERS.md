@@ -18,10 +18,13 @@ AG-003 à AG-008, ordre du jour de la bascule) a été retirée. Texte complet :
 ---
 
 ## Reste ouvert
-- **Analyse, 25/10/2026** : retrait demandé des tableaux « Thématiques par
-  commune » et « Partenaires par conseiller », jugés trop lourds et inutiles.
-  Comparaison N/N−1 conservée. Suivi des vérifications et de la publication
-  sur `main` dans `ATELIERS_NEWGEN/CHANTIERS.md`, « Analyse des ateliers ».
+- **Analyse, 25/10/2026** : tableaux « Thématiques par commune » et
+  « Partenaires par conseiller » retirés à la demande de l'utilisateur.
+  Livré sur `main`, `61c50f2` (`shared.js?v=212`, `logic.js?v=22`) :
+  run `40188180578` vert, 46 tests navigateur passés, déploiement vérifié.
+  Comparaison N/N−1 conservée ; suivi dans `ATELIERS_NEWGEN/CHANTIERS.md`.
+  Tableaux écartés car trop lourds et inutiles : ne pas les reproposer
+  sans fait nouveau.
 - **Parité avec NEWGEN (AG-015)** : 5 écarts au 16/10/2026, tous voulus
   (dont l'Historique : chacun garde son design, décision du 26/09). Suivi et
   **ordre de push (NextStep d'abord)** : `CHANTIERS.md` d'ATELIERS_NEWGEN,
