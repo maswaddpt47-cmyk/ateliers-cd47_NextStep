@@ -58,57 +58,6 @@ describe('Analyse : comparaison annuelle', () => {
   });
 });
 
-describe('Analyse : tableaux complets', () => {
-  const { tableauxAnalyse } = require('./logic.js');
-  it('garde toutes les communes/thématiques, les conseillers à zéro et les données non renseignées', () => {
-    const entries = Array.from({ length: 6 }, (_, i) => ({
-      date: '2026-10-01', statut: 'Réalisé', commune: 'Commune ' + (i + 1), thematique: 'Thème ' + (i + 1),
-      orienteur: ' Structure ', conseiller: ' Alice ', co_animateur: i === 0 ? 'Bob' : i === 1 ? 'Alice' : ''
-    }));
-    entries.push(
-      { date: '2026-10-02', statut: 'Réalisé', commune: '', thematique: ' ', orienteur: ' ', conseiller: '', co_animateur: ' ' },
-      { date: '2026-10-03', statut: 'Réalisé', commune: '__proto__', thematique: 'constructor', orienteur: '__proto__', conseiller: 'Hors équipe', co_animateur: ' Hors équipe ' }
-    );
-    const result = tableauxAnalyse(entries, { today: '2026-10-25', conseillers: [' Diane ', 'Alice', 'Bob', 'Chloé', 'Alice '] });
-    assert.equal(result.total, 8);
-    assert.equal(result.communeTheme.rows.length, 8);
-    assert.equal(result.communeTheme.themes.length, 8);
-    assert.ok(result.communeTheme.rows.some(r => r.commune === 'Commune 6'));
-    assert.ok(result.communeTheme.themes.includes('Thème 6'));
-    assert.equal(result.communeTheme.rows.find(r => r.commune === 'Non renseigné').total, 1);
-    assert.equal(result.communeTheme.totals.reduce((s, n) => s + n, 0), 8);
-    const partners = result.partenaires;
-    assert.deepEqual(partners.actuels, ['Alice', 'Bob', 'Chloé', 'Diane']);
-    assert.deepEqual(partners.horsEquipe, ['Hors équipe']);
-    assert.deepEqual(partners.conseillers, ['Alice', 'Bob', 'Chloé', 'Diane', 'Hors équipe', 'Non renseigné']);
-    const structure = partners.rows.find(r => r.partenaire === 'Structure');
-    assert.deepEqual(structure.values, [6, 1, 0, 0, 0, 0]);
-    assert.equal(structure.total, 6);
-    assert.equal(structure.affectations, 7);
-    assert.equal(partners.rows.find(r => r.partenaire === 'Non renseigné').values[5], 1);
-    assert.equal(partners.rows.find(r => r.partenaire === '__proto__').values[4], 1);
-    assert.deepEqual(partners.totals, [6, 1, 0, 0, 1, 1]);
-    assert.equal(partners.total, 8);
-    assert.equal(partners.affectations, 9); // l'atelier coanimé compte pour les deux conseillers
-  });
-  it('applique les bornes inclusives sur les seuls réalisés strictement passés', () => {
-    const entries = [
-      { date: '2026-10-01', statut: 'Réalisé' }, { date: '2026-10-02', statut: 'Réalisé' },
-      { date: '2026-10-03', statut: 'Réalisé' }, { date: '2026-10-04', statut: 'Réalisé' },
-      { date: '2026-02-30', statut: 'Réalisé' }, { date: '2026-10-02', statut: 'Annulé' }
-    ];
-    const result = tableauxAnalyse(entries, { from: '2026-10-02', to: '2026-10-04', today: '2026-10-04', conseillers: ['Alice'] });
-    assert.equal(result.total, 2);
-    assert.deepEqual(result.communeTheme.themes, ['Non renseigné']);
-    assert.deepEqual(result.communeTheme.rows[0].values, [2]);
-    assert.deepEqual(result.partenaires.conseillers, ['Alice', 'Non renseigné']);
-    assert.deepEqual(result.partenaires.totals, [0, 2]);
-    const empty = tableauxAnalyse([], { today: '2026-10-04', conseillers: ['Bob', 'Alice'] });
-    assert.deepEqual(empty.partenaires.conseillers, ['Alice', 'Bob']);
-    assert.deepEqual(empty.partenaires.totals, [0, 0]);
-  });
-});
-
 describe('findMobileClassConflicts', () => {
   it('détecte 2 conseillers distincts avec Classe mobile le même jour', () => {
     const entries = [

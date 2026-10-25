@@ -3481,56 +3481,6 @@ function KpiCard({val,lbl,sub,trend,color,icon,bgColor,delay=0}){
 // ═══════════════════════════════════════════════════════════
 // VUE GRAPHIQUES (stats détaillées — inchangé)
 // ═══════════════════════════════════════════════════════════
-// Tableau complet : les nombres sont des ateliers, les zéros restent visibles.
-function TableauAnalyse({label,firstLabel,columns,rows,totals,total,horsEquipe=[]}){
-  const cell={padding:'10px 12px',borderBottom:'1px solid var(--border,#e2e8f0)',textAlign:'right',fontVariantNumeric:'tabular-nums'};
-  const head={...cell,textAlign:'left',fontWeight:600,whiteSpace:'normal',overflowWrap:'anywhere',minWidth:130,maxWidth:220};
-  const fixed={...head,position:'sticky',left:0,zIndex:1,background:'var(--surface,var(--bg2,#fff))',minWidth:160};
-  return CE('div',{className:'analyse-matrice',role:'region','aria-label':label,tabIndex:0,style:{overflowX:'auto',maxWidth:'100%',border:'1px solid var(--border,#e2e8f0)',borderRadius:8}},
-    CE('table',{style:{width:'100%',borderCollapse:'separate',borderSpacing:0,fontSize:12}},
-      CE('caption',{style:{textAlign:'left',padding:10,color:'var(--text,#475569)'}},label+' — nombre d’ateliers'),
-      CE('thead',null,CE('tr',null,
-        CE('th',{scope:'col',style:fixed},firstLabel),
-        columns.map(c=>CE('th',{key:c,scope:'col',style:head},c,horsEquipe.includes(c)&&CE('small',{style:{display:'block',fontWeight:400,color:'var(--text,#475569)'}},'Hors équipe configurée'))),
-        CE('th',{scope:'col',style:head},'Ateliers distincts'))),
-      CE('tbody',null,rows.map(row=>CE('tr',{key:row.label},
-        CE('th',{scope:'row',style:fixed},row.label),
-        row.values.map((v,i)=>CE('td',{key:columns[i],style:{...cell,color:v?'var(--text,#1a202c)':'var(--text,#475569)'}},v)),
-        CE('td',{style:{...cell,fontWeight:700}},row.total)))),
-      CE('tfoot',null,CE('tr',null,
-        CE('th',{scope:'row',style:{...fixed,fontWeight:700}},'Total'),
-        totals.map((v,i)=>CE('td',{key:columns[i],style:{...cell,fontWeight:700}},v)),
-        CE('td',{style:{...cell,fontWeight:700}},total)))));
-}
-
-function VueTableauxAnalyse({entries,conseillers,dateFrom,dateTo,anneesChargees}){
-  const data=React.useMemo(()=>tableauxAnalyse(entries,{from:dateFrom,to:dateTo,today:todayLocal(),conseillers}),[entries,conseillers,dateFrom,dateTo]);
-  const themes=data.communeTheme,partenaires=data.partenaires;
-  const years=anneesListe(anneesChargees).map(Number),missing=[];
-  if(dateFrom||dateTo){
-    const start=Number(dateFrom.slice(0,4))||Math.min(...years,Number(dateTo.slice(0,4))||Infinity);
-    const end=Number(dateTo.slice(0,4))||Math.max(...years,Number(dateFrom.slice(0,4))||0);
-    for(let y=start;y<=end;y++)if(!years.includes(y))missing.push(y);
-  }
-  if(missing.length)return CE('div',{className:'card',style:{gridColumn:'1 / -1',minWidth:0}},
-    CE('h2',null,'Tableaux d’analyse'),
-    CE('p',{className:'analyse-note'},'Années non chargées pour cette période : '+missing.join(', ')+'. Sélectionnez-les dans « Années chargées » ou chargez l’historique proposé dans la comparaison.'));
-  if(dateFrom&&dateTo&&dateFrom>dateTo)return CE('p',{className:'analyse-note',style:{gridColumn:'1 / -1'}},'La date de fin doit suivre la date de début.');
-  return CE(React.Fragment,null,
-    CE('div',{className:'card',style:{gridColumn:'1 / -1',minWidth:0}},
-      CE('h2',null,'🗂️ Thématiques par commune'),
-      CE('p',{className:'analyse-note'},'Ateliers réalisés avant aujourd’hui, selon la période sélectionnée. Toutes les communes et toutes les thématiques sont incluses.'),
-      themes.rows.length?CE(TableauAnalyse,{label:'Thématiques par commune',firstLabel:'Commune',columns:themes.themes,rows:themes.rows.map(r=>({...r,label:r.commune})),totals:themes.totals,total:themes.total})
-        :CE('p',{className:'analyse-note'},'Aucun atelier réalisé sur cette période.')),
-    CE('div',{className:'card',style:{gridColumn:'1 / -1',minWidth:0}},
-      CE('h2',null,'🔀 Partenaires par conseiller'),
-      CE('p',{className:'analyse-note'},'Ateliers réalisés avant aujourd’hui, animés ou coanimés. Les conseillers de l’équipe configurée restent affichés, même à zéro. « Non renseigné » signale une information manquante.'),
-      !partenaires.actuels.length&&CE('p',{className:'analyse-note'},'Aucun conseiller dans la liste de l’équipe configurée.'),
-      partenaires.horsEquipe.length>0&&CE('p',{className:'analyse-note'},'Les autres noms présents dans les ateliers sont identifiés « Hors équipe configurée ».'),
-      CE(TableauAnalyse,{label:'Partenaires par conseiller',firstLabel:'Partenaire',columns:partenaires.conseillers,rows:partenaires.rows.map(r=>({...r,label:r.partenaire})),totals:partenaires.totals,total:partenaires.total,horsEquipe:partenaires.horsEquipe}),
-      CE('p',{className:'analyse-note'},'Un atelier coanimé compte pour chacun de ses conseillers. Le total « Ateliers distincts » le compte une seule fois ; il peut donc être inférieur à la somme des colonnes.')));
-}
-
 // Lecture de l'historique au clic seulement, par le getAll existant. Les
 // archives restent en mémoire dans cette vue et ne changent pas les années
 // chargées dans les autres écrans. Aucun zéro ne remplace un échec de lecture.
@@ -3588,7 +3538,7 @@ function VueComparaisonAnnuelle({entries,anneesChargees,dateFrom,dateTo,onHistor
         yAxis:{type:'value',...EC_AXIS_BASE,min:0,minInterval:1,name:'Ateliers'},series}})));
 }
 
-function VueGraphiques({entries,conseillers=[],anneesChargees}){
+function VueGraphiques({entries,anneesChargees}){
   if(!window.echarts)return CE('div',{className:'card'},CE('p',{style:{color:'#718096',textAlign:'center',padding:'40px 0'}},'⚠️ ECharts non chargé — vérifiez la connexion internet.'));
 
   const[dateFrom,setDateFrom]=React.useState('');
@@ -3718,7 +3668,6 @@ function VueGraphiques({entries,conseillers=[],anneesChargees}){
             ),
 
             CE(VueComparaisonAnnuelle,{entries,anneesChargees,dateFrom,dateTo,onHistorique:ajout=>setArchivesAnalyse(prev=>({...prev,...ajout}))}),
-            CE(VueTableauxAnalyse,{entries:entriesAnalyse,conseillers,dateFrom,dateTo,anneesChargees:anneesAnalyse.join(',')}),
 
             // ── Distribution horaire ──
             dataHoraire.some(d=>d.value>0)&&CE('div',{className:'card'},
@@ -6335,7 +6284,7 @@ function VueDashboardTabs({entries, conseillers, sansBilans, anneesChargees}){
       }, t.ico+' '+t.label))
     ),
     tab==='dashboard'  && CE(VueDashboard,{entries}),
-    tab==='graphiques' && CE(VueGraphiques,{entries,conseillers,anneesChargees}),
+    tab==='graphiques' && CE(VueGraphiques,{entries,anneesChargees}),
     tab==='powerbi'    && CE(VuePowerBI,{entries,conseillers}),
     tab==='avis'       && CE(VueAvisAteliers,{entries}),
     tab==='trimestre'  && CE(VueBilanTrimestriel,{entries})
