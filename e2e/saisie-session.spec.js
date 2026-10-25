@@ -72,13 +72,48 @@ async function connecter(page,fichier){
     await page.locator('select.accueil-select').selectOption(NOM);
     await acces.click();
   }
-  await expect(page.getByRole('button',{name:'Nouveau',exact:true})).toBeVisible();
+  // L'Admin NextStep expose le titre du bouton ; son nom accessible inclut
+  // aussi l'icône, contrairement à l'Index qui fournit un aria-label.
+  await expect(page.getByTitle('Nouveau',{exact:true})).toBeVisible();
 }
 
 const formulaire=page=>page.locator('[data-saisie="1"]');
 const lieu=page=>formulaire(page).getByPlaceholder('Salle, médiathèque, établissement…');
 const remarques=page=>formulaire(page).getByPlaceholder('Notes libres');
-const nav=(page,nom)=>page.getByRole('button',{name:nom,exact:true}).click();
+async function quitterMenu(page){
+  const viewport=page.viewportSize();
+  await page.mouse.move(viewport.width-10,100);
+}
+
+async function nav(page,nom){
+  await page.getByTitle(nom,{exact:true}).click();
+  // La sidebar s'élargit au survol et recouvre alors le bord du formulaire.
+  // Comme un utilisateur qui revient vers le contenu, on quitte son survol.
+  await quitterMenu(page);
+}
+
+async function deconnecter(page){
+  await quitterMenu(page);
+  const boutons=page.getByTitle('Déconnexion',{exact:true});
+  const accessible=()=>boutons.evaluateAll(elements=>elements.findIndex(el=>{
+    const r=el.getBoundingClientRect(),x=r.left+r.width/2,y=r.top+r.height/2;
+    if(!r.width||!r.height||x<0||x>=innerWidth||y<0||y>=innerHeight)return false;
+    const devant=document.elementFromPoint(x,y);
+    return devant===el||el.contains(devant);
+  }));
+  let index=-1;
+  // Le retrait du survol rend normalement le pied du menu atteignable.
+  // Si la hauteur du desktop ne le permet pas, le contrôle mobile de la
+  // topbar fournit le même parcours réel, sans forcer un élément hors écran.
+  try{await expect.poll(accessible,{timeout:1000}).toBeGreaterThanOrEqual(0);index=await accessible();}catch(_){}
+  if(index<0){
+    await page.setViewportSize({width:390,height:800});
+    await quitterMenu(page);
+    await expect.poll(accessible).toBeGreaterThanOrEqual(0);
+    index=await accessible();
+  }
+  await boutons.nth(index).click();
+}
 
 async function mesurer(page){
   for(const width of [390,1280]){
@@ -148,10 +183,10 @@ for(const fichier of ['index.html','admin.html']){
 
     await lieu(page).fill('Ne doit pas survivre à la déconnexion');
     etat.accepter=false;
-    await page.getByTitle('Déconnexion',{exact:true}).filter({visible:true}).first().click();
+    await deconnecter(page);
     await expect(lieu(page)).toHaveValue('Ne doit pas survivre à la déconnexion');
     etat.accepter=true;
-    await page.getByTitle('Déconnexion',{exact:true}).filter({visible:true}).first().click();
+    await deconnecter(page);
     await expect(page.locator('input[type="password"]').first()).toBeVisible();
     await expect(formulaire(page)).toHaveCount(0);
     await connecter(page);
