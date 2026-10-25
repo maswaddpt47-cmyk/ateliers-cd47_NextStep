@@ -3610,7 +3610,8 @@ function VueGraphiques({entries,anneesChargees}){
 
   // 5. Distribution horaire
   const byHeure={};filtered.forEach(e=>{if(!e.horaire)return;const h=parseInt(String(e.horaire).replace(/[Hh:].*/,''));if(isNaN(h)||h<6||h>19)return;byHeure[h]=(byHeure[h]||0)+1;});
-  const dataHoraire=Array.from({length:14},(_,i)=>({label:`${i+6}h`,value:byHeure[i+6]||0}));
+  // Heures sans atelier retirées du graphique (demande du 25/10/2026).
+  const dataHoraire=Array.from({length:14},(_,i)=>({label:`${i+6}h`,value:byHeure[i+6]||0})).filter(d=>d.value>0);
 
   // Années disponibles
   const annees=anneesAnalyse;
