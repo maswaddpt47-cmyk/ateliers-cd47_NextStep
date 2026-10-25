@@ -19,14 +19,6 @@ AG-003 à AG-008, ordre du jour de la bascule) a été retirée. Texte complet :
 
 ## Reste ouvert
 
-- **Contrôle utilisateur — Analyse et saisie (25/10/2026)** : livré sur
-  `main` `a644767` (`shared.js?v=228`), CI et déploiement
-  run `40222723294` verts. **Saisie validée par l'utilisateur le
-  25/10/2026** (« La saisie est bonne, ça fonctionne »). La lisibilité
-  de l'Analyse reste à valider. Suivi commun, décisions et limites dans
-  `ATELIERS_NEWGEN/CHANTIERS.md`. Nouveautés n° 35 : saisie uniquement ;
-  aucune annonce sur l'Analyse avant validation.
-
 - **Parité avec NEWGEN (AG-015)** : 5 écarts au 16/10/2026, tous voulus
   (dont l'Historique : chacun garde son design, décision du 26/09). Suivi et
   **ordre de push (NextStep d'abord)** : `CHANTIERS.md` d'ATELIERS_NEWGEN,
@@ -47,6 +39,10 @@ AG-003 à AG-008, ordre du jour de la bascule) a été retirée. Texte complet :
 
 ## Points à ne pas défaire
 
+- **25/10/2026** : livraison confirmée par l'utilisateur (« Tout est OK »).
+  Nouveautés n° 35 : conservation de la saisie uniquement, selon son choix
+  explicite. Validation de fonctionnement et choix des annonces sont séparés
+  (règle 18 de `CLAUDE.md`) ; suivi commun dans `ATELIERS_NEWGEN/CHANTIERS.md`.
 - **`_id` fourni par le client et gardé tant que l'envoi n'a pas réussi** :
   rejouer une écriture remplace, ne duplique pas. Le cycle enregistré en
   double du 23/09 (16 lignes au lieu de 8, chaque clic tirait de nouveaux
