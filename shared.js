@@ -6073,8 +6073,9 @@ function VueDashboard({entries}){
     ),
 
     // ── Ligne 3 : Communes + Thématiques ──
-    // minmax(0,…) : la grille ne déborde plus sur petit téléphone (25/10/2026).
-    CE('div',{style:{display:'grid',gridTemplateColumns:'repeat(2,minmax(0,1fr))',gap:16,marginBottom:16}},
+    // Côte à côte, l'un sous l'autre quand chacun n'a plus 240 px : sur
+    // téléphone (demande du 25/10/2026).
+    CE('div',{style:{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(max(240px,calc(50% - 8px)),1fr))',gap:16,marginBottom:16}},
       CE('div',{className:'card'},
         CE('h2',null,'📍 Top communes (réalisés)'),
         CE(BarChart,{data:topCommunes,colors:['#1e3a8a','#2563eb','#3b82f6','#60a5fa','#93c5fd']})
