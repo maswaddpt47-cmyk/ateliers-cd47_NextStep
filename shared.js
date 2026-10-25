@@ -3202,18 +3202,22 @@ function liquidGlassOption(option){
   };
 }
 function chartTooltipColor(color){return typeof color==='string'?color:color?.colorStops?.[2]?.color||'#60a5fa';}
-// Entrée en mouvement (demande du 25/10/2026) : un graphique ne se dessine,
-// avec son animation, qu'une fois visible à l'écran ; avant, l'animation se
-// jouait hors de vue, avant qu'on descende jusqu'à lui. À l'impression, tout
-// ce qui attend encore se dessine d'un coup, sans animation.
+// Entrée en mouvement (demandes du 25/10/2026) : un graphique se dessine,
+// avec son animation, quand il apparaît à l'écran, et rejoue son animation
+// chaque fois qu'il y revient après en être sorti (en descendant comme en
+// remontant). À l'impression, ce qui n'a jamais été vu se dessine d'un coup,
+// sans animation. fn(premier, sansAnim) ; rend la fonction d'arrêt.
 function quandVisible(el,fn){
-  let fait=false;
-  const lancer=sansAnim=>{if(fait)return;fait=true;if(io)io.disconnect();window.removeEventListener('beforeprint',imprimer);fn(sansAnim);};
-  const imprimer=()=>lancer(true);
-  const io='IntersectionObserver' in window?new IntersectionObserver(es=>{if(es.some(e=>e.isIntersecting))lancer(false);},{threshold:.2}):null;
-  if(!io){lancer(false);return()=>{};}
+  let vu=false,dehors=true;
+  const imprimer=()=>{if(!vu){vu=true;dehors=false;fn(true,true);}};
+  const io='IntersectionObserver' in window?new IntersectionObserver(es=>{
+    const e=es[es.length-1];
+    if(e.isIntersecting&&e.intersectionRatio>=.2){if(dehors){dehors=false;const premier=!vu;vu=true;fn(premier,false);}}
+    else if(!e.isIntersecting)dehors=true;   // complètement sorti : rejouera au retour
+  },{threshold:[0,.2]}):null;
+  if(!io){fn(true,false);return()=>{};}
   io.observe(el);window.addEventListener('beforeprint',imprimer);
-  return()=>{fait=true;io.disconnect();window.removeEventListener('beforeprint',imprimer);};
+  return()=>{io.disconnect();window.removeEventListener('beforeprint',imprimer);};
 }
 function EChart({option,height}){
   const ref=React.useRef(null);
@@ -3231,11 +3235,13 @@ function EChart({option,height}){
       inst.current._ro=ro;
       optRef.current=option;
       inst.current._attente=true;
-      inst.current._fin=quandVisible(ref.current,sansAnim=>{
+      inst.current._fin=quandVisible(ref.current,(premier,sansAnim)=>{
         if(!inst.current)return;
         inst.current._attente=false;
-        if(sansAnim)appliquer(true,true);
-        else requestAnimationFrame(()=>requestAnimationFrame(()=>appliquer(true)));
+        if(sansAnim){appliquer(true,true);return;}
+        // Retour à l'écran : effacer puis redessiner pour rejouer l'animation.
+        if(!premier)inst.current.clear();
+        requestAnimationFrame(()=>requestAnimationFrame(()=>appliquer(true)));
       });
       return;
     }
@@ -4644,11 +4650,12 @@ function VuePowerBI({entries, conseillers: conseillersList}){
         inst.current=window.echarts.init(ref.current);const ro=new ResizeObserver(()=>{if(inst.current)inst.current.resize();});ro.observe(ref.current);inst.current._ro=ro;
         prevOpt.current=option;inst.current._attente=true;
         // Entrée en mouvement à l'apparition à l'écran (voir quandVisible).
-        inst.current._fin=quandVisible(ref.current,sansAnim=>{
+        inst.current._fin=quandVisible(ref.current,(premier,sansAnim)=>{
           if(!inst.current)return;
           inst.current._attente=false;
-          if(sansAnim)appliquer(true,true);
-          else requestAnimationFrame(()=>requestAnimationFrame(()=>appliquer(true)));
+          if(sansAnim){appliquer(true,true);return;}
+          if(!premier)inst.current.clear();   // retour à l'écran : rejouer l'animation
+          requestAnimationFrame(()=>requestAnimationFrame(()=>appliquer(true)));
         });
         return;
       }
