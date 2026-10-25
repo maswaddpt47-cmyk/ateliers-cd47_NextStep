@@ -3254,7 +3254,9 @@ function EChart({option,height}){
     requestAnimationFrame(()=>appliquer(false));
   });
   React.useEffect(()=>{return()=>{if(inst.current){if(inst.current._fin)inst.current._fin();if(inst.current._ro)inst.current._ro.disconnect();inst.current.dispose();inst.current=null;}};},[]); 
-  return CE('div',{ref,className:'ec-liquid-glass',style:{width:'100%',height:height||200}});
+  // contain : la largeur posée en pixels par ECharts (au retour du plein écran,
+  // par exemple) ne peut pas élargir la carte qui le contient (25/10/2026).
+  return CE('div',{ref,className:'ec-liquid-glass',style:{width:'100%',height:height||200,contain:'inline-size'}});
 }
 
 function mkGrad(c1,c2,dir='v'){
@@ -4668,7 +4670,7 @@ function VuePowerBI({entries, conseillers: conseillersList}){
       requestAnimationFrame(()=>appliquer(false));
     });
     React.useEffect(()=>{return()=>{if(inst.current){if(inst.current._fin)inst.current._fin();if(inst.current._ro)inst.current._ro.disconnect();inst.current.dispose();inst.current=null;}};},[]);
-    return CE('div',{ref,className:'ec-liquid-glass',style:{width:'100%',height:height||180}});
+    return CE('div',{ref,className:'ec-liquid-glass',style:{width:'100%',height:height||180,contain:'inline-size'}});
   }
 
   // ── Pages ──────────────────────────────────────────────────
@@ -6339,8 +6341,24 @@ function VueDashboardTabs({entries, conseillers, sansBilans, anneesChargees}){
     {id:'avis',       ico:'💬', label:'Avis par atelier'},
     {id:'trimestre',  ico:'🗓️', label:'Bilan trimestriel'},
   ].filter(t=>!sansBilans||t.id==='dashboard'||t.id==='graphiques');
-  return CE('div',null,
-    CE('div',{style:{display:'flex',boxShadow:'inset 0 -2px 0 #e5e7eb',marginBottom:16,gap:4,overflowX:'auto',overflowY:'hidden'}},
+  // Plein écran (demande du 25/10/2026) : pour projeter le Dashboard sur une
+  // télé ou un écran de réunion, sans barre d'adresse ni menus. Bouton absent
+  // là où le navigateur ne le permet pas (iPhone). Échap pour sortir.
+  const zoneRef=React.useRef(null);
+  const[plein,setPlein]=React.useState(false);
+  React.useEffect(()=>{
+    const f=()=>setPlein(!!zoneRef.current&&document.fullscreenElement===zoneRef.current);
+    document.addEventListener('fullscreenchange',f);
+    return()=>document.removeEventListener('fullscreenchange',f);
+  },[]);
+  const pleinPossible=!!document.fullscreenEnabled;
+  const basculerPlein=()=>{
+    if(document.fullscreenElement){document.exitFullscreen().catch(()=>{});return;}
+    if(zoneRef.current&&zoneRef.current.requestFullscreen)zoneRef.current.requestFullscreen().catch(()=>{});
+  };
+  return CE('div',{ref:zoneRef,style:plein?{background:'var(--bg,#f0f4f8)',overflowY:'auto',padding:16}:null},
+    CE('div',{style:{display:'flex',alignItems:'center',gap:8,marginBottom:16,boxShadow:'inset 0 -2px 0 #e5e7eb'}},
+    CE('div',{style:{display:'flex',flex:1,minWidth:0,gap:4,overflowX:'auto',overflowY:'hidden'}},
       TABS.map(t=>CE('button',{
         key:t.id,
         onClick:()=>setTab(t.id),
@@ -6352,6 +6370,10 @@ function VueDashboardTabs({entries, conseillers, sansBilans, anneesChargees}){
           whiteSpace:'nowrap',transition:'all .15s'
         }
       }, t.ico+' '+t.label))
+    ),
+    pleinPossible&&CE('button',{onClick:basculerPlein,title:plein?'Quitter le plein écran (Échap)':'Afficher en plein écran, pour une télé ou un écran de réunion',
+      className:'no-print',style:{flexShrink:0,padding:'5px 10px',marginBottom:4,borderRadius:6,border:'1px solid #e2e8f0',background:'var(--surface,#fff)',color:'#475569',fontSize:12,fontWeight:600,cursor:'pointer',whiteSpace:'nowrap'}},
+      plein?'✕ Quitter':'📺 Plein écran')
     ),
     tab==='dashboard'  && CE(VueDashboard,{entries}),
     tab==='graphiques' && CE(VueGraphiques,{entries,anneesChargees}),
