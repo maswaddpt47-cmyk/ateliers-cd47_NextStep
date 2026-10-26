@@ -1,6 +1,6 @@
 # Chantiers en cours — Ateliers CD47 NextStep
 
-État au **25/10/2026**. NextStep (équipe) et NEWGEN (utilisateur) parlent à
+État au **26/10/2026**. NextStep (équipe) et NEWGEN (utilisateur) parlent à
 la même API Alwaysdata et à la même base depuis la bascule du 25/09/2026 :
 **les restes communs** (registres, audit trimestriel, sauvegardes,
 sécurité, import Outlook à valider, rubrique Nouveautés) et les
@@ -11,9 +11,9 @@ Fichier transitoire : à mettre à jour à chaque avancée, à supprimer quand t
 est soldé. Ce n'est pas de la documentation permanente (cf.
 `MD-LIB/hygiene-instructions.md`).
 
-**Ménages des 26/09 et 16/10/2026** : l'époque GAS (banc, doublage, relevés de pertes,
-AG-003 à AG-008, ordre du jour de la bascule) a été retirée. Texte complet :
-`git log -p CHANTIERS.md`, avant `807db21`.
+**Ménages des 26/09, 16/10 et 26/10/2026** : époque GAS (banc, doublage,
+relevés de pertes, AG-003 à AG-008, bascule), récit des livraisons et doublons
+du `CLAUDE.md` retirés — `git log -p CHANTIERS.md`.
 
 ---
 
@@ -39,24 +39,18 @@ AG-003 à AG-008, ordre du jour de la bascule) a été retirée. Texte complet :
 
 ## Points à ne pas défaire
 
-- **25/10/2026** : livraison confirmée par l'utilisateur (« Tout est OK »).
-  Nouveautés n° 35 : conservation de la saisie uniquement, selon son choix
-  explicite. Validation de fonctionnement et choix des annonces sont séparés
-  (règle 18 de `CLAUDE.md`) ; suivi commun dans `ATELIERS_NEWGEN/CHANTIERS.md`.
+- **Bilan trimestriel (AG-032, `6ba579d`, validé à l'écran le 26/10/2026)** :
+  mêmes définitions que NEWGEN — couverture affichée, avis sur tous les avis
+  avec « Sans réponse », communes normalisées, année non chargée = message sans
+  chiffre. Détail : `ATELIERS_NEWGEN/CHANTIERS.md` et son `AGORA.md`.
 - **`_id` fourni par le client et gardé tant que l'envoi n'a pas réussi** :
   rejouer une écriture remplace, ne duplique pas. Le cycle enregistré en
   double du 23/09 (16 lignes au lieu de 8, chaque clic tirait de nouveaux
   `_id`) ne peut plus se reproduire.
-- **Les écritures ne sont jamais doublées** par la couche réseau ; les
-  lectures muettes le sont au bout de 7 s. Verrouillé par `reseau.test.js`
-  et `e2e/appels.test.js`.
-- **Plafonds : 12 s lecture, 12 s écriture, 25 s `saveMany`.** Les rallonger
-  n'a jamais récupéré une réponse (pire cas ~146 s avec un plafond de 35 s à
-  4 tentatives). Verrouillé par `reseau.test.js`.
-- **Aucun appel superflu au démarrage ni après une écriture** ; pas de
-  `getConfig` dédié sur Index, le drapeau maintenance voyage dans `getAll`.
-  `e2e/appels.test.js` verrouille l'appel supprimé **et** l'écran de
-  maintenance qui s'affiche toujours.
+- Déjà dans `CLAUDE.md` (« Couche d'appel ») et verrouillés par les tests :
+  écritures jamais doublées (lectures muettes doublées à 7 s), plafonds,
+  aucun appel superflu — le drapeau maintenance voyage dans `getAll`, et
+  `e2e/appels.test.js` verrouille aussi l'écran de maintenance.
 - **Synchro de fond suspendue** quand l'onglet est caché (`app.js:543`,
   `admin_app.js:469`) : relancer dans le vide n'ajoute que des appels.
 - **Stockage navigateur préfixé** (`APP_NS = 'nextstep'`, `utils.js:317`) :
@@ -68,10 +62,7 @@ AG-003 à AG-008, ordre du jour de la bascule) a été retirée. Texte complet :
 
 ## Pistes d'amélioration
 
-Consigne renforcée et propagation approuvée par l'utilisateur le 25/10/2026 :
-initiative dès l'analyse, recommandations argumentées et examen de la pertinence
-de l'existant. Règle 22 de MD-LIB copiée dans `CLAUDE.md` ; ce registre garde
-les pistes et les décisions, sans reproposer une piste écartée sans fait nouveau.
+Règle 20 du `CLAUDE.md`. Ne pas reproposer une piste écartée sans fait nouveau.
 
 **Proposées, en attente** : tenues dans `CHANTIERS.md` d'ATELIERS_NEWGEN
 (mêmes interfaces, même base).
