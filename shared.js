@@ -6240,13 +6240,20 @@ function VueBilanTrimestriel({entries,moi}){
   React.useEffect(()=>{let vivant=true;setAv(null);
     (async()=>{try{
       const r=await apiFetch('bilanAvis',moi?{du:debut,au:fin,moi:'1'}:{du:debut,au:fin});
-      if(vivant)setAv(r&&r.ok?(r.masque?{avis:[],remarques:[],erreur:`moins de ${r.seuil||3} avis sur la période, résultats masqués pour que personne ne soit reconnu`}:{avis:r.avis,remarques:r.remarques}):{erreur:(r&&r.error)||'Erreur'});
+      if(vivant)setAv(r&&r.ok?(r.masque?{avis:[],remarques:[],erreur:`moins de ${r.seuil||3} avis sur la période, résultats masqués pour que personne ne soit reconnu`}:{avis:r.avis,remarques:r.remarques,remarquesAteliers:r.remarques_ateliers||null}):{erreur:(r&&r.error)||'Erreur'});
     }catch(e){if(vivant)setAv({erreur:e.message||'Erreur réseau'});}})();
     return()=>{vivant=false;};},[debut,fin]);
   const annees=[...new Set([annee,new Date().getFullYear(),...(entries||[]).map(e=>parseInt(String(normalizeDate(e.date)||'').slice(0,4))).filter(Boolean)])].sort((x,y)=>y-x);
-  const titre=`Bilan du ${t===1?'1er':t+'e'} trimestre ${annee} — Ateliers numériques`;
-  const b=bilanTrimestriel(entries,debut,fin,av&&av.avis||[]);
-  const html=av?htmlBilanTrimestriel(b,titre,av.remarques,av.erreur):'';
+  // Filtre par conseiller (Admin, 26/10/2026) : ateliers animés ou co-animés,
+  // avis et remarques de ces seuls ateliers (lien remarque-atelier : Admin seul).
+  const[conum,setConum]=React.useState('');
+  const conums=moi?[]:[...new Set((entries||[]).flatMap(e=>[e.conseiller,e.co_animateur]).filter(Boolean))].sort((x,y)=>x.localeCompare(y));
+  const entriesF=conum?(entries||[]).filter(e=>e.conseiller===conum||e.co_animateur===conum):entries;
+  const idsF=new Set((entriesF||[]).map(e=>e._id));
+  const remarques=!av?[]:!conum?av.remarques:av.remarquesAteliers?av.remarquesAteliers.filter(r=>idsF.has(r.atelier_id)).map(r=>r.remarque):[];
+  const titre=`Bilan du ${t===1?'1er':t+'e'} trimestre ${annee} — Ateliers numériques`+(conum?` — ${conum}`:'');
+  const b=bilanTrimestriel(entriesF,debut,fin,av&&av.avis||[]);
+  const html=av?htmlBilanTrimestriel(b,titre,remarques,av.erreur):'';
   function imprimer(){
     const w=window.open('','_blank');if(!w){showToast('Autorisez les fenêtres pour ce site',false);return;}
     w.document.write(`<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><title>${htmlEsc(titre)}</title><style>body{font-family:Arial,sans-serif;margin:24px;color:#0f172a}${BILAN_TRIM_CSS}</style></head><body><div class="bt">${html}<div class="bt-note" style="margin-top:16px">Édité le ${fmtDate(todayLocal())}. Avis des stagiaires anonymes.</div></div><script>window.print();<\/script></body></html>`);
@@ -6258,6 +6265,8 @@ function VueBilanTrimestriel({entries,moi}){
     CE('div',{style:{display:'flex',gap:8,flexWrap:'wrap',alignItems:'center',marginBottom:14}},
       CE('select',{value:t,onChange:e=>setT(parseInt(e.target.value)),style:sel,'aria-label':'Trimestre'},[1,2,3,4].map(n=>CE('option',{key:n,value:n},`${n===1?'1er':n+'e'} trimestre`))),
       CE('select',{value:annee,onChange:e=>setAnnee(parseInt(e.target.value)),style:sel,'aria-label':'Année'},annees.map(n=>CE('option',{key:n,value:n},n))),
+      !moi&&conums.length>0&&CE('select',{value:conum,onChange:e=>setConum(e.target.value),style:sel,'aria-label':'Conseiller'},
+        CE('option',{value:''},'Tous les conseillers'),conums.map(c=>CE('option',{key:c,value:c},c))),
       CE('button',{type:'button',className:'btn btn-primary btn-sm',disabled:!av,onClick:imprimer},'🖨️ Imprimer / PDF')),
     !av?CE('div',{style:{padding:30,color:'#64748b',textAlign:'center'}},'Chargement des avis…')
       :CE('div',{className:'bt',dangerouslySetInnerHTML:{__html:html}}));
