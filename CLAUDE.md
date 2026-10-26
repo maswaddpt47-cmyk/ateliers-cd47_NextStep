@@ -115,7 +115,9 @@ changement structurant de sécurité (connexion, page publique, hébergement),
 avec la consigne de `ateliers-backups/documents/sources/consigne-audit-codex.md`
 (ligne « Ce dépôt ne contient que l'interface » en tête) ; chaque point vérifié
 dans le code. Contradiction d'une proposition : `AGORA.md` d'ATELIERS_NEWGEN
-(blocs de sécurité : Codex).
+(blocs de sécurité : Codex). **Tout changement qui touche un calcul ou un
+chiffre affiché ouvre un bloc dans cette AGORA, systématiquement, avant la
+correction (critère 7, contradicteur Codex, 26/10/2026).**
 
 ## Branche de travail
 
