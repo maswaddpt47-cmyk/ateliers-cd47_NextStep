@@ -375,6 +375,8 @@ function bilanTrimestriel(entries, debut, fin, avis, aujourdhui) {
   // Navigateur : constantes globales d'utils.js (const, absentes de window).
   const CHOIX = typeof LOGIC_UTILS !== 'undefined' ? LOGIC_UTILS.BILAN_CHOIX : BILAN_CHOIX;
   const MULTIPLES = typeof LOGIC_UTILS !== 'undefined' ? LOGIC_UTILS.BILAN_MULTIPLES : BILAN_MULTIPLES;
+  const DUREE_DEF = typeof LOGIC_UTILS !== 'undefined' ? LOGIC_UTILS.DUREE_DEFAUT : DUREE_DEFAUT;
+  const normCom = typeof LOGIC_UTILS !== 'undefined' ? LOGIC_UTILS.normalizeCommune : normalizeCommune;
   const compter = (o, k) => { if (k !== null && k !== undefined && k !== '') o[k] = (o[k] || 0) + 1; };
   const moyenne = l => l.length ? Math.round(l.reduce((x, y) => x + y, 0) / l.length * 10) / 10 : null;
   const num = v => (v === '' || v === null || v === undefined || isNaN(parseInt(v, 10))) ? null : parseInt(v, 10);
@@ -386,13 +388,20 @@ function bilanTrimestriel(entries, debut, fin, avis, aujourdhui) {
   const avecPresence = realises.filter(e => num(e.inscrits) > 0 && num(e.presents) !== null);
   const sommeInscrits = avecPresence.reduce((x, e) => x + num(e.inscrits), 0);
   const auj = aujourdhui || new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+  // Décisions de l'utilisateur du 26/10/2026 (AG-032) : participations sur les
+  // seuls ateliers où les présents sont saisis (couverture affichée) ; durée
+  // vide comptée DUREE_DEFAUT (1 h 30), comme ailleurs dans l'appli ; communes
+  // comptées après normalizeCommune (« AGEN (47000) » = « Agen »).
+  const presentsSaisis = realises.filter(e => num(e.presents) !== null);
   const activite = {
     realises: realises.length, statuts,
     planifiesPasses: periode.filter(e => e.statut === 'Planifié' && normalizeDate(e.date) < auj).length,
-    presents: realises.reduce((x, e) => x + (num(e.presents) || 0), 0),
+    presents: presentsSaisis.reduce((x, e) => x + num(e.presents), 0),
+    presentsSaisis: presentsSaisis.length,
     tauxPresence: sommeInscrits ? Math.round(avecPresence.reduce((x, e) => x + num(e.presents), 0) / sommeInscrits * 100) : null,
-    heures: Math.round(realises.reduce((x, e) => x + (num(e.duree) || 0), 0) / 60 * 10) / 10,
-    communes: new Set(realises.map(e => e.commune).filter(Boolean)).size,
+    heures: Math.round(realises.reduce((x, e) => x + (num(e.duree) || DUREE_DEF), 0) / 60 * 10) / 10,
+    dureesParDefaut: realises.filter(e => !num(e.duree)).length,
+    communes: new Set(realises.map(e => normCom(e.commune)).filter(Boolean)).size,
   };
   const fiches = {remplies: 0, autres: []};
   Object.keys(CHOIX).forEach(k => { fiches[k] = {}; });
@@ -409,12 +418,20 @@ function bilanTrimestriel(entries, debut, fin, avis, aujourdhui) {
   const lignes = (avis || []).filter(v => ids.has(v.atelier_id));
   const av = {n: lignes.length, ateliers: new Set(lignes.map(v => v.atelier_id)).size,
     attentes: moyenne(lignes.map(v => v.attentes).filter(x => x)), clarte: moyenne(lignes.map(v => v.clarte).filter(x => x))};
-  ['rythme', 'aise', 'autonomie', 'sujet'].forEach(k => { av[k] = {}; lignes.forEach(v => compter(av[k], v[k])); });
-  const themes = {};
+  // Base des pourcentages = tous les avis (AG-032) : les non-réponses sont
+  // comptées à part, pour que la répartition fasse 100 %.
+  av.sansReponse = {};
+  ['rythme', 'aise', 'autonomie', 'sujet'].forEach(k => {
+    av[k] = {}; lignes.forEach(v => compter(av[k], v[k]));
+    av.sansReponse[k] = lignes.filter(v => v[k] === null || v[k] === undefined || v[k] === '').length;
+  });
+  // Sans prototype : une thématique nommée « constructor » ou « toString »
+  // n'atteint plus les méthodes d'Object (AG-032).
+  const themes = Object.create(null);
   realises.forEach(e => {
     const t = e.thematique || 'Sans thématique';
     const x = themes[t] || (themes[t] = {theme: t, ateliers: 0, presents: 0, avis: 0, notes: []});
-    x.ateliers++; x.presents += num(e.presents) || 0;
+    x.ateliers++; x.presents += num(e.presents) || 0;   // présents saisis ; un vide n'ajoute rien
   });
   lignes.forEach(v => {
     const e = realises.find(r => r._id === v.atelier_id);

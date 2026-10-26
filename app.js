@@ -896,7 +896,7 @@ function App(){
           view==='planning'&&visibility.planning&&CE(VuePlanning,{annees:annee,onCycle:visibility.saisie?handleCycleCreneaux:undefined,onNouveau:visibility.saisie?handleNouveauLe:undefined,conseillerFixe:(()=>{try{return sessionStorage.getItem('gs_conseiller')||'';}catch(_){return '';}})(),entries,onEdit:handleEdit,onDelete:handleDelete,onDuplicate:handleDuplicate,canDelete:true,accentColor,conseillers:conseillerActifs}),
           view==='calendrier'&&visibility.calendrier&&CE(VueCalendrier,{onNouveau:visibility.saisie?handleNouveauLe:undefined,onImportICS:visibility.saisie?handleImportICS:undefined,entries,onEdit:handleEdit,onDelete:handleDelete,onRefresh:()=>loadData(),onDuplicate:handleDuplicate,initConseiller:filtreConseiller,onResetConseiller:()=>{},canDelete:true}),
           view==='dashboard'&&visibility.dashboard&&CE(VueDashboardTabs,{entries,anneesChargees:annee,conseillers:lists.conseillers,sansBilans:true}),
-          view==='bilans'&&visibility.bilans&&CE(VueMesBilans,{entries}),
+          view==='bilans'&&visibility.bilans&&CE(VueMesBilans,{entries,anneesChargees:annee}),
           view==='carte'&&visibility.carte&&CE(VueCarte,{entries,active:view==='carte'}),
           view==='roadmap'&&visibility.roadmap&&CE(VueRoadmap,{entries,annee:anneeReference(annee),conseillers:lists.conseillers}),
           view==='gestion_ordi'&&visibility.gestion_ordi&&CE(VueGestionOrdi,{key:'go_'+(dateGestionOrdi||''),dateInitiale:dateGestionOrdi,entries,onEdit:handleEdit,onDelete:handleDelete,onDuplicate:handleDuplicate,canDelete:true}),

@@ -3676,7 +3676,8 @@ function VueGraphiques({entries,anneesChargees}){
   const todayYM=new Date().toISOString().slice(0,7);
   const fmtML=ym=>ym==='?'?'?':`${ym.slice(5,7)}-${ym.slice(0,4)}`;
 
-  const byCommune={};passes.forEach(e=>{byCommune[e.commune]=(byCommune[e.commune]||0)+1;});
+  // Communes normalisées (« AGEN (47000) » = « Agen », décision du 26/10/2026, AG-032).
+  const byCommune={};passes.forEach(e=>{const c=normalizeCommune(e.commune);if(c)byCommune[c]=(byCommune[c]||0)+1;});
   const dataCommune=Object.entries(byCommune).sort((a,b)=>b[1]-a[1]).map(([label,value])=>({label,value}));
 
   const byPublic={};passes.forEach(e=>{const p=e.public||'Autres';if(!byPublic[p])byPublic[p]={value:0,inscrits:0,presents:0,liste:[]};byPublic[p].value++;byPublic[p].inscrits+=(parseInt(e.inscrits)||0);byPublic[p].presents+=(parseInt(e.presents)||0);byPublic[p].liste.push(e);});
@@ -6071,7 +6072,7 @@ function VueDashboard({entries}){
   });
 
   // Top communes
-  const byCommune={};realises.forEach(e=>{byCommune[e.commune]=(byCommune[e.commune]||0)+1;});
+  const byCommune={};realises.forEach(e=>{const c=normalizeCommune(e.commune);if(c)byCommune[c]=(byCommune[c]||0)+1;});   // normalisées (AG-032)
   const topCommunes=Object.entries(byCommune).sort((a,b)=>b[1]-a[1]).slice(0,8).map(([label,value])=>({label,value}));
 
   // Thématiques
@@ -6187,7 +6188,10 @@ function VueDashboard({entries}){
 // viennent de l'action bilanAvis, appelée à l'ouverture de l'onglet et au
 // changement de période, jamais au démarrage.
 const BILAN_LIBELLES={niveau:'Niveau du groupe',objectif:'Objectif atteint',difficultes:'Difficultés rencontrées',supports:'Supports utilisés',suite:'Suite à donner'};
-function htmlBilanTrimestriel(b,titre,remarques,avisErreur){
+// opts.avisHorsChargement : avis reçus pour des ateliers de la période absents
+// des données chargées (AG-032, BT-01) ; opts.groupe : document « un bilan par
+// conseiller » (mention de la coanimation).
+function htmlBilanTrimestriel(b,titre,remarques,avisErreur,opts={}){
   const e=htmlEsc,pc=(n,t)=>t?Math.round(n/t*100)+' %':'—';
   const repartition=(compte,ordre,total)=>{
     const cles=[...ordre.filter(k=>compte[k]),...Object.keys(compte).filter(k=>!ordre.includes(k))];
@@ -6206,23 +6210,30 @@ function htmlBilanTrimestriel(b,titre,remarques,avisErreur){
   h+=`<h2>Programmation</h2><div class="bt-kpis">${chiffre(programmes,'ateliers programmés')}${parStatut}</div>`;
   h+=`<h2>Activité</h2><div class="bt-kpis">${chiffre(a.realises,'ateliers réalisés')}${chiffre(a.presents,'participations')}${chiffre(a.tauxPresence===null?null:a.tauxPresence+' %','taux de présence')}${chiffre(String(a.heures).replace('.',','),'heures d\'animation')}${chiffre(a.communes,'communes')}</div>`;
   h+='<div class="bt-note">Participations : présences cumulées aux ateliers, pas de personnes uniques.</div>';
+  // Couvertures (décision du 26/10/2026, AG-032) : ce qui n'est pas saisi n'est pas compté comme 0.
+  if(a.presentsSaisis!==undefined&&a.presentsSaisis<a.realises)h+=`<div class="bt-note">Participations sur ${a.presentsSaisis} atelier${a.presentsSaisis>1?'s':''} réalisé${a.presentsSaisis>1?'s':''} sur ${a.realises} : présents non saisis sur ${a.realises-a.presentsSaisis}.</div>`;
+  if(a.dureesParDefaut)h+=`<div class="bt-note">Heures : ${a.dureesParDefaut} atelier${a.dureesParDefaut>1?'s':''} sans durée saisie, compté${a.dureesParDefaut>1?'s':''} 1 h 30.</div>`;
+  if(opts.groupe)h+='<div class="bt-note">Un atelier co-animé figure dans le bilan de chacun de ses animateurs : les bilans individuels ne s\'additionnent pas.</div>';
   if(reste)h+=`<div class="bt-alerte">⚠️ ${reste} atelier${reste>1?'s':''} déjà passé${reste>1?'s':''} encore « Planifié » : statut à mettre à jour, sinon ${reste>1?'ils manquent':'il manque'} au bilan.</div>`;
   h+=`<h2>Fiches bilan</h2><div class="bt-note">${f.remplies} fiche${f.remplies>1?'s':''} remplie${f.remplies>1?'s':''} sur ${a.realises} atelier${a.realises>1?'s':''} réalisé${a.realises>1?'s':''}${a.realises>f.remplies?` (${a.realises-f.remplies} sans fiche)`:''}. Pourcentages sur les fiches remplies${BILAN_MULTIPLES.length?' ; plusieurs réponses possibles pour les difficultés et les supports':''}.</div><div class="bt-grille">`;
   Object.keys(BILAN_CHOIX).forEach(k=>{h+=`<div class="bt-bloc"><h3>${e(BILAN_LIBELLES[k]||k)}</h3>${repartition(f[k],BILAN_CHOIX[k],f.remplies)}${k==='difficultes'&&f.autres.length?`<div class="bt-note">« Autre » : ${f.autres.map(e).join(' ; ')}</div>`:''}</div>`;});
   h+=`</div><h2>Avis des stagiaires</h2>`;
+  if(opts.avisHorsChargement)h+=`<div class="bt-alerte">⚠️ ${opts.avisHorsChargement} avis concernent des ateliers de la période qui ne sont pas chargés : ajoutez l'année dans le sélecteur d'années, sinon le bilan est incomplet.</div>`;
   if(avisErreur)h+=`<div class="bt-alerte">Avis non chargés : ${e(avisErreur)}</div>`;
   else{
     h+=`<div class="bt-kpis">${chiffre(v.n,'avis reçus')}${chiffre(v.ateliers,'ateliers concernés')}${chiffre(v.attentes===null?null:String(v.attentes).replace('.',',')+'/5','attentes')}${chiffre(v.clarte===null?null:String(v.clarte).replace('.',',')+'/5','clarté')}</div>`;
     if(v.n){
       h+='<div class="bt-grille">';
-      AVIS_QUESTIONS.filter(([k])=>v[k]).forEach(([k,lib,ordre])=>{h+=`<div class="bt-bloc"><h3>${e(lib)}</h3>${repartition(v[k],ordre,v.n)}</div>`;});
+      // Base : tous les avis, non-réponses affichées (décision du 26/10/2026, AG-032).
+      AVIS_QUESTIONS.filter(([k])=>v[k]).forEach(([k,lib,ordre])=>{const sr=(v.sansReponse||{})[k]||0;h+=`<div class="bt-bloc"><h3>${e(lib)}</h3>${repartition(sr?{...v[k],'Sans réponse':sr}:v[k],ordre,v.n)}</div>`;});
       h+='</div>';
       if((remarques||[]).length)h+=`<h3>Remarques (anonymes)</h3><ul class="bt-rem">${remarques.map(r=>`<li>« ${e(r)} »</li>`).join('')}</ul>`;
     }
   }
   if(b.parTheme.length){
     h+=`<h2>Par thématique</h2><table class="bt-table"><thead><tr><th>Thématique</th><th>Ateliers</th><th>Participations</th><th>Avis</th><th>Attentes</th></tr></thead><tbody>`;
-    b.parTheme.forEach(t=>{h+=`<tr><td>${e(t.theme)}</td><td>${t.ateliers}</td><td>${t.presents}</td><td>${t.avis}</td><td>${t.attentes===null?'—':String(t.attentes).replace('.',',')+'/5'}</td></tr>`;});
+    // Avis inconnus (erreur de lecture, résultats masqués) : « — », jamais 0 (AG-032, BT-05).
+    b.parTheme.forEach(t=>{h+=`<tr><td>${e(t.theme)}</td><td>${t.ateliers}</td><td>${t.presents}</td><td>${avisErreur?'—':t.avis}</td><td>${avisErreur||t.attentes===null?'—':String(t.attentes).replace('.',',')+'/5'}</td></tr>`;});
     h+='</tbody></table>';
   }
   return h;
@@ -6235,19 +6246,26 @@ const BILAN_TRIM_CSS=`.bt h1{font-size:20px;color:#0f766e;margin:0 0 2px}.bt h2{
 .bt-rem{font-size:12px;color:#475569;font-style:italic;padding-left:18px}.bt-table{width:100%;border-collapse:collapse;font-size:12px}.bt-table th,.bt-table td{border-bottom:1px solid #e2e8f0;padding:5px 6px;text-align:left}.bt-table th{background:#f8fafc}
 @media print{.bt *{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
 @media screen{.bt{overflow-x:auto}}`;
-function VueBilanTrimestriel({entries,moi}){
+function VueBilanTrimestriel({entries,moi,anneesChargees}){
   const defaut=trimestreCourant(todayLocal());
   const[annee,setAnnee]=React.useState(defaut.annee);
   const[t,setT]=React.useState(defaut.t);
   const[av,setAv]=React.useState(null);
   const[debut,fin]=bornesTrimestre(annee,t);
+  // Ateliers réalisés de la période : les avis sont relus quand cet ensemble
+  // change (synchronisation), pas seulement au changement de trimestre (AG-032, BT-04).
+  const idsPeriode=(entries||[]).filter(e=>e.statut==='Réalisé'&&(d=>d&&d>=debut&&d<=fin)(normalizeDate(e.date))).map(e=>e._id);
+  const clePeriode=[...idsPeriode].sort().join('|');
   React.useEffect(()=>{let vivant=true;setAv(null);
     (async()=>{try{
       const r=await apiFetch('bilanAvis',moi?{du:debut,au:fin,moi:'1'}:{du:debut,au:fin});
       if(vivant)setAv(r&&r.ok?(r.masque?{avis:[],remarques:[],erreur:`moins de ${r.seuil||3} avis sur la période, résultats masqués pour que personne ne soit reconnu`}:{avis:r.avis,remarques:r.remarques,remarquesAteliers:r.remarques_ateliers||null}):{erreur:(r&&r.error)||'Erreur'});
     }catch(e){if(vivant)setAv({erreur:e.message||'Erreur réseau'});}})();
-    return()=>{vivant=false;};},[debut,fin]);
-  const annees=[...new Set([annee,new Date().getFullYear(),...(entries||[]).map(e=>parseInt(String(normalizeDate(e.date)||'').slice(0,4))).filter(Boolean)])].sort((x,y)=>y-x);
+    return()=>{vivant=false;};},[debut,fin,clePeriode]);
+  // L'année précédente reste proposée (bilan du 4e trimestre en janvier) ; une
+  // année non chargée affiche un message au lieu de faux zéros (AG-032, BT-01).
+  const anneeNonChargee=anneesChargees?!anneesListe(anneesChargees).includes(String(annee)):false;
+  const annees=[...new Set([annee,new Date().getFullYear(),new Date().getFullYear()-1,...(entries||[]).map(e=>parseInt(String(normalizeDate(e.date)||'').slice(0,4))).filter(Boolean)])].sort((x,y)=>y-x);
   // Filtre par conseiller (Admin, 26/10/2026) : ateliers animés ou co-animés,
   // avis et remarques de ces seuls ateliers (lien remarque-atelier : Admin seul).
   const[conum,setConum]=React.useState('');
@@ -6257,7 +6275,9 @@ function VueBilanTrimestriel({entries,moi}){
   const remarques=!av?[]:!conum?av.remarques:av.remarquesAteliers?av.remarquesAteliers.filter(r=>idsF.has(r.atelier_id)).map(r=>r.remarque):[];
   const titre=`Bilan du ${t===1?'1er':t+'e'} trimestre ${annee} — Ateliers numériques`+(conum?` — ${conum}`:'');
   const b=bilanTrimestriel(entriesF,debut,fin,av&&av.avis||[]);
-  const html=av?htmlBilanTrimestriel(b,titre,remarques,av.erreur):'';
+  const setPeriode=new Set(idsPeriode);
+  const avisHorsChargement=av&&av.avis?av.avis.filter(x=>!setPeriode.has(x.atelier_id)).length:0;
+  const html=av?htmlBilanTrimestriel(b,titre,remarques,av.erreur,{avisHorsChargement}):'';
   function imprimer(){
     const w=window.open('','_blank');if(!w){showToast('Autorisez les fenêtres pour ce site',false);return;}
     w.document.write(`<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><title>${htmlEsc(titre)}</title><style>body{font-family:Arial,sans-serif;margin:24px;color:#0f172a}${BILAN_TRIM_CSS}</style></head><body><div class="bt">${html}<div class="bt-note" style="margin-top:16px">Édité le ${fmtDate(todayLocal())}. Avis des stagiaires anonymes.</div></div><script>window.print();<\/script></body></html>`);
@@ -6267,14 +6287,14 @@ function VueBilanTrimestriel({entries,moi}){
   // les conseillers qui ont au moins un atelier daté du trimestre.
   const conumsTrim=conums.filter(c=>(entries||[]).some(e=>(e.conseiller===c||e.co_animateur===c)&&(d=>d&&d>=debut&&d<=fin)(normalizeDate(e.date))));
   function imprimerParConum(){
-    if(!av||!conumsTrim.length)return;
+    if(!av||anneeNonChargee||!conumsTrim.length)return;
     const w=window.open('','_blank');if(!w){showToast('Autorisez les fenêtres pour ce site',false);return;}
     const titreDe=c=>`Bilan du ${t===1?'1er':t+'e'} trimestre ${annee} — Ateliers numériques — ${c}`;
     const pages=conumsTrim.map(c=>{
       const ent=(entries||[]).filter(e=>e.conseiller===c||e.co_animateur===c);
       const ids=new Set(ent.map(e=>e._id));
       const rem=av.remarquesAteliers?av.remarquesAteliers.filter(r=>ids.has(r.atelier_id)).map(r=>r.remarque):[];
-      return `<div class="bt" style="page-break-after:always;break-after:page">${htmlBilanTrimestriel(bilanTrimestriel(ent,debut,fin,av.avis||[]),titreDe(c),rem,av.erreur)}<div class="bt-note" style="margin-top:16px">Édité le ${fmtDate(todayLocal())}. Avis des stagiaires anonymes.</div></div>`;
+      return `<div class="bt" style="page-break-after:always;break-after:page">${htmlBilanTrimestriel(bilanTrimestriel(ent,debut,fin,av.avis||[]),titreDe(c),rem,av.erreur,{groupe:true})}<div class="bt-note" style="margin-top:16px">Édité le ${fmtDate(todayLocal())}. Avis des stagiaires anonymes.</div></div>`;
     }).join('');
     w.document.write(`<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><title>${htmlEsc(`Bilans par conseiller — ${t===1?'1er':t+'e'} trimestre ${annee}`)}</title><style>body{font-family:Arial,sans-serif;margin:24px;color:#0f172a}${BILAN_TRIM_CSS}</style></head><body>${pages}<script>window.print();<\/script></body></html>`);
     w.document.close();
@@ -6287,9 +6307,10 @@ function VueBilanTrimestriel({entries,moi}){
       CE('select',{value:annee,onChange:e=>setAnnee(parseInt(e.target.value)),style:sel,'aria-label':'Année'},annees.map(n=>CE('option',{key:n,value:n},n))),
       !moi&&conums.length>0&&CE('select',{value:conum,onChange:e=>setConum(e.target.value),style:sel,'aria-label':'Conseiller'},
         CE('option',{value:''},'Tous les conseillers'),conums.map(c=>CE('option',{key:c,value:c},c))),
-      CE('button',{type:'button',className:'btn btn-primary btn-sm',disabled:!av,onClick:imprimer},'🖨️ Imprimer / PDF'),
-      !moi&&conumsTrim.length>1&&CE('button',{type:'button',className:'btn btn-sm',disabled:!av,onClick:imprimerParConum,title:'Un bilan par conseiller, une page chacun, dans un seul document'},`🖨️ Un bilan par conseiller (${conumsTrim.length})`)),
-    !av?CE('div',{style:{padding:30,color:'#64748b',textAlign:'center'}},'Chargement des avis…')
+      CE('button',{type:'button',className:'btn btn-primary btn-sm',disabled:!av||anneeNonChargee,onClick:imprimer},'🖨️ Imprimer / PDF'),
+      !moi&&conumsTrim.length>1&&CE('button',{type:'button',className:'btn btn-sm',disabled:!av||anneeNonChargee,onClick:imprimerParConum,title:'Un bilan par conseiller, une page chacun, dans un seul document'},`🖨️ Un bilan par conseiller (${conumsTrim.length})`)),
+    anneeNonChargee?CE('div',{className:'bt-alerte',style:{padding:14,background:'#fef3c7',borderRadius:8,color:'#92400e',fontSize:13}},`L'année ${annee} n'est pas chargée : ajoutez-la dans le sélecteur d'années en haut de la page pour faire ce bilan.`)
+    :!av?CE('div',{style:{padding:30,color:'#64748b',textAlign:'center'}},'Chargement des avis…')
       :CE('div',{className:'bt',dangerouslySetInnerHTML:{__html:html}}));
 }
 
@@ -6413,7 +6434,7 @@ function VueAvisAteliers({entries,moi}){
 // de Stats et ne portent que sur les ateliers que la personne connectée
 // anime ou co-anime. Les avis sont filtrés par l'API (moi=1) ; les ateliers,
 // eux, arrivent déjà tous par getAll : ici le filtre est d'affichage.
-function VueMesBilans({entries}){
+function VueMesBilans({entries,anneesChargees}){
   const moi=window.authToken.getMoi();
   const[tab,setTab]=React.useState('avis');
   const miens=React.useMemo(()=>(entries||[]).filter(e=>moi&&(e.conseiller===moi||e.co_animateur===moi)),[entries,moi]);
@@ -6431,7 +6452,7 @@ function VueMesBilans({entries}){
     :CE(React.Fragment,null,
       tab==='avis'&&CE(VueAvisAteliers,{entries:miens,moi:true}),
       tab==='mensuel'&&CE(VuePowerBI,{entries:miens,conseillers:[moi]}),
-      tab==='trimestre'&&CE(VueBilanTrimestriel,{entries:miens,moi:true})));
+      tab==='trimestre'&&CE(VueBilanTrimestriel,{entries:miens,moi:true,anneesChargees})));
 }
 
 // ── VueDashboardTabs — Dashboard unifié (5 onglets) ──────────
@@ -6499,7 +6520,7 @@ function VueDashboardTabs({entries, conseillers, sansBilans, anneesChargees}){
       tab==='graphiques' && CE(VueGraphiques,{entries,anneesChargees}),
       tab==='powerbi'    && CE(VuePowerBI,{entries,conseillers}),
       tab==='avis'       && CE(VueAvisAteliers,{entries}),
-      tab==='trimestre'  && CE(VueBilanTrimestriel,{entries}))
+      tab==='trimestre'  && CE(VueBilanTrimestriel,{entries,anneesChargees}))
    )
   );
 }

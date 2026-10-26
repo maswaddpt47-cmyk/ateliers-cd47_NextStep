@@ -584,6 +584,28 @@ describe('presentsSuperieursInscrits', () => {
 
 // ── Bilan trimestriel (04/10/2026) ───────────────────────────────────────────
 const {bornesTrimestre, trimestreCourant, trimestrePrecedent, bilanTrimestriel} = require('./logic.js');
+describe('bilanTrimestriel — décisions AG-032 (26/10/2026)', () => {
+  const at = (id, o) => ({_id: id, statut: 'Réalisé', date: '2026-10-15', thematique: 'Courriel', commune: 'Agen', inscrits: '5', presents: '3', duree: 90, ...o});
+  it('présents vides hors du total, couverture comptée ; durée vide = 1 h 30', () => {
+    const b = bilanTrimestriel([at('a'), at('b', {presents: '', duree: ''})], '2026-10-01', '2026-12-31', [], '2026-12-31');
+    assert.equal(b.activite.presents, 3);
+    assert.equal(b.activite.presentsSaisis, 1);
+    assert.equal(b.activite.heures, 3);
+    assert.equal(b.activite.dureesParDefaut, 1);
+  });
+  it('communes normalisées ; thématique « constructor » comptée sans planter', () => {
+    const b = bilanTrimestriel([at('a', {commune: 'AGEN (47000)'}), at('b', {commune: 'Agen'}), at('c', {thematique: 'constructor'})],
+      '2026-10-01', '2026-12-31', [{atelier_id: 'c', attentes: 4}], '2026-12-31');
+    assert.equal(b.activite.communes, 1);
+    assert.deepEqual(b.parTheme.map(t => [t.theme, t.ateliers, t.avis]), [['Courriel', 2, 0], ['constructor', 1, 1]]);
+  });
+  it('non-réponses aux questions d\'avis comptées à part', () => {
+    const av = [{atelier_id: 'a', autonomie: 'Oui'}, {atelier_id: 'a', autonomie: null}, {atelier_id: 'a'}];
+    const b = bilanTrimestriel([at('a')], '2026-10-01', '2026-12-31', av, '2026-12-31');
+    assert.deepEqual(b.avis.autonomie, {Oui: 1});
+    assert.equal(b.avis.sansReponse.autonomie, 2);
+  });
+});
 describe('trimestreCourant et Planifié passés (26/10/2026)', () => {
   it('trimestre de la date du jour', () => {
     assert.deepEqual(trimestreCourant('2026-10-26'), {annee: 2026, t: 4});
