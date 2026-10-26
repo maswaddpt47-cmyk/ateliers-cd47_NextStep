@@ -1026,12 +1026,15 @@ function VueLogs(){
   const[err,setErr]=React.useState('');
   const[filter,setFilter]=React.useState('all');
   const[conseillerFilter,setConseillerFilter]=React.useState('all');
+  // Les passages réussis de l'Admin noyaient ceux des conseillers (26/10/2026) :
+  // masqués par défaut. Les échecs restent toujours visibles (essais de mot de passe).
+  const[masquerAdmin,setMasquerAdmin]=React.useState(true);
   const[sortKey,setSortKey]=React.useState(null);
   const[sortDir,setSortDir]=React.useState('asc');
   function fetchLogs(force){
     if(!force&&logsCache&&Date.now()-logsCache.ts<2*60*1000){setLogs(logsCache.data);setLoading(false);return;}
     setLoading(true);setErr('');
-    apiFetch('getLogs',{n:100})
+    apiFetch('getLogs',{n:500})   // 100 ne suffisaient plus (26/10/2026) ; l'API plafonne à 1000
       .then(res=>{if(res.ok){logsCache={data:res.logs||[],ts:Date.now()};setLogs(res.logs||[]);}else setErr(res.error||'Erreur');})
       .catch(e=>setErr('Erreur réseau : '+e.message))
       .finally(()=>setLoading(false));
@@ -1044,6 +1047,7 @@ function VueLogs(){
   const filtered=React.useMemo(()=>{
     let out=filter==='all'?logs:filter==='ok'?logs.filter(l=>l.success):logs.filter(l=>!l.success);
     if(conseillerFilter!=='all') out=out.filter(l=>l.conseiller===conseillerFilter);
+    if(masquerAdmin) out=out.filter(l=>!(l.role==='admin'&&l.success));
     if(sortKey){
       out=[...out].sort((a,b)=>{
         let va=a[sortKey],vb=b[sortKey];
@@ -1057,13 +1061,16 @@ function VueLogs(){
       });
     }
     return out;
-  },[logs,filter,conseillerFilter,sortKey,sortDir]);
+  },[logs,filter,conseillerFilter,masquerAdmin,sortKey,sortDir]);
+  const nbAdmin=logs.filter(l=>l.role==='admin'&&l.success).length;
   function formatTs(ts){if(!ts)return'—';try{return new Date(ts).toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});}catch{return ts;}}
   return CE('div',{className:'card'},
     CE('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:16,flexWrap:'wrap',gap:8}},
       CE('h2',{style:{margin:0}},'🔐 Logs de connexion'),
       CE('div',{style:{display:'flex',gap:6,alignItems:'center',flexWrap:'wrap'}},
         CE('button',{onClick:()=>fetchLogs(true),disabled:loading,style:{fontSize:11,padding:'3px 10px',borderRadius:6,cursor:'pointer',border:'1px solid #e2e8f0',background:'#f8fafc',color:'#4a5568'}},loading?'…':'🔄 Actualiser'),
+        CE('button',{onClick:()=>setMasquerAdmin(m=>!m),title:'Passages réussis du rôle Admin ; les échecs restent toujours affichés',style:{fontSize:11,padding:'3px 10px',borderRadius:6,cursor:'pointer',fontWeight:masquerAdmin?700:400,border:masquerAdmin?'1.5px solid #7c3aed':'1px solid #e2e8f0',background:masquerAdmin?'#ede9fe':'#f8fafc',color:masquerAdmin?'#5b21b6':'#4a5568'}},
+          masquerAdmin?'🙈 Admin masqué ('+nbAdmin+')':'👁 Admin affiché'),
         CE('select',{value:conseillerFilter,onChange:e=>setConseillerFilter(e.target.value),style:{fontSize:11,padding:'3px 8px',borderRadius:6,cursor:'pointer',border:'1px solid #e2e8f0',background:'#f8fafc',color:'#4a5568'}},
           CE('option',{value:'all'},'Tous les conseillers'),
           CONSEILLERS.map(c=>CE('option',{key:c,value:c},c))
