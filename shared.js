@@ -6259,6 +6259,22 @@ function VueBilanTrimestriel({entries,moi}){
     w.document.write(`<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><title>${htmlEsc(titre)}</title><style>body{font-family:Arial,sans-serif;margin:24px;color:#0f172a}${BILAN_TRIM_CSS}</style></head><body><div class="bt">${html}<div class="bt-note" style="margin-top:16px">Édité le ${fmtDate(todayLocal())}. Avis des stagiaires anonymes.</div></div><script>window.print();<\/script></body></html>`);
     w.document.close();
   }
+  // Un bilan par conseiller, à la suite, une page chacun (demande du 26/10/2026) :
+  // les conseillers qui ont au moins un atelier daté du trimestre.
+  const conumsTrim=conums.filter(c=>(entries||[]).some(e=>(e.conseiller===c||e.co_animateur===c)&&(d=>d&&d>=debut&&d<=fin)(normalizeDate(e.date))));
+  function imprimerParConum(){
+    if(!av||!conumsTrim.length)return;
+    const w=window.open('','_blank');if(!w){showToast('Autorisez les fenêtres pour ce site',false);return;}
+    const titreDe=c=>`Bilan du ${t===1?'1er':t+'e'} trimestre ${annee} — Ateliers numériques — ${c}`;
+    const pages=conumsTrim.map(c=>{
+      const ent=(entries||[]).filter(e=>e.conseiller===c||e.co_animateur===c);
+      const ids=new Set(ent.map(e=>e._id));
+      const rem=av.remarquesAteliers?av.remarquesAteliers.filter(r=>ids.has(r.atelier_id)).map(r=>r.remarque):[];
+      return `<div class="bt" style="page-break-after:always;break-after:page">${htmlBilanTrimestriel(bilanTrimestriel(ent,debut,fin,av.avis||[]),titreDe(c),rem,av.erreur)}<div class="bt-note" style="margin-top:16px">Édité le ${fmtDate(todayLocal())}. Avis des stagiaires anonymes.</div></div>`;
+    }).join('');
+    w.document.write(`<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><title>${htmlEsc(`Bilans par conseiller — ${t===1?'1er':t+'e'} trimestre ${annee}`)}</title><style>body{font-family:Arial,sans-serif;margin:24px;color:#0f172a}${BILAN_TRIM_CSS}</style></head><body>${pages}<script>window.print();<\/script></body></html>`);
+    w.document.close();
+  }
   const sel={padding:'6px 8px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:13};
   return CE('div',{className:'card'},
     CE('style',null,BILAN_TRIM_CSS),
@@ -6267,7 +6283,8 @@ function VueBilanTrimestriel({entries,moi}){
       CE('select',{value:annee,onChange:e=>setAnnee(parseInt(e.target.value)),style:sel,'aria-label':'Année'},annees.map(n=>CE('option',{key:n,value:n},n))),
       !moi&&conums.length>0&&CE('select',{value:conum,onChange:e=>setConum(e.target.value),style:sel,'aria-label':'Conseiller'},
         CE('option',{value:''},'Tous les conseillers'),conums.map(c=>CE('option',{key:c,value:c},c))),
-      CE('button',{type:'button',className:'btn btn-primary btn-sm',disabled:!av,onClick:imprimer},'🖨️ Imprimer / PDF')),
+      CE('button',{type:'button',className:'btn btn-primary btn-sm',disabled:!av,onClick:imprimer},'🖨️ Imprimer / PDF'),
+      !moi&&conumsTrim.length>1&&CE('button',{type:'button',className:'btn btn-sm',disabled:!av,onClick:imprimerParConum,title:'Un bilan par conseiller, une page chacun, dans un seul document'},`🖨️ Un bilan par conseiller (${conumsTrim.length})`)),
     !av?CE('div',{style:{padding:30,color:'#64748b',textAlign:'center'}},'Chargement des avis…')
       :CE('div',{className:'bt',dangerouslySetInnerHTML:{__html:html}}));
 }
