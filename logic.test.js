@@ -583,7 +583,19 @@ describe('presentsSuperieursInscrits', () => {
 });
 
 // ── Bilan trimestriel (04/10/2026) ───────────────────────────────────────────
-const {bornesTrimestre, trimestrePrecedent, bilanTrimestriel} = require('./logic.js');
+const {bornesTrimestre, trimestreCourant, trimestrePrecedent, bilanTrimestriel} = require('./logic.js');
+describe('trimestreCourant et Planifié passés (26/10/2026)', () => {
+  it('trimestre de la date du jour', () => {
+    assert.deepEqual(trimestreCourant('2026-10-26'), {annee: 2026, t: 4});
+    assert.deepEqual(trimestreCourant('2027-01-01'), {annee: 2027, t: 1});
+  });
+  it('seuls les « Planifié » de date passée sont à mettre à jour', () => {
+    const e = [{_id: 'a', statut: 'Planifié', date: '2026-10-20'}, {_id: 'b', statut: 'Planifié', date: '2026-11-20'}];
+    const b = bilanTrimestriel(e, '2026-10-01', '2026-12-31', [], '2026-10-26');
+    assert.equal(b.activite.statuts['Planifié'], 2);
+    assert.equal(b.activite.planifiesPasses, 1);
+  });
+});
 describe('bilan trimestriel', () => {
   it('bornes et trimestre précédent, y compris le passage d\'année', () => {
     assert.deepEqual(bornesTrimestre(2026, 1), ['2026-01-01', '2026-03-31']);

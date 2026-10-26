@@ -354,8 +354,13 @@ function bornesTrimestre(a, t) {
   return [`${a}-${mm(t * 3 - 2)}-01`, `${a}-${mm(t * 3)}-${mm(fin)}`];
 }
 
-// Dernier trimestre terminé à la date du jour (AAAA-MM-JJ) : celui qu'on
-// présente par défaut, un bilan portant sur une période close.
+// Trimestre de la date du jour (AAAA-MM-JJ) : celui présenté par défaut depuis
+// le 26/10/2026 (choix de l'utilisateur ; avant, le dernier trimestre terminé).
+function trimestreCourant(today) {
+  return {annee: parseInt(today.slice(0, 4), 10), t: Math.floor((parseInt(today.slice(5, 7), 10) - 1) / 3) + 1};
+}
+
+// Dernier trimestre terminé à la date du jour (AAAA-MM-JJ).
 function trimestrePrecedent(today) {
   const a = parseInt(today.slice(0, 4), 10), t = Math.floor((parseInt(today.slice(5, 7), 10) - 1) / 3) + 1;
   return t === 1 ? {annee: a - 1, t: 4} : {annee: a, t: t - 1};
@@ -364,7 +369,9 @@ function trimestrePrecedent(today) {
 // Chiffres du bilan d'une période [debut, fin] : activité sur tous les
 // statuts, fiches bilan et avis sur les seuls ateliers « Réalisé ».
 // avis : lignes de l'action bilanAvis (une par avis, sans remarque).
-function bilanTrimestriel(entries, debut, fin, avis) {
+// aujourdhui (AAAA-MM-JJ, défaut : date du jour) : « Planifié » à mettre à
+// jour = date passée seulement, un trimestre en cours ayant des ateliers à venir.
+function bilanTrimestriel(entries, debut, fin, avis, aujourdhui) {
   // Navigateur : constantes globales d'utils.js (const, absentes de window).
   const CHOIX = typeof LOGIC_UTILS !== 'undefined' ? LOGIC_UTILS.BILAN_CHOIX : BILAN_CHOIX;
   const MULTIPLES = typeof LOGIC_UTILS !== 'undefined' ? LOGIC_UTILS.BILAN_MULTIPLES : BILAN_MULTIPLES;
@@ -378,8 +385,10 @@ function bilanTrimestriel(entries, debut, fin, avis) {
   // Taux de présence : seulement les ateliers où inscrits et présents sont saisis.
   const avecPresence = realises.filter(e => num(e.inscrits) > 0 && num(e.presents) !== null);
   const sommeInscrits = avecPresence.reduce((x, e) => x + num(e.inscrits), 0);
+  const auj = aujourdhui || new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
   const activite = {
     realises: realises.length, statuts,
+    planifiesPasses: periode.filter(e => e.statut === 'Planifié' && normalizeDate(e.date) < auj).length,
     presents: realises.reduce((x, e) => x + (num(e.presents) || 0), 0),
     tauxPresence: sommeInscrits ? Math.round(avecPresence.reduce((x, e) => x + num(e.presents), 0) / sommeInscrits * 100) : null,
     heures: Math.round(realises.reduce((x, e) => x + (num(e.duree) || 0), 0) / 60 * 10) / 10,
@@ -624,7 +633,7 @@ if (typeof module !== 'undefined') {
     estConflitPasse,
     estWeekend, veilleOuvree, lendemainOuvre,
     creneauAtelier, demisAtelier, analyseJourMateriel, MARGE_MATERIEL_MIN, hhmm,
-    bornesTrimestre, trimestrePrecedent, bilanTrimestriel,
+    bornesTrimestre, trimestreCourant, trimestrePrecedent, bilanTrimestriel,
     creneauxLibres, creneauxPris, demiSaisie, conflitsConseiller, propagerPremiereLigne, basculerDemiLigne, demiLigne,
   };
 }

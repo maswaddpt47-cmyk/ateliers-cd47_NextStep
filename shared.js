@@ -6201,12 +6201,12 @@ function htmlBilanTrimestriel(b,titre,remarques,avisErreur){
   const ORDRE_STATUTS=['Réalisé','Planifié','Reporté','Annulé','Non réalisé'];
   const programmes=Object.values(a.statuts).reduce((x,n)=>x+n,0);
   const parStatut=[...ORDRE_STATUTS,...Object.keys(a.statuts).filter(k=>!ORDRE_STATUTS.includes(k))].map(k=>chiffre(a.statuts[k]||0,k.toLowerCase()+(k.endsWith('é')&&(a.statuts[k]||0)>1?'s':''))).join('');
-  const reste=a.statuts['Planifié']||0;
+  const reste=a.planifiesPasses!==undefined?a.planifiesPasses:(a.statuts['Planifié']||0);
   let h=`<h1>${e(titre)}</h1><div class="bt-sous">Du ${fmtDate(b.debut)} au ${fmtDate(b.fin)} — programmation : tous les ateliers datés du trimestre ; autres statistiques : ateliers « Réalisé »</div>`;
   h+=`<h2>Programmation</h2><div class="bt-kpis">${chiffre(programmes,'ateliers programmés')}${parStatut}</div>`;
   h+=`<h2>Activité</h2><div class="bt-kpis">${chiffre(a.realises,'ateliers réalisés')}${chiffre(a.presents,'participations')}${chiffre(a.tauxPresence===null?null:a.tauxPresence+' %','taux de présence')}${chiffre(String(a.heures).replace('.',','),'heures d\'animation')}${chiffre(a.communes,'communes')}</div>`;
   h+='<div class="bt-note">Participations : présences cumulées aux ateliers, pas de personnes uniques.</div>';
-  if(reste)h+=`<div class="bt-alerte">⚠️ ${reste} atelier${reste>1?'s':''} encore « Planifié » sur la période : statut à mettre à jour, sinon ${reste>1?'ils manquent':'il manque'} au bilan.</div>`;
+  if(reste)h+=`<div class="bt-alerte">⚠️ ${reste} atelier${reste>1?'s':''} déjà passé${reste>1?'s':''} encore « Planifié » : statut à mettre à jour, sinon ${reste>1?'ils manquent':'il manque'} au bilan.</div>`;
   h+=`<h2>Fiches bilan</h2><div class="bt-note">${f.remplies} fiche${f.remplies>1?'s':''} remplie${f.remplies>1?'s':''} sur ${a.realises} atelier${a.realises>1?'s':''} réalisé${a.realises>1?'s':''}${a.realises>f.remplies?` (${a.realises-f.remplies} sans fiche)`:''}. Pourcentages sur les fiches remplies${BILAN_MULTIPLES.length?' ; plusieurs réponses possibles pour les difficultés et les supports':''}.</div><div class="bt-grille">`;
   Object.keys(BILAN_CHOIX).forEach(k=>{h+=`<div class="bt-bloc"><h3>${e(BILAN_LIBELLES[k]||k)}</h3>${repartition(f[k],BILAN_CHOIX[k],f.remplies)}${k==='difficultes'&&f.autres.length?`<div class="bt-note">« Autre » : ${f.autres.map(e).join(' ; ')}</div>`:''}</div>`;});
   h+=`</div><h2>Avis des stagiaires</h2>`;
@@ -6236,7 +6236,7 @@ const BILAN_TRIM_CSS=`.bt h1{font-size:20px;color:#0f766e;margin:0 0 2px}.bt h2{
 @media print{.bt *{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
 @media screen{.bt{overflow-x:auto}}`;
 function VueBilanTrimestriel({entries,moi}){
-  const defaut=trimestrePrecedent(todayLocal());
+  const defaut=trimestreCourant(todayLocal());
   const[annee,setAnnee]=React.useState(defaut.annee);
   const[t,setT]=React.useState(defaut.t);
   const[av,setAv]=React.useState(null);
