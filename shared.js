@@ -1540,6 +1540,8 @@ function VueListes({lists,onSave,onClose,emails,onSaveEmails}){
   const[emailDraft,setEmailDraft]=React.useState(()=>Object.assign({},emails||{}));
   const[rappelsActif,setRappelsActif]=React.useState({});
   const[rappelsSaving,setRappelsSaving]=React.useState(false);
+  // Liste des fiches bilan vides dans le mail du matin (27/10/2026) : éteinte par défaut.
+  const[rappelsFiches,setRappelsFiches]=React.useState(false);
   const[comptes,setComptes]=React.useState({});   // { CONSEILLER: {role, actif} }
   const[comptesSaving,setComptesSaving]=React.useState({});
   const[materielsCachesLocal,setMaterielsCachesLocal]=React.useState([]);
@@ -1571,10 +1573,18 @@ function VueListes({lists,onSave,onClose,emails,onSaveEmails}){
   React.useEffect(()=>{setNewVal('');setEditIdx(null);},[activeTab]);
   React.useEffect(()=>{fetchConfig().then(res=>{if(res.ok&&res.config){
     try{setRappelsActif(JSON.parse(res.config['rappels_actifs']||'{}'));}catch(_){setRappelsActif({});}
+    setRappelsFiches(res.config['rappels_fiches']==='true');
     try{setMaterielsCachesLocal(JSON.parse(res.config['materiels_caches']||'[]'));}catch(_){setMaterielsCachesLocal([]);}
   }}).catch(()=>{});},[]);
   React.useEffect(()=>{if(activeTab==='conseillers'){apiFetch('getComptes').then(res=>{if(res.ok&&res.comptes){const m={};res.comptes.forEach(c=>{m[c.conseiller]={role:c.role||'user',actif:c.actif};});setComptes(m);}}).catch(()=>{});}},[activeTab]);
 
+  async function basculerRappelsFiches(){
+    const v=!rappelsFiches;
+    setRappelsSaving(true);
+    try{const res=await apiFetch('setConfig',{key:'rappels_fiches',value:v?'true':'false'});if(res&&res.ok)setRappelsFiches(v);else throw new Error(res&&res.error);}
+    catch(e){showToast('❌ '+(e.message||'Erreur'),false);}
+    finally{setRappelsSaving(false);}
+  }
   async function handleSaveRappels(newObj){
     setRappelsSaving(true);
     try{const res=await apiFetch('setConfig',{key:'rappels_actifs',value:JSON.stringify(newObj)});if(res&&res.ok){setRappelsActif(newObj);}else throw new Error(res.error);}
@@ -1632,6 +1642,12 @@ function VueListes({lists,onSave,onClose,emails,onSaveEmails}){
               handleSaveRappels(newObj);
             }
           },draft.conseillers.every(c=>rappelsActif[c]!==false)?'🔕 Tout désactiver':'✅ Tout activer')
+        ),
+        activeTab==='conseillers'&&CE('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',gap:8,padding:'8px 14px',marginBottom:8,background:'#f8fafc',border:'1.5px solid #e2e8f0',borderRadius:8}},
+          CE('span',{style:{fontSize:12,color:'#4a5568'}},CE('b',null,'📋 Fiches bilan vides'),' dans le mail du matin (les statuts à mettre à jour y sont toujours)'),
+          CE('label',{className:'tgl',style:{marginBottom:0,flexShrink:0},title:rappelsFiches?'Rappel des fiches activé — cliquer pour le couper':'Rappel des fiches coupé — cliquer pour l\'activer'},
+            CE('input',{type:'checkbox',checked:rappelsFiches,disabled:rappelsSaving,onChange:basculerRappelsFiches,'aria-label':'Rappeler les fiches bilan vides'}),
+            CE('span',{className:'tgl-track',style:rappelsFiches?{}:{background:'#e2e8f0'}}))
         ),
         items.map((item,i)=>CE('div',{key:i,className:'listes-item'},
           CE('div',{className:'listes-arrows'},
