@@ -713,6 +713,10 @@ describe('urlApiPour', () => {
   it('pages du bac à sable : API du bac à sable', () => {
     assert.equal(urlApiPour('ateliers-numeriques.alwaysdata.net', '/sandbox/index.html'), 'https://ateliers-numeriques.alwaysdata.net/api-sandbox/index.php');
   });
+  it('bac à sable NextStep (AG-033) : sous /sandbox/, jamais à côté', () => {
+    assert.equal(urlApiPour('ateliers-numeriques.alwaysdata.net', '/sandbox/nextstep/admin.html'), 'https://ateliers-numeriques.alwaysdata.net/api-sandbox/index.php');
+    assert.equal(urlApiPour('ateliers-numeriques.alwaysdata.net', '/sandbox-nextstep/index.html'), PROD);
+  });
 });
 
 // ── Fiche bilan : listes identiques à celles de l'API (AG-020) ──────────────
@@ -737,6 +741,7 @@ describe('urlAvisPour', () => {
     assert.equal(urlAvisPour('https://maswaddpt47-cmyk.github.io', '/ateliers-cd47_NextStep/index.html', J), 'https://maswaddpt47-cmyk.github.io/ATELIERS_NEWGEN/avis.html#' + J);
     assert.equal(urlAvisPour('https://maswaddpt47-cmyk.github.io', '/ATELIERS_NEWGEN/', J), 'https://maswaddpt47-cmyk.github.io/ATELIERS_NEWGEN/avis.html#' + J);
     assert.equal(urlAvisPour('https://ateliers-numeriques.alwaysdata.net', '/sandbox/admin.html', J), 'https://ateliers-numeriques.alwaysdata.net/sandbox/avis.html#' + J);
+    assert.equal(urlAvisPour('https://ateliers-numeriques.alwaysdata.net', '/sandbox/nextstep/admin.html', J), 'https://ateliers-numeriques.alwaysdata.net/sandbox/avis.html#' + J);
     assert.ok(!urlAvisPour('https://maswaddpt47-cmyk.github.io', '/', J).includes('?'), 'jeton jamais dans la partie envoyée au serveur');
   });
 });
