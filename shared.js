@@ -6263,7 +6263,8 @@ function VueBilanTrimestriel({entries,moi,anneesChargees}){
   const clePeriode=[...idsPeriode].sort().join('|');
   React.useEffect(()=>{let vivant=true;setAv(null);
     (async()=>{try{
-      const r=await apiFetch('bilanAvis',moi?{du:debut,au:fin,moi:'1'}:{du:debut,au:fin});
+      // format '2' : sujets en tableau (AG-035) ; une page plus ancienne est invitée à recharger.
+      const r=await apiFetch('bilanAvis',moi?{du:debut,au:fin,moi:'1',format:'2'}:{du:debut,au:fin,format:'2'});
       if(vivant)setAv(r&&r.ok?(r.masque?{avis:[],remarques:[],erreur:`moins de ${r.seuil||3} avis sur la période, résultats masqués pour que personne ne soit reconnu`}:{avis:r.avis,remarques:r.remarques,remarquesAteliers:r.remarques_ateliers||null}):{erreur:(r&&r.error)||'Erreur'});
     }catch(e){if(vivant)setAv({erreur:e.message||'Erreur réseau'});}})();
     return()=>{vivant=false;};},[debut,fin,clePeriode]);
