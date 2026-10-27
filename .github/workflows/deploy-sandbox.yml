@@ -65,6 +65,12 @@ jobs:
           # Le bac à sable de NEWGEN (API et pages) doit exister avant.
           $SSH "$COMPTE@ssh-$COMPTE.alwaysdata.net" 'test -f www/sandbox/index.html && test -d www/api-sandbox' \
             || { echo "::error::Bac à sable de NEWGEN absent : lancer d'abord son deploy-sandbox.yml"; exit 1; }
+          # Coupure d'urgence en cours (coupure-urgence.yml de NEWGEN) : on publie
+          # quand même dans le sous-dossier, sans toucher à sandbox/.htaccess,
+          # mais le run finit rouge pour qu'elle ne passe pas pour un service ouvert.
+          if $SSH "$COMPTE@ssh-$COMPTE.alwaysdata.net" 'grep -qs "Require all denied" www/sandbox/.htaccess www/api-sandbox/.htaccess'; then
+            echo "COUPE=1" >> "$GITHUB_ENV"
+          fi
           mkdir -p pages && cp -r index.html admin.html *.css utils.js logic.js shared.js app.js admin_app.js admin_config.js xlsxstyle.js icons vendor pages/
           rsync -az --delete -e "$SSH" pages/ "$COMPTE@ssh-$COMPTE.alwaysdata.net:www/sandbox/nextstep/"
 
@@ -72,7 +78,10 @@ jobs:
         env:
           COMPTE: ${{ secrets.ALWAYSDATA_COMPTE }}
         run: |
-          curl -fsS "https://$COMPTE.alwaysdata.net/sandbox/nextstep/index.html" | grep -q 'shared.js'
-          curl -fsS "https://$COMPTE.alwaysdata.net/sandbox/nextstep/utils.js" | grep -q 'api-sandbox'
+          if [ "$COUPE" = "1" ]; then echo "::error::Pages publiées, mais le bac à sable est COUPÉ (coupure d'urgence) : rouvrir depuis coupure-urgence.yml de NEWGEN"; exit 1; fi
+          B="https://$COMPTE.alwaysdata.net/sandbox/nextstep"
+          for page in index.html admin.html; do curl -fsS "$B/$page" | grep -q 'shared.js' || { echo "::error::$page absente ou incomplète"; exit 1; }; done
+          curl -fsSL "$B" | grep -q 'shared.js' || { echo "::error::$B (sans / final) ne mène pas à la page"; exit 1; }
+          curl -fsS "$B/utils.js" | grep -q 'api-sandbox'
           curl -fsS -d action=getComptes "https://$COMPTE.alwaysdata.net/api-sandbox/index.php" | grep -q '"ok":true'
           echo "::notice::Bac à sable NextStep : https://$COMPTE.alwaysdata.net/sandbox/nextstep/"
