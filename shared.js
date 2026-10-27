@@ -2728,7 +2728,7 @@ function BarreSelection({actif,setActif,sel,setSel,filtered}){
   async function supprimer(){
     const ids=filtered.filter(e=>sel.has(e._id)).map(e=>e._id);
     if(!ids.length)return;
-    if(!window.confirm(`Supprimer ${ids.length} atelier(s) ?\n\nIls restent récupérables 30 jours dans la Corbeille.`))return;
+    if(!window.confirm(`Supprimer ${ids.length} atelier(s) ?\n\nIls restent récupérables 30 jours dans la Corbeille.\nPour un atelier que vous n'animiez ni ne co-animiez, contactez l'administrateur.`))return;
     let ok=0,ko=0;
     for(let i=0;i<ids.length;i++){
       setEnCours(`Suppression ${i+1}/${ids.length}…`);
@@ -6608,12 +6608,12 @@ const NOUVEAUTES=[
   {id:4,date:'2026-10-01',titre:'Dupliquer une séance dans un cycle',texte:'Saisie par cycle : le bouton ⧉ au bout d\'une ligne la recopie juste en dessous, horaire vide. Pratique pour deux groupes le même jour (G1 de 14 h, G2 de 15 h) : il ne reste qu\'à taper l\'horaire.'},
   {id:7,date:'2026-10-02',titre:'Importer ses ateliers depuis Outlook',texte:'Saisie par cycle : « 📥 Importer depuis Outlook (.ics) ». Dans Outlook, mettez un même mot-clé dans le titre de vos ateliers (ex. « Atelier Convergence 2026-2027 »), puis Fichier → Enregistrer le calendrier → Plus d\'options : choisissez la plage de dates et « Tous les détails ». Dans l\'appli, choisissez le fichier et tapez le mot-clé : les rendez-vous correspondants remplissent le tableau (date, horaire, durée), séries comprises si elles ont une date de fin. Un rendez-vous tombant un jour férié est proposé décoché : cochez-le s\'il a vraiment lieu. La thématique arrive en « TBD », à remplacer ; vous complétez orienteur, commune, lieu et public une fois pour tous. Un rendez-vous déjà importé est reconnu et grisé. Le fichier reste sur votre appareil.'},
   {id:8,date:'2026-10-01',titre:'Périodicité dans la saisie par cycle',texte:'Saisie par cycle : le bouton « 🔁 Générer les dates par périodicité » remplit le tableau comme un rendez-vous Outlook — chaque semaine ou toutes les N semaines (un ou plusieurs jours), ou chaque mois (« le 2e mardi »), jusqu\'à un nombre de séances ou une date. Les jours fériés sont sautés. La thématique vaut « TBD » par défaut, à remplacer quand elle est connue. Chaque ligne reste modifiable ensuite.'},
-  {id:9,date:'2026-09-25',titre:'Un atelier supprimé n\'est pas perdu',texte:'Tout atelier supprimé reste récupérable pendant 30 jours dans la « 🗑️ Corbeille », tel qu\'il était avant la suppression.'},
+  {id:9,date:'2026-09-25',titre:'Un atelier supprimé n\'est pas perdu',texte:'Tout atelier supprimé reste récupérable pendant 30 jours dans la « 🗑️ Corbeille », tel qu\'il était avant la suppression. Vous y retrouvez les ateliers que vous animiez ou co-animiez ; pour un autre, contactez l\'administrateur.'},
   {id:10,date:'2026-09-26',titre:'Modifier un atelier depuis le volet latéral',texte:'Historique, Calendrier et Agenda : cliquer sur un atelier ouvre un volet où l\'on modifie directement la date, l\'horaire, le public, la Classe mobile, le nombre d\'ordinateurs et les dates de prélèvement et de retour, sans repasser par le formulaire. Une alerte s\'affiche si le matériel est déjà pris sur ce créneau.'},
   {id:11,date:'2026-09-26',titre:'Historique : filtres repliables et public à choix multiples',texte:'Historique : le bloc des filtres se replie et affiche le nombre de filtres actifs ; « Effacer » les remet tous à zéro. Le filtre public accepte plusieurs catégories à la fois (« Tout afficher » pour tout reprendre).'},
   {id:13,date:'2026-09-25',titre:'L\'orienteur affiché dans le Calendrier et l\'Agenda',texte:'Calendrier : l\'orienteur apparaît sur sa propre ligne dans chaque atelier. Agenda : une ligne « 🤝 Orienteur » sous la commune. On sait pour quel partenaire est l\'atelier sans avoir à l\'ouvrir.'},
   {id:14,date:'2026-09-25',titre:'Rappels sur votre adresse professionnelle',texte:'Les mails de rappel des ateliers dont la date est dépassée sans mise à jour du statut arrivent désormais sur votre adresse mail professionnelle, et non plus sur Gmail. Ils partent chaque matin à 8 h.'},
-  {id:15,date:'2026-10-02',titre:'Supprimer plusieurs ateliers d\'un coup',texte:'Historique : filtrez la liste si besoin (orienteur, thématique, dates… par exemple pour tout un cycle), cliquez sur « ☑ Sélectionner plusieurs ateliers », cochez les ateliers ou « Tout sélectionner », puis « 🗑 Supprimer la sélection ». Seuls les ateliers cochés et affichés sont supprimés ; ils restent récupérables 30 jours dans la Corbeille.'},
+  {id:15,date:'2026-10-02',titre:'Supprimer plusieurs ateliers d\'un coup',texte:'Historique : filtrez la liste si besoin (orienteur, thématique, dates… par exemple pour tout un cycle), cliquez sur « ☑ Sélectionner plusieurs ateliers », cochez les ateliers ou « Tout sélectionner », puis « 🗑 Supprimer la sélection ». Seuls les ateliers cochés et affichés sont supprimés ; ils restent récupérables 30 jours dans la Corbeille (pour un atelier que vous n\'animiez ni ne co-animiez, contactez l\'administrateur).'},
   {id:17,date:'2026-09-26',titre:'Conflit d\'ordinateurs signalé avant d\'enregistrer',texte:'Volet latéral (Historique, Calendrier, Agenda) : quand vous changez la date, le nombre d\'ordinateurs ou les dates de prélèvement et de retour d\'un atelier avec Classe mobile, un encadré orange prévient si le stock d\'ordinateurs est dépassé. Vous pouvez enregistrer quand même : le conflit reste visible dans « 🖥️ Gestion ordi » pour s\'arranger.'},
   {id:18,date:'2026-10-01',titre:'La rubrique Nouveautés',texte:'Les changements de l\'application sont annoncés ici, et non plus par mail. Une pastille signale les annonces que vous n\'avez pas encore lues ; elles sont classées de la plus récente à la plus ancienne.'},
   {id:20,date:'2026-10-02',titre:'Contribuer : vos idées et vos soucis',texte:'Nouvelle rubrique « 💬 Contribuer » : une idée d\'amélioration, un bug, une question ? Cliquez sur « ＋ Nouvelle contribution », choisissez le type et la gêne, décrivez en quelques lignes. L\'onglet où vous étiez est pré-rempli. Toute l\'équipe voit les contributions, ce qui évite les doublons ; la réponse s\'affiche dans la contribution, et une pastille vous prévient quand vous en avez une. Les contributions closes restent consultables dans « 🗄️ Archives ». Ne mettez aucune donnée d\'usager (nom, téléphone…).'},
@@ -7017,12 +7017,14 @@ function VueCorbeille({peutPurger}={}){
   const[liste,setListe]=React.useState(null);
   const[sel,setSel]=React.useState(()=>new Set());
   const[jours,setJours]=React.useState(30);
+  // true quand l'API ne renvoie que les ateliers de la personne (AG-034).
+  const[filtre,setFiltre]=React.useState(false);
   const[err,setErr]=React.useState('');
   const[enCours,setEnCours]=React.useState('');
   function charger(){
     setErr('');
     window.apiFetch('getCorbeille')
-      .then(r=>{ if(r&&r.ok){ setListe(r.ateliers||[]); setJours(r.jours||30); } else setErr((r&&r.error)||'Erreur'); })
+      .then(r=>{ if(r&&r.ok){ setListe(r.ateliers||[]); setJours(r.jours||30); setFiltre(r.filtre===true); } else setErr((r&&r.error)||'Erreur'); })
       .catch(e=>setErr(e.message||'Erreur réseau'));
   }
   React.useEffect(charger,[]);
@@ -7060,7 +7062,7 @@ function VueCorbeille({peutPurger}={}){
     CE('h2',{style:{marginTop:0}},'🗑️ Corbeille'),
     CE('p',{style:{fontSize:12,color:'var(--text-2,#718096)',marginTop:0}},
       'Les ateliers supprimés sont gardés '+jours+' jours, puis effacés définitivement. « Restaurer » remet l\'atelier tel qu\'il était au moment de sa suppression, avec son numéro.'
-        +(peutPurger?'':' Vous voyez les ateliers que vous animiez ou co-animiez ; pour un autre, demandez à l\'administrateur.')),
+        +(filtre?' Vous voyez les ateliers que vous animiez ou co-animiez ; pour un autre, demandez à l\'administrateur.':'')),
     err&&CE('p',{style:{color:'#c53030',fontSize:13}},err),
     liste===null&&!err&&CE('p',{style:{fontSize:13}},'Chargement…'),
     liste&&liste.length===0&&CE('p',{style:{fontSize:13,color:'var(--text-2,#718096)'}},'La corbeille est vide.'),
