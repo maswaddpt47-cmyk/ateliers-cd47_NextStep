@@ -128,9 +128,11 @@ correction (critère 7, contradicteur Codex, 26/10/2026).**
 ## Branche de travail
 
 Toujours committer et pousser directement sur `main`. Ne pas créer de branche intermédiaire.
-Seule exception : la branche `sandbox`, qui publie le bac à sable
-(`deploy-sandbox.yml`, AG-033 de NEWGEN, 27/10/2026) ; elle part de `main` et
-y revient après l'essai de l'utilisateur.
+Seule exception : la branche `sandbox`, que `deploy-sandbox.yml` d'ATELIERS_NEWGEN
+publie dans le bac à sable (`…alwaysdata.net/sandbox/nextstep/`, AG-033,
+27/10/2026) ; elle part de `main` et y revient après l'essai de l'utilisateur.
+Pour publier : pousser `sandbox` ici, **puis** `sandbox` de NEWGEN (ou lancer
+son workflow à la main) — ce dépôt n'a pas de clé SSH.
 
 **Avant d'écrire « en ligne »** : `MD-LIB/outils/attendre-deploiement.sh` (hook
 automatique après un push, sinon à lancer à la main) doit avoir dit ✅.

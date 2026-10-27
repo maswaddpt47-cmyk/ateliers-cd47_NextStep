@@ -19,12 +19,10 @@ du `CLAUDE.md` retirés — `git log -p CHANTIERS.md`.
 
 ## Reste ouvert
 
-- **Bac à sable NextStep (AG-033 de NEWGEN, option A, 27/10/2026)** :
-  `.github/workflows/deploy-sandbox.yml` prêt, rien publié. Pour l'ouvrir :
-  (1) l'utilisateur saisit `ALWAYSDATA_COMPTE` et `ALWAYSDATA_SSH_KEY` dans
-  Settings → Secrets de ce dépôt ; (2) mettre à jour la branche `sandbox` de
-  NEWGEN (exclusion de `nextstep/`) ; (3) créer et pousser `sandbox` ici.
-  Adresse : `…alwaysdata.net/sandbox/nextstep/`. Réponse de Codex attendue.
+- **Bac à sable NextStep** (AG-033, en ligne le 27/10/2026) :
+  `…alwaysdata.net/sandbox/nextstep/`, publié par `deploy-sandbox.yml` de NEWGEN
+  (mode d'emploi : section « Branche de travail » du `CLAUDE.md`). Vérifications
+  restantes : `ATELIERS_NEWGEN/CHANTIERS.md`.
 - **Parité avec NEWGEN (AG-015)** : 5 écarts au 16/10/2026, tous voulus
   (dont l'Historique : chacun garde son design, décision du 26/09). Suivi et
   **ordre de push (NextStep d'abord)** : `CHANTIERS.md` d'ATELIERS_NEWGEN,
