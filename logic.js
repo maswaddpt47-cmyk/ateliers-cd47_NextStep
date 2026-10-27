@@ -421,10 +421,16 @@ function bilanTrimestriel(entries, debut, fin, avis, aujourdhui) {
   // Base des pourcentages = tous les avis (AG-032) : les non-réponses sont
   // comptées à part, pour que la répartition fasse 100 %.
   av.sansReponse = {};
-  ['rythme', 'aise', 'autonomie', 'sujet'].forEach(k => {
+  ['rythme', 'aise', 'autonomie'].forEach(k => {
     av[k] = {}; lignes.forEach(v => compter(av[k], v[k]));
     av.sansReponse[k] = lignes.filter(v => v[k] === null || v[k] === undefined || v[k] === '').length;
   });
+  // Sujets : plusieurs choix par avis (AG-035, 27/10/2026), chacun compté une
+  // fois ; même base (tous les avis), donc un total au-delà de 100 %. Un avis
+  // d'avant le 27/10 porte une valeur seule.
+  const sujetsDe = v => Array.isArray(v.sujet) ? v.sujet : (v.sujet ? [v.sujet] : []);
+  av.sujet = {}; lignes.forEach(v => new Set(sujetsDe(v)).forEach(x => compter(av.sujet, x)));
+  av.sansReponse.sujet = lignes.filter(v => !sujetsDe(v).length).length;
   // Sans prototype : une thématique nommée « constructor » ou « toString »
   // n'atteint plus les méthodes d'Object (AG-032).
   const themes = Object.create(null);

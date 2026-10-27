@@ -605,6 +605,13 @@ describe('bilanTrimestriel — décisions AG-032 (26/10/2026)', () => {
     assert.deepEqual(b.avis.autonomie, {Oui: 1});
     assert.equal(b.avis.sansReponse.autonomie, 2);
   });
+  it('sujets à choix multiples : chacun compté une fois par avis, base = tous les avis (AG-035)', () => {
+    const av = [{atelier_id: 'a', sujet: ['Smartphone', 'Sécurité', 'Smartphone']}, {atelier_id: 'a', sujet: 'Smartphone'}, {atelier_id: 'a', sujet: []}, {atelier_id: 'a', sujet: null}];
+    const b = bilanTrimestriel([at('a')], '2026-10-01', '2026-12-31', av, '2026-12-31');
+    assert.deepEqual(b.avis.sujet, {Smartphone: 2, 'Sécurité': 1});
+    assert.equal(b.avis.sansReponse.sujet, 2);
+    assert.equal(b.avis.n, 4);
+  });
 });
 describe('trimestreCourant et Planifié passés (26/10/2026)', () => {
   it('trimestre de la date du jour', () => {

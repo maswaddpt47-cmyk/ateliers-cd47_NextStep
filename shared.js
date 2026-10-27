@@ -2642,7 +2642,7 @@ function FormulaireAvisPapier({atelierId,onEnregistre}){
   async function envoyer(){
     setEnvoi(true);
     try{
-      const res=await apiFetch('saisirAvisPapier',{_id:atelierId,...r});
+      const res=await apiFetch('saisirAvisPapier',{_id:atelierId,...r,sujet:JSON.stringify(r.sujet||[]),sujet_autre:(r.sujet||[]).includes('Autre')?(r.sujet_autre||''):''});
       if(!res||!res.ok)throw new Error((res&&res.error)||'Erreur');
       const maj=await apiFetch('jetonAvis',{_id:atelierId});
       if(maj&&maj.ok)onEnregistre(maj.avis);
@@ -2651,11 +2651,16 @@ function FormulaireAvisPapier({atelierId,onEnregistre}){
     finally{setEnvoi(false);}
   }
   return CE('div',{style:{textAlign:'left',border:'1.5px dashed #99f6e4',borderRadius:10,padding:10,marginBottom:12,display:'grid',gap:6}},
-    AVIS_QUESTIONS.map(([k,lib,choix])=>CE('label',{key:k,style:{fontSize:12,fontWeight:600,color:'#334155'}},lib,
+    AVIS_QUESTIONS.map(([k,lib,choix])=>k==='sujet'
+      // Sujets : plusieurs choix, comme avis.html (AG-035, 27/10/2026).
+      ?CE('fieldset',{key:k,style:{border:0,padding:0,margin:0,fontSize:12,fontWeight:600,color:'#334155'}},CE('legend',{style:{padding:0}},lib+' (plusieurs choix)'),
+        CE('div',{style:{display:'flex',flexWrap:'wrap',gap:'4px 12px',fontWeight:400}},choix.map(c=>CE('label',{key:c,style:{display:'flex',alignItems:'center',gap:4}},
+          CE('input',{type:'checkbox',checked:(r.sujet||[]).includes(c),onChange:e=>setR(x=>({...x,sujet:choix.filter(v=>v===c?e.target.checked:(x.sujet||[]).includes(v))}))}),c))))
+      :CE('label',{key:k,style:{fontSize:12,fontWeight:600,color:'#334155'}},lib,
       CE('select',{value:r[k]||'',onChange:e=>setR(x=>({...x,[k]:e.target.value})),style:champ},CE('option',{value:''},'—'),choix.map(c=>CE('option',{key:c,value:c},c))))),
-    r.sujet==='Autre'&&CE('input',{type:'text',maxLength:60,placeholder:'Lequel ?',value:r.sujet_autre||'',onChange:e=>setR(x=>({...x,sujet_autre:e.target.value})),style:champ}),
+    (r.sujet||[]).includes('Autre')&&CE('input',{type:'text',maxLength:60,placeholder:'Lequel ?',value:r.sujet_autre||'',onChange:e=>setR(x=>({...x,sujet_autre:e.target.value})),style:champ}),
     CE('textarea',{rows:2,maxLength:500,placeholder:'Remarque (sans aucun nom)',value:r.remarque||'',onChange:e=>setR(x=>({...x,remarque:e.target.value})),style:champ}),
-    CE('button',{type:'button',className:'btn btn-primary btn-sm',disabled:envoi||!Object.values(r).some(v=>v),onClick:envoyer},envoi?'…':'Enregistrer cet avis papier'));
+    CE('button',{type:'button',className:'btn btn-primary btn-sm',disabled:envoi||!Object.values(r).some(v=>Array.isArray(v)?v.length:v),onClick:envoyer},envoi?'…':'Enregistrer cet avis papier'));
 }
 
 function ModaleAvisQR({atelier,onClose}){
@@ -6225,7 +6230,7 @@ function htmlBilanTrimestriel(b,titre,remarques,avisErreur,opts={}){
     if(v.n){
       h+='<div class="bt-grille">';
       // Base : tous les avis, non-réponses affichées (décision du 26/10/2026, AG-032).
-      AVIS_QUESTIONS.filter(([k])=>v[k]).forEach(([k,lib,ordre])=>{const sr=(v.sansReponse||{})[k]||0;h+=`<div class="bt-bloc"><h3>${e(lib)}</h3>${repartition(sr?{...v[k],'Sans réponse':sr}:v[k],ordre,v.n)}</div>`;});
+      AVIS_QUESTIONS.filter(([k])=>v[k]).forEach(([k,lib,ordre])=>{const sr=(v.sansReponse||{})[k]||0;h+=`<div class="bt-bloc"><h3>${e(lib)}</h3>${repartition(sr?{...v[k],'Sans réponse':sr}:v[k],ordre,v.n)}${k==='sujet'?'<div class="bt-note">Plusieurs choix possibles par avis : le total peut dépasser 100 %.</div>':''}</div>`;});
       h+='</div>';
       if((remarques||[]).length)h+=`<h3>Remarques (anonymes)</h3><ul class="bt-rem">${remarques.map(r=>`<li>« ${e(r)} »</li>`).join('')}</ul>`;
     }
@@ -6347,7 +6352,7 @@ function DetailAvisAdmin({atelierId,onSupprime}){
   return CE('div',{style:{display:'grid',gap:6}},liste.map((a,i)=>CE('div',{key:a.id,style:{display:'flex',gap:8,alignItems:'flex-start',background:'#fff',border:'1px solid #e2e8f0',borderRadius:8,padding:'6px 8px'}},
     CE('div',{style:{flex:1,fontStyle:'normal',color:'#334155'}},
       CE('div',{style:{fontSize:11,color:'#94a3b8'}},`Avis ${i+1} · ${fmtDate(a.cree_le)} · ${a.source==='papier'?'papier':'QR code'}`),
-      CE('div',null,[champ('Attentes',a.attentes&&a.attentes+'/5'),champ('Clarté',a.clarte&&a.clarte+'/5'),champ('Rythme',a.rythme),champ('À l\'aise',a.aise),champ('Refaire seul',a.autonomie),champ('Sujet',a.sujet==='Autre'&&a.sujet_autre?'Autre — '+a.sujet_autre:a.sujet)].filter(Boolean).join(' · ')||'—'),
+      CE('div',null,[champ('Attentes',a.attentes&&a.attentes+'/5'),champ('Clarté',a.clarte&&a.clarte+'/5'),champ('Rythme',a.rythme),champ('À l\'aise',a.aise),champ('Refaire seul',a.autonomie),champ('Sujets',(Array.isArray(a.sujet)?a.sujet:(a.sujet?[a.sujet]:[])).map(s=>s==='Autre'&&a.sujet_autre?'Autre — '+a.sujet_autre:s).join(', '))].filter(Boolean).join(' · ')||'—'),
       a.remarque&&CE('div',{style:{fontStyle:'italic',color:'#475569'}},'« '+a.remarque+' »')),
     CE('button',{type:'button',className:'btn btn-danger btn-sm',disabled:envoi===a.id,onClick:e=>{e.stopPropagation();supprimer(a);}},envoi===a.id?'…':'🗑️ Supprimer'))));
 }
