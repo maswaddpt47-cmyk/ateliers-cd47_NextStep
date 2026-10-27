@@ -131,8 +131,11 @@ Toujours committer et pousser directement sur `main`. Ne pas créer de branche i
 Seule exception : la branche `sandbox`, que `deploy-sandbox.yml` d'ATELIERS_NEWGEN
 publie dans le bac à sable (`…alwaysdata.net/sandbox/nextstep/`, AG-033,
 27/10/2026) ; elle part de `main` et y revient après l'essai de l'utilisateur.
-Pour publier : pousser `sandbox` ici, **puis** `sandbox` de NEWGEN (ou lancer
-son workflow à la main) — ce dépôt n'a pas de clé SSH.
+Le bac à sable suit `main` (décision du 27/10/2026) : chaque push de code sur
+`main` de NEWGEN le republie avec le `main` d'ici. Un push de code ici **sans**
+push NEWGEN derrière : lancer « Déploiement du bac à sable » de NEWGEN à la main
+(ce dépôt n'a pas de clé SSH). Essai avant `main` : pousser `sandbox` ici, puis
+`sandbox` de NEWGEN.
 
 **Avant d'écrire « en ligne »** : `MD-LIB/outils/attendre-deploiement.sh` (hook
 automatique après un push, sinon à lancer à la main) doit avoir dit ✅.
