@@ -62,6 +62,8 @@ Extrait du guide de collaboration multi-projets, adapté pour ce dépôt.
 
 28. **Un moyen d'arrêt (annulation, coupure, désactivation) s'essaie en réel avant d'être annoncé** (règle 37), comme la fonction qu'il arrête. Constat du 22/10/2026 (ATELIERS) : un veilleur lançait encore son successeur quand on l'annulait.
 
+29. **Vérifier l'élément exact nommé par l'utilisateur, pas un élément voisin supposé équivalent** (MD-LIB `collaboration.md`, règle 38). Deux éléments qui partagent une classe, un style ou un comportement visuel proche (un badge de compteur et la tuile qu'il résume) ne partagent pas forcément le même correctif : une règle CSS plus spécifique peut écraser l'un sans toucher l'autre. Constat du 20/10/2026 (sms-mail-multi) : clignotement validé sur le badge du menu, alors que c'était la tuile qui devait clignoter.
+
 **Bonnes pratiques à maintenir**
 
 12. Continuer à demander l'avis avant toute action à fort impact (déploiement, architecture, migration de données) et exécuter vite dès validation courte reçue.
