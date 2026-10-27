@@ -64,6 +64,8 @@ Extrait du guide de collaboration multi-projets, adapté pour ce dépôt.
 
 29. **Vérifier l'élément exact nommé par l'utilisateur, pas un élément voisin supposé équivalent** (MD-LIB `collaboration.md`, règle 38). Deux éléments qui partagent une classe, un style ou un comportement visuel proche (un badge de compteur et la tuile qu'il résume) ne partagent pas forcément le même correctif : une règle CSS plus spécifique peut écraser l'un sans toucher l'autre. Constat du 20/10/2026 (sms-mail-multi) : clignotement validé sur le badge du menu, alors que c'était la tuile qui devait clignoter.
 
+30. **Un texte qui promet une action à l'usager (mail, rappel, envoi) ne s'affiche que si cette action aura lieu dans ce cas précis** (MD-LIB `collaboration.md`, règle 39) : vérifier les conditions réelles (interrupteur, adresse, date de départ, rôle) et dire autre chose sinon. Constat du 27/10/2026 (ATELIERS) : « un mail de rappel sera envoyé » aurait été faux pour un interrupteur éteint, un animateur sans adresse ou un atelier antérieur au 01/11.
+
 **Bonnes pratiques à maintenir**
 
 12. Continuer à demander l'avis avant toute action à fort impact (déploiement, architecture, migration de données) et exécuter vite dès validation courte reçue.
