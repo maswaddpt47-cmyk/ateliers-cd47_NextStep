@@ -128,6 +128,9 @@ correction (critère 7, contradicteur Codex, 26/10/2026).**
 ## Branche de travail
 
 Toujours committer et pousser directement sur `main`. Ne pas créer de branche intermédiaire.
+Seule exception : la branche `sandbox`, qui publie le bac à sable
+(`deploy-sandbox.yml`, AG-033 de NEWGEN, 27/10/2026) ; elle part de `main` et
+y revient après l'essai de l'utilisateur.
 
 **Avant d'écrire « en ligne »** : `MD-LIB/outils/attendre-deploiement.sh` (hook
 automatique après un push, sinon à lancer à la main) doit avoir dit ✅.
