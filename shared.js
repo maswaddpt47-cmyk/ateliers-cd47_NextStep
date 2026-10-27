@@ -1307,6 +1307,8 @@ window.authToken = {
       .then(data=>{ entry.inflight=false; entry.ts=Date.now();
         // Pastilles des tickets (AG-016) : le résumé voyage dans getAll.
         if(data && data.tickets){ window.__ticketsResume=data.tickets; try{window.dispatchEvent(new Event('ateliers:tickets'));}catch(_){} }
+        // Qui recevra le mail de rappel d'une fiche vide (fenêtre « fiche bilan », 27/10/2026).
+        if(data && 'rappelsFiches' in data) window.__rappelsFiches=data.rappelsFiches;
         return data; })
       .catch(err=>{ cache.delete(key); throw err; });
     cache.set(key, entry);
@@ -2093,6 +2095,10 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
     if(!validate()){showToast('⚠️ Champs obligatoires manquants',false);return;}
     const alertes=alertesSaisie(entries,{...form,_id:form._id||editId||''},creneauUnique);
     if(alertes.length&&!window.confirm(alertes.join('\n')+'\n\nEnregistrer quand même ?'))return;
+    const avant=editId&&(entries||[]).find(x=>x._id===editId);
+    if(form.statut==='Réalisé'&&(!avant||avant.statut!=='Réalisé')&&ficheBilanVide(form.fiche_bilan)&&await demanderFicheBilan(form)==='remplir'){
+      const f=document.getElementById('fiche-bilan-saisie');if(f)f.scrollIntoView({behavior:'smooth',block:'start'});return;
+    }
     setSaving(true);
     const entry={...form,_id:form._id||idNouveauRef.current||(idNouveauRef.current=genId()),inscrits:form.inscrits===''?'':parseInt(form.inscrits)||0,presents:form.presents===''?'':parseInt(form.presents)||0,nb_ordinateurs:form.nb_ordinateurs===''?'':parseInt(form.nb_ordinateurs)||0,duree:parseInt(form.duree)||DUREE_DEFAUT,ampm:ampmDepuisHoraire(form.horaire)||form.ampm,materiel:(form.materiel||[]).join('|')};
     const reussir=()=>{
@@ -2304,7 +2310,10 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
     modeLot&&matMobileActif&&CE('div',{style:{marginTop:4,fontSize:11,color:'#94a3b8'}},'Les dates de prélèvement/retour se saisissent par séance dans le tableau ci-dessous.'),
     CE('div',{style:{marginTop:12}},
       LblG({t:'Remarques'}),
-      CE('input',{type:'text',style:iStyle(false),value:frm.remarques,placeholder:'Notes libres',onChange:e=>setFn('remarques',e.target.value)}))
+      CE('input',{type:'text',style:iStyle(false),value:frm.remarques,placeholder:'Notes libres',onChange:e=>setFn('remarques',e.target.value)})),
+    // Fiche bilan dès la saisie d'un atelier « Réalisé » (27/10/2026), comme dans le volet.
+    !modeLot&&frm.statut==='Réalisé'&&CE('div',{id:'fiche-bilan-saisie',style:{marginTop:12}},
+      CE(FicheBilan,{valeur:frm.fiche_bilan||{},onChange:v=>setFn('fiche_bilan',v)}))
   );};
 
   return CE('div',{'data-saisie':'1',style:{padding:'4px 0'}},
@@ -2475,6 +2484,40 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
 // Fiche bilan d'atelier (AG-020, 04/10/2026) : choix uniques en pastilles
 // (un second clic désélectionne), choix multiples en cases. Listes :
 // BILAN_CHOIX (utils.js), contrôlées aussi par l'API.
+// Passage en « Réalisé » avec une fiche bilan vide (demande de l'utilisateur,
+// 27/10/2026) : fenêtre avant l'enregistrement, jamais bloquante. « Remplir
+// maintenant » revient à la fiche sans rien enregistrer ; « Plus tard »
+// enregistre. Le mail de rappel n'est annoncé que s'il partira
+// (rappelFichePrevu, utils.js) : interrupteur de l'Admin, adresse, date.
+function ficheBilanVide(v){return !v||typeof v!=='object'||!Object.keys(v).length;}
+function demanderFicheBilan(e){
+  return new Promise(resoudre=>{
+    const moi=(window.authToken&&window.authToken.getMoi&&window.authToken.getMoi())||'';
+    const prevu=typeof rappelFichePrevu==='function'&&rappelFichePrevu(e,window.__rappelsFiches);
+    const suite=prevu
+      ?'Si vous la remplissez plus tard, un mail de rappel '+(e.conseiller===moi?'vous sera envoyé':'sera envoyé à '+e.conseiller)+' au prochain rappel du matin (8 h).'
+      :'Si vous la remplissez plus tard, elle restera à remplir dans le volet de l\'atelier.';
+    const fond=document.createElement('div');
+    fond.style.cssText='position:fixed;inset:0;z-index:100000;background:rgba(15,23,42,.45);display:flex;align-items:center;justify-content:center;padding:16px';
+    const boite=document.createElement('div');
+    boite.setAttribute('role','dialog');boite.setAttribute('aria-modal','true');boite.setAttribute('aria-labelledby','fiche-bilan-titre');
+    boite.style.cssText='background:#fff;color:#1e293b;border-radius:14px;max-width:420px;width:100%;padding:20px;box-shadow:0 20px 50px rgba(0,0,0,.25);font:14px/1.5 system-ui,sans-serif';
+    const titre=document.createElement('div');titre.id='fiche-bilan-titre';titre.textContent='📝 Fiche bilan à remplir';titre.style.cssText='font-size:17px;font-weight:700;margin-bottom:8px';
+    const p1=document.createElement('p');p1.textContent='L\'atelier passe en « Réalisé » et sa fiche bilan est vide.';p1.style.margin='0 0 8px';
+    const p2=document.createElement('p');p2.textContent=suite;p2.style.cssText='margin:0 0 16px;color:#475569';
+    const boutons=document.createElement('div');boutons.style.cssText='display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end';
+    const fin=choix=>{document.removeEventListener('keydown',clavier);fond.remove();resoudre(choix);};
+    const clavier=ev=>{if(ev.key==='Escape')fin('remplir');};
+    const bouton=(texte,choix,principal)=>{const b=document.createElement('button');b.type='button';b.textContent=texte;
+      b.style.cssText='padding:10px 16px;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;'+(principal?'background:#16a34a;color:#fff;border:1.5px solid #16a34a':'background:#fff;color:#334155;border:1.5px solid #cbd5e1');
+      b.addEventListener('click',()=>fin(choix));return b;};
+    const remplir=bouton('📝 Remplir maintenant','remplir',true);
+    boutons.append(bouton('Plus tard','plustard',false),remplir);
+    boite.append(titre,p1,p2,boutons);fond.appendChild(boite);document.body.appendChild(fond);
+    document.addEventListener('keydown',clavier);remplir.focus();
+  });
+}
+
 function FicheBilan({valeur,onChange}){
   const v=valeur||{};
   const LIB={niveau:'Niveau du groupe',objectif:'Objectif atteint',difficultes:'Difficultés',supports:'Supports utilisés',suite:'Suite à donner'};
@@ -2515,7 +2558,11 @@ function PanneauAtelier({panel,onClose,entries,onEntryUpdated,onRefresh,onEdit,o
   React.useEffect(()=>{if(!panel)return;const e=panel;setPanelStatut(e.statut);setPanelInscrits(e.inscrits===undefined||e.inscrits===''?'':String(e.inscrits));setPanelPresents(e.presents===undefined||e.presents===''?'':String(e.presents));setPanelThematique(e.thematique||'');setPanelNote(e.remarques||'');setPanelDate(normalizeDate(e.date)||'');setPanelHoraire(normalizeHoraire(e.horaire)||'');setPanelDuree(parseInt(e.duree)||DUREE_DEFAUT);setPanelBilan(e.fiche_bilan&&typeof e.fiche_bilan==='object'?e.fiche_bilan:{});setPanelNbOrdi(e.nb_ordinateurs===undefined||e.nb_ordinateurs===''||e.nb_ordinateurs===null?'':String(e.nb_ordinateurs));setPanelPublic(e.public||'');setPanelMobile(matIncludes(e.materiel,'Classe mobile'));setPanelPrelev(normalizeDate(e.date_prelevement_materiel)||'');setPanelRetour(normalizeDate(e.date_retour_materiel)||'');},[panel]);
   const closePanel=onClose;
   async function savePanel(){
-    if(!panel)return;if(!panelDate){showToast('❌ Date requise',false);return;}if(panelMobile&&!(parseInt(panelNbOrdi)>0)){showToast('❌ Ordinateurs prêtés requis avec la Classe mobile',false);return;}setSaving(true);
+    if(!panel)return;if(!panelDate){showToast('❌ Date requise',false);return;}if(panelMobile&&!(parseInt(panelNbOrdi)>0)){showToast('❌ Ordinateurs prêtés requis avec la Classe mobile',false);return;}
+    if(panelStatut==='Réalisé'&&panel.statut!=='Réalisé'&&ficheBilanVide(panelBilan)&&await demanderFicheBilan({...panel,date:panelDate})==='remplir'){
+      const f=document.getElementById('fiche-bilan-volet');if(f)f.scrollIntoView({behavior:'smooth',block:'start'});return;
+    }
+    setSaving(true);
     try{
       const updated={...panel,fiche_bilan:panelStatut==='Réalisé'?(Object.keys(panelBilan).length?panelBilan:''):(panel.fiche_bilan||''),statut:panelStatut,inscrits:panelInscrits===''?'':parseInt(panelInscrits)||0,presents:panelPresents===''?'':parseInt(panelPresents)||0,thematique:panelThematique,date:panelDate,horaire:panelHoraire,ampm:ampmDepuisHoraire(panelHoraire)||panel.ampm,duree:parseInt(panelDuree)||DUREE_DEFAUT,public:panelPublic,nb_ordinateurs:panelMobile?(panelNbOrdi===''?'':parseInt(panelNbOrdi)||0):'',date_prelevement_materiel:panelMobile?panelPrelev:'',date_retour_materiel:panelMobile?panelRetour:'',remarques:panelNote,materiel:matierePanneau(panel,panelMobile).join('|')};
       const res=await apiFetch('saveEntry',{entry:updated});
@@ -2619,7 +2666,7 @@ function PanneauAtelier({panel,onClose,entries,onEntryUpdated,onRefresh,onEdit,o
             CE('textarea',{value:panelNote,onChange:e=>setPanelNote(e.target.value),rows:3,placeholder:'Ajouter une note…',style:{width:'100%',padding:'8px 10px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:13,resize:'vertical'}})),
           // Fiche bilan (AG-020, 04/10/2026) : une fois l'atelier réalisé.
           panelStatut==='Réalisé'
-            ?CE(FicheBilan,{valeur:panelBilan,onChange:setPanelBilan})
+            ?CE('div',{id:'fiche-bilan-volet'},CE(FicheBilan,{valeur:panelBilan,onChange:setPanelBilan}))
             :CE('div',{style:{fontSize:12,color:'#94a3b8',padding:'4px 0'}},'📝 La fiche bilan se remplit quand l\'atelier passe en « Réalisé ».'),
         ),
         CE('div',{className:'side-panel-footer',style:{flexDirection:'column',gap:8}},

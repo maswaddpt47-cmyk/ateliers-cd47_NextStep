@@ -618,6 +618,15 @@ function urlApiPour(hote,chemin){
 // sable pour le bac à sable ; à côté de la page courante ailleurs (tests).
 // Jeton dans le fragment (#), jamais envoyé à l'hébergeur des pages : ses
 // journaux n'associent pas une adresse IP à un atelier (amendement B).
+// Le mail de rappel d'une fiche bilan vide partira-t-il pour cet atelier ?
+// `info` = rappelsFiches de getAll (null : interrupteur éteint) ; mêmes
+// conditions que api/lib/rappels.php : atelier daté à partir de `depuis`,
+// animateur avec adresse et rappels activés. La fenêtre « fiche bilan »
+// n'annonce le mail que dans ce cas (27/10/2026).
+function rappelFichePrevu(e,info){
+  return !!(info&&e&&info.depuis&&String(e.date||'')>=info.depuis&&Array.isArray(info.conseillers)&&info.conseillers.indexOf(e.conseiller)>=0);
+}
+
 function urlAvisPour(origine,chemin,jeton){
   const q='avis.html#'+encodeURIComponent(jeton);
   if(/github\.io$/.test(String(origine)))return 'https://maswaddpt47-cmyk.github.io/ATELIERS_NEWGEN/'+q;
@@ -965,7 +974,7 @@ if (typeof module !== 'undefined') {
     normCommune,normalizeCommune,stripAccents,htmlEsc,trunc,
     normalizeDate,normalizeHoraire,fmtDate,fmtCardDate,todayLocal,addJoursIso,
     escapeICS,foldICSLine,parseHoraireICS,parseDateICS,buildICS,
-    DUREE_DEFAUT,DUREES_ATELIER,dureeArrondie,fmtDuree,minutesHoraire,voiesPlanning,urlApiPour,urlAvisPour,BILAN_CHOIX,BILAN_MULTIPLES,basculerBilan,
+    DUREE_DEFAUT,DUREES_ATELIER,dureeArrondie,fmtDuree,minutesHoraire,voiesPlanning,urlApiPour,urlAvisPour,rappelFichePrevu,BILAN_CHOIX,BILAN_MULTIPLES,basculerBilan,
     resumeLogsTexte,
     suppressionAboutie,
     anneesListe,

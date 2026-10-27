@@ -733,6 +733,20 @@ describe('BILAN_CHOIX', () => {
   });
 });
 
+// ── Fenêtre « fiche bilan » : le mail de rappel n'est promis que s'il partira (27/10/2026)
+describe('rappelFichePrevu', () => {
+  const { rappelFichePrevu } = require('./utils.js');
+  const info = { depuis: '2026-11-01', conseillers: ['Alice'] };
+  it('interrupteur allumé, animateur destinataire, atelier daté après le départ : oui', () => {
+    assert.equal(rappelFichePrevu({ date: '2026-11-03', conseiller: 'Alice' }, info), true);
+  });
+  it('interrupteur éteint, atelier trop ancien ou animateur sans mail : non', () => {
+    assert.equal(rappelFichePrevu({ date: '2026-11-03', conseiller: 'Alice' }, null), false);
+    assert.equal(rappelFichePrevu({ date: '2026-10-28', conseiller: 'Alice' }, info), false);
+    assert.equal(rappelFichePrevu({ date: '2026-11-03', conseiller: 'Bruno' }, info), false);
+  });
+});
+
 // ── Avis des stagiaires : adresse du QR code (AG-021) ──────────────────────
 describe('urlAvisPour', () => {
   const { urlAvisPour } = require('./utils.js');
