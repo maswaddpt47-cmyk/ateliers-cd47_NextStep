@@ -554,7 +554,7 @@ if(API_PHP_URL.indexOf('/api-sandbox/')>=0){
       b.appendChild(a);
     });
     document.body.prepend(b);document.title='[BAC À SABLE] '+document.title;
-    const s=document.createElement('style');s.textContent='.app-topbar-v2,.app-topbar,nav{top:var(--sandbox-banner-height)!important}';document.head.appendChild(s);
+    const s=document.createElement('style');s.textContent='.app-topbar-v2,.app-topbar,nav{top:var(--sandbox-banner-height)!important}.sidebar{top:var(--sandbox-banner-height)!important;min-height:calc(100vh - var(--sandbox-banner-height))!important}';document.head.appendChild(s);
     const ajuster=()=>document.documentElement.style.setProperty('--sandbox-banner-height',b.offsetHeight+'px');
     ajuster();new ResizeObserver(ajuster).observe(b);
   };
