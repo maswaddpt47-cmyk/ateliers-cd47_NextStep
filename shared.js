@@ -4560,81 +4560,6 @@ function VueBingo({entries}){
   );
 }
 
-// Détail communes du Dashboard (index ET admin), triable par colonne.
-// Nom unique depuis le 26/09/2026 : une seconde « TableCommunes » dans
-// admin_app.js remplaçait en silence celle-ci sur la page Admin
-// (signalé par scripts/parite.js). Version de l'Admin retenue (validée par
-// l'utilisateur) ; communes regroupées par normCommune, présents et inscrits
-// sur les réalisés (kpiHistorique).
-function TableCommunesDashboard({fd}){
-  const[sortKey,setSortKey]=React.useState('ateliers');
-  const[sortDir,setSortDir]=React.useState(-1); // -1 desc, 1 asc
-
-  function handleSort(key){
-    if(sortKey===key) setSortDir(d=>d*-1);
-    else{setSortKey(key);setSortDir(-1);}
-  }
-
-  const communes=[...new Set(fd.map(d=>normCommune(d.commune)).filter(Boolean))].map(c=>{
-    const r=fd.filter(d=>normCommune(d.commune)===c);
-    const rl=r.filter(d=>d.statut==='Réalisé').length;
-    const ins=kpiHistorique(r).inscrits;
-    const pre=kpiHistorique(r).presents;
-    const tp=tauxPresence(r);
-    const presentsSaisis=r.some(e=>e.statut==='Réalisé'&&e.presents!==''&&e.presents!=null&&!isNaN(parseInt(e.presents,10)));
-    return{name:c,ateliers:r.length,realises:rl,inscrits:ins,presents:pre,presence:tp.tx,inscritsTx:tp.inscrits,ateliersTx:tp.ateliers,presentsSaisis};
-  }).sort((a,b)=>sortDir*(a[sortKey]>b[sortKey]?1:a[sortKey]<b[sortKey]?-1:0));
-
-  const COLS=[
-    {key:'name',     label:'Commune'},
-    {key:'ateliers', label:'Atl.'},
-    {key:'realises', label:'Réal.'},
-    {key:'inscrits', label:'Inscrits'},
-    {key:'presents', label:'Participations'},
-    {key:'presence', label:'Présence'},
-  ];
-
-  function ThSort({col}){
-    const active=sortKey===col.key;
-    const arrow=active?(sortDir===-1?'↓':'↑'):'↕';
-    return CE('th',{
-      onClick:()=>handleSort(col.key),
-      style:{padding:'7px 8px',textAlign:'left',fontWeight:700,
-        color:active?'#2563EB':'#6b7280',borderBottom:'2px solid '+(active?'#2563EB':'#e5e7eb'),
-        fontSize:10,whiteSpace:'nowrap',cursor:'pointer',userSelect:'none',
-        background:active?'#eff6ff':'#f9fafb',transition:'all .15s'}
-    },
-      CE('span',null,col.label),
-      CE('span',{style:{marginLeft:4,opacity:active?1:.4,fontSize:9}},arrow)
-    );
-  }
-
-  return CE('div',{style:{overflowX:'auto'}},
-    CE('table',{style:{width:'100%',borderCollapse:'collapse',fontSize:11}},
-      CE('thead',null,CE('tr',null,COLS.map(col=>CE(ThSort,{key:col.key,col})))),
-      CE('tbody',null,communes.map((c,i)=>{
-        const tpColor=c.presence>70?'#16a34a':c.presence>40?'#d97706':'#ef4444';
-        return CE('tr',{key:c.name,style:{background:i%2?'#f9fafb':'#fff'}},
-          CE('td',{style:{padding:'6px 8px',fontWeight:600,fontSize:10}},c.name.slice(0,18)),
-          CE('td',{style:{padding:'6px 8px'}},c.ateliers),
-          CE('td',{style:{padding:'6px 8px',color:'#16a34a',fontWeight:600}},c.realises),
-          CE('td',{style:{padding:'6px 8px'}},c.inscrits),
-          CE('td',{style:{padding:'6px 8px'}},c.presentsSaisis?c.presents:'—'),
-          CE('td',{style:{padding:'6px 8px'}},
-            CE('div',{style:{display:'flex',alignItems:'center',gap:5}},
-              c.inscritsTx>0&&CE('div',{style:{height:5,width:36,background:'#f3f4f6',borderRadius:3}},
-                CE('div',{style:{height:5,borderRadius:3,width:c.presence+'%',background:tpColor}})
-              ),
-              CE('span',{style:{fontSize:10,fontWeight:700,color:c.inscritsTx>0?tpColor:'#6b7280'}},c.inscritsTx>0?c.presence+'%':'—')
-            ),
-            CE('small',{style:{display:'block',fontSize:9,color:'#6b7280',marginTop:3}},`Calculé sur ${c.ateliersTx} / ${c.realises} ateliers réalisés`)
-          )
-        );
-      }))
-    )
-  );
-}
-
 // ═══════════════════════════════════════════════════════════
 // VUE ACCUEIL — frontend uniquement
 // ═══════════════════════════════════════════════════════════
@@ -4658,396 +4583,6 @@ function VueAccueil({conseillers,onChoix,loading}){
       CE('button',{className:'accueil-btn',disabled:!choix||(loading&&!hasConseillers),onClick:()=>onChoix(choix)},
         (loading&&!hasConseillers)?CE('span',null,CE('span',{className:'spinner'}),'Chargement…'):'📋 Accéder à mes ateliers'),
       CE('button',{className:'accueil-skip',disabled:false,onClick:()=>onChoix(null)},'Voir tous les ateliers')
-    )
-  );
-}
-
-// ═══════════════════════════════════════════════════════════
-// VuePowerBI — Dashboard Territoire (commun index + admin)
-// ═══════════════════════════════════════════════════════════
-// ── VuePowerBI ──────────────────────────────────────────────
-function VuePowerBI({entries, conseillers: conseillersList}){
-  const CONS = conseillersList && conseillersList.length ? conseillersList : CONSEILLERS_DEFAULT;
-  const CONS_COLORS_PBI = ['#7C3AED','#2563EB','#059669','#DB2777','#d97706','#0891b2','#65a30d','#dc2626'];
-  function cColor(c){ return CONSEILLER_COLORS[c]||CONS_COLORS_PBI[CONS.indexOf(c)%CONS_COLORS_PBI.length]||'#6B7280'; }
-
-  const S_COL_PBI={'Réalisé':'#22c55e','Planifié':'#3b82f6','Annulé':'#ef4444','Non réalisé':'#94a3b8','Reporté':'#f97316'};
-  const MOIS_PBI=['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
-  const STATUTS_PBI=['Réalisé','Planifié','Annulé','Non réalisé','Reporté'];
-
-  const[page,setPage]=React.useState('general');
-  const[fCons,setFCons]=React.useState([]);
-  const[fStat,setFStat]=React.useState([]);
-  const[fMois,setFMois]=React.useState([]);
-  const[showF,setShowF]=React.useState(false);
-
-  function togF(arr,setArr,v){ setArr(p=>p.includes(v)?p.filter(x=>x!==v):[...p,v]); }
-  const hasF=fCons.length||fStat.length||fMois.length;
-
-  const fd=React.useMemo(()=>entries.filter(d=>{
-    if(fCons.length&&!fCons.includes(d.conseiller))return false;
-    if(fStat.length&&!fStat.includes(d.statut))return false;
-    if(fMois.length){const m=d.date?parseInt(d.date.split('-')[1]):0;if(!fMois.includes(m))return false;}
-    return true;
-  }),[entries,fCons,fStat,fMois]);
-
-  const getMois=d=>d.date?parseInt(d.date.split('-')[1]):0;
-
-  // KPIs
-  const total=fd.length;
-  const real=fd.filter(d=>d.statut==='Réalisé').length;
-  const tReal=total?Math.round(real/total*100):0;
-  const totPre=kpiHistorique(fd).presents;
-  const totIns=kpiHistorique(fd).inscrits;
-  const presence=tauxPresence(fd),tPres=presence.tx;
-
-  // Par mois
-  const pMois=MOIS_PBI.map((l,i)=>{
-    const m=i+1,r=fd.filter(d=>getMois(d)===m);
-    return{mois:l,
-      Réalisés:r.filter(d=>d.statut==='Réalisé').length,
-      Planifiés:r.filter(d=>d.statut==='Planifié').length,
-      Annulés:r.filter(d=>d.statut==='Annulé').length,
-      Participations:aDesParticipationsSaisies(r)?kpiHistorique(r).presents:null
-    };
-  });
-
-  // Statuts donut
-  const pStat=STATUTS_PBI.map(s=>({name:s,value:fd.filter(d=>d.statut===s).length,color:S_COL_PBI[s]})).filter(d=>d.value>0);
-
-  // Thématiques top 10
-  const allThemes=[...new Set(fd.map(d=>d.thematique).filter(Boolean))];
-  const pTheme=allThemes.map(t=>({name:t.length>22?t.slice(0,22)+'…':t,count:fd.filter(d=>d.thematique===t).length})).sort((a,b)=>b.count-a.count).slice(0,10);
-
-  // Orienteurs top 8
-  const allOris=[...new Set(fd.map(d=>d.orienteur).filter(Boolean))];
-  const pOri=allOris.map(o=>({name:o.length>16?o.slice(0,16)+'…':o,count:fd.filter(d=>d.orienteur===o).length})).sort((a,b)=>b.count-a.count).slice(0,8);
-
-  // Conseillers × mois (jusqu'au mois en cours)
-  const _moisCourant=new Date().getMonth()+1;
-  const pMoisFilt=pMois.filter((_,i)=>i+1<=_moisCourant);
-  const pConsMois=MOIS_PBI.map((l,i)=>{
-    const m=i+1,obj={mois:l};
-    CONS.forEach(c=>{obj[c]=fd.filter(d=>getMois(d)===m&&(d.conseiller===c||d.co_animateur===c)&&d.statut==='Réalisé').length;});
-    return obj;
-  }).filter((_,i)=>i+1<=_moisCourant);
-
-  // Communes top 8
-  const allComm=[...new Set(fd.map(d=>normCommune(d.commune)).filter(Boolean))];
-  const pComm=allComm.map(c=>({
-    name:c.length>14?c.slice(0,14)+'…':c,fullName:c,
-    presents:aDesParticipationsSaisies(fd.filter(d=>normCommune(d.commune)===c))?kpiHistorique(fd.filter(d=>normCommune(d.commune)===c)).presents:null,
-    ateliers:fd.filter(d=>normCommune(d.commune)===c).length
-  })).sort((a,b)=>b.presents-a.presents).slice(0,8);
-
-  // ── Sous-composants ────────────────────────────────────────
-  // Couleurs dark-aware pour VuePowerBI
-  const isDark=document.documentElement.getAttribute('data-theme')==='dark';
-  const PBI_BG    = isDark?'#1a1d27':'#ffffff';
-  const PBI_BG2   = isDark?'#252836':'#f3f4f6';
-  const PBI_BORDER= isDark?'#2d3148':'#e5e7eb';
-  const PBI_TEXT  = isDark?'#e2e8f0':'#111827';
-  const PBI_TEXT2 = isDark?'#94a3b8':'#6b7280';
-  const PBI_CONT  = isDark?'rgba(255,255,255,0.06)':'#f3f4f6';
-
-  function KpiPBI({label,value,sub,color,icon,delay=0}){
-    return CE(FadeItem,{delay},CE('div',{style:{background:PBI_BG,borderRadius:6,padding:'14px',borderLeft:`4px solid ${color}`,boxShadow:'0 1px 6px rgba(0,0,0,.15)'}},
-      CE('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:6}},
-        CE('div',{style:{minWidth:0}},
-          CE('div',{style:{fontSize:10,color:PBI_TEXT2,fontWeight:700,textTransform:'uppercase',letterSpacing:'.06em',marginBottom:5,overflow:'hidden',textOverflow:'ellipsis'}},label),
-          CE('div',{style:{fontSize:28,fontWeight:800,color:PBI_TEXT,lineHeight:1}},value),
-          sub&&CE('div',{style:{fontSize:11,color:PBI_TEXT2,marginTop:4}},sub)
-        ),
-        CE('div',{style:{width:38,height:38,flexShrink:0,borderRadius:8,background:color+'22',display:'flex',alignItems:'center',justifyContent:'center',fontSize:20}},icon)
-      )
-    ));
-  }
-
-  function ChipPBI({label,active,color,onClick}){
-    return CE('span',{onClick,style:{
-      display:'inline-block',padding:'4px 10px',borderRadius:20,fontSize:11,fontWeight:600,
-      cursor:'pointer',userSelect:'none',marginRight:4,marginBottom:4,
-      background:active?color:PBI_CONT,color:active?'#fff':PBI_TEXT2,
-      border:`1.5px solid ${active?color:PBI_BORDER}`,transition:'all .15s'
-    }},label);
-  }
-
-  function CardPBI({title,children,style={}}){
-    return CE('div',{style:{background:PBI_BG,borderRadius:6,padding:14,boxShadow:'0 1px 6px rgba(0,0,0,.15)',...style}},
-      CE('div',{style:{fontSize:10,fontWeight:700,color:PBI_TEXT2,textTransform:'uppercase',letterSpacing:'.06em',marginBottom:12,paddingBottom:8,borderBottom:`1px solid ${PBI_BORDER}`}},title),
-      children
-    );
-  }
-
-  // ── Style PBI aligné sur GDIN ────────────────────
-  const ecTT={backgroundColor:'#111827',borderColor:'#374151',textStyle:{color:'#f1f5f9',fontSize:11},extraCssText:'border-radius:8px;padding:10px 14px;box-shadow:none'};
-  const _ecAPN={axisPointer:{type:'none'}};
-  // La teinte reste ici ; le relief Liquid Glass est appliqué par PBIChart.
-  function mkGradPBI(c1,c2,dir='v'){return c1;}
-  // Les ombres et les reflets sont communs aux autres graphiques.
-  const _bar3D={borderRadius:[3,3,0,0]};
-  function PBIChart({option,height}){
-    const ref=React.useRef(null);const inst=React.useRef(null);const prevOpt=React.useRef(option);
-    React.useEffect(()=>{
-      if(!ref.current||!window.echarts)return;
-      const isNew=!inst.current;
-      const appliquer=(premier,sansAnim)=>{if(inst.current)inst.current.setOption({...EC_ANIM,...(sansAnim||mouvementReduit()?{animation:false}:{}),...liquidGlassOption(prevOpt.current)},{notMerge:premier,lazyUpdate:false});};
-      if(isNew){
-        inst.current=window.echarts.init(ref.current,null,{devicePixelRatio:(window.devicePixelRatio||1)*(window.__zoomGraphiques||1)});const ro=new ResizeObserver(()=>{if(inst.current)inst.current.resize();});ro.observe(ref.current);inst.current._ro=ro;
-        prevOpt.current=option;inst.current._attente=true;
-        // Entrée en mouvement à l'apparition à l'écran (voir quandVisible).
-        inst.current._fin=quandVisible(ref.current,(premier,sansAnim)=>{
-          if(!inst.current)return;
-          inst.current._attente=false;
-          if(sansAnim){appliquer(true,true);return;}
-          if(!premier)inst.current.clear();   // retour à l'écran : rejouer l'animation
-          requestAnimationFrame(()=>requestAnimationFrame(()=>appliquer(true)));
-        });
-        return;
-      }
-      if(prevOpt.current===option)return;
-      prevOpt.current=option;
-      if(inst.current._attente)return;
-      requestAnimationFrame(()=>appliquer(false));
-    });
-    React.useEffect(()=>{return()=>{if(inst.current){if(inst.current._fin)inst.current._fin();if(inst.current._ro)inst.current._ro.disconnect();inst.current.dispose();inst.current=null;}};},[]);
-    return CE('div',{ref,className:'ec-liquid-glass',style:{width:'100%',height:height||180,contain:'inline-size'}});
-  }
-
-  // ── Pages ──────────────────────────────────────────────────
-  const PAGES_PBI=[{id:'general',ico:'📊',label:'Général'},{id:'conseillers',ico:'👥',label:'Conseillers'},{id:'territoire',ico:'🗺️',label:'Territoire'}];
-
-  return CE('div',{style:{fontFamily:"'Segoe UI',system-ui,sans-serif",minHeight:'60vh'}},
-
-    // ── Bandeau Power BI ──
-    CE('div',{style:{background:'#1e2132',borderRadius:'6px 6px 0 0',padding:'0 14px',display:'flex',alignItems:'center',gap:8,minHeight:44}},
-      CE('div',{style:{width:24,height:24,background:'#f2c811',borderRadius:3,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}},
-        CE('div',{style:{width:12,height:12,background:'#1e2132',borderRadius:2}})
-      ),
-      CE('div',{style:{flex:1,minWidth:0}},
-        CE('span',{style:{fontSize:12,fontWeight:700,color:'#f2c811'}},'Bilan d\'activité '),
-        CE('span',{style:{fontSize:11,color:'#94a3b8'}}),'· Ateliers Inclusion Numérique'
-      ),
-      hasF&&CE('button',{
-        onClick:()=>{setFCons([]);setFStat([]);setFMois([]);},
-        style:{padding:'3px 10px',borderRadius:4,border:'none',background:'#ef4444',color:'#fff',fontSize:10,fontWeight:700,cursor:'pointer'}
-      },'✕ Filtres'),
-      CE('button',{
-        onClick:()=>setShowF(s=>!s),
-        style:{padding:'4px 10px',borderRadius:4,border:`1px solid ${showF?'#f2c811':'#374151'}`,background:showF?'#2d3250':'transparent',color:showF?'#f2c811':'#9ca3af',cursor:'pointer',fontSize:11,fontWeight:showF?700:400}
-      },'⚙️ '+fd.length)
-    ),
-
-    // ── Onglets pages ──
-    CE('div',{style:{background:'#1e2132',display:'flex',borderBottom:'1px solid #374151',overflowX:'auto'}},
-      PAGES_PBI.map(p=>CE('button',{key:p.id,onClick:()=>setPage(p.id),style:{
-        padding:'8px 16px',border:'none',background:'transparent',cursor:'pointer',
-        fontSize:12,fontWeight:page===p.id?700:400,whiteSpace:'nowrap',fontFamily:'inherit',
-        color:page===p.id?'#f2c811':'#9ca3af',
-        borderBottom:page===p.id?'2px solid #f2c811':'2px solid transparent',transition:'all .15s'
-      }},p.ico+' '+p.label))
-    ),
-
-    // ── Filtres ──
-    showF&&CE('div',{style:{background:PBI_BG,border:`1px solid ${PBI_BORDER}`,borderTop:'none',padding:'12px 14px'}},
-      CE('div',{style:{display:'flex',gap:16,flexWrap:'wrap'}},
-        CE('div',null,
-          CE('div',{style:{fontSize:10,fontWeight:700,color:'#6b7280',textTransform:'uppercase',letterSpacing:'.06em',marginBottom:6}}),'Mois',
-          CE('div',null,MOIS_PBI.map((m,i)=>CE(ChipPBI,{key:m,label:m,active:fMois.includes(i+1),color:'#1e40af',onClick:()=>togF(fMois,setFMois,i+1)})))
-        ),
-        CE('div',null,
-          CE('div',{style:{fontSize:10,fontWeight:700,color:'#6b7280',textTransform:'uppercase',letterSpacing:'.06em',marginBottom:6}}),'Conseiller·ère',
-          CE('div',null,CONS.map(c=>CE(ChipPBI,{key:c,label:c.split(' ')[0],active:fCons.includes(c),color:cColor(c),onClick:()=>togF(fCons,setFCons,c)})))
-        ),
-        CE('div',null,
-          CE('div',{style:{fontSize:10,fontWeight:700,color:'#6b7280',textTransform:'uppercase',letterSpacing:'.06em',marginBottom:6}}),'Statut',
-          CE('div',null,STATUTS_PBI.map(s=>CE(ChipPBI,{key:s,label:s,active:fStat.includes(s),color:S_COL_PBI[s],onClick:()=>togF(fStat,setFStat,s)})))
-        )
-      )
-    ),
-
-    // ── Contenu ──
-    CE('div',{style:{padding:14,background:isDark?'#0f1117':PBI_BG2,borderRadius:'0 0 6px 6px'}},
-
-      // PAGE GÉNÉRAL
-      page==='general'&&CE(React.Fragment,null,
-        // Deux cartes par ligne, une seule quand elles n'ont plus 150 px : sur
-        // téléphone, elles élargissaient la page (25/10/2026).
-        CE('div',{style:{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(max(150px,calc(50% - 10px)),1fr))',gap:10,marginBottom:12}},
-          CE(KpiPBI,{label:'Ateliers',value:total,sub:real+' réalisés',color:'#2563EB',icon:'🖥️',delay:0}),
-          CE(KpiPBI,{label:'Réalisation',value:total?tReal+'%':'—',sub:real+' / '+total+' ateliers',color:'#16a34a',icon:'✅',delay:0.08}),
-          CE(KpiPBI,{label:'Participations',value:aDesParticipationsSaisies(fd)?totPre:'—',sub:totIns+' inscriptions aux réalisés',color:'#7C3AED',icon:'👥',delay:0.16}),
-          CE(KpiPBI,{label:'Présence',value:presence.inscrits>0?tPres+' %':'—',sub:`Calculé sur ${presence.ateliers} / ${real} ateliers réalisés`,color:'#d97706',icon:'📊',delay:0.24})
-        ),
-
-        CE(CardPBI,{title:'Ateliers par mois',style:{marginBottom:12}},
-          CE(PBIChart,{height:180,option:{backgroundColor:'transparent',
-            grid:{top:8,right:4,bottom:36,left:0,containLabel:true},
-            tooltip:{trigger:'axis',..._ecAPN,...ecTT},
-            legend:{data:['Réalisés','Planifiés','Annulés'],textStyle:{color:'#94a3b8',fontSize:9},bottom:0,icon:'roundRect',itemWidth:8,itemHeight:6},
-            xAxis:{data:pMois.map(d=>d.mois),axisLine:{show:false},axisTick:{show:false},axisLabel:{color:'#94a3b8',fontSize:9}},
-            yAxis:{splitLine:{lineStyle:{color:'#2d3250',type:'dashed'}},axisLabel:{color:'#94a3b8',fontSize:9},axisLine:{show:false},axisTick:{show:false}},
-            series:[
-              {name:'Réalisés',type:'bar',barMaxWidth:16,data:pMois.map(d=>d['Réalisés']),itemStyle:{color:mkGradPBI('#34d399','#16a34a'),..._bar3D,borderRadius:[3,3,0,0]}},
-              {name:'Planifiés',type:'bar',barMaxWidth:16,data:pMois.map(d=>d['Planifiés']),itemStyle:{color:mkGradPBI('#60a5fa','#2563eb'),..._bar3D,borderRadius:[3,3,0,0]}},
-              {name:'Annulés',type:'bar',barMaxWidth:16,data:pMois.map(d=>d['Annulés']),itemStyle:{color:mkGradPBI('#f87171','#dc2626'),..._bar3D,borderRadius:[3,3,0,0]}}
-            ]}})
-        ),
-
-        CE('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:12}},
-          CE(CardPBI,{title:'Statuts',style:{}},
-            CE(PBIChart,{height:150,option:{backgroundColor:'transparent',
-              tooltip:{trigger:'item',..._ecAPN,...ecTT},
-              series:[{type:'pie',radius:['42%','65%'],center:['50%','50%'],
-                itemStyle:{borderRadius:4,borderColor:'#1e2132',borderWidth:2},
-                label:{show:false},
-                data:pStat.map(d=>({name:d.name,value:d.value,itemStyle:{color:d.color,shadowColor:d.color+'66',shadowBlur:6}})),
-                emphasis:{itemStyle:{shadowBlur:12},scaleSize:5}
-              }]}}),
-            CE('div',{style:{display:'flex',flexWrap:'wrap',gap:4,justifyContent:'center',marginTop:6}},
-              pStat.map(s=>CE('div',{key:s.name,style:{display:'flex',alignItems:'center',gap:3,fontSize:9}},
-                CE('div',{style:{width:7,height:7,borderRadius:'50%',background:s.color}}),
-                s.name,': ',CE('b',null,s.value)
-              ))
-            )
-          ),
-          CE(CardPBI,{title:'Participations / mois',style:{}},
-            CE(PBIChart,{height:150,option:{backgroundColor:'transparent',
-              grid:{top:8,right:4,bottom:22,left:0,containLabel:true},
-              tooltip:{trigger:'axis',..._ecAPN,...ecTT},
-              xAxis:{data:pMoisFilt.map(d=>d.mois),axisLine:{show:false},axisTick:{show:false},axisLabel:{color:'#94a3b8',fontSize:9}},
-              yAxis:{splitLine:{lineStyle:{color:'#2d3250',type:'dashed'}},axisLabel:{color:'#94a3b8',fontSize:9},axisLine:{show:false},axisTick:{show:false}},
-              series:[{name:'Participations',type:'line',data:pMoisFilt.map(d=>d['Participations']),smooth:true,symbol:'none',
-                lineStyle:{width:2,color:'#22c55e'},
-                areaStyle:{color:mkGradPBI('rgba(34,197,94,0.35)','rgba(34,197,94,0.02)')}}]}}))
-        ),
-
-        pTheme.length>0&&CE(CardPBI,{title:'Top thématiques',style:{marginBottom:12}},
-          CE(PBIChart,{height:Math.max(180,pTheme.length*24),option:{backgroundColor:'transparent',
-            grid:{top:8,right:50,bottom:8,left:8,containLabel:true},
-            tooltip:{trigger:'axis',..._ecAPN,...ecTT},
-            xAxis:{splitLine:{lineStyle:{color:'#2d3250',type:'dashed'}},axisLabel:{color:'#94a3b8',fontSize:9},axisLine:{show:false},axisTick:{show:false}},
-            yAxis:{type:'category',data:pTheme.map(d=>d.name),axisLabel:{color:'#94a3b8',fontSize:9},axisLine:{show:false},axisTick:{show:false}},
-            series:[{type:'bar',barMaxWidth:14,
-              data:pTheme.map((d,i)=>({value:d.count,itemStyle:{color:mkGradPBI(`hsl(${230+i*10},70%,65%)`,`hsl(${230+i*10},70%,45%)`,'h'),borderRadius:[0,4,4,0]}})),
-              label:{show:true,position:'right',color:'#94a3b8',fontSize:9,fontWeight:'bold'}
-            }]}})
-        ),
-
-        pOri.length>0&&CE(CardPBI,{title:'Organismes orienteurs'},
-          CE(PBIChart,{height:160,option:{backgroundColor:'transparent',
-            grid:{top:8,right:4,bottom:48,left:0,containLabel:true},
-            tooltip:{trigger:'axis',..._ecAPN,...ecTT},
-            xAxis:{data:pOri.map(d=>d.name),axisLine:{show:false},axisTick:{show:false},axisLabel:{color:'#94a3b8',fontSize:8,rotate:-20,interval:0}},
-            yAxis:{splitLine:{lineStyle:{color:'#2d3250',type:'dashed'}},axisLabel:{color:'#94a3b8',fontSize:9},axisLine:{show:false},axisTick:{show:false}},
-            series:[{type:'bar',barMaxWidth:20,data:pOri.map(d=>d.count),
-              itemStyle:{color:mkGradPBI('#fdba74','#f97316'),..._bar3D,borderRadius:[3,3,0,0]},
-              label:{show:true,position:'top',color:'#94a3b8',fontSize:8}}]}}))
-      ),
-
-      // PAGE CONSEILLERS
-      page==='conseillers'&&CE(React.Fragment,null,
-        CE('div',{style:{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:10,marginBottom:12}},
-          CONS.map(c=>{
-            const r=fd.filter(d=>d.conseiller===c);
-            const rl=r.filter(d=>d.statut==='Réalisé').length;
-            const pct=r.length?Math.round(rl/r.length*100):0;
-            const pre=kpiHistorique(r).presents;
-            const ann=r.filter(d=>d.statut==='Annulé').length;
-            return CE('div',{key:c,style:{background:PBI_BG,borderRadius:6,padding:12,boxShadow:'0 1px 6px rgba(0,0,0,.15)',borderTop:`3px solid ${cColor(c)}`}},
-              CE('div',{style:{fontSize:11,fontWeight:700,color:cColor(c),marginBottom:8,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}},c),
-              CE('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6,marginBottom:8}},
-                CE('div',null,CE('div',{style:{fontSize:20,fontWeight:800,color:PBI_TEXT}},r.length),CE('div',{style:{fontSize:9,color:PBI_TEXT2}},'Ateliers')),
-                CE('div',null,CE('div',{style:{fontSize:20,fontWeight:800,color:cColor(c)}},r.length?pct+'%':'—'),CE('div',{style:{fontSize:9,color:PBI_TEXT2}},'Réalisation')),
-                CE('div',null,CE('div',{style:{fontSize:16,fontWeight:700,color:PBI_TEXT}},aDesParticipationsSaisies(r)?pre:'—'),CE('div',{style:{fontSize:9,color:PBI_TEXT2}},'Participations')),
-                CE('div',null,CE('div',{style:{fontSize:16,fontWeight:700,color:'#ef4444'}},ann),CE('div',{style:{fontSize:9,color:PBI_TEXT2}},'Annulés'))
-              ),
-              CE('div',{style:{height:5,background:PBI_BG2,borderRadius:3}},
-                CE('div',{style:{height:5,background:cColor(c),borderRadius:3,width:pct+'%',transition:'width .5s'}})
-              )
-            );
-          })
-        ),
-
-        CE(CardPBI,{title:'Réalisés par conseiller·ère — par mois',style:{marginBottom:12}},
-          CE(PBIChart,{height:200,option:{backgroundColor:'transparent',
-            grid:{top:8,right:4,bottom:44,left:0,containLabel:true},
-            tooltip:{trigger:'axis',..._ecAPN,...ecTT},
-            legend:{data:CONS.map(c=>c.split(' ')[0]),textStyle:{color:'#94a3b8',fontSize:9},bottom:0,icon:'roundRect',itemWidth:8,itemHeight:6},
-            xAxis:{data:pConsMois.map(d=>d.mois),axisLine:{show:false},axisTick:{show:false},axisLabel:{color:'#94a3b8',fontSize:9}},
-            yAxis:{splitLine:{lineStyle:{color:'#2d3250',type:'dashed'}},axisLabel:{color:'#94a3b8',fontSize:9},axisLine:{show:false},axisTick:{show:false}},
-            series:CONS.map((c,ci)=>({name:c.split(' ')[0],type:'bar',stackId:'a',barMaxWidth:30,data:pConsMois.map(d=>d[c]||0),itemStyle:{color:cColor(c),..._bar3D,borderRadius:ci===CONS.length-1?[3,3,0,0]:[0,0,0,0]}}))}}),
-
-        CE(CardPBI,{title:'Tableau récapitulatif'},
-          CE('div',{style:{overflowX:'auto'}},
-            CE('table',{style:{width:'100%',borderCollapse:'collapse',fontSize:11}},
-              CE('thead',null,CE('tr',{style:{background:PBI_BG2}},
-                ['','Total','Réal.','Ann.','Participations','Réalisation'].map(h=>CE('th',{key:h,style:{padding:'7px 8px',textAlign:'left',fontWeight:700,color:'#6b7280',borderBottom:'2px solid #e5e7eb',fontSize:10,whiteSpace:'nowrap'}},h))
-              )),
-              CE('tbody',null,CONS.map((c,i)=>{
-                const r=fd.filter(d=>d.conseiller===c);
-                const rl=r.filter(d=>d.statut==='Réalisé').length;
-                const pct=r.length?Math.round(rl/r.length*100):0;
-                const pre=kpiHistorique(r).presents;
-                const ann=r.filter(d=>d.statut==='Annulé').length;
-                return CE('tr',{key:c,style:{background:i%2?PBI_BG2:PBI_BG}},
-                  CE('td',{style:{padding:'6px 8px'}},CE('div',{style:{display:'flex',alignItems:'center',gap:5}},
-                    CE('div',{style:{width:8,height:8,borderRadius:2,background:cColor(c),flexShrink:0}}),
-                    CE('span',{style:{fontWeight:600,fontSize:10}},c.split(' ')[0])
-                  )),
-                  CE('td',{style:{padding:'6px 8px',fontWeight:700}},r.length),
-                  CE('td',{style:{padding:'6px 8px',color:'#16a34a',fontWeight:600}},rl),
-                  CE('td',{style:{padding:'6px 8px',color:'#dc2626',fontWeight:600}},ann),
-                  CE('td',{style:{padding:'6px 8px'}},aDesParticipationsSaisies(r)?pre:'—'),
-                  CE('td',{style:{padding:'6px 8px'}},CE('div',{style:{display:'flex',alignItems:'center',gap:5}},
-                    CE('div',{style:{height:5,width:40,background:PBI_BG2,borderRadius:3}},
-                      CE('div',{style:{height:5,background:cColor(c),borderRadius:3,width:pct+'%'}})
-                    ),
-                    CE('span',{style:{fontSize:10,fontWeight:700,color:cColor(c)}},r.length?pct+'%':'—')
-                  ))
-                );
-              }))
-            )
-          )
-        )
-      ),
-      ),
-
-      // PAGE TERRITOIRE
-      page==='territoire'&&CE(React.Fragment,null,
-        pComm.length>0&&CE(CardPBI,{title:'Participations par commune',style:{marginBottom:12}},
-          CE(PBIChart,{height:220,option:{backgroundColor:'transparent',
-            grid:{top:8,right:50,bottom:8,left:8,containLabel:true},
-            tooltip:{trigger:'axis',..._ecAPN,...ecTT},
-            xAxis:{splitLine:{lineStyle:{color:'#2d3250',type:'dashed'}},axisLabel:{color:'#94a3b8',fontSize:9},axisLine:{show:false},axisTick:{show:false}},
-            yAxis:{type:'category',data:pComm.map(d=>d.name),axisLabel:{color:'#94a3b8',fontSize:9},axisLine:{show:false},axisTick:{show:false}},
-            series:[{type:'bar',barMaxWidth:18,
-              data:pComm.map((d,i)=>({value:d.presents,itemStyle:{color:mkGradPBI(`hsl(${210+i*12},70%,60%)`,`hsl(${210+i*12},70%,40%)`,'h'),borderRadius:[0,4,4,0]}})),
-              label:{show:true,position:'right',color:'#94a3b8',fontSize:9,fontWeight:'bold'}
-            }]}})
-        ),
-
-        pComm.length>0&&CE(CardPBI,{title:'Ateliers par commune',style:{marginBottom:12}},
-          CE(PBIChart,{height:180,option:{backgroundColor:'transparent',
-            grid:{top:8,right:4,bottom:48,left:0,containLabel:true},
-            tooltip:{trigger:'axis',..._ecAPN,...ecTT},
-            xAxis:{data:pComm.map(d=>d.name),axisLine:{show:false},axisTick:{show:false},axisLabel:{color:'#94a3b8',fontSize:8,rotate:-20,interval:0}},
-            yAxis:{splitLine:{lineStyle:{color:'#2d3250',type:'dashed'}},axisLabel:{color:'#94a3b8',fontSize:9},axisLine:{show:false},axisTick:{show:false}},
-            series:[{type:'bar',barMaxWidth:22,data:pComm.map(d=>d.ateliers),
-              itemStyle:{color:mkGradPBI('#c084fc','#7c3aed'),..._bar3D,borderRadius:[3,3,0,0]},
-              label:{show:true,position:'top',color:'#94a3b8',fontSize:8}}]}})        
-        ),
-
-        CE(CardPBI,{title:'Détail communes'},
-          CE('div',{style:{overflowX:'auto'}},
-            CE(TableCommunesDashboard,{fd})
-          )
-        )
-      ),
-
-      CE('div',{style:{textAlign:'right',fontSize:10,color:'#94a3b8',marginTop:8}},
-        fd.length+'/'+entries.length+' ateliers affichés · CD47 Inclusion Numérique'
-      )
     )
   );
 }
@@ -6250,16 +5785,16 @@ function VueDashboard({entries}){
 }
 
 
-// ── Bilan trimestriel (CR « option 1 », module D, 04/10/2026) ───────────
-// Un clic : activité, fiches bilan et avis des stagiaires d'un trimestre,
-// imprimable en PDF. Calcul : bilanTrimestriel (logic.js). Les avis
-// viennent de l'action bilanAvis, appelée à l'ouverture de l'onglet et au
-// changement de période, jamais au démarrage.
+// ── Bilans — mois ou trimestre (AG-037, 28/10/2026) ─────────────────────
+// Fusion du bilan mensuel et du bilan trimestriel (CR « option 1 », module D,
+// 04/10/2026). Un seul calcul, bilanPeriode (logic.js), pour l'écran et
+// l'impression. Les avis viennent de l'action bilanAvis, appelée à
+// l'ouverture de l'onglet et au changement de période, jamais au démarrage.
 const BILAN_LIBELLES={niveau:'Niveau du groupe',objectif:'Objectif atteint',difficultes:'Difficultés rencontrées',supports:'Supports utilisés',suite:'Suite à donner'};
 // opts.avisHorsChargement : avis reçus pour des ateliers de la période absents
 // des données chargées (AG-032, BT-01) ; opts.groupe : document « un bilan par
 // conseiller » (mention de la coanimation).
-function htmlBilanTrimestriel(b,titre,remarques,avisErreur,opts={}){
+function htmlBilan(b,titre,remarques,avisErreur,opts={}){
   const e=htmlEsc,pc=(n,t)=>t?Math.round(n/t*100)+' %':'—';
   const repartition=(compte,ordre,total)=>{
     const cles=[...ordre.filter(k=>compte[k]),...Object.keys(compte).filter(k=>!ordre.includes(k))];
@@ -6268,18 +5803,19 @@ function htmlBilanTrimestriel(b,titre,remarques,avisErreur,opts={}){
   };
   const a=b.activite,f=b.fiches,v=b.avis;
   const chiffre=(n,l)=>`<div class="bt-kpi"><b>${n===null||n===undefined?'—':e(String(n))}</b><span>${e(l)}</span></div>`;
-  // Programmation du trimestre (demande du 26/10/2026) : tous les ateliers
+  // Programmation de la période (demande du 26/10/2026) : tous les ateliers
   // datés de la période, puis un chiffre par statut (les 5 usuels même à 0).
   const ORDRE_STATUTS=['Réalisé','Planifié','Reporté','Annulé','Non réalisé'];
   const programmes=Object.values(a.statuts).reduce((x,n)=>x+n,0);
   const parStatut=[...ORDRE_STATUTS,...Object.keys(a.statuts).filter(k=>!ORDRE_STATUTS.includes(k))].map(k=>chiffre(a.statuts[k]||0,k.toLowerCase()+(k.endsWith('é')&&(a.statuts[k]||0)>1?'s':''))).join('');
   const reste=a.planifiesPasses!==undefined?a.planifiesPasses:(a.statuts['Planifié']||0);
-  let h=`<h1>${e(titre)}</h1><div class="bt-sous">Du ${fmtDate(b.debut)} au ${fmtDate(b.fin)} — programmation : tous les ateliers datés du trimestre ; autres statistiques : ateliers « Réalisé »</div>`;
-  h+=`<h2>Programmation</h2><div class="bt-kpis">${chiffre(programmes,'ateliers programmés')}${parStatut}</div>`;
-  h+=`<h2>Activité</h2><div class="bt-kpis">${chiffre(a.realises,'ateliers réalisés')}${chiffre(a.presents,'participations')}${chiffre(a.tauxPresence===null?null:a.tauxPresence+' %','taux de présence')}${chiffre(String(a.heures).replace('.',','),'heures d\'animation')}${chiffre(a.communes,'communes')}</div>`;
+  let h=`<h1>${e(titre)}</h1><div class="bt-sous">Du ${fmtDate(b.debut)} au ${fmtDate(b.fin)} — programmation : tous les ateliers datés de la période ; autres statistiques : ateliers « Réalisé »</div>`;
+  h+=`<h2>Programmation</h2><div class="bt-kpis">${chiffre(programmes,'ateliers programmés')}${parStatut}${chiffre(a.tauxRealisation===null||a.tauxRealisation===undefined?null:a.tauxRealisation+' %','réalisation')}</div>`;
+  h+=`<h2>Activité</h2><div class="bt-kpis">${chiffre(a.realises,'ateliers réalisés')}${chiffre(a.inscrits,'inscriptions')}${chiffre(a.presents,'participations')}${chiffre(a.tauxPresence===null?null:a.tauxPresence+' %','taux de présence')}${chiffre(String(a.heures).replace('.',','),'heures d\'animation')}${chiffre(a.communes,'communes')}</div>`;
   h+='<div class="bt-note">Participations : présences cumulées aux ateliers, pas de personnes uniques.</div>';
   // Couvertures (décision du 26/10/2026, AG-032) : ce qui n'est pas saisi n'est pas compté comme 0.
   if(a.presentsSaisis!==undefined&&a.presentsSaisis<a.realises)h+=`<div class="bt-note">Participations sur ${a.presentsSaisis} atelier${a.presentsSaisis>1?'s':''} réalisé${a.presentsSaisis>1?'s':''} sur ${a.realises} : présents non saisis sur ${a.realises-a.presentsSaisis}.</div>`;
+  if(a.presence&&a.tauxPresence!==null)h+=`<div class="bt-note">Taux de présence calculé sur ${a.presence.ateliers} / ${a.realises} atelier${a.realises>1?'s':''} réalisé${a.realises>1?'s':''} (inscrits et présents saisis).</div>`;
   if(a.dureesParDefaut)h+=`<div class="bt-note">Heures : ${a.dureesParDefaut} atelier${a.dureesParDefaut>1?'s':''} sans durée saisie, compté${a.dureesParDefaut>1?'s':''} 1 h 30.</div>`;
   if(opts.groupe)h+='<div class="bt-note">Un atelier co-animé figure dans le bilan de chacun de ses animateurs : les bilans individuels ne s\'additionnent pas.</div>';
   if(reste)h+=`<div class="bt-alerte">⚠️ ${reste} atelier${reste>1?'s':''} déjà passé${reste>1?'s':''} encore « Planifié » : statut à mettre à jour, sinon ${reste>1?'ils manquent':'il manque'} au bilan.</div>`;
@@ -6293,7 +5829,9 @@ function htmlBilanTrimestriel(b,titre,remarques,avisErreur,opts={}){
     if(v.n){
       h+='<div class="bt-grille">';
       // Base : tous les avis, non-réponses affichées (décision du 26/10/2026, AG-032).
-      AVIS_QUESTIONS.filter(([k])=>v[k]).forEach(([k,lib,ordre])=>{const sr=(v.sansReponse||{})[k]||0;h+=`<div class="bt-bloc"><h3>${e(lib)}</h3>${repartition(sr?{...v[k],'Sans réponse':sr}:v[k],ordre,v.n)}${k==='sujet'?'<div class="bt-note">Plusieurs choix possibles par avis : le total peut dépasser 100 %.</div>':''}</div>`;});
+      // Attentes et clarté sont des moyennes, déjà dans les chiffres ci-dessus :
+      // en répartition, elles s'affichaient « Aucune réponse » (vu le 28/10/2026).
+      AVIS_QUESTIONS.filter(([k])=>v[k]&&typeof v[k]==='object').forEach(([k,lib,ordre])=>{const sr=(v.sansReponse||{})[k]||0;h+=`<div class="bt-bloc"><h3>${e(lib)}</h3>${repartition(sr?{...v[k],'Sans réponse':sr}:v[k],ordre,v.n)}${k==='sujet'?'<div class="bt-note">Plusieurs choix possibles par avis : le total peut dépasser 100 %.</div>':''}</div>`;});
       h+='</div>';
       if((remarques||[]).length)h+=`<h3>Remarques (anonymes)</h3><ul class="bt-rem">${remarques.map(r=>`<li>« ${e(r)} »</li>`).join('')}</ul>`;
     }
@@ -6304,6 +5842,16 @@ function htmlBilanTrimestriel(b,titre,remarques,avisErreur,opts={}){
     b.parTheme.forEach(t=>{h+=`<tr><td>${e(t.theme)}</td><td>${t.ateliers}</td><td>${t.presents}</td><td>${avisErreur?'—':t.avis}</td><td>${avisErreur||t.attentes===null?'—':String(t.attentes).replace('.',',')+'/5'}</td></tr>`;});
     h+='</tbody></table>';
   }
+  // Ventilations (AG-037) : sur les ateliers réalisés ; par conseiller, animé
+  // ou co-animé, donc des lignes qui ne s'additionnent pas.
+  const tableau=(titreT,cols,lignes)=>lignes.length?`<h2>${titreT}</h2><table class="bt-table"><thead><tr>${cols.map(c=>`<th>${e(c)}</th>`).join('')}</tr></thead><tbody>${lignes.map(l=>`<tr>${l.map(x=>`<td>${e(String(x))}</td>`).join('')}</tr>`).join('')}</tbody></table>`:'';
+  const part=x=>x.presentsSaisis?x.presents:'—';
+  if(!opts.groupe&&(b.parConseiller||[]).length>1){
+    h+=tableau('Par conseiller',['Conseiller','Programmés','Réalisés','Annulés','Participations','Réalisation'],b.parConseiller.map(c=>[c.conseiller,c.programmes,c.realises,c.annules,part(c),c.tauxRealisation===null?'—':c.tauxRealisation+' %']));
+    h+='<div class="bt-note">Un atelier co-animé compte pour chacun de ses animateurs : les lignes ne s\'additionnent pas.</div>';
+  }
+  h+=tableau('Par organisme orienteur',['Orienteur','Ateliers réalisés','Participations'],(b.parOrienteur||[]).map(o=>[o.orienteur,o.ateliers,part(o)]));
+  h+=tableau('Par commune',['Commune','Ateliers réalisés','Participations'],(b.parCommune||[]).map(c=>[c.commune,c.ateliers,part(c)]));
   return h;
 }
 const BILAN_TRIM_CSS=`.bt h1{font-size:20px;color:#0f766e;margin:0 0 2px}.bt h2{font-size:15px;color:#0f766e;border-bottom:2px solid #ccfbf1;padding-bottom:3px;margin:18px 0 8px}.bt h3{font-size:13px;margin:0 0 6px;color:#334155}
@@ -6314,14 +5862,38 @@ const BILAN_TRIM_CSS=`.bt h1{font-size:20px;color:#0f766e;margin:0 0 2px}.bt h2{
 .bt-rem{font-size:12px;color:#475569;font-style:italic;padding-left:18px}.bt-table{width:100%;border-collapse:collapse;font-size:12px}.bt-table th,.bt-table td{border-bottom:1px solid #e2e8f0;padding:5px 6px;text-align:left}.bt-table th{background:#f8fafc}
 @media print{.bt *{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
 @media screen{.bt{overflow-x:auto}}`;
-function VueBilanTrimestriel({entries,moi,anneesChargees}){
-  const defaut=trimestreCourant(todayLocal());
-  const[annee,setAnnee]=React.useState(defaut.annee);
-  const[t,setT]=React.useState(defaut.t);
+const MOIS_LONGS=['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
+// Titre d'une période : « Bilan d'octobre 2026 », « Bilan du 4e trimestre 2026 ».
+function titrePeriode(mode,annee,n){
+  if(mode==='mois'){const m=MOIS_LONGS[n-1];return `Bilan ${/^[aeiou]/.test(m)?"d'":'de '}${m} ${annee}`;}
+  return `Bilan du ${n===1?'1er':n+'e'} trimestre ${annee}`;
+}
+function bornesMois(a,m){
+  const mm=String(m).padStart(2,'0');
+  return [`${a}-${mm}-01`,`${a}-${mm}-${String(new Date(Date.UTC(a,m,0)).getUTCDate()).padStart(2,'0')}`];
+}
+// Répartition d'une question (fiche bilan, avis) en barres, base donnée.
+function RepartitionBilan({compte,ordre,total,couleur}){
+  const cles=[...ordre.filter(k=>compte[k]),...Object.keys(compte).filter(k=>!ordre.includes(k))];
+  if(!cles.length)return CE('div',{style:{fontSize:12,color:'#94a3b8'}},'Aucune réponse');
+  return CE('div',null,cles.map(k=>{
+    const p=total?Math.round(compte[k]/total*100):0;
+    return CE('div',{key:k,style:{display:'grid',gridTemplateColumns:'42% 1fr auto',gap:6,alignItems:'center',fontSize:12,margin:'4px 0'}},
+      CE('span',{style:{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'},title:k},k),
+      CE('span',{style:{background:'rgba(148,163,184,.2)',borderRadius:4,height:9,overflow:'hidden'}},CE('span',{style:{display:'block',height:'100%',width:Math.min(p,100)+'%',background:couleur||'#14b8a6'}})),
+      CE('span',{style:{whiteSpace:'nowrap',opacity:.8}},compte[k]+' · '+(total?p+' %':'—')));
+  }));
+}
+function VueBilans({entries,moi,anneesChargees}){
+  const auj=todayLocal();
+  const[mode,setMode]=React.useState('mois');
+  const[annee,setAnnee]=React.useState(parseInt(auj.slice(0,4),10));
+  const[mois,setMois]=React.useState(parseInt(auj.slice(5,7),10));
+  const[t,setT]=React.useState(trimestreCourant(auj).t);
   const[av,setAv]=React.useState(null);
-  const[debut,fin]=bornesTrimestre(annee,t);
+  const[debut,fin]=mode==='mois'?bornesMois(annee,mois):bornesTrimestre(annee,t);
   // Ateliers réalisés de la période : les avis sont relus quand cet ensemble
-  // change (synchronisation), pas seulement au changement de trimestre (AG-032, BT-04).
+  // change (synchronisation), pas seulement au changement de période (AG-032, BT-04).
   const idsPeriode=(entries||[]).filter(e=>e.statut==='Réalisé'&&(d=>d&&d>=debut&&d<=fin)(normalizeDate(e.date))).map(e=>e._id);
   const clePeriode=[...idsPeriode].sort().join('|');
   React.useEffect(()=>{let vivant=true;setAv(null);
@@ -6331,7 +5903,7 @@ function VueBilanTrimestriel({entries,moi,anneesChargees}){
       if(vivant)setAv(r&&r.ok?(r.masque?{avis:[],remarques:[],erreur:`moins de ${r.seuil||3} avis sur la période, résultats masqués pour que personne ne soit reconnu`}:{avis:r.avis,remarques:r.remarques,remarquesAteliers:r.remarques_ateliers||null}):{erreur:(r&&r.error)||'Erreur'});
     }catch(e){if(vivant)setAv({erreur:e.message||'Erreur réseau'});}})();
     return()=>{vivant=false;};},[debut,fin,clePeriode]);
-  // L'année précédente reste proposée (bilan du 4e trimestre en janvier) ; une
+  // L'année précédente reste proposée (bilan de décembre en janvier) ; une
   // année non chargée affiche un message au lieu de faux zéros (AG-032, BT-01).
   const anneeNonChargee=anneesChargees?!anneesListe(anneesChargees).includes(String(annee)):false;
   const annees=[...new Set([annee,new Date().getFullYear(),new Date().getFullYear()-1,...(entries||[]).map(e=>parseInt(String(normalizeDate(e.date)||'').slice(0,4))).filter(Boolean)])].sort((x,y)=>y-x);
@@ -6342,45 +5914,157 @@ function VueBilanTrimestriel({entries,moi,anneesChargees}){
   const entriesF=conum?(entries||[]).filter(e=>e.conseiller===conum||e.co_animateur===conum):entries;
   const idsF=new Set((entriesF||[]).map(e=>e._id));
   const remarques=!av?[]:!conum?av.remarques:av.remarquesAteliers?av.remarquesAteliers.filter(r=>idsF.has(r.atelier_id)).map(r=>r.remarque):[];
-  const titre=`Bilan du ${t===1?'1er':t+'e'} trimestre ${annee} — Ateliers numériques`+(conum?` — ${conum}`:'');
-  const b=bilanTrimestriel(entriesF,debut,fin,av&&av.avis||[]);
+  const libPeriode=titrePeriode(mode,annee,mode==='mois'?mois:t);
+  const titre=`${libPeriode} — Ateliers numériques`+(conum?` — ${conum}`:'');
+  const b=bilanPeriode(entriesF,debut,fin,av&&av.avis||[]);
   const setPeriode=new Set(idsPeriode);
   const avisHorsChargement=av&&av.avis?av.avis.filter(x=>!setPeriode.has(x.atelier_id)).length:0;
-  const html=av?htmlBilanTrimestriel(b,titre,remarques,av.erreur,{avisHorsChargement}):'';
-  function imprimer(){
+  const pied=`<div class="bt-note" style="margin-top:16px">Édité le ${fmtDate(todayLocal())}. Avis des stagiaires anonymes.</div>`;
+  function ouvrir(titreDoc,corps){
     const w=window.open('','_blank');if(!w){showToast('Autorisez les fenêtres pour ce site',false);return;}
-    w.document.write(`<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><title>${htmlEsc(titre)}</title><style>body{font-family:Arial,sans-serif;margin:24px;color:#0f172a}${BILAN_TRIM_CSS}</style></head><body><div class="bt">${html}<div class="bt-note" style="margin-top:16px">Édité le ${fmtDate(todayLocal())}. Avis des stagiaires anonymes.</div></div><script>window.print();<\/script></body></html>`);
+    w.document.write(`<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><title>${htmlEsc(titreDoc)}</title><style>body{font-family:Arial,sans-serif;margin:24px;color:#0f172a}${BILAN_TRIM_CSS}</style></head><body>${corps}<script>window.print();<\/script></body></html>`);
     w.document.close();
   }
+  // Impression : document sobre, mêmes chiffres que l'écran (même résultat b).
+  function imprimer(){
+    if(!av||anneeNonChargee)return;
+    ouvrir(titre,`<div class="bt">${htmlBilan(b,titre,remarques,av.erreur,{avisHorsChargement})}${pied}</div>`);
+  }
   // Un bilan par conseiller, à la suite, une page chacun (demande du 26/10/2026) :
-  // les conseillers qui ont au moins un atelier daté du trimestre.
-  const conumsTrim=conums.filter(c=>(entries||[]).some(e=>(e.conseiller===c||e.co_animateur===c)&&(d=>d&&d>=debut&&d<=fin)(normalizeDate(e.date))));
+  // les conseillers qui ont au moins un atelier daté de la période.
+  const conumsPeriode=conums.filter(c=>(entries||[]).some(e=>(e.conseiller===c||e.co_animateur===c)&&(d=>d&&d>=debut&&d<=fin)(normalizeDate(e.date))));
   function imprimerParConum(){
-    if(!av||anneeNonChargee||!conumsTrim.length)return;
-    const w=window.open('','_blank');if(!w){showToast('Autorisez les fenêtres pour ce site',false);return;}
-    const titreDe=c=>`Bilan du ${t===1?'1er':t+'e'} trimestre ${annee} — Ateliers numériques — ${c}`;
-    const pages=conumsTrim.map(c=>{
+    if(!av||anneeNonChargee||!conumsPeriode.length)return;
+    const pages=conumsPeriode.map(c=>{
       const ent=(entries||[]).filter(e=>e.conseiller===c||e.co_animateur===c);
       const ids=new Set(ent.map(e=>e._id));
       const rem=av.remarquesAteliers?av.remarquesAteliers.filter(r=>ids.has(r.atelier_id)).map(r=>r.remarque):[];
-      return `<div class="bt" style="page-break-after:always;break-after:page">${htmlBilanTrimestriel(bilanTrimestriel(ent,debut,fin,av.avis||[]),titreDe(c),rem,av.erreur,{groupe:true})}<div class="bt-note" style="margin-top:16px">Édité le ${fmtDate(todayLocal())}. Avis des stagiaires anonymes.</div></div>`;
+      return `<div class="bt" style="page-break-after:always;break-after:page">${htmlBilan(bilanPeriode(ent,debut,fin,av.avis||[]),`${libPeriode} — Ateliers numériques — ${c}`,rem,av.erreur,{groupe:true})}${pied}</div>`;
     }).join('');
-    w.document.write(`<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><title>${htmlEsc(`Bilans par conseiller — ${t===1?'1er':t+'e'} trimestre ${annee}`)}</title><style>body{font-family:Arial,sans-serif;margin:24px;color:#0f172a}${BILAN_TRIM_CSS}</style></head><body>${pages}<script>window.print();<\/script></body></html>`);
-    w.document.close();
+    ouvrir(`Bilans par conseiller — ${libPeriode}`,pages);
   }
-  const sel={padding:'6px 8px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:13};
-  return CE('div',{className:'card'},
-    CE('style',null,BILAN_TRIM_CSS),
-    CE('div',{style:{display:'flex',gap:8,flexWrap:'wrap',alignItems:'center',marginBottom:14}},
-      CE('select',{value:t,onChange:e=>setT(parseInt(e.target.value)),style:sel,'aria-label':'Trimestre'},[1,2,3,4].map(n=>CE('option',{key:n,value:n},`${n===1?'1er':n+'e'} trimestre`))),
+
+  // Charte du tableau de bord (bandeau, tuiles, cartes), sombre ou clair.
+  const isDark=document.documentElement.getAttribute('data-theme')==='dark';
+  const BG=isDark?'#1a1d27':'#ffffff',BG2=isDark?'#252836':'#f3f4f6',BORD=isDark?'#2d3148':'#e5e7eb',TXT=isDark?'#e2e8f0':'#111827',TXT2=isDark?'#94a3b8':'#6b7280';
+  const kpi=(label,value,sub,color,icon)=>CE('div',{key:label,style:{background:BG,borderRadius:6,padding:14,borderLeft:`4px solid ${color}`,boxShadow:'0 1px 6px rgba(0,0,0,.15)',minWidth:0}},
+    CE('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:6}},
+      CE('div',{style:{minWidth:0}},
+        CE('div',{style:{fontSize:10,color:TXT2,fontWeight:700,textTransform:'uppercase',letterSpacing:'.06em',marginBottom:5}},label),
+        CE('div',{style:{fontSize:28,fontWeight:800,color:TXT,lineHeight:1}},value),
+        sub&&CE('div',{style:{fontSize:11,color:TXT2,marginTop:4}},sub)),
+      CE('div',{style:{width:38,height:38,flexShrink:0,borderRadius:8,background:color+'22',display:'flex',alignItems:'center',justifyContent:'center',fontSize:20}},icon)));
+  const carte=(titreC,...enfants)=>CE('div',{key:titreC,style:{background:BG,borderRadius:6,padding:14,boxShadow:'0 1px 6px rgba(0,0,0,.15)',minWidth:0,color:TXT}},
+    CE('div',{style:{fontSize:10,fontWeight:700,color:TXT2,textTransform:'uppercase',letterSpacing:'.06em',marginBottom:12,paddingBottom:8,borderBottom:`1px solid ${BORD}`}},titreC),...enfants);
+  const note=(txt,alerte)=>CE('div',{style:alerte?{fontSize:12,background:'#fff7ed',color:'#9a3412',borderRadius:6,padding:'6px 8px',margin:'6px 0'}:{fontSize:12,color:TXT2,margin:'6px 0'}},txt);
+  const tt={backgroundColor:'#111827',borderColor:'#374151',textStyle:{color:'#f1f5f9',fontSize:11},extraCssText:'border-radius:8px;padding:10px 14px;box-shadow:none'};
+  const axe={axisLine:{show:false},axisTick:{show:false},axisLabel:{color:'#94a3b8',fontSize:9}};
+  const grille={splitLine:{lineStyle:{color:'#2d3250',type:'dashed'}},axisLabel:{color:'#94a3b8',fontSize:9},axisLine:{show:false},axisTick:{show:false}};
+  const barresH=(lignes,val,couleur)=>CE(EChart,{height:Math.max(140,lignes.length*24),option:{backgroundColor:'transparent',
+    grid:{top:8,right:40,bottom:8,left:8,containLabel:true},tooltip:{trigger:'axis',axisPointer:{type:'none'},...tt},
+    xAxis:{...grille,minInterval:1},yAxis:{type:'category',inverse:true,data:lignes.map(l=>l.nom.length>22?l.nom.slice(0,22)+'…':l.nom),...axe},
+    series:[{type:'bar',barMaxWidth:14,data:lignes.map(val),itemStyle:{color:couleur,borderRadius:[0,4,4,0]},label:{show:true,position:'right',color:'#94a3b8',fontSize:9,fontWeight:'bold'}}]}});
+
+  const sel={padding:'6px 8px',border:`1.5px solid ${BORD}`,borderRadius:6,fontSize:13,background:BG,color:TXT,width:'auto',maxWidth:'100%'};
+  const btnMode=m=>CE('button',{key:m,type:'button',onClick:()=>setMode(m),'aria-pressed':mode===m,
+    style:{padding:'6px 14px',border:'none',cursor:'pointer',fontSize:13,fontWeight:mode===m?700:400,background:mode===m?'#f2c811':'transparent',color:mode===m?'#1e2132':TXT2}},m==='mois'?'Mois':'Trimestre');
+  const a=b.activite,f=b.fiches,v=b.avis;
+  const ORDRE_STATUTS=['Réalisé','Planifié','Reporté','Annulé','Non réalisé'];
+  const cles=[...ORDRE_STATUTS.filter(k=>a.statuts[k]),...Object.keys(a.statuts).filter(k=>!ORDRE_STATUTS.includes(k))];
+  const pct=(n,tot)=>tot?Math.round(n/tot*100)+' %':'—';
+  const virgule=x=>String(x).replace('.',',');
+  const part=x=>x.presentsSaisis?x.presents:'—';
+
+  return CE('div',{style:{fontFamily:"'Segoe UI',system-ui,sans-serif"}},
+    // Bandeau et choix de la période
+    CE('div',{style:{background:'#1e2132',borderRadius:'6px 6px 0 0',padding:'8px 14px',display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}},
+      CE('div',{style:{flex:'1 1 180px',minWidth:0}},
+        CE('span',{style:{fontSize:12,fontWeight:700,color:'#f2c811'}},libPeriode+(conum?' — '+conum:'')),
+        CE('span',{style:{fontSize:11,color:'#94a3b8'}},' · Ateliers Inclusion Numérique')),
+      CE('div',{role:'group','aria-label':'Période',style:{display:'flex',border:'1px solid #374151',borderRadius:6,overflow:'hidden'}},btnMode('mois'),btnMode('trimestre'))),
+    CE('div',{style:{display:'flex',gap:8,flexWrap:'wrap',alignItems:'center',padding:'10px 14px',background:BG,borderBottom:`1px solid ${BORD}`}},
+      mode==='mois'
+        ?CE('select',{value:mois,onChange:e=>setMois(parseInt(e.target.value)),style:sel,'aria-label':'Mois'},MOIS_LONGS.map((m,i)=>CE('option',{key:m,value:i+1},m.charAt(0).toUpperCase()+m.slice(1))))
+        :CE('select',{value:t,onChange:e=>setT(parseInt(e.target.value)),style:sel,'aria-label':'Trimestre'},[1,2,3,4].map(n=>CE('option',{key:n,value:n},`${n===1?'1er':n+'e'} trimestre`))),
       CE('select',{value:annee,onChange:e=>setAnnee(parseInt(e.target.value)),style:sel,'aria-label':'Année'},annees.map(n=>CE('option',{key:n,value:n},n))),
       !moi&&conums.length>0&&CE('select',{value:conum,onChange:e=>setConum(e.target.value),style:sel,'aria-label':'Conseiller'},
         CE('option',{value:''},'Tous les conseillers'),conums.map(c=>CE('option',{key:c,value:c},c))),
       CE('button',{type:'button',className:'btn btn-primary btn-sm',disabled:!av||anneeNonChargee,onClick:imprimer},'🖨️ Imprimer / PDF'),
-      !moi&&conumsTrim.length>1&&CE('button',{type:'button',className:'btn btn-sm',disabled:!av||anneeNonChargee,onClick:imprimerParConum,title:'Un bilan par conseiller, une page chacun, dans un seul document'},`🖨️ Un bilan par conseiller (${conumsTrim.length})`)),
-    anneeNonChargee?CE('div',{className:'bt-alerte',style:{padding:14,background:'#fef3c7',borderRadius:8,color:'#92400e',fontSize:13}},`L'année ${annee} n'est pas chargée : ajoutez-la dans le sélecteur d'années en haut de la page pour faire ce bilan.`)
-    :!av?CE('div',{style:{padding:30,color:'#64748b',textAlign:'center'}},'Chargement des avis…')
-      :CE('div',{className:'bt',dangerouslySetInnerHTML:{__html:html}}));
+      !moi&&conumsPeriode.length>1&&CE('button',{type:'button',className:'btn btn-sm',disabled:!av||anneeNonChargee,onClick:imprimerParConum,title:'Un bilan par conseiller, une page chacun, dans un seul document'},`🖨️ Un bilan par conseiller (${conumsPeriode.length})`)),
+
+    CE('div',{style:{padding:14,background:isDark?'#0f1117':BG2,borderRadius:'0 0 6px 6px'}},
+      anneeNonChargee?CE('div',{style:{padding:14,background:'#fef3c7',borderRadius:8,color:'#92400e',fontSize:13}},`L'année ${annee} n'est pas chargée : ajoutez-la dans le sélecteur d'années en haut de la page pour faire ce bilan.`)
+      :CE(React.Fragment,null,
+        CE('div',{style:{fontSize:12,color:TXT2,marginBottom:10}},`Du ${fmtDate(debut)} au ${fmtDate(fin)} — programmation : tous les ateliers datés de la période ; autres chiffres : ateliers « Réalisé ».`),
+        // Tuiles
+        CE('div',{style:{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(max(150px,calc(25% - 10px)),1fr))',gap:10,marginBottom:12}},
+          kpi('Ateliers programmés',a.programmes,a.realises+' réalisé'+(a.realises>1?'s':''),'#2563EB','🖥️'),
+          kpi('Réalisation',a.tauxRealisation===null?'—':a.tauxRealisation+' %',a.realises+' / '+a.programmes+' ateliers','#16a34a','✅'),
+          kpi('Participations',a.presentsSaisis?a.presents:'—',a.inscrits+' inscriptions aux réalisés','#7C3AED','👥'),
+          kpi('Présence',a.tauxPresence===null?'—':a.tauxPresence+' %',`Calculé sur ${a.presence.ateliers} / ${a.realises} ateliers réalisés`,'#d97706','📊'),
+          kpi('Heures d\'animation',virgule(a.heures),a.dureesParDefaut?a.dureesParDefaut+' sans durée, comptés 1 h 30':'durées saisies','#0891b2','⏱️'),
+          kpi('Communes',a.communes,'ateliers réalisés','#db2777','📍'),
+          kpi('Fiches bilan',f.remplies,'sur '+a.realises+' réalisé'+(a.realises>1?'s':''),'#65a30d','📝'),
+          kpi('Avis reçus',!av?'…':av.erreur?'—':v.n,!av||av.erreur||v.attentes===null?'':'attentes '+virgule(v.attentes)+'/5','#f97316','💬')),
+        note('Participations : présences cumulées aux ateliers, pas de personnes uniques.'),
+        // Couvertures (AG-032) : ce qui n'est pas saisi n'est pas compté comme 0.
+        a.presentsSaisis<a.realises&&note(`Participations sur ${a.presentsSaisis} atelier${a.presentsSaisis>1?'s':''} réalisé${a.presentsSaisis>1?'s':''} sur ${a.realises} : présents non saisis sur ${a.realises-a.presentsSaisis}.`),
+        a.planifiesPasses>0&&note(`⚠️ ${a.planifiesPasses} atelier${a.planifiesPasses>1?'s':''} déjà passé${a.planifiesPasses>1?'s':''} encore « Planifié » : statut à mettre à jour, sinon ${a.planifiesPasses>1?'ils manquent':'il manque'} au bilan.`,true),
+        avisHorsChargement>0&&note(`⚠️ ${avisHorsChargement} avis concernent des ateliers de la période qui ne sont pas chargés : ajoutez l'année dans le sélecteur d'années, sinon le bilan est incomplet.`,true),
+        // Graphiques
+        CE('div',{style:{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(min(100%,300px),1fr))',gap:10,margin:'12px 0'}},
+          carte('Programmation par statut',
+            cles.length?CE(EChart,{height:170,option:{backgroundColor:'transparent',tooltip:{trigger:'item',...tt},
+              series:[{type:'pie',radius:['42%','65%'],center:['50%','50%'],label:{show:false},itemStyle:{borderRadius:4,borderColor:BG,borderWidth:2},
+                data:cles.map(k=>({name:k,value:a.statuts[k],itemStyle:{color:STATUT_COLORS[k]||'#94a3b8'}}))}]}}):note('Aucun atelier sur la période.'),
+            CE('div',{style:{display:'flex',flexWrap:'wrap',gap:6,justifyContent:'center',marginTop:6,fontSize:11}},
+              cles.map(k=>CE('span',{key:k,style:{display:'inline-flex',alignItems:'center',gap:4}},CE('span',{style:{width:8,height:8,borderRadius:'50%',background:STATUT_COLORS[k]||'#94a3b8'}}),k+' : ',CE('b',null,a.statuts[k]))))),
+          b.parMois.length>1&&carte('Ateliers par mois',
+            CE(EChart,{height:190,option:{backgroundColor:'transparent',grid:{top:8,right:4,bottom:36,left:0,containLabel:true},tooltip:{trigger:'axis',axisPointer:{type:'none'},...tt},
+              legend:{data:['Réalisés','Planifiés','Annulés'],textStyle:{color:'#94a3b8',fontSize:9},bottom:0,icon:'roundRect',itemWidth:8,itemHeight:6},
+              xAxis:{data:b.parMois.map(m=>MOIS_LONGS[parseInt(m.mois.slice(5),10)-1]),...axe},yAxis:{...grille,minInterval:1},
+              series:[['Réalisés','Réalisé'],['Planifiés','Planifié'],['Annulés','Annulé']].map(([nom,st])=>({name:nom,type:'bar',barMaxWidth:18,data:b.parMois.map(m=>m.statuts[st]||0),itemStyle:{color:STATUT_COLORS[st],borderRadius:[3,3,0,0]}}))}})),
+          b.parTheme.length>0&&carte('Thématiques — ateliers réalisés',barresH(b.parTheme.slice(0,10).map(x=>({nom:x.theme,n:x.ateliers})),l=>l.n,'#6366f1')),
+          b.parOrienteur.length>0&&carte('Organismes orienteurs — ateliers réalisés',barresH(b.parOrienteur.slice(0,8).map(x=>({nom:x.orienteur,n:x.ateliers})),l=>l.n,'#f97316')),
+          b.parCommune.length>0&&carte('Participations par commune',barresH(b.parCommune.slice(0,8).map(x=>({nom:x.commune,n:x.presentsSaisis?x.presents:null})),l=>l.n,'#7c3aed'),
+            b.parCommune.some(x=>!x.presentsSaisis)&&note('Communes sans présents saisis : pas de barre.'))),
+        // Par conseiller (Admin) : animé ou co-animé, lignes non additionnables.
+        !moi&&!conum&&b.parConseiller.length>0&&CE('div',{style:{marginBottom:12}},carte('Par conseiller',
+          CE('div',{style:{overflowX:'auto'}},CE('table',{style:{width:'100%',borderCollapse:'collapse',fontSize:12}},
+            CE('thead',null,CE('tr',{style:{background:BG2}},['Conseiller','Programmés','Réalisés','Annulés','Participations','Réalisation'].map(h=>CE('th',{key:h,style:{padding:'6px 8px',textAlign:'left',color:TXT2,fontSize:10,whiteSpace:'nowrap'}},h)))),
+            CE('tbody',null,b.parConseiller.map((c,i)=>CE('tr',{key:c.conseiller,style:{background:i%2?BG2:BG}},
+              CE('td',{style:{padding:'6px 8px',fontWeight:600}},c.conseiller),CE('td',{style:{padding:'6px 8px'}},c.programmes),
+              CE('td',{style:{padding:'6px 8px',color:'#16a34a',fontWeight:600}},c.realises),CE('td',{style:{padding:'6px 8px',color:'#dc2626'}},c.annules),
+              CE('td',{style:{padding:'6px 8px'}},part(c)),CE('td',{style:{padding:'6px 8px'}},c.tauxRealisation===null?'—':c.tauxRealisation+' %')))))),
+          note('Un atelier co-animé compte pour chacun de ses animateurs : les lignes ne s\'additionnent pas.'))),
+        // Fiches bilan
+        carte('Fiches bilan',
+          note(`${f.remplies} fiche${f.remplies>1?'s':''} remplie${f.remplies>1?'s':''} sur ${a.realises} atelier${a.realises>1?'s':''} réalisé${a.realises>1?'s':''}${a.realises>f.remplies?` (${a.realises-f.remplies} sans fiche)`:''}. Pourcentages sur les fiches remplies ; plusieurs réponses possibles pour les difficultés et les supports.`),
+          f.remplies>0&&CE('div',{style:{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(min(100%,250px),1fr))',gap:12}},
+            Object.keys(BILAN_CHOIX).map(k=>CE('div',{key:k},CE('div',{style:{fontSize:12,fontWeight:700,marginBottom:4}},BILAN_LIBELLES[k]||k),
+              CE(RepartitionBilan,{compte:f[k],ordre:BILAN_CHOIX[k],total:f.remplies,couleur:'#65a30d'}),
+              k==='difficultes'&&f.autres.length>0&&note('« Autre » : '+f.autres.join(' ; ')))))),
+        CE('div',{style:{height:12}}),
+        // Avis des stagiaires — base : tous les avis, non-réponses affichées (AG-032).
+        carte('Avis des stagiaires',
+          !av?note('Chargement des avis…'):av.erreur?note('Avis non chargés : '+av.erreur,true)
+          :CE(React.Fragment,null,
+            note(`${v.n} avis sur ${v.ateliers} atelier${v.ateliers>1?'s':''} · attentes ${v.attentes===null?'—':virgule(v.attentes)+'/5'} · clarté ${v.clarte===null?'—':virgule(v.clarte)+'/5'}`),
+            v.n>0&&CE('div',{style:{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(min(100%,250px),1fr))',gap:12}},
+              AVIS_QUESTIONS.filter(([k])=>v[k]&&typeof v[k]==='object').map(([k,lib,ordre])=>{const sr=(v.sansReponse||{})[k]||0;
+                return CE('div',{key:k},CE('div',{style:{fontSize:12,fontWeight:700,marginBottom:4}},lib),
+                  CE(RepartitionBilan,{compte:sr?{...v[k],'Sans réponse':sr}:v[k],ordre,total:v.n,couleur:'#f97316'}),
+                  k==='sujet'&&note('Plusieurs choix possibles par avis : le total peut dépasser 100 %.'));})),
+            v.n>0&&(remarques||[]).length>0&&CE('div',{style:{marginTop:10}},CE('div',{style:{fontSize:12,fontWeight:700}},'Remarques (anonymes)'),
+              CE('ul',{style:{fontSize:12,fontStyle:'italic',paddingLeft:18,margin:'6px 0'}},remarques.map((r,i)=>CE('li',{key:i},'« '+r+' »')))))),
+        // Par thématique : avis inconnus = « — », jamais 0 (AG-032, BT-05).
+        b.parTheme.length>0&&CE('div',{style:{marginTop:12}},carte('Par thématique',
+          CE('div',{style:{overflowX:'auto'}},CE('table',{style:{width:'100%',borderCollapse:'collapse',fontSize:12}},
+            CE('thead',null,CE('tr',{style:{background:BG2}},['Thématique','Ateliers','Participations','Avis','Attentes'].map(h=>CE('th',{key:h,style:{padding:'6px 8px',textAlign:'left',color:TXT2,fontSize:10}},h)))),
+            CE('tbody',null,b.parTheme.map((x,i)=>CE('tr',{key:x.theme,style:{background:i%2?BG2:BG}},
+              CE('td',{style:{padding:'6px 8px'}},x.theme),CE('td',{style:{padding:'6px 8px'}},x.ateliers),CE('td',{style:{padding:'6px 8px'}},x.presents),
+              CE('td',{style:{padding:'6px 8px'}},!av||av.erreur?'—':x.avis),CE('td',{style:{padding:'6px 8px'}},!av||av.erreur||x.attentes===null?'—':virgule(x.attentes)+'/5'))))))))
+      )));
 }
 
 // ── Avis par atelier (demande du 04/10/2026) ──────────────────────────────
@@ -6507,10 +6191,10 @@ function VueMesBilans({entries,anneesChargees}){
   const moi=window.authToken.getMoi();
   const[tab,setTab]=React.useState('avis');
   const miens=React.useMemo(()=>(entries||[]).filter(e=>moi&&(e.conseiller===moi||e.co_animateur===moi)),[entries,moi]);
+  // Bilan mensuel et trimestriel réunis en « Bilans » (AG-037, 28/10/2026).
   const TABS=[
     {id:'avis',      ico:'💬', label:'Avis par atelier'},
-    {id:'mensuel',   ico:'📈', label:'Bilan mensuel'},
-    {id:'trimestre', ico:'🗓️', label:'Bilan trimestriel'},
+    {id:'bilans',    ico:'📈', label:'Bilans'},
   ];
   return CE('div',null,
     CE('div',{style:{fontSize:13,color:'#64748b',marginBottom:8}},`Ateliers que vous animez ou co-animez — ${moi||'?'}`),
@@ -6520,19 +6204,17 @@ function VueMesBilans({entries,anneesChargees}){
     !moi?CE('div',{className:'card',style:{color:'#b91c1c'}},'Reconnectez-vous pour afficher vos bilans.')
     :CE(React.Fragment,null,
       tab==='avis'&&CE(VueAvisAteliers,{entries:miens,moi:true}),
-      tab==='mensuel'&&CE(VuePowerBI,{entries:miens,conseillers:[moi]}),
-      tab==='trimestre'&&CE(VueBilanTrimestriel,{entries:miens,moi:true,anneesChargees})));
+      tab==='bilans'&&CE(VueBilans,{entries:miens,moi:true,anneesChargees})));
 }
 
-// ── VueDashboardTabs — Dashboard unifié (5 onglets) ──────────
+// ── VueDashboardTabs — Dashboard unifié (4 onglets) ──────────
 function VueDashboardTabs({entries, conseillers, sansBilans, anneesChargees}){
   const[tab,setTab]=React.useState('dashboard');
   const TABS=[
     {id:'dashboard', ico:'🚀', label:'Synthèse'},
     {id:'graphiques', ico:'📊', label:'Analyse'},
-    {id:'powerbi',    ico:'📈', label:'Bilan mensuel'},
+    {id:'bilans',     ico:'📈', label:'Bilans'},   // mensuel et trimestriel réunis (AG-037)
     {id:'avis',       ico:'💬', label:'Avis par atelier'},
-    {id:'trimestre',  ico:'🗓️', label:'Bilan trimestriel'},
   ].filter(t=>!sansBilans||t.id==='dashboard'||t.id==='graphiques');
   // Plein écran (demande du 25/10/2026) : pour projeter le Dashboard sur une
   // télé ou un écran de réunion, sans barre d'adresse ni menus. Bouton absent
@@ -6587,9 +6269,8 @@ function VueDashboardTabs({entries, conseillers, sansBilans, anneesChargees}){
     CE('div',{key:'zoom-'+(plein?zoom:1)},
       tab==='dashboard'  && CE(VueDashboard,{entries}),
       tab==='graphiques' && CE(VueGraphiques,{entries,anneesChargees}),
-      tab==='powerbi'    && CE(VuePowerBI,{entries,conseillers}),
-      tab==='avis'       && CE(VueAvisAteliers,{entries}),
-      tab==='trimestre'  && CE(VueBilanTrimestriel,{entries,anneesChargees}))
+      tab==='bilans'     && CE(VueBilans,{entries,anneesChargees}),
+      tab==='avis'       && CE(VueAvisAteliers,{entries}))
    )
   );
 }

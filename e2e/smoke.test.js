@@ -174,10 +174,10 @@ test('admin — onglet Dashboard sans ReferenceError', async ({ page }) => {
   expect(errs, `Dashboard : ${errs.join(' | ')}`).toHaveLength(0);
 });
 
-test('admin — Dashboard : sous-onglets Avis par atelier et Bilan trimestriel sans erreur', async ({ page }) => {
+test('admin — Dashboard : sous-onglets Bilans et Avis par atelier sans erreur', async ({ page }) => {
   await login(page);
   await clickTab(page, 'Dashboard');
-  for (const nom of ['💬 Avis par atelier', '🗓️ Bilan trimestriel']) {
+  for (const nom of ['📈 Bilans', '💬 Avis par atelier']) {
     const avant = page._jsErrors.length;
     await page.getByRole('button', { name: nom, exact: true }).click();
     await page.waitForTimeout(400);
@@ -186,13 +186,13 @@ test('admin — Dashboard : sous-onglets Avis par atelier et Bilan trimestriel s
   }
 });
 
-test('index — « Mes bilans » : ses trois sous-onglets sans erreur', async ({ page }) => {
+test('index — « Mes bilans » : ses deux sous-onglets sans erreur', async ({ page }) => {
   await loginIndex(page);
   await clickTab(page, 'Mes bilans');
   // La barre latérale s'ouvre au survol et couvrirait les sous-onglets.
   await page.mouse.move(900, 400);
   await page.waitForTimeout(300);
-  for (const nom of ['💬 Avis par atelier', '📈 Bilan mensuel', '🗓️ Bilan trimestriel']) {
+  for (const nom of ['💬 Avis par atelier', '📈 Bilans']) {
     const avant = page._jsErrors.length;
     await page.getByRole('button', { name: nom, exact: true }).click();
     await page.waitForTimeout(400);
