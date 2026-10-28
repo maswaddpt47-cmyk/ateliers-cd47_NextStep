@@ -5994,6 +5994,7 @@ function VueBilans({entries,moi,anneesChargees}){
   // Même données = même objet d'option : l'arrivée des avis redessinait la
   // page et coupait l'animation d'entrée des barres (constat du 28/10/2026).
   const cacheOpt=React.useRef({});
+  const aVenirRef=React.useRef(null);
   const avisRef=React.useRef(null),hAvis=React.useRef(0);
   React.useLayoutEffect(()=>{if(av&&avisRef.current)hAvis.current=avisRef.current.offsetHeight;});
   const memoOpt=(nom,donnees,construire)=>{const k=JSON.stringify(donnees)+isDark;const c=cacheOpt.current[nom];if(c&&c.k===k)return c.o;const o=construire();cacheOpt.current[nom]={k,o};return o;};
@@ -6050,7 +6051,10 @@ function VueBilans({entries,moi,anneesChargees}){
     CE('div',{key:debut+'|'+fin+'|'+conum,style:{padding:14,background:isDark?'#0f1117':BG2,borderRadius:'0 0 6px 6px'}},
       anneeNonChargee?CE('div',{style:{padding:14,background:'#fef3c7',borderRadius:8,color:'#92400e',fontSize:13}},`L'année ${annee} n'est pas chargée : ajoutez-la dans le sélecteur d'années en haut de la page pour faire ce bilan.`)
       :CE(React.Fragment,null,
-        CE('div',{style:{fontSize:12,color:TXT2,marginBottom:10}},debut>auj?`Du ${fmtDate(debut)} au ${fmtDate(fin)}.`:`Du ${fmtDate(debut)} au ${fmtDate(fin)} — programmation : ateliers à date ; autres chiffres : ateliers « Réalisé »`+(b.aVenir.ateliers?' ; les ateliers à venir sont à part, plus bas.':'.')),
+        CE('div',{style:{fontSize:12,color:TXT2,marginBottom:10}},debut>auj?`Du ${fmtDate(debut)} au ${fmtDate(fin)}.`:`Du ${fmtDate(debut)} au ${fmtDate(fin)} — programmation : ateliers à date ; autres chiffres : ateliers « Réalisé »`+(b.aVenir.ateliers?' ; les ateliers à venir sont à part, plus bas ':'.'),
+          // Lien vers le bloc « À venir », loin sous les tuiles sur téléphone (28/10/2026).
+          debut<=auj&&b.aVenir.ateliers>0&&CE('button',{type:'button',onClick:()=>{if(aVenirRef.current)aVenirRef.current.scrollIntoView({behavior:mouvementReduit()?'auto':'smooth',block:'start'});},
+            style:{border:'none',background:'none',padding:0,color:'#2563eb',fontWeight:700,fontSize:12,cursor:'pointer',textDecoration:'underline'}},`↓ ${b.aVenir.ateliers} à venir`)),
         // Période entièrement à venir (AG-038) : pas de bilan, la programmation seule.
         debut>auj?CE(React.Fragment,null,note('Période à venir : pas encore de bilan, seulement ce qui est programmé.'),aVenirCarte()):CE(React.Fragment,null,
         // Tuiles
@@ -6069,7 +6073,7 @@ function VueBilans({entries,moi,anneesChargees}){
         a.presentsSaisis<a.realises&&note(`Participations sur ${a.presentsSaisis} atelier${a.presentsSaisis>1?'s':''} réalisé${a.presentsSaisis>1?'s':''} sur ${a.realises} : présents non saisis sur ${a.realises-a.presentsSaisis}.`),
         a.planifiesPasses>0&&note(`⚠️ ${a.planifiesPasses} atelier${a.planifiesPasses>1?'s':''} déjà passé${a.planifiesPasses>1?'s':''} encore « Planifié » : statut à mettre à jour, sinon ${a.planifiesPasses>1?'ils manquent':'il manque'} au bilan.`,true),
         avisHorsChargement>0&&note(`⚠️ ${avisHorsChargement} avis concernent des ateliers de la période qui ne sont pas chargés : ajoutez l'année dans le sélecteur d'années, sinon le bilan est incomplet.`,true),
-        b.aVenir.ateliers>0&&CE('div',{style:{marginTop:12}},aVenirCarte()),
+        b.aVenir.ateliers>0&&CE('div',{ref:aVenirRef,style:{marginTop:12,scrollMarginTop:70}},aVenirCarte()),
         // Graphiques
         CE('div',{style:{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(min(100%,300px),1fr))',gap:10,margin:'12px 0'}},
           carte('Programmation à date par statut',
