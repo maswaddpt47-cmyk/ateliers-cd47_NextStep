@@ -1032,21 +1032,30 @@ function VueLogs(){
   // lignes chargées étaient Admin, l'équipe ne remontait qu'à 13 jours.
   const[masquerAdmin,setMasquerAdmin]=React.useState(true);
   const[nbMasques,setNbMasques]=React.useState(null);
+  const[toutJournal,setToutJournal]=React.useState(false);
+  // Seul le dernier chargement compte (AG-036, Codex n° 3) : une réponse en
+  // retard, ou arrivée après démontage, est ignorée.
+  const dernierRef=React.useRef(0);
+  React.useEffect(()=>()=>{dernierRef.current++;},[]);
   const[sortKey,setSortKey]=React.useState(null);
   const[sortDir,setSortDir]=React.useState('asc');
   function fetchLogs(force){
-    if(!force&&logsCache&&logsCache.sansAdmin===masquerAdmin&&Date.now()-logsCache.ts<2*60*1000){setLogs(logsCache.data);setNbMasques(logsCache.nbMasques);setLoading(false);return;}
+    const id=++dernierRef.current;
+    // Cache valide : l'erreur d'un autre mode ne doit pas masquer le tableau (Codex n° 4).
+    if(!force&&logsCache&&logsCache.sansAdmin===masquerAdmin&&Date.now()-logsCache.ts<2*60*1000){setErr('');setLogs(logsCache.data);setNbMasques(logsCache.nbMasques);setToutJournal(!!logsCache.toutJournal);setLoading(false);return;}
     setLoading(true);setErr('');
     const sansAdmin=masquerAdmin;
+    const actuel=()=>id===dernierRef.current;
     apiFetch('getLogs',sansAdmin?{n:500,sansAdmin:1}:{n:500})   // 100 ne suffisaient plus (26/10/2026) ; l'API plafonne à 1000
-      .then(res=>{if(res.ok){
+      .then(res=>{if(!actuel())return;if(res.ok){
         const data=res.logs||[];
         // API pas encore déployée : pas de nbMasques, on compte sur ce qui est chargé.
         const nb=typeof res.nbMasques==='number'?res.nbMasques:data.filter(l=>l.role==='admin'&&l.success).length;
-        logsCache={sansAdmin,data,nbMasques:nb,ts:Date.now()};setLogs(data);setNbMasques(nb);
+        const tout=!!res.toutJournal;
+        logsCache={sansAdmin,data,nbMasques:nb,toutJournal:tout,ts:Date.now()};setLogs(data);setNbMasques(nb);setToutJournal(tout);
       }else setErr(res.error||'Erreur');})
-      .catch(e=>setErr('Erreur réseau : '+e.message))
-      .finally(()=>setLoading(false));
+      .catch(e=>{if(actuel())setErr('Erreur réseau : '+e.message);})
+      .finally(()=>{if(actuel())setLoading(false);});
   }
   React.useEffect(()=>{fetchLogs(false);},[masquerAdmin]);
   function toggleSort(key){
@@ -1083,7 +1092,7 @@ function VueLogs(){
       CE('div',{style:{display:'flex',gap:6,alignItems:'center',flexWrap:'wrap'}},
         CE('button',{onClick:()=>fetchLogs(true),disabled:loading,style:{fontSize:11,padding:'3px 10px',borderRadius:6,cursor:'pointer',border:'1px solid #e2e8f0',background:'#f8fafc',color:'#4a5568'}},loading?'…':'🔄 Actualiser'),
         CE('button',{onClick:()=>setMasquerAdmin(m=>!m),title:'Passages réussis du rôle Admin ; les échecs restent toujours affichés',style:{fontSize:11,padding:'3px 10px',borderRadius:6,cursor:'pointer',fontWeight:masquerAdmin?700:400,border:masquerAdmin?'1.5px solid #7c3aed':'1px solid #e2e8f0',background:masquerAdmin?'#ede9fe':'#f8fafc',color:masquerAdmin?'#5b21b6':'#4a5568'}},
-          masquerAdmin?'🙈 Admin masqué'+(nbMasques==null?'':' ('+nbMasques+(depuis?' depuis le '+depuis:'')+')'):'👁 Admin affiché (tout le journal)'),
+          masquerAdmin?'🙈 Admin masqué'+(nbMasques==null?'':' ('+nbMasques+(toutJournal?' sur tout le journal':depuis?' depuis le '+depuis:'')+')'):'👁 500 dernières entrées, Admin inclus'),
         CE('select',{value:conseillerFilter,onChange:e=>setConseillerFilter(e.target.value),style:{fontSize:11,padding:'3px 8px',borderRadius:6,cursor:'pointer',border:'1px solid #e2e8f0',background:'#f8fafc',color:'#4a5568'}},
           CE('option',{value:'all'},'Tous les conseillers'),
           CONSEILLERS.map(c=>CE('option',{key:c,value:c},c))
