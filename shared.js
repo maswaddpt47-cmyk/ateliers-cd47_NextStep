@@ -6039,7 +6039,10 @@ function VueBilans({entries,moi,anneesChargees}){
     CE('div',{style:{display:'flex',gap:8,flexWrap:'wrap',alignItems:'center',padding:'10px 14px',background:BG,borderBottom:`1px solid ${BORD}`}},
       mode==='mois'
         ?CE('select',{value:mois,onChange:e=>setMois(parseInt(e.target.value)),style:sel,'aria-label':'Mois'},MOIS_LONGS.map((m,i)=>CE('option',{key:m,value:i+1},m.charAt(0).toUpperCase()+m.slice(1))))
-        :CE('select',{value:t,onChange:e=>setT(parseInt(e.target.value)),style:sel,'aria-label':'Trimestre'},[1,2,3,4].map(n=>CE('option',{key:n,value:n},`${n===1?'1er':n+'e'} trimestre`))),
+        // État de chaque trimestre dans la liste (demande du 28/10/2026) : révolu =
+        // bilan seul, en cours = bilan à date + « À venir », à venir = programmation seule.
+        :CE('select',{value:t,onChange:e=>setT(parseInt(e.target.value)),style:sel,'aria-label':'Trimestre'},[1,2,3,4].map(n=>{const[d,f]=bornesTrimestre(annee,n);
+          return CE('option',{key:n,value:n},`${n===1?'1er':n+'e'} trimestre — ${f<auj?'révolu':d>auj?'à venir':'en cours'}`);})),
       CE('select',{value:annee,onChange:e=>setAnnee(parseInt(e.target.value)),style:sel,'aria-label':'Année'},annees.map(n=>CE('option',{key:n,value:n},n))),
       !moi&&conums.length>0&&CE('select',{value:conum,onChange:e=>setConum(e.target.value),style:sel,'aria-label':'Conseiller'},
         CE('option',{value:''},'Tous les conseillers'),conums.map(c=>CE('option',{key:c,value:c},c))),
