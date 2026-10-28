@@ -850,3 +850,39 @@ describe('même population : kpiHistorique et bilanTrimestriel', () => {
     assert.equal(kpiHistorique(E).tx, 100);
   });
 });
+
+// ── Bilan d'une période — fusion mensuel / trimestriel (AG-037, 28/10/2026) ──
+describe('bilanPeriode — choix de l\'utilisateur D1-D5 (AG-037)', () => {
+  const {bilanPeriode} = require('./logic.js');
+  const at = (id, o) => ({_id: id, statut: 'Réalisé', date: '2026-10-15', thematique: 'Courriel', commune: 'Agen', orienteur: 'CCAS', conseiller: 'Bob', inscrits: '5', presents: '3', duree: 90, ...o});
+  it('recompte de Codex (octobre) : 3 programmés, 2 réalisés, 12 inscrits, 6 participations, 75 % sur 1/2, 3 h', () => {
+    const E = [at('a', {inscrits: '8', presents: '6'}), at('b', {inscrits: '4', presents: '', duree: ''}), at('c', {statut: 'Planifié', date: '2026-10-30'})];
+    const a = bilanPeriode(E, '2026-10-01', '2026-10-31', [], '2026-10-28').activite;
+    assert.deepEqual([a.programmes, a.realises, a.inscrits, a.presents, a.tauxPresence, a.presence.ateliers, a.heures, a.dureesParDefaut, a.tauxRealisation],
+      [3, 2, 12, 6, 75, 1, 3, 1, 67]);
+  });
+  it('D1 : un atelier co-animé compte pour ses deux animateurs, une fois au global', () => {
+    const b = bilanPeriode([at('a', {co_animateur: 'Alice'})], '2026-10-01', '2026-10-31', [], '2026-10-31');
+    assert.equal(b.activite.realises, 1);
+    assert.deepEqual(b.parConseiller.map(c => [c.conseiller, c.realises]), [['Alice', 1], ['Bob', 1]]);
+  });
+  it('ventilations sur les seuls réalisés ; communes normalisées', () => {
+    const b = bilanPeriode([at('a', {commune: 'AGEN (47000)'}), at('b'), at('c', {statut: 'Annulé', commune: 'Nérac', orienteur: 'MDS'})],
+      '2026-10-01', '2026-10-31', [], '2026-10-31');
+    assert.deepEqual(b.parCommune.map(c => [c.commune, c.ateliers, c.presents]), [['AGEN', 2, 6]]);
+    assert.deepEqual(b.parOrienteur.map(o => o.orienteur), ['CCAS']);
+    assert.deepEqual(b.parConseiller[0], {conseiller: 'Bob', programmes: 3, realises: 2, annules: 1, presents: 6, presentsSaisis: 2, tauxRealisation: 67});
+  });
+  it('D2 : sans base, taux null (« — ») ; un zéro saisi reste zéro', () => {
+    assert.equal(bilanPeriode([at('a', {presents: ''})], '2026-10-01', '2026-10-31', []).activite.tauxPresence, null);
+    assert.equal(bilanPeriode([at('a', {presents: '0'})], '2026-10-01', '2026-10-31', []).activite.tauxPresence, 0);
+  });
+  it('par mois : bornes incluses, passage d\'année', () => {
+    const E = [at('a', {date: '2026-12-31'}), at('b', {date: '2027-01-01'}), at('c', {date: '2027-02-01'})];
+    const b = bilanPeriode(E, '2026-12-01', '2027-01-31', [], '2027-02-01');
+    assert.deepEqual(b.parMois.map(m => [m.mois, m.statuts['Réalisé'] || 0]), [['2026-12', 1], ['2027-01', 1]]);
+  });
+  it('l\'ancien nom reste le même calcul', () => {
+    assert.equal(require('./logic.js').bilanTrimestriel, bilanPeriode);
+  });
+});

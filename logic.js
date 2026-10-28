@@ -366,12 +366,13 @@ function trimestrePrecedent(today) {
   return t === 1 ? {annee: a - 1, t: 4} : {annee: a, t: t - 1};
 }
 
-// Chiffres du bilan d'une période [debut, fin] : activité sur tous les
-// statuts, fiches bilan et avis sur les seuls ateliers « Réalisé ».
+// Chiffres du bilan d'une période [debut, fin] (mois ou trimestre, AG-037) :
+// programmation sur tous les statuts, tout le reste sur les seuls ateliers
+// « Réalisé » (choix de l'utilisateur du 28/10/2026).
 // avis : lignes de l'action bilanAvis (une par avis, sans remarque).
 // aujourdhui (AAAA-MM-JJ, défaut : date du jour) : « Planifié » à mettre à
-// jour = date passée seulement, un trimestre en cours ayant des ateliers à venir.
-function bilanTrimestriel(entries, debut, fin, avis, aujourdhui) {
+// jour = date passée seulement, une période en cours ayant des ateliers à venir.
+function bilanPeriode(entries, debut, fin, avis, aujourdhui) {
   // Navigateur : constantes globales d'utils.js (const, absentes de window).
   const CHOIX = typeof LOGIC_UTILS !== 'undefined' ? LOGIC_UTILS.BILAN_CHOIX : BILAN_CHOIX;
   const MULTIPLES = typeof LOGIC_UTILS !== 'undefined' ? LOGIC_UTILS.BILAN_MULTIPLES : BILAN_MULTIPLES;
@@ -402,6 +403,13 @@ function bilanTrimestriel(entries, debut, fin, avis, aujourdhui) {
     heures: Math.round(realises.reduce((x, e) => x + (num(e.duree) || DUREE_DEF), 0) / 60 * 10) / 10,
     dureesParDefaut: realises.filter(e => !num(e.duree)).length,
     communes: new Set(realises.map(e => normCom(e.commune)).filter(Boolean)).size,
+    // AG-037 : ce que le bilan mensuel affichait, sur la même population.
+    programmes: periode.length,
+    tauxRealisation: periode.length ? Math.round(realises.length / periode.length * 100) : null,
+    inscrits: realises.reduce((x, e) => x + (num(e.inscrits) || 0), 0),
+    // Base du taux de présence : ateliers, inscrits et présents retenus.
+    presence: {ateliers: avecPresence.length, inscrits: sommeInscrits,
+      presents: avecPresence.reduce((x, e) => x + num(e.presents), 0)},
   };
   const fiches = {remplies: 0, autres: []};
   Object.keys(CHOIX).forEach(k => { fiches[k] = {}; });
@@ -448,8 +456,39 @@ function bilanTrimestriel(entries, debut, fin, avis, aujourdhui) {
   const parTheme = Object.values(themes)
     .map(x => ({theme: x.theme, ateliers: x.ateliers, presents: x.presents, avis: x.avis, attentes: moyenne(x.notes)}))
     .sort((a, b) => b.ateliers - a.ateliers || a.theme.localeCompare(b.theme));
-  return {debut, fin, activite, fiches, avis: av, parTheme};
+  // Ventilations (AG-037). Un atelier co-animé compte pour ses deux
+  // animateurs (D1) : les lignes par conseiller ne s'additionnent pas.
+  const groupe = (liste, cle, champ) => {
+    const o = Object.create(null);
+    liste.forEach(e => { const k = cle(e); if (!k) return;
+      const x = o[k] || (o[k] = {[champ]: k, ateliers: 0, presents: 0, presentsSaisis: 0});
+      x.ateliers++; if (num(e.presents) !== null) { x.presents += num(e.presents); x.presentsSaisis++; } });
+    return Object.values(o).sort((a, b) => b.ateliers - a.ateliers || String(a[champ]).localeCompare(String(b[champ])));
+  };
+  const parOrienteur = groupe(realises, e => e.orienteur, 'orienteur');
+  const parCommune = groupe(realises, e => normCom(e.commune), 'commune');
+  const noms = [...new Set(periode.flatMap(e => [e.conseiller, e.co_animateur]).filter(Boolean))];
+  const parConseiller = noms.map(c => {
+    const l = periode.filter(e => e.conseiller === c || e.co_animateur === c);
+    const r = l.filter(e => e.statut === 'Réalisé'), ps = r.filter(e => num(e.presents) !== null);
+    return {conseiller: c, programmes: l.length, realises: r.length, annules: l.filter(e => e.statut === 'Annulé').length,
+      presents: ps.reduce((x, e) => x + num(e.presents), 0), presentsSaisis: ps.length,
+      tauxRealisation: l.length ? Math.round(r.length / l.length * 100) : null};
+  }).sort((a, b) => b.programmes - a.programmes || a.conseiller.localeCompare(b.conseiller));
+  // Par mois de la période (bornes incluses, année explicite).
+  const parMois = [];
+  for (let m = debut.slice(0, 7); m <= fin.slice(0, 7);) {
+    const l = periode.filter(e => normalizeDate(e.date).slice(0, 7) === m);
+    const r = l.filter(e => e.statut === 'Réalisé'), ps = r.filter(e => num(e.presents) !== null);
+    const st = {}; l.forEach(e => compter(st, e.statut || 'Sans statut'));
+    parMois.push({mois: m, statuts: st, presents: ps.reduce((x, e) => x + num(e.presents), 0), presentsSaisis: ps.length});
+    const [a, mm] = m.split('-').map(Number);
+    m = mm === 12 ? `${a + 1}-01` : `${a}-${String(mm + 1).padStart(2, '0')}`;
+  }
+  return {debut, fin, activite, fiches, avis: av, parTheme, parOrienteur, parCommune, parConseiller, parMois};
 }
+// Ancien nom, encore appelé par les écrans pendant la fusion (AG-037, Codex).
+const bilanTrimestriel = bilanPeriode;
 
 
 // ── Créneaux libres (11/10/2026) ──────────────────────────────
@@ -656,7 +695,7 @@ if (typeof module !== 'undefined') {
     estConflitPasse,
     estWeekend, veilleOuvree, lendemainOuvre,
     creneauAtelier, demisAtelier, analyseJourMateriel, MARGE_MATERIEL_MIN, hhmm,
-    bornesTrimestre, trimestreCourant, trimestrePrecedent, bilanTrimestriel,
+    bornesTrimestre, trimestreCourant, trimestrePrecedent, bilanTrimestriel, bilanPeriode,
     creneauxLibres, creneauxPris, demiSaisie, conflitsConseiller, propagerPremiereLigne, basculerDemiLigne, demiLigne,
   };
 }
