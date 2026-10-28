@@ -6037,8 +6037,15 @@ function VueBilans({entries,moi,anneesChargees}){
         CE('div',{style:{fontSize:28,fontWeight:800,color:TXT,lineHeight:1}},CE(NombreAnime,{valeur:value})),
         sub&&CE('div',{style:{fontSize:11,color:TXT2,marginTop:4}},sub)),
       CE('div',{style:{width:38,height:38,flexShrink:0,borderRadius:8,background:color+'22',display:'flex',alignItems:'center',justifyContent:'center',fontSize:20}},icon)));
-  const carte=(titreC,...enfants)=>CE('div',{key:titreC,style:{background:BG,borderRadius:6,padding:14,boxShadow:'0 1px 6px rgba(0,0,0,.15)',minWidth:0,color:TXT}},
-    CE('div',{style:{fontSize:10,fontWeight:700,color:TXT2,textTransform:'uppercase',letterSpacing:'.06em',marginBottom:12,paddingBottom:8,borderBottom:`1px solid ${BORD}`}},titreC),...enfants);
+  // Cartouches avec du relief (demande du 28/10/2026, comme « À venir ») : une
+  // couleur et une icône par sujet, fond teinté, liseré, titre coloré.
+  const TEINTES=[['Programmation','#16a34a','📊'],['Ateliers par mois','#2563eb','📅'],['Thématiques','#7c3aed','🏷️'],['Par thématique','#7c3aed','🏷️'],
+    ['Organismes','#f97316','🤝'],['Participations par commune','#db2777','📍'],['Par conseiller','#2563eb','👤'],['Fiches bilan','#65a30d','📝'],['Avis des stagiaires','#f97316','💬']];
+  const carte=(titreC,...enfants)=>{const[,c,ico]=TEINTES.find(([d])=>titreC.startsWith(d))||['','#64748b','▪️'];
+    return CE('div',{key:titreC,style:{borderRadius:10,padding:14,minWidth:0,color:TXT,borderLeft:`5px solid ${c}`,boxShadow:`0 2px 10px ${c}2e`,
+      background:isDark?`linear-gradient(135deg,${c}29,${BG} 70%)`:`linear-gradient(135deg,${c}14,#ffffff 70%)`}},
+      CE('div',{style:{display:'flex',alignItems:'center',gap:6,fontSize:11,fontWeight:800,color:isDark?'#e2e8f0':c,textTransform:'uppercase',letterSpacing:'.06em',marginBottom:12,paddingBottom:8,borderBottom:`1px solid ${c}33`}},
+        CE('span',{style:{fontSize:15}},ico),titreC),...enfants);};
   const note=(txt,alerte)=>CE('div',{style:alerte?{fontSize:12,background:'#fff7ed',color:'#9a3412',borderRadius:6,padding:'6px 8px',margin:'6px 0'}:{fontSize:12,color:TXT2,margin:'6px 0'}},txt);
   const tt={backgroundColor:'#111827',borderColor:'#374151',textStyle:{color:'#f1f5f9',fontSize:11},extraCssText:'border-radius:8px;padding:10px 14px;box-shadow:none'};
   const axe={axisLine:{show:false},axisTick:{show:false},axisLabel:{color:'#94a3b8',fontSize:9}};
