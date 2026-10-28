@@ -5873,14 +5873,25 @@ function bornesMois(a,m){
   return [`${a}-${mm}-01`,`${a}-${mm}-${String(new Date(Date.UTC(a,m,0)).getUTCDate()).padStart(2,'0')}`];
 }
 // Répartition d'une question (fiche bilan, avis) en barres, base donnée.
+// Les barres se remplissent à l'apparition et rejouent au retour à l'écran,
+// comme les graphiques (quandVisible) ; immobiles si « réduire les animations ».
 function RepartitionBilan({compte,ordre,total,couleur}){
+  const ref=React.useRef(null);
+  const[plein,setPlein]=React.useState(false);
+  React.useEffect(()=>{
+    if(!ref.current)return;
+    return quandVisible(ref.current,(premier,sansAnim)=>{
+      if(sansAnim||mouvementReduit()){setPlein(true);return;}
+      setPlein(false);requestAnimationFrame(()=>requestAnimationFrame(()=>setPlein(true)));
+    });
+  },[]);
   const cles=[...ordre.filter(k=>compte[k]),...Object.keys(compte).filter(k=>!ordre.includes(k))];
-  if(!cles.length)return CE('div',{style:{fontSize:12,color:'#94a3b8'}},'Aucune réponse');
-  return CE('div',null,cles.map(k=>{
+  if(!cles.length)return CE('div',{ref,style:{fontSize:12,color:'#94a3b8'}},'Aucune réponse');
+  return CE('div',{ref},cles.map(k=>{
     const p=total?Math.round(compte[k]/total*100):0;
     return CE('div',{key:k,style:{display:'grid',gridTemplateColumns:'42% 1fr auto',gap:6,alignItems:'center',fontSize:12,margin:'4px 0'}},
       CE('span',{style:{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'},title:k},k),
-      CE('span',{style:{background:'rgba(148,163,184,.2)',borderRadius:4,height:9,overflow:'hidden'}},CE('span',{style:{display:'block',height:'100%',width:Math.min(p,100)+'%',background:couleur||'#14b8a6'}})),
+      CE('span',{style:{background:'rgba(148,163,184,.2)',borderRadius:4,height:9,overflow:'hidden'}},CE('span',{style:{display:'block',height:'100%',width:(plein?Math.min(p,100):0)+'%',background:couleur||'#14b8a6',transition:plein?'width .8s cubic-bezier(.33,1,.68,1)':'none'}})),
       CE('span',{style:{whiteSpace:'nowrap',opacity:.8}},compte[k]+' · '+(total?p+' %':'—')));
   }));
 }
@@ -5960,10 +5971,16 @@ function VueBilans({entries,moi,anneesChargees}){
   const tt={backgroundColor:'#111827',borderColor:'#374151',textStyle:{color:'#f1f5f9',fontSize:11},extraCssText:'border-radius:8px;padding:10px 14px;box-shadow:none'};
   const axe={axisLine:{show:false},axisTick:{show:false},axisLabel:{color:'#94a3b8',fontSize:9}};
   const grille={splitLine:{lineStyle:{color:'#2d3250',type:'dashed'}},axisLabel:{color:'#94a3b8',fontSize:9},axisLine:{show:false},axisTick:{show:false}};
-  const barresH=(lignes,val,couleur)=>CE(EChart,{height:Math.max(140,lignes.length*24),option:{backgroundColor:'transparent',
+  // Même données = même objet d'option : l'arrivée des avis redessinait la
+  // page et coupait l'animation d'entrée des barres (constat du 28/10/2026).
+  const cacheOpt=React.useRef({});
+  const avisRef=React.useRef(null),hAvis=React.useRef(0);
+  React.useLayoutEffect(()=>{if(av&&avisRef.current)hAvis.current=avisRef.current.offsetHeight;});
+  const memoOpt=(nom,donnees,construire)=>{const k=JSON.stringify(donnees)+isDark;const c=cacheOpt.current[nom];if(c&&c.k===k)return c.o;const o=construire();cacheOpt.current[nom]={k,o};return o;};
+  const barresH=(nom,lignes,val,couleur)=>CE(EChart,{height:Math.max(140,lignes.length*24),option:memoOpt(nom,lignes,()=>({backgroundColor:'transparent',
     grid:{top:8,right:40,bottom:8,left:8,containLabel:true},tooltip:{trigger:'axis',axisPointer:{type:'none'},...tt},
     xAxis:{...grille,minInterval:1},yAxis:{type:'category',inverse:true,data:lignes.map(l=>l.nom.length>22?l.nom.slice(0,22)+'…':l.nom),...axe},
-    series:[{type:'bar',barMaxWidth:14,data:lignes.map(val),itemStyle:{color:couleur,borderRadius:[0,4,4,0]},label:{show:true,position:'right',color:'#94a3b8',fontSize:9,fontWeight:'bold'}}]}});
+    series:[{type:'bar',barMaxWidth:14,data:lignes.map(val),itemStyle:{color:couleur,borderRadius:[0,4,4,0]},label:{show:true,position:'right',color:'#94a3b8',fontSize:9,fontWeight:'bold'}}]}))});
 
   const sel={padding:'6px 8px',border:`1.5px solid ${BORD}`,borderRadius:6,fontSize:13,background:BG,color:TXT,width:'auto',maxWidth:'100%'};
   const btnMode=m=>CE('button',{key:m,type:'button',onClick:()=>setMode(m),'aria-pressed':mode===m,
@@ -6005,7 +6022,8 @@ function VueBilans({entries,moi,anneesChargees}){
           kpi('Heures d\'animation',virgule(a.heures),a.dureesParDefaut?a.dureesParDefaut+' sans durée, comptés 1 h 30':'durées saisies','#0891b2','⏱️'),
           kpi('Communes',a.communes,'ateliers réalisés','#db2777','📍'),
           kpi('Fiches bilan',f.remplies,'sur '+a.realises+' réalisé'+(a.realises>1?'s':''),'#65a30d','📝'),
-          kpi('Avis reçus',!av?'…':av.erreur?'—':v.n,!av||av.erreur||v.attentes===null?'':'attentes '+virgule(v.attentes)+'/5','#f97316','💬')),
+          // Pendant la relecture des avis : même hauteur de tuile, pas de saut.
+          kpi('Avis reçus',!av?'…':av.erreur?'—':v.n,!av?'chargement…':av.erreur||v.attentes===null?'sans note':'attentes '+virgule(v.attentes)+'/5','#f97316','💬')),
         note('Participations : présences cumulées aux ateliers, pas de personnes uniques.'),
         // Couvertures (AG-032) : ce qui n'est pas saisi n'est pas compté comme 0.
         a.presentsSaisis<a.realises&&note(`Participations sur ${a.presentsSaisis} atelier${a.presentsSaisis>1?'s':''} réalisé${a.presentsSaisis>1?'s':''} sur ${a.realises} : présents non saisis sur ${a.realises-a.presentsSaisis}.`),
@@ -6014,19 +6032,19 @@ function VueBilans({entries,moi,anneesChargees}){
         // Graphiques
         CE('div',{style:{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(min(100%,300px),1fr))',gap:10,margin:'12px 0'}},
           carte('Programmation par statut',
-            cles.length?CE(EChart,{height:170,option:{backgroundColor:'transparent',tooltip:{trigger:'item',...tt},
+            cles.length?CE(EChart,{height:170,option:memoOpt('statuts',a.statuts,()=>({backgroundColor:'transparent',tooltip:{trigger:'item',...tt},
               series:[{type:'pie',radius:['42%','65%'],center:['50%','50%'],label:{show:false},itemStyle:{borderRadius:4,borderColor:BG,borderWidth:2},
-                data:cles.map(k=>({name:k,value:a.statuts[k],itemStyle:{color:STATUT_COLORS[k]||'#94a3b8'}}))}]}}):note('Aucun atelier sur la période.'),
+                data:cles.map(k=>({name:k,value:a.statuts[k],itemStyle:{color:STATUT_COLORS[k]||'#94a3b8'}}))}]}))}):note('Aucun atelier sur la période.'),
             CE('div',{style:{display:'flex',flexWrap:'wrap',gap:6,justifyContent:'center',marginTop:6,fontSize:11}},
               cles.map(k=>CE('span',{key:k,style:{display:'inline-flex',alignItems:'center',gap:4}},CE('span',{style:{width:8,height:8,borderRadius:'50%',background:STATUT_COLORS[k]||'#94a3b8'}}),k+' : ',CE('b',null,a.statuts[k]))))),
           b.parMois.length>1&&carte('Ateliers par mois',
-            CE(EChart,{height:190,option:{backgroundColor:'transparent',grid:{top:8,right:4,bottom:36,left:0,containLabel:true},tooltip:{trigger:'axis',axisPointer:{type:'none'},...tt},
+            CE(EChart,{height:190,option:memoOpt('mois',b.parMois,()=>({backgroundColor:'transparent',grid:{top:8,right:4,bottom:36,left:0,containLabel:true},tooltip:{trigger:'axis',axisPointer:{type:'none'},...tt},
               legend:{data:['Réalisés','Planifiés','Annulés'],textStyle:{color:'#94a3b8',fontSize:9},bottom:0,icon:'roundRect',itemWidth:8,itemHeight:6},
               xAxis:{data:b.parMois.map(m=>MOIS_LONGS[parseInt(m.mois.slice(5),10)-1]),...axe},yAxis:{...grille,minInterval:1},
-              series:[['Réalisés','Réalisé'],['Planifiés','Planifié'],['Annulés','Annulé']].map(([nom,st])=>({name:nom,type:'bar',barMaxWidth:18,data:b.parMois.map(m=>m.statuts[st]||0),itemStyle:{color:STATUT_COLORS[st],borderRadius:[3,3,0,0]}}))}})),
-          b.parTheme.length>0&&carte('Thématiques — ateliers réalisés',barresH(b.parTheme.slice(0,10).map(x=>({nom:x.theme,n:x.ateliers})),l=>l.n,'#6366f1')),
-          b.parOrienteur.length>0&&carte('Organismes orienteurs — ateliers réalisés',barresH(b.parOrienteur.slice(0,8).map(x=>({nom:x.orienteur,n:x.ateliers})),l=>l.n,'#f97316')),
-          b.parCommune.length>0&&carte('Participations par commune',barresH(b.parCommune.slice(0,8).map(x=>({nom:x.commune,n:x.presentsSaisis?x.presents:null})),l=>l.n,'#7c3aed'),
+              series:[['Réalisés','Réalisé'],['Planifiés','Planifié'],['Annulés','Annulé']].map(([nom,st])=>({name:nom,type:'bar',barMaxWidth:18,data:b.parMois.map(m=>m.statuts[st]||0),itemStyle:{color:STATUT_COLORS[st],borderRadius:[3,3,0,0]}}))}))})),
+          b.parTheme.length>0&&carte('Thématiques — ateliers réalisés',barresH('themes',b.parTheme.slice(0,10).map(x=>({nom:x.theme,n:x.ateliers})),l=>l.n,'#6366f1')),
+          b.parOrienteur.length>0&&carte('Organismes orienteurs — ateliers réalisés',barresH('orienteurs',b.parOrienteur.slice(0,8).map(x=>({nom:x.orienteur,n:x.ateliers})),l=>l.n,'#f97316')),
+          b.parCommune.length>0&&carte('Participations par commune',barresH('communes',b.parCommune.slice(0,8).map(x=>({nom:x.commune,n:x.presentsSaisis?x.presents:null})),l=>l.n,'#7c3aed'),
             b.parCommune.some(x=>!x.presentsSaisis)&&note('Communes sans présents saisis : pas de barre.'))),
         // Par conseiller (Admin) : animé ou co-animé, lignes non additionnables.
         !moi&&!conum&&b.parConseiller.length>0&&CE('div',{style:{marginBottom:12}},carte('Par conseiller',
@@ -6046,7 +6064,8 @@ function VueBilans({entries,moi,anneesChargees}){
               k==='difficultes'&&f.autres.length>0&&note('« Autre » : '+f.autres.join(' ; ')))))),
         CE('div',{style:{height:12}}),
         // Avis des stagiaires — base : tous les avis, non-réponses affichées (AG-032).
-        carte('Avis des stagiaires',
+        // Hauteur gardée pendant la relecture : la page ne se replie pas.
+        CE('div',{ref:avisRef,style:{minHeight:!av&&hAvis.current?hAvis.current:undefined}},carte('Avis des stagiaires',
           !av?note('Chargement des avis…'):av.erreur?note('Avis non chargés : '+av.erreur,true)
           :CE(React.Fragment,null,
             note(`${v.n} avis sur ${v.ateliers} atelier${v.ateliers>1?'s':''} · attentes ${v.attentes===null?'—':virgule(v.attentes)+'/5'} · clarté ${v.clarte===null?'—':virgule(v.clarte)+'/5'}`),
@@ -6056,7 +6075,7 @@ function VueBilans({entries,moi,anneesChargees}){
                   CE(RepartitionBilan,{compte:sr?{...v[k],'Sans réponse':sr}:v[k],ordre,total:v.n,couleur:'#f97316'}),
                   k==='sujet'&&note('Plusieurs choix possibles par avis : le total peut dépasser 100 %.'));})),
             v.n>0&&(remarques||[]).length>0&&CE('div',{style:{marginTop:10}},CE('div',{style:{fontSize:12,fontWeight:700}},'Remarques (anonymes)'),
-              CE('ul',{style:{fontSize:12,fontStyle:'italic',paddingLeft:18,margin:'6px 0'}},remarques.map((r,i)=>CE('li',{key:i},'« '+r+' »')))))),
+              CE('ul',{style:{fontSize:12,fontStyle:'italic',paddingLeft:18,margin:'6px 0'}},remarques.map((r,i)=>CE('li',{key:i},'« '+r+' »'))))))),
         // Par thématique : avis inconnus = « — », jamais 0 (AG-032, BT-05).
         b.parTheme.length>0&&CE('div',{style:{marginTop:12}},carte('Par thématique',
           CE('div',{style:{overflowX:'auto'}},CE('table',{style:{width:'100%',borderCollapse:'collapse',fontSize:12}},
