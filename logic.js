@@ -381,14 +381,20 @@ function bilanPeriode(entries, debut, fin, avis, aujourdhui) {
   const compter = (o, k) => { if (k !== null && k !== undefined && k !== '') o[k] = (o[k] || 0) + 1; };
   const moyenne = l => l.length ? Math.round(l.reduce((x, y) => x + y, 0) / l.length * 10) / 10 : null;
   const num = v => (v === '' || v === null || v === undefined || isNaN(parseInt(v, 10))) ? null : parseInt(v, 10);
-  const periode = (entries || []).filter(e => { const d = normalizeDate(e.date); return d && d >= debut && d <= fin; });
+  const auj = aujourdhui || new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+  const tout = (entries || []).filter(e => { const d = normalizeDate(e.date); return d && d >= debut && d <= fin; });
+  // AG-038 (28/10/2026) : bilan à date = ateliers d'avant aujourd'hui, et ceux
+  // du jour qui ne sont plus « Planifié » ; le reste est « À venir », jamais
+  // compté dans la programmation ni dans le taux de réalisation.
+  const estAVenir = e => { const d = normalizeDate(e.date); return d > auj || (d === auj && e.statut === 'Planifié'); };
+  const periode = tout.filter(e => !estAVenir(e));
+  const prevus = tout.filter(estAVenir);
   const realises = periode.filter(e => e.statut === 'Réalisé');
   const statuts = {};
   periode.forEach(e => compter(statuts, e.statut || 'Sans statut'));
   // Taux de présence : seulement les ateliers où inscrits et présents sont saisis.
   const avecPresence = realises.filter(e => num(e.inscrits) > 0 && num(e.presents) !== null);
   const sommeInscrits = avecPresence.reduce((x, e) => x + num(e.inscrits), 0);
-  const auj = aujourdhui || new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
   // Décisions de l'utilisateur du 26/10/2026 (AG-032) : participations sur les
   // seuls ateliers où les présents sont saisis (couverture affichée) ; durée
   // vide comptée DUREE_DEFAUT (1 h 30), comme ailleurs dans l'appli ; communes
@@ -475,17 +481,32 @@ function bilanPeriode(entries, debut, fin, avis, aujourdhui) {
       presents: ps.reduce((x, e) => x + num(e.presents), 0), presentsSaisis: ps.length,
       tauxRealisation: l.length ? Math.round(r.length / l.length * 100) : null};
   }).sort((a, b) => b.programmes - a.programmes || a.conseiller.localeCompare(b.conseiller));
-  // Par mois de la période (bornes incluses, année explicite).
+  // Par mois de la période (bornes incluses, année explicite), à venir compris.
   const parMois = [];
   for (let m = debut.slice(0, 7); m <= fin.slice(0, 7);) {
-    const l = periode.filter(e => normalizeDate(e.date).slice(0, 7) === m);
+    const l = tout.filter(e => normalizeDate(e.date).slice(0, 7) === m);
     const r = l.filter(e => e.statut === 'Réalisé'), ps = r.filter(e => num(e.presents) !== null);
     const st = {}; l.forEach(e => compter(st, e.statut || 'Sans statut'));
     parMois.push({mois: m, statuts: st, presents: ps.reduce((x, e) => x + num(e.presents), 0), presentsSaisis: ps.length});
     const [a, mm] = m.split('-').map(Number);
     m = mm === 12 ? `${a + 1}-01` : `${a}-${String(mm + 1).padStart(2, '0')}`;
   }
-  return {debut, fin, activite, fiches, avis: av, parTheme, parOrienteur, parCommune, parConseiller, parMois};
+  // À venir (AG-038) : faits saisis seulement, aucune estimation.
+  const stAVenir = {};
+  prevus.forEach(e => compter(stAVenir, e.statut || 'Sans statut'));
+  const planifies = prevus.filter(e => e.statut === 'Planifié');
+  const compteSimple = (cle, champ) => { const o = Object.create(null);
+    planifies.forEach(e => { const k = cle(e); if (k) o[k] = (o[k] || 0) + 1; });
+    return Object.keys(o).map(k => ({[champ]: k, ateliers: o[k]})).sort((a, b) => b.ateliers - a.ateliers || String(a[champ]).localeCompare(String(b[champ]))); };
+  const aVenir = {ateliers: prevus.length, statuts: stAVenir, planifies: planifies.length,
+    inscrits: planifies.reduce((x, e) => x + (num(e.inscrits) || 0), 0),
+    inscritsSaisis: planifies.filter(e => num(e.inscrits) !== null).length,
+    parConseiller: [...new Set(planifies.flatMap(e => [e.conseiller, e.co_animateur]).filter(Boolean))]
+      .map(c => ({conseiller: c, ateliers: planifies.filter(e => e.conseiller === c || e.co_animateur === c).length}))
+      .sort((a, b) => b.ateliers - a.ateliers || a.conseiller.localeCompare(b.conseiller)),
+    parTheme: compteSimple(e => e.thematique || 'Sans thématique', 'theme'),
+    parCommune: compteSimple(e => normCom(e.commune), 'commune')};
+  return {debut, fin, aujourdhui: auj, activite, fiches, avis: av, parTheme, parOrienteur, parCommune, parConseiller, parMois, aVenir};
 }
 // Ancien nom, encore appelé par les écrans pendant la fusion (AG-037, Codex).
 const bilanTrimestriel = bilanPeriode;

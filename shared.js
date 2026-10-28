@@ -5809,8 +5809,24 @@ function htmlBilan(b,titre,remarques,avisErreur,opts={}){
   const programmes=Object.values(a.statuts).reduce((x,n)=>x+n,0);
   const parStatut=[...ORDRE_STATUTS,...Object.keys(a.statuts).filter(k=>!ORDRE_STATUTS.includes(k))].map(k=>chiffre(a.statuts[k]||0,k.toLowerCase()+(k.endsWith('é')&&(a.statuts[k]||0)>1?'s':''))).join('');
   const reste=a.planifiesPasses!==undefined?a.planifiesPasses:(a.statuts['Planifié']||0);
-  let h=`<h1>${e(titre)}</h1><div class="bt-sous">Du ${fmtDate(b.debut)} au ${fmtDate(b.fin)} — programmation : tous les ateliers datés de la période ; autres statistiques : ateliers « Réalisé »</div>`;
-  h+=`<h2>Programmation</h2><div class="bt-kpis">${chiffre(programmes,'ateliers programmés')}${parStatut}${chiffre(a.tauxRealisation===null||a.tauxRealisation===undefined?null:a.tauxRealisation+' %','réalisation')}</div>`;
+  // Bilan à date et « À venir » séparés (AG-038, 28/10/2026).
+  const va=b.aVenir||{ateliers:0};
+  const enCours=b.aujourdhui&&b.aujourdhui>=b.debut&&b.aujourdhui<=b.fin;
+  let avenir='';
+  if(va.ateliers){
+    const autres=Object.keys(va.statuts).filter(k=>k!=='Planifié').map(k=>`${va.statuts[k]} ${k.toLowerCase()}`).join(', ');
+    avenir=`<h2>À venir (au ${fmtDate(b.aujourdhui)})</h2><div class="bt-note">Ateliers datés d'aujourd'hui (encore « Planifié ») ou après : faits saisis, aucune estimation.</div>`
+      +`<div class="bt-kpis">${chiffre(va.planifies,'ateliers planifiés')}${chiffre(va.inscritsSaisis?va.inscrits:null,'inscrits déjà connus')}</div>`
+      +(va.inscritsSaisis<va.planifies?`<div class="bt-note">Inscrits saisis sur ${va.inscritsSaisis} atelier${va.inscritsSaisis>1?'s':''} planifié${va.inscritsSaisis>1?'s':''} sur ${va.planifies}.</div>`:'')
+      +(autres?`<div class="bt-note">Déjà décidés pour plus tard : ${e(autres)}.</div>`:'')
+      +(va.parConseiller.length>1&&!opts.groupe?`<div class="bt-note">Par conseiller (co-animation comprise) : ${va.parConseiller.map(c=>e(c.conseiller)+' '+c.ateliers).join(', ')}.</div>`:'')
+      +(va.parTheme.length?`<div class="bt-note">Thématiques : ${va.parTheme.map(t=>e(t.theme)+' '+t.ateliers).join(', ')}.</div>`:'')
+      +(va.parCommune.length?`<div class="bt-note">Communes : ${va.parCommune.map(c=>e(c.commune)+' '+c.ateliers).join(', ')}.</div>`:'');
+  }
+  let h=`<h1>${e(titre)}</h1><div class="bt-sous">Du ${fmtDate(b.debut)} au ${fmtDate(b.fin)}${enCours?` — bilan au ${fmtDate(b.aujourdhui)}, ateliers à venir à part`:''} — programmation : ateliers à date ; autres statistiques : ateliers « Réalisé »</div>`;
+  // Période entièrement à venir : pas de bilan, la programmation seule.
+  if(!programmes&&va.ateliers)return h+avenir;
+  h+=`<h2>Programmation à date</h2><div class="bt-kpis">${chiffre(programmes,'ateliers à date')}${parStatut}${chiffre(a.tauxRealisation===null||a.tauxRealisation===undefined?null:a.tauxRealisation+' %','réalisation')}</div>`;
   h+=`<h2>Activité</h2><div class="bt-kpis">${chiffre(a.realises,'ateliers réalisés')}${chiffre(a.inscrits,'inscriptions')}${chiffre(a.presents,'participations')}${chiffre(a.tauxPresence===null?null:a.tauxPresence+' %','taux de présence')}${chiffre(String(a.heures).replace('.',','),'heures d\'animation')}${chiffre(a.communes,'communes')}</div>`;
   h+='<div class="bt-note">Participations : présences cumulées aux ateliers, pas de personnes uniques.</div>';
   // Couvertures (décision du 26/10/2026, AG-032) : ce qui n'est pas saisi n'est pas compté comme 0.
@@ -5852,7 +5868,7 @@ function htmlBilan(b,titre,remarques,avisErreur,opts={}){
   }
   h+=tableau('Par organisme orienteur',['Orienteur','Ateliers réalisés','Participations'],(b.parOrienteur||[]).map(o=>[o.orienteur,o.ateliers,part(o)]));
   h+=tableau('Par commune',['Commune','Ateliers réalisés','Participations'],(b.parCommune||[]).map(c=>[c.commune,c.ateliers,part(c)]));
-  return h;
+  return h+avenir;
 }
 const BILAN_TRIM_CSS=`.bt h1{font-size:20px;color:#0f766e;margin:0 0 2px}.bt h2{font-size:15px;color:#0f766e;border-bottom:2px solid #ccfbf1;padding-bottom:3px;margin:18px 0 8px}.bt h3{font-size:13px;margin:0 0 6px;color:#334155}
 .bt-sous{font-size:12px;color:#64748b}.bt-kpis{display:flex;flex-wrap:wrap;gap:8px}.bt-kpi{flex:1 1 110px;background:#f0fdfa;border-radius:8px;padding:8px 10px;text-align:center}.bt-kpi b{display:block;font-size:20px;color:#0f766e}.bt-kpi span{font-size:11px;color:#475569}
@@ -5925,7 +5941,7 @@ function VueBilans({entries,moi,anneesChargees}){
   const entriesF=conum?(entries||[]).filter(e=>e.conseiller===conum||e.co_animateur===conum):entries;
   const idsF=new Set((entriesF||[]).map(e=>e._id));
   const remarques=!av?[]:!conum?av.remarques:av.remarquesAteliers?av.remarquesAteliers.filter(r=>idsF.has(r.atelier_id)).map(r=>r.remarque):[];
-  const libPeriode=titrePeriode(mode,annee,mode==='mois'?mois:t);
+  const libPeriode=titrePeriode(mode,annee,mode==='mois'?mois:t)+(auj>=debut&&auj<=fin?' — au '+fmtDate(auj):'');
   const titre=`${libPeriode} — Ateliers numériques`+(conum?` — ${conum}`:'');
   const b=bilanPeriode(entriesF,debut,fin,av&&av.avis||[]);
   const setPeriode=new Set(idsPeriode);
@@ -5986,6 +6002,21 @@ function VueBilans({entries,moi,anneesChargees}){
   const btnMode=m=>CE('button',{key:m,type:'button',onClick:()=>setMode(m),'aria-pressed':mode===m,
     style:{padding:'6px 14px',border:'none',cursor:'pointer',fontSize:13,fontWeight:mode===m?700:400,background:mode===m?'#f2c811':'transparent',color:mode===m?'#1e2132':TXT2}},m==='mois'?'Mois':'Trimestre');
   const a=b.activite,f=b.fiches,v=b.avis;
+  // Bloc « À venir » (AG-038) : faits saisis seulement, aucune estimation.
+  const aVenirCarte=()=>{const va=b.aVenir;
+    const autres=Object.keys(va.statuts).filter(k=>k!=='Planifié');
+    const liste=(titreL,l,cle)=>l.length>0&&CE('div',{style:{minWidth:0}},CE('div',{style:{fontSize:12,fontWeight:700,marginBottom:4}},titreL),
+      CE('div',{style:{fontSize:12,lineHeight:1.7}},l.slice(0,8).map(x=>CE('div',{key:x[cle],style:{display:'flex',justifyContent:'space-between',gap:8}},CE('span',{style:{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}},x[cle]),CE('b',null,x.ateliers)))));
+    return carte(`À venir — au ${fmtDate(auj)}`,
+      va.ateliers?CE(React.Fragment,null,
+        CE('div',{style:{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(min(100%,170px),1fr))',gap:10,marginBottom:10}},
+          kpi('Ateliers planifiés',va.planifies,'à partir d\'aujourd\'hui','#3b82f6','📅'),
+          kpi('Inscrits déjà connus',va.inscritsSaisis?va.inscrits:'—',`saisis sur ${va.inscritsSaisis} / ${va.planifies} ateliers`,'#7C3AED','📝')),
+        autres.length>0&&note('Déjà décidés pour plus tard : '+autres.map(k=>va.statuts[k]+' '+k.toLowerCase()).join(', ')+'.'),
+        CE('div',{style:{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(min(100%,200px),1fr))',gap:16}},
+          !moi&&liste('Par conseiller (co-animation comprise)',va.parConseiller,'conseiller'),liste('Thématiques',va.parTheme,'theme'),liste('Communes',va.parCommune,'commune')),
+        note('Faits saisis seulement : aucune estimation de participations.'))
+      :note('Rien de programmé après aujourd\'hui sur cette période.'));};
   const ORDRE_STATUTS=['Réalisé','Planifié','Reporté','Annulé','Non réalisé'];
   const cles=[...ORDRE_STATUTS.filter(k=>a.statuts[k]),...Object.keys(a.statuts).filter(k=>!ORDRE_STATUTS.includes(k))];
   const pct=(n,tot)=>tot?Math.round(n/tot*100)+' %':'—';
@@ -6012,11 +6043,13 @@ function VueBilans({entries,moi,anneesChargees}){
     CE('div',{style:{padding:14,background:isDark?'#0f1117':BG2,borderRadius:'0 0 6px 6px'}},
       anneeNonChargee?CE('div',{style:{padding:14,background:'#fef3c7',borderRadius:8,color:'#92400e',fontSize:13}},`L'année ${annee} n'est pas chargée : ajoutez-la dans le sélecteur d'années en haut de la page pour faire ce bilan.`)
       :CE(React.Fragment,null,
-        CE('div',{style:{fontSize:12,color:TXT2,marginBottom:10}},`Du ${fmtDate(debut)} au ${fmtDate(fin)} — programmation : tous les ateliers datés de la période ; autres chiffres : ateliers « Réalisé ».`),
+        CE('div',{style:{fontSize:12,color:TXT2,marginBottom:10}},debut>auj?`Du ${fmtDate(debut)} au ${fmtDate(fin)}.`:`Du ${fmtDate(debut)} au ${fmtDate(fin)} — programmation : ateliers à date ; autres chiffres : ateliers « Réalisé »`+(b.aVenir.ateliers?' ; les ateliers à venir sont à part, plus bas.':'.')),
+        // Période entièrement à venir (AG-038) : pas de bilan, la programmation seule.
+        debut>auj?CE(React.Fragment,null,note('Période à venir : pas encore de bilan, seulement ce qui est programmé.'),aVenirCarte()):CE(React.Fragment,null,
         // Tuiles
         CE('div',{style:{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(max(150px,calc(25% - 10px)),1fr))',gap:10,marginBottom:12}},
-          kpi('Ateliers programmés',a.programmes,a.realises+' réalisé'+(a.realises>1?'s':''),'#2563EB','🖥️'),
-          kpi('Réalisation',a.tauxRealisation===null?'—':a.tauxRealisation+' %',a.realises+' / '+a.programmes+' ateliers','#16a34a','✅'),
+          kpi('Ateliers à date',a.programmes,a.realises+' réalisé'+(a.realises>1?'s':''),'#2563EB','🖥️'),
+          kpi('Réalisation',a.tauxRealisation===null?'—':a.tauxRealisation+' %',a.realises+' / '+a.programmes+' ateliers à date','#16a34a','✅'),
           kpi('Participations',a.presentsSaisis?a.presents:'—',a.inscrits+' inscriptions aux réalisés','#7C3AED','👥'),
           kpi('Présence',a.tauxPresence===null?'—':a.tauxPresence+' %',`Calculé sur ${a.presence.ateliers} / ${a.realises} ateliers réalisés`,'#d97706','📊'),
           kpi('Heures d\'animation',virgule(a.heures),a.dureesParDefaut?a.dureesParDefaut+' sans durée, comptés 1 h 30':'durées saisies','#0891b2','⏱️'),
@@ -6029,9 +6062,10 @@ function VueBilans({entries,moi,anneesChargees}){
         a.presentsSaisis<a.realises&&note(`Participations sur ${a.presentsSaisis} atelier${a.presentsSaisis>1?'s':''} réalisé${a.presentsSaisis>1?'s':''} sur ${a.realises} : présents non saisis sur ${a.realises-a.presentsSaisis}.`),
         a.planifiesPasses>0&&note(`⚠️ ${a.planifiesPasses} atelier${a.planifiesPasses>1?'s':''} déjà passé${a.planifiesPasses>1?'s':''} encore « Planifié » : statut à mettre à jour, sinon ${a.planifiesPasses>1?'ils manquent':'il manque'} au bilan.`,true),
         avisHorsChargement>0&&note(`⚠️ ${avisHorsChargement} avis concernent des ateliers de la période qui ne sont pas chargés : ajoutez l'année dans le sélecteur d'années, sinon le bilan est incomplet.`,true),
+        b.aVenir.ateliers>0&&CE('div',{style:{marginTop:12}},aVenirCarte()),
         // Graphiques
         CE('div',{style:{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(min(100%,300px),1fr))',gap:10,margin:'12px 0'}},
-          carte('Programmation par statut',
+          carte('Programmation à date par statut',
             cles.length?CE(EChart,{height:170,option:memoOpt('statuts',a.statuts,()=>({backgroundColor:'transparent',tooltip:{trigger:'item',...tt},
               series:[{type:'pie',radius:['42%','65%'],center:['50%','50%'],label:{show:false},itemStyle:{borderRadius:4,borderColor:BG,borderWidth:2},
                 data:cles.map(k=>({name:k,value:a.statuts[k],itemStyle:{color:STATUT_COLORS[k]||'#94a3b8'}}))}]}))}):note('Aucun atelier sur la période.'),
@@ -6083,7 +6117,7 @@ function VueBilans({entries,moi,anneesChargees}){
             CE('tbody',null,b.parTheme.map((x,i)=>CE('tr',{key:x.theme,style:{background:i%2?BG2:BG}},
               CE('td',{style:{padding:'6px 8px'}},x.theme),CE('td',{style:{padding:'6px 8px'}},x.ateliers),CE('td',{style:{padding:'6px 8px'}},x.presents),
               CE('td',{style:{padding:'6px 8px'}},!av||av.erreur?'—':x.avis),CE('td',{style:{padding:'6px 8px'}},!av||av.erreur||x.attentes===null?'—':virgule(x.attentes)+'/5'))))))))
-      )));
+      ))));
 }
 
 // ── Avis par atelier (demande du 04/10/2026) ──────────────────────────────

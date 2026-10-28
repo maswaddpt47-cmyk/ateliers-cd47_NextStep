@@ -621,8 +621,10 @@ describe('trimestreCourant et Planifié passés (26/10/2026)', () => {
   it('seuls les « Planifié » de date passée sont à mettre à jour', () => {
     const e = [{_id: 'a', statut: 'Planifié', date: '2026-10-20'}, {_id: 'b', statut: 'Planifié', date: '2026-11-20'}];
     const b = bilanTrimestriel(e, '2026-10-01', '2026-12-31', [], '2026-10-26');
-    assert.equal(b.activite.statuts['Planifié'], 2);
+    // AG-038 : le Planifié du 20/11 est « À venir », hors programmation à date.
+    assert.equal(b.activite.statuts['Planifié'], 1);
     assert.equal(b.activite.planifiesPasses, 1);
+    assert.equal(b.aVenir.planifies, 1);
   });
 });
 describe('bilan trimestriel', () => {
@@ -855,11 +857,11 @@ describe('même population : kpiHistorique et bilanTrimestriel', () => {
 describe('bilanPeriode — choix de l\'utilisateur D1-D5 (AG-037)', () => {
   const {bilanPeriode} = require('./logic.js');
   const at = (id, o) => ({_id: id, statut: 'Réalisé', date: '2026-10-15', thematique: 'Courriel', commune: 'Agen', orienteur: 'CCAS', conseiller: 'Bob', inscrits: '5', presents: '3', duree: 90, ...o});
-  it('recompte de Codex (octobre) : 3 programmés, 2 réalisés, 12 inscrits, 6 participations, 75 % sur 1/2, 3 h', () => {
+  it('recompte de Codex (octobre) : 2 ateliers à date, 2 réalisés, 12 inscrits, 6 participations, 75 % sur 1/2, 3 h', () => {
     const E = [at('a', {inscrits: '8', presents: '6'}), at('b', {inscrits: '4', presents: '', duree: ''}), at('c', {statut: 'Planifié', date: '2026-10-30'})];
     const a = bilanPeriode(E, '2026-10-01', '2026-10-31', [], '2026-10-28').activite;
     assert.deepEqual([a.programmes, a.realises, a.inscrits, a.presents, a.tauxPresence, a.presence.ateliers, a.heures, a.dureesParDefaut, a.tauxRealisation],
-      [3, 2, 12, 6, 75, 1, 3, 1, 67]);
+      [2, 2, 12, 6, 75, 1, 3, 1, 100]);   // AG-038 : le Planifié du 30/10 est à venir
   });
   it('D1 : un atelier co-animé compte pour ses deux animateurs, une fois au global', () => {
     const b = bilanPeriode([at('a', {co_animateur: 'Alice'})], '2026-10-01', '2026-10-31', [], '2026-10-31');
@@ -884,5 +886,28 @@ describe('bilanPeriode — choix de l\'utilisateur D1-D5 (AG-037)', () => {
   });
   it('l\'ancien nom reste le même calcul', () => {
     assert.equal(require('./logic.js').bilanTrimestriel, bilanPeriode);
+  });
+});
+describe('bilanPeriode — bilan à date et « À venir » (AG-038, 28/10/2026)', () => {
+  const {bilanPeriode} = require('./logic.js');
+  const at = (id, o) => ({_id: id, statut: 'Réalisé', date: '2026-10-15', thematique: 'IA', commune: 'Agen', conseiller: 'Bob', inscrits: '5', presents: '4', duree: 90, ...o});
+  const E = [at('r'), at('p', {statut: 'Planifié', date: '2026-10-20'}),
+    at('j1', {statut: 'Planifié', date: '2026-10-28'}), at('j2', {date: '2026-10-28'}),
+    at('f1', {statut: 'Planifié', date: '2026-11-05', inscrits: '6', co_animateur: 'Alice'}), at('f2', {statut: 'Planifié', date: '2026-12-01', inscrits: ''}),
+    at('fa', {statut: 'Annulé', date: '2026-12-10'})];
+  const b = bilanPeriode(E, '2026-10-01', '2026-12-31', [], '2026-10-28');
+  it('taux de réalisation sur les seuls ateliers à date ; réalisé du jour compris', () => {
+    assert.deepEqual([b.activite.programmes, b.activite.realises, b.activite.tauxRealisation, b.activite.planifiesPasses], [3, 2, 67, 1]);
+  });
+  it('à venir : planifiés du jour et futurs, annulé futur compté à part, aucune estimation', () => {
+    const v = b.aVenir;
+    assert.deepEqual([v.ateliers, v.planifies, v.statuts['Annulé'], v.inscrits, v.inscritsSaisis], [4, 3, 1, 11, 2]);
+    assert.deepEqual(v.parConseiller.map(c => [c.conseiller, c.ateliers]), [['Bob', 3], ['Alice', 1]]);
+    assert.equal('presents' in v || 'tauxPresence' in v, false);
+  });
+  it('période révolue : rien à venir ; période future : tout à venir', () => {
+    assert.equal(bilanPeriode(E, '2026-10-01', '2026-10-27', [], '2026-10-28').aVenir.ateliers, 0);
+    const f = bilanPeriode(E, '2026-11-01', '2026-12-31', [], '2026-10-28');
+    assert.deepEqual([f.activite.programmes, f.aVenir.ateliers], [0, 3]);
   });
 });
