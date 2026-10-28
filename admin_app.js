@@ -895,7 +895,7 @@ const LOGS_COLONNES=[
   {label:'Tentatives',key:'tentatives'},
   {label:'Appareil',key:'user_agent'}
 ];
-let logsCache=null; // {data:[...], ts:number} — survit aux démontages du composant
+let logsCache=null; // {sansAdmin, data:[...], nbMasques, ts} — survit aux démontages du composant
 window.addEventListener('ateliers:deconnexion',()=>{ logsCache=null; });   // pas lisible après déconnexion
 // ── Sauvegardes (AG-014, 25/09/2026) ───────────────────────────────────────
 // Lecture seule + copie à la demande. Pas de restauration complète ici, par
@@ -1028,18 +1028,27 @@ function VueLogs(){
   const[conseillerFilter,setConseillerFilter]=React.useState('all');
   // Les passages réussis de l'Admin noyaient ceux des conseillers (26/10/2026) :
   // masqués par défaut. Les échecs restent toujours visibles (essais de mot de passe).
+  // Écartés par l'API avant la limite de 500 (AG-036, 28/10/2026) : 418 des 500
+  // lignes chargées étaient Admin, l'équipe ne remontait qu'à 13 jours.
   const[masquerAdmin,setMasquerAdmin]=React.useState(true);
+  const[nbMasques,setNbMasques]=React.useState(null);
   const[sortKey,setSortKey]=React.useState(null);
   const[sortDir,setSortDir]=React.useState('asc');
   function fetchLogs(force){
-    if(!force&&logsCache&&Date.now()-logsCache.ts<2*60*1000){setLogs(logsCache.data);setLoading(false);return;}
+    if(!force&&logsCache&&logsCache.sansAdmin===masquerAdmin&&Date.now()-logsCache.ts<2*60*1000){setLogs(logsCache.data);setNbMasques(logsCache.nbMasques);setLoading(false);return;}
     setLoading(true);setErr('');
-    apiFetch('getLogs',{n:500})   // 100 ne suffisaient plus (26/10/2026) ; l'API plafonne à 1000
-      .then(res=>{if(res.ok){logsCache={data:res.logs||[],ts:Date.now()};setLogs(res.logs||[]);}else setErr(res.error||'Erreur');})
+    const sansAdmin=masquerAdmin;
+    apiFetch('getLogs',sansAdmin?{n:500,sansAdmin:1}:{n:500})   // 100 ne suffisaient plus (26/10/2026) ; l'API plafonne à 1000
+      .then(res=>{if(res.ok){
+        const data=res.logs||[];
+        // API pas encore déployée : pas de nbMasques, on compte sur ce qui est chargé.
+        const nb=typeof res.nbMasques==='number'?res.nbMasques:data.filter(l=>l.role==='admin'&&l.success).length;
+        logsCache={sansAdmin,data,nbMasques:nb,ts:Date.now()};setLogs(data);setNbMasques(nb);
+      }else setErr(res.error||'Erreur');})
       .catch(e=>setErr('Erreur réseau : '+e.message))
       .finally(()=>setLoading(false));
   }
-  React.useEffect(()=>{fetchLogs(false);},[]);
+  React.useEffect(()=>{fetchLogs(false);},[masquerAdmin]);
   function toggleSort(key){
     if(sortKey===key) setSortDir(d=>d==='asc'?'desc':'asc');
     else{ setSortKey(key); setSortDir('asc'); }
@@ -1062,7 +1071,6 @@ function VueLogs(){
     }
     return out;
   },[logs,filter,conseillerFilter,masquerAdmin,sortKey,sortDir]);
-  const nbAdmin=logs.filter(l=>l.role==='admin'&&l.success).length;
   function formatTs(ts){if(!ts)return'—';try{return new Date(ts).toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});}catch{return ts;}}
   return CE('div',{className:'card'},
     CE('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:16,flexWrap:'wrap',gap:8}},
@@ -1070,7 +1078,7 @@ function VueLogs(){
       CE('div',{style:{display:'flex',gap:6,alignItems:'center',flexWrap:'wrap'}},
         CE('button',{onClick:()=>fetchLogs(true),disabled:loading,style:{fontSize:11,padding:'3px 10px',borderRadius:6,cursor:'pointer',border:'1px solid #e2e8f0',background:'#f8fafc',color:'#4a5568'}},loading?'…':'🔄 Actualiser'),
         CE('button',{onClick:()=>setMasquerAdmin(m=>!m),title:'Passages réussis du rôle Admin ; les échecs restent toujours affichés',style:{fontSize:11,padding:'3px 10px',borderRadius:6,cursor:'pointer',fontWeight:masquerAdmin?700:400,border:masquerAdmin?'1.5px solid #7c3aed':'1px solid #e2e8f0',background:masquerAdmin?'#ede9fe':'#f8fafc',color:masquerAdmin?'#5b21b6':'#4a5568'}},
-          masquerAdmin?'🙈 Admin masqué ('+nbAdmin+')':'👁 Admin affiché'),
+          masquerAdmin?'🙈 Admin masqué'+(nbMasques==null?'':' ('+nbMasques+')'):'👁 Admin affiché'),
         CE('select',{value:conseillerFilter,onChange:e=>setConseillerFilter(e.target.value),style:{fontSize:11,padding:'3px 8px',borderRadius:6,cursor:'pointer',border:'1px solid #e2e8f0',background:'#f8fafc',color:'#4a5568'}},
           CE('option',{value:'all'},'Tous les conseillers'),
           CONSEILLERS.map(c=>CE('option',{key:c,value:c},c))
