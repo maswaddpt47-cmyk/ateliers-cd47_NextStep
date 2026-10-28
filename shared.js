@@ -2943,12 +2943,12 @@ function VueHistorique({onOuvrirGestionOrdi,entries,onEdit,onDelete,onRefresh,on
   return CE('div',null,
     // KPIs
     CE('div',{className:'kpi-row kpi-histo'},
-      CE(FadeItem,{delay:0,style:{minWidth:0}},CE('div',{className:'kpi-mini',style:{borderLeft:'3px solid #1e3a8a',background:'#f0f4ff'}},CE('div',{className:'v',style:{color:'#1e3a8a'}},kpi.total),CE('div',{className:'l'},'Total'))),
-      CE(FadeItem,{delay:0.06,style:{minWidth:0}},CE('div',{className:'kpi-mini',style:{borderLeft:'3px solid #2563eb',background:'#eff6ff'}},CE('div',{className:'v',style:{color:'#2563eb'}},kpi.planifies),CE('div',{className:'l'},'Planifiés'),CE('div',{className:'p',style:{color:'#2563eb'}},kpi.total?kpi.pct.planifies+'%':'-'))),
-      CE(FadeItem,{delay:0.12,style:{minWidth:0}},CE('div',{className:'kpi-mini',style:{borderLeft:'3px solid #16a34a',background:'#f0fdf4'}},CE('div',{className:'v',style:{color:'#166534'}},kpi.realises),CE('div',{className:'l'},'Réalisés'),CE('div',{className:'p',style:{color:'#166534'}},kpi.total?kpi.pct.realises+'%':'-'))),
-      CE(FadeItem,{delay:0.18,style:{minWidth:0}},CE('div',{className:'kpi-mini',style:{borderLeft:'3px solid #dc2626',background:'#fff5f5'}},CE('div',{className:'v',style:{color:'#991b1b'}},kpi.annules),CE('div',{className:'l'},'Annulés'),CE('div',{className:'p',style:{color:'#991b1b'}},kpi.total?kpi.pct.annules+'%':'-'))),
-      CE(FadeItem,{delay:0.24,style:{minWidth:0}},CE('div',{className:'kpi-mini',style:{borderLeft:'3px solid #94a3b8',background:'#f8fafc'},title:'Reportés et non réalisés'},CE('div',{className:'v',style:{color:'#475569'}},kpi.autres),CE('div',{className:'l'},'Autres'),CE('div',{className:'p',style:{color:'#475569'}},kpi.total?kpi.pct.autres+'%':'-'))),
-      CE(FadeItem,{delay:0.3,style:{minWidth:0}},CE('div',{className:'kpi-mini',style:{borderLeft:'3px solid #d97706',background:'#fffbeb'},title:'Présents / inscrits des ateliers réalisés. Taux : ateliers dont les présents sont saisis ('+kpi.presentsTaux+'/'+kpi.inscritsTaux+')'},CE('div',{className:'v',style:{color:'#d97706'}},kpi.presents+'/'+kpi.inscrits),CE('div',{className:'l'},'Présents'),CE('div',{className:'p',style:{color:'#d97706'}},kpi.inscritsTaux?kpi.tx+'%':'-')))
+      CE(FadeItem,{delay:0,style:{minWidth:0}},CE('div',{className:'kpi-mini',style:{borderLeft:'3px solid #1e3a8a',background:'#f0f4ff'}},CE('div',{className:'v',style:{color:'#1e3a8a'}},CE(NombreAnime,{valeur:kpi.total})),CE('div',{className:'l'},'Total'))),
+      CE(FadeItem,{delay:0.06,style:{minWidth:0}},CE('div',{className:'kpi-mini',style:{borderLeft:'3px solid #2563eb',background:'#eff6ff'}},CE('div',{className:'v',style:{color:'#2563eb'}},CE(NombreAnime,{valeur:kpi.planifies})),CE('div',{className:'l'},'Planifiés'),CE('div',{className:'p',style:{color:'#2563eb'}},kpi.total?kpi.pct.planifies+'%':'-'))),
+      CE(FadeItem,{delay:0.12,style:{minWidth:0}},CE('div',{className:'kpi-mini',style:{borderLeft:'3px solid #16a34a',background:'#f0fdf4'}},CE('div',{className:'v',style:{color:'#166534'}},CE(NombreAnime,{valeur:kpi.realises})),CE('div',{className:'l'},'Réalisés'),CE('div',{className:'p',style:{color:'#166534'}},kpi.total?kpi.pct.realises+'%':'-'))),
+      CE(FadeItem,{delay:0.18,style:{minWidth:0}},CE('div',{className:'kpi-mini',style:{borderLeft:'3px solid #dc2626',background:'#fff5f5'}},CE('div',{className:'v',style:{color:'#991b1b'}},CE(NombreAnime,{valeur:kpi.annules})),CE('div',{className:'l'},'Annulés'),CE('div',{className:'p',style:{color:'#991b1b'}},kpi.total?kpi.pct.annules+'%':'-'))),
+      CE(FadeItem,{delay:0.24,style:{minWidth:0}},CE('div',{className:'kpi-mini',style:{borderLeft:'3px solid #94a3b8',background:'#f8fafc'},title:'Reportés et non réalisés'},CE('div',{className:'v',style:{color:'#475569'}},CE(NombreAnime,{valeur:kpi.autres})),CE('div',{className:'l'},'Autres'),CE('div',{className:'p',style:{color:'#475569'}},kpi.total?kpi.pct.autres+'%':'-'))),
+      CE(FadeItem,{delay:0.3,style:{minWidth:0}},CE('div',{className:'kpi-mini',style:{borderLeft:'3px solid #d97706',background:'#fffbeb'},title:'Présents / inscrits des ateliers réalisés. Taux : ateliers dont les présents sont saisis ('+kpi.presentsTaux+'/'+kpi.inscritsTaux+')'},CE('div',{className:'v',style:{color:'#d97706'}},CE(NombreAnime,{valeur:kpi.presents+'/'+kpi.inscrits})),CE('div',{className:'l'},'Présents'),CE('div',{className:'p',style:{color:'#d97706'}},kpi.inscritsTaux?kpi.tx+'%':'-')))
     ),
     // Alerte retards
     nRetard>0&&CE('div',{style:{background:'#fffbeb',border:'1px solid #fcd34d',borderRadius:10,padding:'10px 14px',marginBottom:10,display:'flex',gap:10,alignItems:'center'}},
@@ -3196,11 +3196,11 @@ function VueCalendrier({entries,onEdit,onDelete,onRefresh,onEntryUpdated,onDupli
             CE('span',{className:'chip-dot',style:{background:conseillerColor(c)}}),c))
         ),
         CE('div',{key:monthStr,style:{display:'flex',gap:8,flexWrap:'wrap'}},
-          CE('div',{className:'kpi-mini',style:{flex:'1 1 70px',borderLeft:'3px solid #2563eb',background:'rgba(37,99,235,.08)',animationDelay:'.00s'}},CE('div',{className:'v',style:{color:'#2563eb',fontSize:20}},kpi.total),CE('div',{className:'l'},'Ateliers')),
-          CE('div',{className:'kpi-mini',style:{flex:'1 1 70px',borderLeft:'3px solid #16a34a',background:'rgba(22,163,74,.08)',animationDelay:'.07s'}},CE('div',{className:'v',style:{color:'#16a34a',fontSize:20}},kpi.realises),CE('div',{className:'l'},'Réalisés')),
-          CE('div',{className:'kpi-mini',style:{flex:'1 1 70px',borderLeft:'3px solid #2563eb',background:'rgba(37,99,235,.06)',animationDelay:'.14s'}},CE('div',{className:'v',style:{color:'#2563eb',fontSize:20}},kpi.planifies),CE('div',{className:'l'},'Planifiés')),
-          CE('div',{className:'kpi-mini',style:{flex:'1 1 70px',borderLeft:'3px solid #7c3aed',background:'rgba(124,58,237,.08)',animationDelay:'.21s'}},CE('div',{className:'v',style:{color:'#7c3aed',fontSize:20}},kpi.inscrits),CE('div',{className:'l'},'Inscrits')),
-          CE('div',{className:'kpi-mini',style:{flex:'1 1 70px',borderLeft:'3px solid #0891b2',background:'rgba(8,145,178,.08)',animationDelay:'.28s'}},CE('div',{className:'v',style:{color:'#0891b2',fontSize:20}},aDesParticipationsSaisies(monthEntries)?kpi.presents:'—'),CE('div',{className:'l'},'Participations'))
+          CE('div',{className:'kpi-mini',style:{flex:'1 1 70px',borderLeft:'3px solid #2563eb',background:'rgba(37,99,235,.08)',animationDelay:'.00s'}},CE('div',{className:'v',style:{color:'#2563eb',fontSize:20}},CE(NombreAnime,{valeur:kpi.total})),CE('div',{className:'l'},'Ateliers')),
+          CE('div',{className:'kpi-mini',style:{flex:'1 1 70px',borderLeft:'3px solid #16a34a',background:'rgba(22,163,74,.08)',animationDelay:'.07s'}},CE('div',{className:'v',style:{color:'#16a34a',fontSize:20}},CE(NombreAnime,{valeur:kpi.realises})),CE('div',{className:'l'},'Réalisés')),
+          CE('div',{className:'kpi-mini',style:{flex:'1 1 70px',borderLeft:'3px solid #2563eb',background:'rgba(37,99,235,.06)',animationDelay:'.14s'}},CE('div',{className:'v',style:{color:'#2563eb',fontSize:20}},CE(NombreAnime,{valeur:kpi.planifies})),CE('div',{className:'l'},'Planifiés')),
+          CE('div',{className:'kpi-mini',style:{flex:'1 1 70px',borderLeft:'3px solid #7c3aed',background:'rgba(124,58,237,.08)',animationDelay:'.21s'}},CE('div',{className:'v',style:{color:'#7c3aed',fontSize:20}},CE(NombreAnime,{valeur:kpi.inscrits})),CE('div',{className:'l'},'Inscrits')),
+          CE('div',{className:'kpi-mini',style:{flex:'1 1 70px',borderLeft:'3px solid #0891b2',background:'rgba(8,145,178,.08)',animationDelay:'.28s'}},CE('div',{className:'v',style:{color:'#0891b2',fontSize:20}},CE(NombreAnime,{valeur:aDesParticipationsSaisies(monthEntries)?kpi.presents:'—'})),CE('div',{className:'l'},'Participations'))
         )
       )
     ),
@@ -3622,7 +3622,7 @@ function KpiCard({val,lbl,sub,trend,color,icon,bgColor,delay=0}){
     CE('div',{style:{display:'flex',alignItems:'flex-start',justifyContent:'space-between'}},
       CE('div',null,
         CE('div',{style:{fontSize:11,color:'#94a3b8',fontWeight:600,marginBottom:4,display:'flex',alignItems:'center',gap:4}},icon,' ',lbl),
-        CE('div',{className:'val',style:{color:color||'#1e3a8a',fontSize:26,lineHeight:1.1}},val),
+        CE('div',{className:'val',style:{color:color||'#1e3a8a',fontSize:26,lineHeight:1.1}},CE(NombreAnime,{valeur:val})),
         sub&&CE('div',{style:{fontSize:11,color:'#475569',marginTop:3}},sub)
       ),
       trend!==undefined&&CE('div',{style:{
@@ -3814,10 +3814,10 @@ function VueGraphiques({entries,anneesChargees}){
     CE('div',null,
            passes.length===0&&CE('p',{className:'analyse-note'},hasFilter?'Aucun atelier réalisé sur cette période.':'Aucun atelier réalisé.'),
           CE('div',{className:'kpi-grid'},
-            CE(FadeItem,{delay:0,style:{display:'contents'}},CE('div',{className:'kpi',style:{borderLeft:'4px solid #16a34a',background:'#f0fdf4',textAlign:'left'}},CE('div',{className:'val',style:{color:'#16a34a'}},total),CE('div',{className:'lbl'},'Ateliers réalisés'))),
-            CE(FadeItem,{delay:0.08,style:{display:'contents'}},CE('div',{className:'kpi',style:{borderLeft:'4px solid #dc2626',background:'#fff5f5',textAlign:'left'}},CE('div',{className:'val',style:{color:'#dc2626'}},annules),CE('div',{className:'lbl'},'Annulés'))),
-            CE(FadeItem,{delay:0.16,style:{display:'contents'}},CE('div',{className:'kpi','data-participations-kpi':'1',title:'Présences cumulées aux ateliers, pas de personnes uniques.',style:{borderLeft:'4px solid #7c3aed',background:'#faf5ff',textAlign:'left'}},CE('div',{className:'val',style:{color:'#7c3aed'}},aDesParticipationsSaisies(passes)?totalPresents:'—'),CE('div',{className:'lbl'},'Participations'))),
-            CE(FadeItem,{delay:0.24,style:{display:'contents'}},CE('div',{className:'kpi','data-presence-kpi':'1',style:{borderLeft:'4px solid #0891b2',background:'#ecfeff',textAlign:'left'}},CE('div',{className:'val',style:{color:'#0891b2'}},presence.inscrits>0?presence.tx+' %':'—'),CE('div',{className:'lbl'},'Taux de présence'),CE('div',{style:{fontSize:11,marginTop:6,color:'#475569'}},`Calculé sur ${presence.ateliers} / ${total} ateliers réalisés`)))
+            CE(FadeItem,{delay:0,style:{display:'contents'}},CE('div',{className:'kpi',style:{borderLeft:'4px solid #16a34a',background:'#f0fdf4',textAlign:'left'}},CE('div',{className:'val',style:{color:'#16a34a'}},CE(NombreAnime,{valeur:total})),CE('div',{className:'lbl'},'Ateliers réalisés'))),
+            CE(FadeItem,{delay:0.08,style:{display:'contents'}},CE('div',{className:'kpi',style:{borderLeft:'4px solid #dc2626',background:'#fff5f5',textAlign:'left'}},CE('div',{className:'val',style:{color:'#dc2626'}},CE(NombreAnime,{valeur:annules})),CE('div',{className:'lbl'},'Annulés'))),
+            CE(FadeItem,{delay:0.16,style:{display:'contents'}},CE('div',{className:'kpi','data-participations-kpi':'1',title:'Présences cumulées aux ateliers, pas de personnes uniques.',style:{borderLeft:'4px solid #7c3aed',background:'#faf5ff',textAlign:'left'}},CE('div',{className:'val',style:{color:'#7c3aed'}},CE(NombreAnime,{valeur:aDesParticipationsSaisies(passes)?totalPresents:'—'})),CE('div',{className:'lbl'},'Participations'))),
+            CE(FadeItem,{delay:0.24,style:{display:'contents'}},CE('div',{className:'kpi','data-presence-kpi':'1',style:{borderLeft:'4px solid #0891b2',background:'#ecfeff',textAlign:'left'}},CE('div',{className:'val',style:{color:'#0891b2'}},CE(NombreAnime,{valeur:presence.inscrits>0?presence.tx+' %':'—'})),CE('div',{className:'lbl'},'Taux de présence'),CE('div',{style:{fontSize:11,marginTop:6,color:'#475569'}},`Calculé sur ${presence.ateliers} / ${total} ateliers réalisés`)))
           ),
           CE('div',{className:'dashboard-charts',style:{display:'grid',gridTemplateColumns:'repeat(2,minmax(0,1fr))',gap:16}},
             CE('div',{className:'card'},CE('h2',null,'Ateliers par mois (révolus)'),CE(LineChart,{data:dataMois})),
@@ -4739,11 +4739,11 @@ function VueAgendaSemaine({entries,onEdit,onDelete,onDuplicate,canDelete,initCon
 
       // ── KPIs semaine ──────────────────────────────────────
       CE('div',{key:firstDay,style:{display:'flex',gap:8,flexWrap:'wrap',marginBottom:14}},
-        CE('div',{className:'kpi-mini',style:{flex:'1 1 70px',borderLeft:'3px solid #1e3a8a',background:'#f0f4ff',animationDelay:'.00s'}},CE('div',{className:'v',style:{color:'#1e3a8a',fontSize:20}},totalW),CE('div',{className:'l'},'Ateliers')),
-        CE('div',{className:'kpi-mini',style:{flex:'1 1 70px',borderLeft:'3px solid #16a34a',background:'#f0fdf4',animationDelay:'.07s'}},CE('div',{className:'v',style:{color:'#166534',fontSize:20}},realises),CE('div',{className:'l'},'Réalisés')),
-        CE('div',{className:'kpi-mini',style:{flex:'1 1 70px',borderLeft:'3px solid #2563eb',background:'#eff6ff',animationDelay:'.14s'}},CE('div',{className:'v',style:{color:'#2563eb',fontSize:20}},planifies),CE('div',{className:'l'},'Planifiés')),
-        CE('div',{className:'kpi-mini',style:{flex:'1 1 70px',borderLeft:'3px solid #7c3aed',background:'#faf5ff',animationDelay:'.21s'}},CE('div',{className:'v',style:{color:'#7c3aed',fontSize:20}},inscritsW),CE('div',{className:'l'},'Inscrits')),
-        CE('div',{className:'kpi-mini',style:{flex:'1 1 70px',borderLeft:'3px solid #0891b2',background:'#ecfeff',animationDelay:'.28s'}},CE('div',{className:'v',style:{color:'#0891b2',fontSize:20}},aDesParticipationsSaisies(filtered)?presentsW:'—'),CE('div',{className:'l'},'Participations'))
+        CE('div',{className:'kpi-mini',style:{flex:'1 1 70px',borderLeft:'3px solid #1e3a8a',background:'#f0f4ff',animationDelay:'.00s'}},CE('div',{className:'v',style:{color:'#1e3a8a',fontSize:20}},CE(NombreAnime,{valeur:totalW})),CE('div',{className:'l'},'Ateliers')),
+        CE('div',{className:'kpi-mini',style:{flex:'1 1 70px',borderLeft:'3px solid #16a34a',background:'#f0fdf4',animationDelay:'.07s'}},CE('div',{className:'v',style:{color:'#166534',fontSize:20}},CE(NombreAnime,{valeur:realises})),CE('div',{className:'l'},'Réalisés')),
+        CE('div',{className:'kpi-mini',style:{flex:'1 1 70px',borderLeft:'3px solid #2563eb',background:'#eff6ff',animationDelay:'.14s'}},CE('div',{className:'v',style:{color:'#2563eb',fontSize:20}},CE(NombreAnime,{valeur:planifies})),CE('div',{className:'l'},'Planifiés')),
+        CE('div',{className:'kpi-mini',style:{flex:'1 1 70px',borderLeft:'3px solid #7c3aed',background:'#faf5ff',animationDelay:'.21s'}},CE('div',{className:'v',style:{color:'#7c3aed',fontSize:20}},CE(NombreAnime,{valeur:inscritsW})),CE('div',{className:'l'},'Inscrits')),
+        CE('div',{className:'kpi-mini',style:{flex:'1 1 70px',borderLeft:'3px solid #0891b2',background:'#ecfeff',animationDelay:'.28s'}},CE('div',{className:'v',style:{color:'#0891b2',fontSize:20}},CE(NombreAnime,{valeur:aDesParticipationsSaisies(filtered)?presentsW:'—'})),CE('div',{className:'l'},'Participations'))
       ),
 
       // ── Grille ────────────────────────────────────────────
@@ -5912,24 +5912,30 @@ function RepartitionBilan({compte,ordre,total,couleur}){
   }));
 }
 // Chiffre d'une tuile qui monte de 0 à sa valeur (demande du 28/10/2026), à
-// l'apparition et au retour à l'écran, comme les graphiques ; garde le format
+// l'apparition et au retour à l'écran, comme les graphiques ; toutes les tuiles
+// KPI de l'appli l'utilisent (même jour) ; garde le format
 // (« 63 % », « 7,5 ») ; immobile si « réduire les animations » ou à l'impression.
 function NombreAnime({valeur}){
   const txt=String(valeur);
   const m=txt.match(/^(\d+)(?:([.,])(\d+))?(.*)$/);
-  const ref=React.useRef(null);
+  const ref=React.useRef(null),courant=React.useRef(0),vu=React.useRef(false);
   const[aff,setAff]=React.useState(m?'0'+(m[3]?m[2]+'0'.repeat(m[3].length):'')+m[4]:txt);
   React.useEffect(()=>{
     if(!m||!ref.current){setAff(txt);return;}
     const cible=parseFloat(m[1]+(m[3]?'.'+m[3]:'')),dec=m[3]?m[3].length:0;
-    const ecrire=x=>setAff((dec?x.toFixed(dec).replace('.',m[2]):String(Math.round(x)))+m[4]);
+    const ecrire=x=>{courant.current=x;setAff((dec?x.toFixed(dec).replace('.',m[2]):String(Math.round(x)))+m[4]);};
     let raf=0;
-    const stop=quandVisible(ref.current,(premier,sansAnim)=>{
-      cancelAnimationFrame(raf);
-      if(sansAnim||mouvementReduit()){ecrire(cible);return;}
+    const anim=de=>{cancelAnimationFrame(raf);if(mouvementReduit()){ecrire(cible);return;}
       const t0=performance.now();
-      const pas=t=>{const k=Math.min(1,(t-t0)/800);ecrire(cible*(1-Math.pow(1-k,3)));if(k<1)raf=requestAnimationFrame(pas);};
-      ecrire(0);raf=requestAnimationFrame(pas);
+      const pas=t=>{const k=Math.min(1,(t-t0)/800);ecrire(de+(cible-de)*(1-Math.pow(1-k,3)));if(k<1)raf=requestAnimationFrame(pas);};
+      ecrire(de);raf=requestAnimationFrame(pas);};
+    // Valeur changée (filtre) : glisse depuis la valeur affichée, sans repartir de 0.
+    const dejaVu=vu.current;
+    if(dejaVu)anim(courant.current);
+    const stop=quandVisible(ref.current,(premier,sansAnim)=>{
+      if(sansAnim){cancelAnimationFrame(raf);ecrire(cible);vu.current=true;return;}
+      if(premier&&dejaVu)return;
+      vu.current=true;anim(0);
     });
     return()=>{stop();cancelAnimationFrame(raf);};
   },[txt]);
