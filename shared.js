@@ -5911,6 +5911,30 @@ function RepartitionBilan({compte,ordre,total,couleur}){
       CE('span',{style:{whiteSpace:'nowrap',opacity:.8}},compte[k]+' · '+(total?p+' %':'—')));
   }));
 }
+// Chiffre d'une tuile qui monte de 0 à sa valeur (demande du 28/10/2026), à
+// l'apparition et au retour à l'écran, comme les graphiques ; garde le format
+// (« 63 % », « 7,5 ») ; immobile si « réduire les animations » ou à l'impression.
+function NombreAnime({valeur}){
+  const txt=String(valeur);
+  const m=txt.match(/^(\d+)(?:([.,])(\d+))?(.*)$/);
+  const ref=React.useRef(null);
+  const[aff,setAff]=React.useState(m?'0'+(m[3]?m[2]+'0'.repeat(m[3].length):'')+m[4]:txt);
+  React.useEffect(()=>{
+    if(!m||!ref.current){setAff(txt);return;}
+    const cible=parseFloat(m[1]+(m[3]?'.'+m[3]:'')),dec=m[3]?m[3].length:0;
+    const ecrire=x=>setAff((dec?x.toFixed(dec).replace('.',m[2]):String(Math.round(x)))+m[4]);
+    let raf=0;
+    const stop=quandVisible(ref.current,(premier,sansAnim)=>{
+      cancelAnimationFrame(raf);
+      if(sansAnim||mouvementReduit()){ecrire(cible);return;}
+      const t0=performance.now();
+      const pas=t=>{const k=Math.min(1,(t-t0)/800);ecrire(cible*(1-Math.pow(1-k,3)));if(k<1)raf=requestAnimationFrame(pas);};
+      ecrire(0);raf=requestAnimationFrame(pas);
+    });
+    return()=>{stop();cancelAnimationFrame(raf);};
+  },[txt]);
+  return CE('span',{ref,'aria-label':txt,style:{fontVariantNumeric:'tabular-nums'}},aff);
+}
 function VueBilans({entries,moi,anneesChargees}){
   const auj=todayLocal();
   const[mode,setMode]=React.useState('mois');
@@ -5982,7 +6006,7 @@ function VueBilans({entries,moi,anneesChargees}){
     CE('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:6}},
       CE('div',{style:{minWidth:0}},
         CE('div',{style:{fontSize:10,color:TXT2,fontWeight:700,textTransform:'uppercase',letterSpacing:'.06em',marginBottom:5}},label),
-        CE('div',{style:{fontSize:28,fontWeight:800,color:TXT,lineHeight:1}},value),
+        CE('div',{style:{fontSize:28,fontWeight:800,color:TXT,lineHeight:1}},CE(NombreAnime,{valeur:value})),
         sub&&CE('div',{style:{fontSize:11,color:TXT2,marginTop:4}},sub)),
       CE('div',{style:{width:38,height:38,flexShrink:0,borderRadius:8,background:color+'22',display:'flex',alignItems:'center',justifyContent:'center',fontSize:20}},icon)));
   const carte=(titreC,...enfants)=>CE('div',{key:titreC,style:{background:BG,borderRadius:6,padding:14,boxShadow:'0 1px 6px rgba(0,0,0,.15)',minWidth:0,color:TXT}},
@@ -6005,8 +6029,8 @@ function VueBilans({entries,moi,anneesChargees}){
 
   const sel={padding:'6px 8px',border:`1.5px solid ${BORD}`,borderRadius:6,fontSize:13,background:BG,color:TXT,width:'auto',maxWidth:'100%'};
   const btnMode=m=>CE('button',{key:m,type:'button',onClick:()=>setMode(m),'aria-pressed':mode===m,
-    // Plus visible sur le bandeau sombre (demande du 28/10/2026) : texte clair pour le choix inactif.
-    style:{padding:'8px 20px',border:'none',cursor:'pointer',fontSize:14,fontWeight:700,background:mode===m?'#f2c811':'rgba(255,255,255,.08)',color:mode===m?'#1e2132':'#e2e8f0'}},m==='mois'?'📅 Mois':'🗓️ Trimestre');
+    // Bien visible (demande du 28/10/2026) : couleur d'accent pour le choix actif.
+    style:{padding:'8px 20px',border:'none',cursor:'pointer',fontSize:14,fontWeight:700,background:mode===m?'var(--accent,#2563eb)':BG2,color:mode===m?'#fff':TXT}},m==='mois'?'📅 Mois':'🗓️ Trimestre');
   const a=b.activite,f=b.fiches,v=b.avis;
   // Bloc « À venir » (AG-038) : faits saisis seulement, aucune estimation.
   const aVenirCarte=()=>{const va=b.aVenir;
@@ -6032,11 +6056,12 @@ function VueBilans({entries,moi,anneesChargees}){
 
   return CE('div',{style:{fontFamily:"'Segoe UI',system-ui,sans-serif"}},
     // Bandeau et choix de la période
-    CE('div',{style:{background:'#1e2132',borderRadius:'6px 6px 0 0',padding:'8px 14px',display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}},
+    // Bandeau clair (demande du 28/10/2026 : le noir ne plaisait pas).
+    CE('div',{style:{background:BG,borderTop:'3px solid var(--accent,#2563eb)',borderBottom:`1px solid ${BORD}`,borderRadius:'6px 6px 0 0',padding:'10px 14px',display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}},
       CE('div',{style:{flex:'1 1 180px',minWidth:0}},
-        CE('span',{style:{fontSize:12,fontWeight:700,color:'#f2c811'}},libPeriode+(conum?' — '+conum:'')),
-        CE('span',{style:{fontSize:11,color:'#94a3b8'}},' · Ateliers Inclusion Numérique')),
-      CE('div',{role:'group','aria-label':'Période',style:{display:'flex',border:'1.5px solid #f2c811',borderRadius:8,overflow:'hidden'}},btnMode('mois'),btnMode('trimestre'))),
+        CE('span',{style:{fontSize:14,fontWeight:700,color:isDark?'#93c5fd':'#1e3a8a'}},libPeriode+(conum?' — '+conum:'')),
+        CE('span',{style:{fontSize:11,color:TXT2}},' · Ateliers Inclusion Numérique')),
+      CE('div',{role:'group','aria-label':'Période',style:{display:'flex',border:'1.5px solid var(--accent,#2563eb)',borderRadius:8,overflow:'hidden'}},btnMode('mois'),btnMode('trimestre'))),
     CE('div',{style:{display:'flex',gap:8,flexWrap:'wrap',alignItems:'center',padding:'10px 14px',background:BG,borderBottom:`1px solid ${BORD}`}},
       mode==='mois'
         ?CE('select',{value:mois,onChange:e=>setMois(parseInt(e.target.value)),style:sel,'aria-label':'Mois'},MOIS_LONGS.map((m,i)=>CE('option',{key:m,value:i+1},m.charAt(0).toUpperCase()+m.slice(1))))
