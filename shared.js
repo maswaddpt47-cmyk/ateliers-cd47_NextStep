@@ -6040,7 +6040,9 @@ function VueBilans({entries,moi,anneesChargees}){
       CE('button',{type:'button',className:'btn btn-primary btn-sm',disabled:!av||anneeNonChargee,onClick:imprimer},'🖨️ Imprimer / PDF'),
       !moi&&conumsPeriode.length>1&&CE('button',{type:'button',className:'btn btn-sm',disabled:!av||anneeNonChargee,onClick:imprimerParConum,title:'Un bilan par conseiller, une page chacun, dans un seul document'},`🖨️ Un bilan par conseiller (${conumsPeriode.length})`)),
 
-    CE('div',{style:{padding:14,background:isDark?'#0f1117':BG2,borderRadius:'0 0 6px 6px'}},
+    // key : changer de période (ou de conseiller) recrée graphiques et barres,
+    // qui rejouent leur entrée même quand les valeurs sont identiques (28/10/2026).
+    CE('div',{key:debut+'|'+fin+'|'+conum,style:{padding:14,background:isDark?'#0f1117':BG2,borderRadius:'0 0 6px 6px'}},
       anneeNonChargee?CE('div',{style:{padding:14,background:'#fef3c7',borderRadius:8,color:'#92400e',fontSize:13}},`L'année ${annee} n'est pas chargée : ajoutez-la dans le sélecteur d'années en haut de la page pour faire ce bilan.`)
       :CE(React.Fragment,null,
         CE('div',{style:{fontSize:12,color:TXT2,marginBottom:10}},debut>auj?`Du ${fmtDate(debut)} au ${fmtDate(fin)}.`:`Du ${fmtDate(debut)} au ${fmtDate(fin)} — programmation : ateliers à date ; autres chiffres : ateliers « Réalisé »`+(b.aVenir.ateliers?' ; les ateliers à venir sont à part, plus bas.':'.')),
