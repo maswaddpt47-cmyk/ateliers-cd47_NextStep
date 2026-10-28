@@ -6038,11 +6038,11 @@ function VueBilans({entries,moi,anneesChargees}){
         sub&&CE('div',{style:{fontSize:11,color:TXT2,marginTop:4}},sub)),
       CE('div',{style:{width:38,height:38,flexShrink:0,borderRadius:8,background:color+'22',display:'flex',alignItems:'center',justifyContent:'center',fontSize:20}},icon)));
   // Cartouches avec du relief (demande du 28/10/2026, comme « À venir ») : une
-  // couleur et une icône par sujet, fond teinté, liseré, titre coloré.
+  // couleur et une icône par sujet, fond teinté, titre coloré ; sans liseré (28/10/2026).
   const TEINTES=[['Programmation','#16a34a','📊'],['Ateliers par mois','#2563eb','📅'],['Thématiques','#7c3aed','🏷️'],['Par thématique','#7c3aed','🏷️'],
     ['Organismes','#f97316','🤝'],['Participations par commune','#db2777','📍'],['Par conseiller','#2563eb','👤'],['Fiches bilan','#65a30d','📝'],['Avis des stagiaires','#f97316','💬']];
   const carte=(titreC,...enfants)=>{const[,c,ico]=TEINTES.find(([d])=>titreC.startsWith(d))||['','#64748b','▪️'];
-    return CE('div',{key:titreC,style:{borderRadius:10,padding:14,minWidth:0,color:TXT,borderLeft:`5px solid ${c}`,boxShadow:`0 2px 10px ${c}2e`,
+    return CE('div',{key:titreC,style:{borderRadius:10,padding:14,minWidth:0,color:TXT,boxShadow:'0 1px 6px rgba(0,0,0,.1)',
       background:isDark?`linear-gradient(135deg,${c}29,${BG} 70%)`:`linear-gradient(135deg,${c}14,#ffffff 70%)`}},
       CE('div',{style:{display:'flex',alignItems:'center',gap:6,fontSize:11,fontWeight:800,color:isDark?'#e2e8f0':c,textTransform:'uppercase',letterSpacing:'.06em',marginBottom:12,paddingBottom:8,borderBottom:`1px solid ${c}33`}},
         CE('span',{style:{fontSize:15}},ico),titreC),...enfants);};
@@ -6075,7 +6075,7 @@ function VueBilans({entries,moi,anneesChargees}){
     const liste=(titreL,ico,l,cle,couleur)=>l.length>0&&CE('div',{style:{minWidth:0,background:BG,borderRadius:8,padding:'10px 12px',boxShadow:'0 1px 4px rgba(0,0,0,.08)'}},
       CE('div',{style:{fontSize:12,fontWeight:700,marginBottom:6,color:couleur}},ico+' '+titreL),
       CE(BarresAVenir,{lignes:l.slice(0,8).map(x=>({nom:x[cle],n:x.ateliers})),couleur}));
-    return CE('div',{style:{borderRadius:10,padding:14,borderLeft:'5px solid #6366f1',color:TXT,boxShadow:'0 2px 10px rgba(99,102,241,.18)',
+    return CE('div',{style:{borderRadius:10,padding:14,color:TXT,boxShadow:'0 1px 6px rgba(0,0,0,.1)',
       background:isDark?'linear-gradient(135deg,rgba(59,130,246,.16),rgba(139,92,246,.16))':'linear-gradient(135deg,#eff6ff,#f5f3ff)'}},
       CE('div',{style:{display:'flex',alignItems:'center',gap:8,marginBottom:12,flexWrap:'wrap'}},
         CE('span',{style:{fontSize:20}},'🔭'),
