@@ -67,7 +67,9 @@ test('Analyse : comparaison annuelle et historique au clic à 390/1280 px', asyn
   for(const width of [390,1280])for(const theme of ['light','dark']){
    await page.setViewportSize({width,height:720});
    await page.evaluate(theme=>{document.documentElement.setAttribute('data-theme',theme);window.__root.render(CE(VueGraphiques,{entries:window.__lignes,anneesChargees:'2026,2027'}));},theme);
-   await page.waitForTimeout(100);
+   // Les graphiques se redimensionnent après le changement de taille (ResizeObserver) :
+   // attendre la largeur stable, sans assouplir le critère (échecs isolés en CI, 28/10/2026).
+   await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth),{timeout:3000}).toBeLessThanOrEqual(width+1).catch(()=>{});
    const dimensions=await page.evaluate(()=>({viewport:innerWidth,page:document.documentElement.scrollWidth,notes:[...document.querySelectorAll('.analyse-note')].map(e=>({color:getComputedStyle(e).color,background:getComputedStyle(e.closest('.card')||document.body).backgroundColor}))}));
    assert.ok(dimensions.page<=width+1,JSON.stringify(dimensions));
    for(const note of dimensions.notes){

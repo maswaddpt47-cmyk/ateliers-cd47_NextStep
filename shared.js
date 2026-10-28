@@ -5944,6 +5944,25 @@ function NombreAnime({valeur,retard=0}){
   },[txt]);
   return CE('span',{ref,'aria-label':txt,style:{fontVariantNumeric:'tabular-nums'}},aff);
 }
+// Barres du bloc « À venir » : longueur relative au plus grand nombre de la
+// liste, remplissage à l'apparition et au retour à l'écran (comme RepartitionBilan).
+function BarresAVenir({lignes,couleur}){
+  const ref=React.useRef(null);
+  const[plein,setPlein]=React.useState(false);
+  React.useEffect(()=>{
+    if(!ref.current)return;
+    return quandVisible(ref.current,(premier,sansAnim)=>{
+      if(sansAnim||mouvementReduit()){setPlein(true);return;}
+      setPlein(false);requestAnimationFrame(()=>requestAnimationFrame(()=>setPlein(true)));
+    });
+  },[]);
+  const max=Math.max(1,...lignes.map(l=>l.n));
+  return CE('div',{ref},lignes.map(l=>CE('div',{key:l.nom,style:{display:'grid',gridTemplateColumns:'minmax(0,45%) 1fr auto',gap:8,alignItems:'center',fontSize:12,margin:'5px 0'}},
+    CE('span',{style:{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'},title:l.nom},l.nom),
+    CE('span',{style:{background:'rgba(148,163,184,.22)',borderRadius:5,height:10,overflow:'hidden'}},
+      CE('span',{style:{display:'block',height:'100%',borderRadius:5,width:(plein?Math.round(l.n/max*100):0)+'%',background:`linear-gradient(90deg,${couleur}99,${couleur})`,transition:plein?'width .8s cubic-bezier(.33,1,.68,1)':'none'}})),
+    CE('b',{style:{color:couleur,minWidth:18,textAlign:'right'}},l.n))));
+}
 function VueBilans({entries,moi,anneesChargees}){
   const auj=todayLocal();
   const[mode,setMode]=React.useState('mois');
@@ -6042,17 +6061,25 @@ function VueBilans({entries,moi,anneesChargees}){
     style:{padding:'8px 20px',border:'none',cursor:'pointer',fontSize:14,fontWeight:700,background:mode===m?'var(--accent,#2563eb)':BG2,color:mode===m?'#fff':TXT}},m==='mois'?'📅 Mois':'🗓️ Trimestre');
   const a=b.activite,f=b.fiches,v=b.avis;
   // Bloc « À venir » (AG-038) : faits saisis seulement, aucune estimation.
+  // Cartouche « À venir » avec du relief (demande du 28/10/2026) : fond teinté,
+  // liseré, barres animées proportionnelles au plus grand nombre de chaque liste.
   const aVenirCarte=()=>{const va=b.aVenir;
     const autres=Object.keys(va.statuts).filter(k=>k!=='Planifié');
-    const liste=(titreL,l,cle)=>l.length>0&&CE('div',{style:{minWidth:0}},CE('div',{style:{fontSize:12,fontWeight:700,marginBottom:4}},titreL),
-      CE('div',{style:{fontSize:12,lineHeight:1.7}},l.slice(0,8).map(x=>CE('div',{key:x[cle],style:{display:'flex',justifyContent:'space-between',gap:8}},CE('span',{style:{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}},x[cle]),CE('b',null,x.ateliers)))));
-    return carte(`À venir — au ${fmtDate(auj)}`,
+    const liste=(titreL,ico,l,cle,couleur)=>l.length>0&&CE('div',{style:{minWidth:0,background:BG,borderRadius:8,padding:'10px 12px',boxShadow:'0 1px 4px rgba(0,0,0,.08)'}},
+      CE('div',{style:{fontSize:12,fontWeight:700,marginBottom:6,color:couleur}},ico+' '+titreL),
+      CE(BarresAVenir,{lignes:l.slice(0,8).map(x=>({nom:x[cle],n:x.ateliers})),couleur}));
+    return CE('div',{style:{borderRadius:10,padding:14,borderLeft:'5px solid #6366f1',color:TXT,boxShadow:'0 2px 10px rgba(99,102,241,.18)',
+      background:isDark?'linear-gradient(135deg,rgba(59,130,246,.16),rgba(139,92,246,.16))':'linear-gradient(135deg,#eff6ff,#f5f3ff)'}},
+      CE('div',{style:{display:'flex',alignItems:'center',gap:8,marginBottom:12,flexWrap:'wrap'}},
+        CE('span',{style:{fontSize:20}},'🔭'),
+        CE('span',{style:{fontSize:15,fontWeight:800,color:isDark?'#c7d2fe':'#4338ca'}},'À venir'),
+        CE('span',{style:{fontSize:12,color:TXT2}},'au '+fmtDate(auj))),
       va.ateliers?CE(React.Fragment,null,
         CE('div',{style:{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(min(100%,170px),1fr))',gap:10,marginBottom:10}},
-          kpi('Ateliers planifiés',va.planifies,'à partir d\'aujourd\'hui','#3b82f6','📅')),
+          kpi('Ateliers planifiés',va.planifies,'à partir d\'aujourd\'hui','#6366f1','📅')),
         autres.length>0&&note('Déjà décidés pour plus tard : '+autres.map(k=>va.statuts[k]+' '+k.toLowerCase()).join(', ')+'.'),
-        CE('div',{style:{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(min(100%,200px),1fr))',gap:16}},
-          !moi&&liste('Par conseiller (co-animation comprise)',va.parConseiller,'conseiller'),liste('Thématiques',va.parTheme,'theme'),liste('Communes',va.parCommune,'commune')),
+        CE('div',{style:{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(min(100%,220px),1fr))',gap:12}},
+          !moi&&liste('Par conseiller (co-animation comprise)','👤',va.parConseiller,'conseiller','#2563eb'),liste('Thématiques','🏷️',va.parTheme,'theme','#7c3aed'),liste('Communes','📍',va.parCommune,'commune','#db2777')),
         (va.parConseiller.length+va.parTheme.length+va.parCommune.length)>0&&note('Répartitions sur les ateliers « Planifié » seulement.'),
         note('Faits saisis seulement : aucune estimation de participations.'))
       :note('Rien de programmé après aujourd\'hui sur cette période.'));};
@@ -6110,7 +6137,7 @@ function VueBilans({entries,moi,anneesChargees}){
         a.presentsSaisis<a.realises&&note(`Participations sur ${a.presentsSaisis} atelier${a.presentsSaisis>1?'s':''} réalisé${a.presentsSaisis>1?'s':''} sur ${a.realises} : présents non saisis sur ${a.realises-a.presentsSaisis}.`),
         a.planifiesPasses>0&&note(`⚠️ ${a.planifiesPasses} atelier${a.planifiesPasses>1?'s':''} déjà passé${a.planifiesPasses>1?'s':''} encore « Planifié » : statut à mettre à jour, sinon ${a.planifiesPasses>1?'ils manquent':'il manque'} au bilan.`,true),
         avisHorsChargement>0&&note(`⚠️ ${avisHorsChargement} avis concernent des ateliers de la période qui ne sont pas chargés : ajoutez l'année dans le sélecteur d'années, sinon le bilan est incomplet.`,true),
-        b.aVenir.ateliers>0&&CE('div',{ref:aVenirRef,style:{marginTop:12,scrollMarginTop:70}},aVenirCarte()),
+        b.aVenir.ateliers>0&&CE('div',{ref:aVenirRef,style:{margin:'14px 0',scrollMarginTop:70}},aVenirCarte()),
         // Graphiques
         CE('div',{style:{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(min(100%,300px),1fr))',gap:10,margin:'12px 0'}},
           carte('Programmation à date par statut',
