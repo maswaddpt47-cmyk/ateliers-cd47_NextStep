@@ -6030,7 +6030,8 @@ function VueBilans({entries,moi,anneesChargees}){
   // Charte du tableau de bord (bandeau, tuiles, cartes), sombre ou clair.
   const isDark=document.documentElement.getAttribute('data-theme')==='dark';
   const BG=isDark?'#1a1d27':'#ffffff',BG2=isDark?'#252836':'#f3f4f6',BORD=isDark?'#2d3148':'#e5e7eb',TXT=isDark?'#e2e8f0':'#111827',TXT2=isDark?'#94a3b8':'#6b7280';
-  const kpi=(label,value,sub,color,icon)=>CE('div',{key:label,style:{background:BG,borderRadius:6,padding:14,borderLeft:`4px solid ${color}`,boxShadow:'0 1px 6px rgba(0,0,0,.15)',minWidth:0}},
+  // Fond pastel de la couleur de la tuile, comme dans l'Analyse et la Synthèse (28/10/2026).
+  const kpi=(label,value,sub,color,icon)=>CE('div',{key:label,style:{background:`linear-gradient(${color}${isDark?'24':'14'},${color}${isDark?'24':'14'}),${BG}`,borderRadius:6,padding:14,borderLeft:`4px solid ${color}`,boxShadow:'0 1px 6px rgba(0,0,0,.15)',minWidth:0}},
     CE('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:6}},
       CE('div',{style:{minWidth:0}},
         CE('div',{style:{fontSize:10,color:TXT2,fontWeight:700,textTransform:'uppercase',letterSpacing:'.06em',marginBottom:5}},label),
