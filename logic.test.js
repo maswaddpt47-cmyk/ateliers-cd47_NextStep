@@ -901,7 +901,7 @@ describe('bilanPeriode — bilan à date et « À venir » (AG-038, 28/10/2026)'
   });
   it('à venir : planifiés du jour et futurs, annulé futur compté à part, aucune estimation', () => {
     const v = b.aVenir;
-    assert.deepEqual([v.ateliers, v.planifies, v.statuts['Annulé'], v.inscrits, v.inscritsSaisis], [4, 3, 1, 11, 2]);
+    assert.deepEqual([v.ateliers, v.planifies, v.statuts['Annulé'], 'inscrits' in v], [4, 3, 1, false]);
     assert.deepEqual(v.parConseiller.map(c => [c.conseiller, c.ateliers]), [['Bob', 3], ['Alice', 1]]);
     assert.equal('presents' in v || 'tauxPresence' in v, false);
   });

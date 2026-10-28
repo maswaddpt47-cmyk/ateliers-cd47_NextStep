@@ -5816,8 +5816,7 @@ function htmlBilan(b,titre,remarques,avisErreur,opts={}){
   if(va.ateliers){
     const autres=Object.keys(va.statuts).filter(k=>k!=='Planifié').map(k=>`${va.statuts[k]} ${k.toLowerCase()}`).join(', ');
     avenir=`<h2>À venir (au ${fmtDate(b.aujourdhui)})</h2><div class="bt-note">Ateliers datés d'aujourd'hui (encore « Planifié ») ou après : faits saisis, aucune estimation.</div>`
-      +`<div class="bt-kpis">${chiffre(va.planifies,'ateliers planifiés')}${chiffre(va.inscritsSaisis?va.inscrits:null,'inscrits déjà connus')}</div>`
-      +(va.inscritsSaisis<va.planifies?`<div class="bt-note">Inscrits saisis sur ${va.inscritsSaisis} atelier${va.inscritsSaisis>1?'s':''} planifié${va.inscritsSaisis>1?'s':''} sur ${va.planifies}.</div>`:'')
+      +`<div class="bt-kpis">${chiffre(va.planifies,'ateliers planifiés')}</div>`
       +(autres?`<div class="bt-note">Déjà décidés pour plus tard : ${e(autres)}.</div>`:'')
       +(va.planifies?'<div class="bt-note">Répartitions ci-dessous sur les ateliers « Planifié » seulement.</div>':'')+(va.parConseiller.length>1&&!opts.groupe?`<div class="bt-note">Par conseiller (co-animation comprise) : ${va.parConseiller.map(c=>e(c.conseiller)+' '+c.ateliers).join(', ')}.</div>`:'')
       +(va.parTheme.length?`<div class="bt-note">Thématiques : ${va.parTheme.map(t=>e(t.theme)+' '+t.ateliers).join(', ')}.</div>`:'')
@@ -6050,8 +6049,7 @@ function VueBilans({entries,moi,anneesChargees}){
     return carte(`À venir — au ${fmtDate(auj)}`,
       va.ateliers?CE(React.Fragment,null,
         CE('div',{style:{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(min(100%,170px),1fr))',gap:10,marginBottom:10}},
-          kpi('Ateliers planifiés',va.planifies,'à partir d\'aujourd\'hui','#3b82f6','📅'),
-          kpi('Inscrits déjà connus',va.inscritsSaisis?va.inscrits:'—',`saisis sur ${va.inscritsSaisis} / ${va.planifies} ateliers`,'#7C3AED','📝')),
+          kpi('Ateliers planifiés',va.planifies,'à partir d\'aujourd\'hui','#3b82f6','📅')),
         autres.length>0&&note('Déjà décidés pour plus tard : '+autres.map(k=>va.statuts[k]+' '+k.toLowerCase()).join(', ')+'.'),
         CE('div',{style:{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(min(100%,200px),1fr))',gap:16}},
           !moi&&liste('Par conseiller (co-animation comprise)',va.parConseiller,'conseiller'),liste('Thématiques',va.parTheme,'theme'),liste('Communes',va.parCommune,'commune')),

@@ -491,7 +491,8 @@ function bilanPeriode(entries, debut, fin, avis, aujourdhui) {
     const [a, mm] = m.split('-').map(Number);
     m = mm === 12 ? `${a + 1}-01` : `${a}-${String(mm + 1).padStart(2, '0')}`;
   }
-  // À venir (AG-038) : faits saisis seulement, aucune estimation.
+  // À venir (AG-038) : faits saisis seulement, aucune estimation ; pas d'inscrits
+  // (nombre préréglé dans le formulaire, sans nom : retiré le 28/10/2026).
   const stAVenir = {};
   prevus.forEach(e => compter(stAVenir, e.statut || 'Sans statut'));
   const planifies = prevus.filter(e => e.statut === 'Planifié');
@@ -499,8 +500,6 @@ function bilanPeriode(entries, debut, fin, avis, aujourdhui) {
     planifies.forEach(e => { const k = cle(e); if (k) o[k] = (o[k] || 0) + 1; });
     return Object.keys(o).map(k => ({[champ]: k, ateliers: o[k]})).sort((a, b) => b.ateliers - a.ateliers || String(a[champ]).localeCompare(String(b[champ]))); };
   const aVenir = {ateliers: prevus.length, statuts: stAVenir, planifies: planifies.length,
-    inscrits: planifies.reduce((x, e) => x + (num(e.inscrits) || 0), 0),
-    inscritsSaisis: planifies.filter(e => num(e.inscrits) !== null).length,
     parConseiller: [...new Set(planifies.flatMap(e => [e.conseiller, e.co_animateur]).filter(Boolean))]
       .map(c => ({conseiller: c, ateliers: planifies.filter(e => e.conseiller === c || e.co_animateur === c).length}))
       .sort((a, b) => b.ateliers - a.ateliers || a.conseiller.localeCompare(b.conseiller)),
