@@ -6005,7 +6005,8 @@ function VueBilans({entries,moi,anneesChargees}){
 
   const sel={padding:'6px 8px',border:`1.5px solid ${BORD}`,borderRadius:6,fontSize:13,background:BG,color:TXT,width:'auto',maxWidth:'100%'};
   const btnMode=m=>CE('button',{key:m,type:'button',onClick:()=>setMode(m),'aria-pressed':mode===m,
-    style:{padding:'6px 14px',border:'none',cursor:'pointer',fontSize:13,fontWeight:mode===m?700:400,background:mode===m?'#f2c811':'transparent',color:mode===m?'#1e2132':TXT2}},m==='mois'?'Mois':'Trimestre');
+    // Plus visible sur le bandeau sombre (demande du 28/10/2026) : texte clair pour le choix inactif.
+    style:{padding:'8px 20px',border:'none',cursor:'pointer',fontSize:14,fontWeight:700,background:mode===m?'#f2c811':'rgba(255,255,255,.08)',color:mode===m?'#1e2132':'#e2e8f0'}},m==='mois'?'📅 Mois':'🗓️ Trimestre');
   const a=b.activite,f=b.fiches,v=b.avis;
   // Bloc « À venir » (AG-038) : faits saisis seulement, aucune estimation.
   const aVenirCarte=()=>{const va=b.aVenir;
@@ -6035,7 +6036,7 @@ function VueBilans({entries,moi,anneesChargees}){
       CE('div',{style:{flex:'1 1 180px',minWidth:0}},
         CE('span',{style:{fontSize:12,fontWeight:700,color:'#f2c811'}},libPeriode+(conum?' — '+conum:'')),
         CE('span',{style:{fontSize:11,color:'#94a3b8'}},' · Ateliers Inclusion Numérique')),
-      CE('div',{role:'group','aria-label':'Période',style:{display:'flex',border:'1px solid #374151',borderRadius:6,overflow:'hidden'}},btnMode('mois'),btnMode('trimestre'))),
+      CE('div',{role:'group','aria-label':'Période',style:{display:'flex',border:'1.5px solid #f2c811',borderRadius:8,overflow:'hidden'}},btnMode('mois'),btnMode('trimestre'))),
     CE('div',{style:{display:'flex',gap:8,flexWrap:'wrap',alignItems:'center',padding:'10px 14px',background:BG,borderBottom:`1px solid ${BORD}`}},
       mode==='mois'
         ?CE('select',{value:mois,onChange:e=>setMois(parseInt(e.target.value)),style:sel,'aria-label':'Mois'},MOIS_LONGS.map((m,i)=>CE('option',{key:m,value:i+1},m.charAt(0).toUpperCase()+m.slice(1))))
