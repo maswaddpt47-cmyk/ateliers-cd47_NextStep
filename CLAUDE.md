@@ -72,6 +72,14 @@ Extrait du guide de collaboration multi-projets, adapté pour ce dépôt.
 
 33. **Avant de faire basculer un interrupteur à l'utilisateur, dire tous ses effets** (règle 42), pas seulement celui qu'il cherche. Constat du 27/10/2026 (ATELIERS) : couper « les rappels » pour suspendre les fiches bilan aurait aussi coupé les rappels de changement de statut ; l'utilisateur l'a relevé avant Claude.
 
+34. **Ne jamais chaîner un commit derrière un `git pull` avec `&&`, et relire `git log --oneline -2` après le push** (MD-LIB `collaboration.md`, règle 43) : séparer les commandes par des sauts de ligne et vérifier que les commits attendus sont dans `HEAD` avant d'annoncer quoi que ce soit. Constat du 27/10/2026 (GDINV2) : le pull a échoué, la chaîne s'est interrompue, et un test renforcé est parti sans le correctif qu'il devait valider.
+
+35. **Un inventaire de ce qui existe ne prouve pas ce qui est impossible** (règle 44) : dans un document remis à un tiers, écrire ce qui a été vérifié et par quel moyen, jamais une impossibilité. Constat du 27/10/2026 (GDINV2) : une note à la DSI affirmait qu'« aucun code n'est capable d'émettre une donnée » ; une injection HTML par un champ importé l'a démentie le jour même.
+
+36. **Faire décrire l'environnement avant d'en analyser les contraintes** (règle 45) : « cloud », « serveur », « hébergement », « en ligne » ne désignent pas la même chose selon l'interlocuteur ; demander **comment le fichier s'ouvre**, pas où il est rangé. Constat du 27/10/2026 (GDINV2) : une analyse d'hébergement web entière a été jetée, le « cloud du CD47 » était un espace de stockage sans serveur.
+
+37. **Avant de produire un document de plus, demander s'il remplace ou s'il s'ajoute** (règle 46) ; un document qui en remplace un autre le dit en tête et annule explicitement le précédent. Constat du 27/10/2026 (GDINV2) : rectificatif, synthèse puis note consolidée sur le même sujet, l'utilisateur a dû demander « on a besoin de tous ces justificatifs ? ».
+
 **Bonnes pratiques à maintenir**
 
 12. Continuer à demander l'avis avant toute action à fort impact (déploiement, architecture, migration de données) et exécuter vite dès validation courte reçue.
