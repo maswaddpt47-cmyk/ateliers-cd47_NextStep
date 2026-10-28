@@ -5921,7 +5921,8 @@ function NombreAnime({valeur,retard=0}){
   const ref=React.useRef(null),courant=React.useRef(0),vu=React.useRef(false);
   const[aff,setAff]=React.useState(m?'0'+(m[3]?m[2]+'0'.repeat(m[3].length):'')+m[4]:txt);
   React.useEffect(()=>{
-    if(!m||!ref.current){setAff(txt);return;}
+    // « — » (aucune base) : le chiffre suivant repart de 0, pas de l'ancien (2027 → 2026, 28/10/2026).
+    if(!m||!ref.current){setAff(txt);courant.current=0;return;}
     const cible=parseFloat(m[1]+(m[3]?'.'+m[3]:'')),dec=m[3]?m[3].length:0;
     const ecrire=x=>{courant.current=x;setAff((dec?x.toFixed(dec).replace('.',m[2]):String(Math.round(x)))+m[4]);};
     let raf=0,att=0;
