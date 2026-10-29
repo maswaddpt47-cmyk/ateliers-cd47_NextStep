@@ -80,6 +80,10 @@ Extrait du guide de collaboration multi-projets, adapté pour ce dépôt.
 
 37. **Avant de produire un document de plus, demander s'il remplace ou s'il s'ajoute** (règle 46) ; un document qui en remplace un autre le dit en tête et annule explicitement le précédent. Constat du 27/10/2026 (GDINV2) : rectificatif, synthèse puis note consolidée sur le même sujet, l'utilisateur a dû demander « on a besoin de tous ces justificatifs ? ».
 
+38. **Un test de sécurité emprunte la vraie voie d'entrée et prouve qu'il est arrivé à l'endroit testé** (MD-LIB `collaboration.md`, règle 53) : importer comme l'utilisateur, choisir des valeurs réellement proposées par l'interface, et ajouter une assertion de garde (écran ouvert, texte affiché) — sans elle, un test qui sort en silence valide du code vulnérable. Constat du 29/10/2026 (GDINV2) : le test « contenu hostile » importait un JSON et choisissait une structure absente de la liste ; trois injections dans le bilan sont passées, relevées ensuite par l'audit Codex.
+
+39. **Un état de remise ou de dépôt s'écrit d'après la déclaration de l'utilisateur, jamais d'après un document** (règle 54) : « remis au DSI », « déposé sur le cloud », « en ligne chez un tiers » se disent *déclaré, non vérifié* ; demander avant de choisir entre corriger sur place (règle 49) et publier une version qui annule la précédente. Constat du 29/10/2026 (GDINV2) : un `SOMMAIRE.txt` écrivait « V2 pas encore remise », elle l'était.
+
 **Bonnes pratiques à maintenir**
 
 12. Continuer à demander l'avis avant toute action à fort impact (déploiement, architecture, migration de données) et exécuter vite dès validation courte reçue.
