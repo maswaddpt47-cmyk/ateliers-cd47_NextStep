@@ -18,6 +18,7 @@ du `CLAUDE.md` retirés — `git log -p CHANTIERS.md`.
 ---
 
 ## Reste ouvert
+- **Audit du 01/10/2026 (routine) :** `admin_v14.html` (reliquat publié sur Pages) charge React/Leaflet/ECharts depuis cdnjs sans SRI et échappe au contrôle RGPD-17 (limité à `index.html`/`admin.html`). À supprimer, ou étendre le contrôle à `*.html`.
 
 - **Bac à sable NextStep** (AG-033, en ligne le 27/10/2026) :
   `…alwaysdata.net/sandbox/nextstep/`, publié par `deploy-sandbox.yml` de NEWGEN
