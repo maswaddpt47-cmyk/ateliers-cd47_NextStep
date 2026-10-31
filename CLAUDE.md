@@ -94,6 +94,8 @@ Extrait du guide de collaboration multi-projets, adapté pour ce dépôt.
 
 43. **Après des modifications hors session, « pull » déclenche la mise à jour de `CHANTIERS.md`** (règle 56) : `git pull`, lire `git log` et le diff arrivés depuis la base notée dans l'en-tête, mettre le fichier à jour (en-tête compris) avant toute autre tâche ; ne pas supposer qu'une entrée datée est encore vraie. L'utilisateur dit en une ligne ce qui reste hors dépôt (réglage, donnée, jeton).
 
+44. **Nouvelle donnée enregistrée : penser ses chiffres avant de la figer** (MD-LIB `collaboration.md`, règle 57, 31/10/2026) : avant d'ajouter un import, un statut, un type de fiche ou un champ, définir ce qui sera compté (faits, unités, population, date de référence, traitement des inconnus), une identité stable, la validation à l'écriture et la gestion des échecs d'enregistrement ; un seul format de date enregistré (date civile en heure de Paris, instant en ISO avec fuseau ; jamais `toLocaleString` ni `toISOString().slice(0,10)` pour une date du jour) ; conclusion consignée dans `CHANTIERS.md`. Dispositif proportionné : pas de collecte « au cas où », aucune reconstruction des données anciennes. Constats : sms-mail-multi (`ts` en texte français, dates du jour en UTC, déploiement sans test), GDINV2 (14 défauts de calcul malgré 251 tests verts). Les tests de calcul bloquent déjà le déploiement (section Tests) : un nouveau calcul y ajoute le sien.
+
 **Bonnes pratiques à maintenir**
 
 12. Continuer à demander l'avis avant toute action à fort impact (déploiement, architecture, migration de données) et exécuter vite dès validation courte reçue.
