@@ -4247,8 +4247,28 @@ function FriseMateriel({entries,onEdit,dateInitiale}){
           return parCons.map(g=>{
             const cCol=conseillerColor(g.nom);
             const nbVoies=g.voies.length;
-            return CE('div',{key:g.nom,className:printable?'frise-grid-row':undefined,style:{display:'grid',gridTemplateColumns:gridTemplate,gridTemplateRows:'repeat('+nbVoies+',auto)',columnGap:1,rowGap:colWidth<32?6:10,alignItems:'center',paddingTop:colWidth<32?4:6,borderTop:'1px dashed #e2e8f0'}},
-              CE('div',{style:{gridColumn:'1',gridRow:'1 / span '+nbVoies,alignSelf:'center',fontSize:tailleTexte+2,fontWeight:600,color:cCol,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',paddingRight:4}},g.nom),
+            const ecartLignes=colWidth<32?6:10;
+            // Séances « incluses » (demande de l'utilisateur, 02/11/2026) : une
+            // séance qui demande moins d'ordinateurs que la barre puise dans
+            // les mêmes machines (le total ne change pas, règle du max). Sans
+            // repère, elle disparaît dans « 5 · 3 séances » et ressemble à un
+            // oubli : un petit repère en pointillé, sous la barre, le jour de
+            // la séance. Rendu seul : aucun chiffre de la frise n'en dépend.
+            const puces=g.prets.flatMap(({p,voie})=>{
+              const parJour={};
+              p.seances.forEach(x=>{if(x.qte<p.qte&&x.dateAtelier>=jourDebut&&x.dateAtelier<=jourFin)(parJour[x.dateAtelier]=parJour[x.dateAtelier]||[]).push(x);});
+              return Object.keys(parJour).map(j=>({p,voie,jour:j,seances:parJour[j]}));
+            });
+            const voiesAvecPuce=new Set(puces.map(x=>x.voie));
+            const ligneBarre=[],lignePuce=[];let nbLignes=0;
+            for(let v=0;v<nbVoies;v++){ligneBarre[v]=++nbLignes;if(voiesAvecPuce.has(v))lignePuce[v]=++nbLignes;}
+            return CE('div',{key:g.nom,className:printable?'frise-grid-row':undefined,style:{display:'grid',gridTemplateColumns:gridTemplate,gridTemplateRows:'repeat('+nbLignes+',auto)',columnGap:1,rowGap:ecartLignes,alignItems:'center',paddingTop:colWidth<32?4:6,borderTop:'1px dashed #e2e8f0'}},
+              CE('div',{style:{gridColumn:'1',gridRow:'1 / span '+nbLignes,alignSelf:'center',fontSize:tailleTexte+2,fontWeight:600,color:cCol,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',paddingRight:4}},g.nom),
+              ...puces.map(({p,voie,jour,seances})=>{
+                const n=Math.max(...seances.map(x=>x.qte));
+                const libelles=seances.map(x=>(x.thematique||'Atelier')+(x.creneau&&x.creneau.heure?' à '+hhmm(x.creneau.de):'')).join(' · ');
+                return CE('div',{key:p._id+'_inclus_'+jour,title:'Le '+fmtDate(jour)+' : '+n+' ordinateur(s) pris parmi les '+p.qte+' du prêt, pas en plus — '+libelles,onClick:()=>onEdit&&onEdit(seances[0]._id),style:{gridColumn:(colIdx(jour)+2)+' / '+(colIdx(jour)+3),gridRow:String(lignePuce[voie]),justifySelf:'center',marginTop:-(ecartLignes-2),padding:'0 4px',border:'1.5px dotted '+cCol,borderRadius:6,fontSize:tailleTexte,lineHeight:1.3,fontWeight:700,color:cCol,whiteSpace:'nowrap',cursor:onEdit?'pointer':'default'}},'↳ '+n);
+              }),
               ...g.prets.flatMap(({p,voie})=>{
                 const debutIdx=colIdx(p.debut),finIdx=colIdx(p.fin),atelierIdx=colIdx(p.dateAtelier);
                 // Le marquage ⚠️ suit l'occupation réelle, pas la barre dessinée :
@@ -4259,10 +4279,10 @@ function FriseMateriel({entries,onEdit,dateInitiale}){
                 // Barre teintée dans la couleur du conum ; le conflit reste
                 // visible (bordure rouge épaissie + ⚠️ + texte rouge).
                 return [
-                  CE('div',{key:p._id,style:{gridColumn:(debutIdx+2)+' / '+(finIdx+3),gridRow:String(voie+1),background:cCol+'22',border:(conflit?'2px solid #dc2626':'1px solid '+cCol),borderRadius:6,padding:'2px 6px',fontSize:tailleTexte+1,color:conflit?'#7f1d1d':cCol,fontWeight:600,cursor:onEdit?'pointer':'default',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'},onClick:()=>onEdit&&onEdit(p._id),title:detail+' · '+communes+' · '+p.qte+' ordinateur(s) · '+fmtPeriode(p.debut,p.fin)+(p.seances.length>1?' — ouvre la première séance':'')},
+                  CE('div',{key:p._id,style:{gridColumn:(debutIdx+2)+' / '+(finIdx+3),gridRow:String(ligneBarre[voie]),background:cCol+'22',border:(conflit?'2px solid #dc2626':'1px solid '+cCol),borderRadius:6,padding:'2px 6px',fontSize:tailleTexte+1,color:conflit?'#7f1d1d':cCol,fontWeight:600,cursor:onEdit?'pointer':'default',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'},onClick:()=>onEdit&&onEdit(p._id),title:detail+' · '+communes+' · '+p.qte+' ordinateur(s) · '+fmtPeriode(p.debut,p.fin)+(p.seances.length>1?' — ouvre la première séance':'')},
                     (conflit?'⚠️ ':'')+p.qte+' 🖥️ '+communes+(p.seances.length>1?' · '+p.seances.length+' séances':'')),
                   // Repère du jour de l'atelier, superposé sans bloquer le clic.
-                  CE('div',{key:p._id+'_mark',title:'Atelier le '+fmtDate(p.dateAtelier),style:{gridColumn:(atelierIdx+2)+' / '+(atelierIdx+3),gridRow:String(voie+1),alignSelf:'start',justifySelf:'center',pointerEvents:'none',fontSize:tailleTexte+3,lineHeight:1,color:'#1a202c',transform:'translateY(-70%)'}},'▼')
+                  CE('div',{key:p._id+'_mark',title:'Atelier le '+fmtDate(p.dateAtelier),style:{gridColumn:(atelierIdx+2)+' / '+(atelierIdx+3),gridRow:String(ligneBarre[voie]),alignSelf:'start',justifySelf:'center',pointerEvents:'none',fontSize:tailleTexte+3,lineHeight:1,color:'#1a202c',transform:'translateY(-70%)'}},'▼')
                 ];
               })
             );
@@ -4271,7 +4291,7 @@ function FriseMateriel({entries,onEdit,dateInitiale}){
       )
     );
   }
-  const legende=CE('div',{style:{fontSize:10,color:'#94a3b8',marginBottom:8}},'▼ = jour de l\'atelier');
+  const legende=CE('div',{style:{fontSize:10,color:'#94a3b8',marginBottom:8}},'▼ = jour de l\'atelier · ↳ pointillé = ordinateurs pris parmi ceux de la barre, pas en plus');
   return CE(React.Fragment,null,
     CE('div',{className:'card',style:{maxWidth:'100%',margin:'0 auto 16px',overflowX:'auto'}},
       CE('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:4,flexWrap:'wrap',gap:8}},
