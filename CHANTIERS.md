@@ -1,6 +1,9 @@
 # Chantiers en cours — Ateliers CD47 NextStep
 
-État au **27/10/2026**. NextStep (équipe) et NEWGEN (utilisateur) parlent à
+État au **02/11/2026**, base `main` (`bfa45f2`). Depuis le 27/10 : bilans
+(style des tuiles, 28/10), règles MD-LIB propagées dans `CLAUDE.md`, repère en
+pointillé de la frise du parc (02/11, voir NEWGEN) — `git log`.
+NextStep (équipe) et NEWGEN (utilisateur) parlent à
 la même API Alwaysdata et à la même base depuis la bascule du 25/09/2026 :
 **les restes communs** (registres, audit trimestriel, sauvegardes,
 sécurité, import Outlook à valider, rubrique Nouveautés) et les
