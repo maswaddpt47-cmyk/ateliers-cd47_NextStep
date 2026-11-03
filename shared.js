@@ -636,8 +636,8 @@ const GAS_ACTIONS_ECRITURE = new Set([
   // Corbeille et copie à la demande (AG-014) : écritures, jamais doublées.
   'restaurerCorbeille','purgerCorbeille','copieMaintenant',
   // Tickets (AG-016) : creerTicket est rejouable sans effet (id client), mais
-  // jamais doublé en vol ; repondreTicket non plus.
-  'creerTicket','repondreTicket','supprimerTicket','supprimerAvis',
+  // jamais doublé en vol ; repondreTicket et modifierTicket (AG-041) non plus.
+  'creerTicket','modifierTicket','repondreTicket','supprimerTicket','supprimerAvis',
   // Avis papier : chaque envoi crée un avis, jamais doublé (AG-021).
   'saisirAvisPapier'
 ]);
@@ -6782,12 +6782,15 @@ function versionAppli(){
 const appareilCourant=()=>{try{return window.matchMedia('(max-width: 768px)').matches?'Téléphone':'PC';}catch(_){return 'PC';}};
 const genIdTicket=()=>`ticket_${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
 
-function FormulaireTicket({onglets,ongletCourant,onCree,onAnnuler}){
-  const[type,setType]=React.useState('Bug');
-  const[gene,setGene]=React.useState('gênant');
-  const[onglet,setOnglet]=React.useState(ongletCourant||'');
-  const[titre,setTitre]=React.useState('');
-  const[description,setDescription]=React.useState('');
+// ticket fourni (AG-041, 03/11/2026) : modification d'un ticket encore
+// « Nouveau » par n'importe quel membre de l'équipe ; l'API refuse dès que
+// l'Admin a changé le statut.
+function FormulaireTicket({onglets,ongletCourant,onCree,onAnnuler,ticket}){
+  const[type,setType]=React.useState(ticket?ticket.type:'Bug');
+  const[gene,setGene]=React.useState(ticket&&ticket.gene?ticket.gene:'gênant');
+  const[onglet,setOnglet]=React.useState(ticket?(ticket.onglet||''):(ongletCourant||''));
+  const[titre,setTitre]=React.useState(ticket?ticket.titre:'');
+  const[description,setDescription]=React.useState(ticket?ticket.description:'');
   const[envoi,setEnvoi]=React.useState(false);
   // Gardé tant que l'envoi n'a pas réussi : un nouvel essai rejoue le même
   // ticket au lieu d'en créer un second.
@@ -6798,6 +6801,12 @@ function FormulaireTicket({onglets,ongletCourant,onCree,onAnnuler}){
     if(!titre.trim()||!description.trim()){showToast('⚠️ Titre et description requis',false);return;}
     setEnvoi(true);
     try{
+      if(ticket){
+        const r=await window.apiFetch('modifierTicket',{_id:ticket.id,type,gene:type==='Bug'?gene:'',onglet,titre:titre.trim(),description:description.trim()});
+        if(r&&r.ok){showToast('✅ Contribution modifiée');onCree&&onCree(r.ticket);}
+        else showToast('❌ '+((r&&r.error)||'Erreur'),false);
+        return;
+      }
       const r=await window.apiFetch('creerTicket',{_id:idRef.current,type,gene:type==='Bug'?gene:'',onglet,titre:titre.trim(),description:description.trim(),version:versionAppli(),appareil:appareilCourant()});
       if(r&&r.ok){showToast('✅ Contribution envoyée, merci !');idRef.current=genIdTicket();onCree&&onCree(r.ticket);}
       else showToast('❌ '+((r&&r.error)||'Erreur'),false);
@@ -6814,14 +6823,16 @@ function FormulaireTicket({onglets,ongletCourant,onCree,onAnnuler}){
     lbl('Onglet concerné'),
     CE('select',{value:onglet,onChange:e=>setOnglet(e.target.value),style:champ},
       CE('option',{value:''},'— Général / je ne sais pas —'),
-      (onglets||[]).map(o=>CE('option',{key:o,value:o},o))),
+      // Onglet d'un ticket ancien absent de la liste actuelle : gardé, sinon
+      // la modification l'effacerait sans qu'on le voie.
+      [...(onglets||[]),...(onglet&&!(onglets||[]).includes(onglet)?[onglet]:[])].map(o=>CE('option',{key:o,value:o},o))),
     lbl('Titre'),
     CE('input',{type:'text',maxLength:120,value:titre,onChange:e=>setTitre(e.target.value),placeholder:type==='Bug'?'Ex : le Calendrier ne s\'affiche pas':'En une phrase',style:champ}),
     lbl('Description'),
     CE('textarea',{rows:5,maxLength:2000,value:description,onChange:e=>setDescription(e.target.value),placeholder:type==='Bug'?'Ce que vous faisiez, ce qui s\'est passé, ce que vous attendiez.':'Votre idée, votre question…',style:{...champ,resize:'vertical'}}),
     CE('div',{style:{fontSize:11,color:'#b45309',marginTop:4}},'⚠️ Visible par toute l\'équipe : n\'écrivez aucune donnée sur les usagers (nom, téléphone, situation…).'),
     CE('div',{style:{display:'flex',gap:8,marginTop:12}},
-      CE('button',{type:'button',disabled:envoi,onClick:envoyer,style:{padding:'8px 18px',borderRadius:8,border:'none',background:'#1e3a8a',color:'#fff',fontWeight:700,fontSize:13,cursor:envoi?'progress':'pointer'}},envoi?'Envoi…':'📨 Envoyer'),
+      CE('button',{type:'button',disabled:envoi,onClick:envoyer,style:{padding:'8px 18px',borderRadius:8,border:'none',background:'#1e3a8a',color:'#fff',fontWeight:700,fontSize:13,cursor:envoi?'progress':'pointer'}},envoi?'Envoi…':ticket?'💾 Enregistrer':'📨 Envoyer'),
       CE('button',{type:'button',onClick:onAnnuler,style:{padding:'8px 14px',borderRadius:8,border:'1px solid var(--border,#e2e8f0)',background:'var(--surface,#fff)',color:'var(--text-2,#4a5568)',fontSize:13,cursor:'pointer'}},'Annuler'))
   );
 }
@@ -6871,6 +6882,7 @@ function VueTickets({admin,onglets,ongletCourant,onVu}){
   const[filtre,setFiltre]=React.useState(admin?'ouverts':'ouverts');
   const[form,setForm]=React.useState(false);
   const[ouverts,setOuverts]=React.useState(()=>new Set());
+  const[edition,setEdition]=React.useState('');   // id du ticket en cours de modification (AG-041)
   React.useEffect(()=>{if(onVu)onVu();
     window.apiFetch('getTickets').then(r=>{if(r&&r.ok){setTickets(r.tickets||[]);setMoi(r.moi||'');}else setErr((r&&r.error)||'Erreur');})
       .catch(e=>setErr(e.message||'Erreur réseau'));},[]);
@@ -6902,8 +6914,12 @@ function VueTickets({admin,onglets,ongletCourant,onVu}){
           t.gene&&CE('span',{style:{fontSize:10,fontWeight:700,color:'#991b1b',background:'#fef2f2',borderRadius:6,padding:'1px 6px'}},t.gene),
           CE('span',{style:{fontSize:14,fontWeight:700}},ico+' '+t.titre),
           CE('span',{style:{fontSize:12,color:'var(--text-3)',marginLeft:'auto'}},t.auteur)),
-        ouvert&&CE('div',{style:{paddingLeft:20,marginTop:6}},
+        ouvert&&edition===t.id&&CE('div',{style:{marginTop:8}},
+          CE(FormulaireTicket,{onglets,ticket:t,onCree:x=>{remplacer(x);setEdition('');},onAnnuler:()=>setEdition('')})),
+        ouvert&&edition!==t.id&&CE('div',{style:{paddingLeft:20,marginTop:6}},
           CE('div',{style:{fontSize:13,lineHeight:1.5,color:'var(--text-2)',whiteSpace:'pre-wrap'}},t.description),
+          // Modifiable par toute l'équipe tant que l'Admin n'a pas changé le statut (AG-041).
+          t.statut==='Nouveau'&&CE('button',{type:'button',onClick:()=>setEdition(t.id),style:{marginTop:6,padding:'4px 10px',borderRadius:6,border:'1px solid var(--border,#e2e8f0)',background:'var(--surface,#fff)',color:'var(--text-2,#4a5568)',fontSize:12,fontWeight:600,cursor:'pointer'}},'✏️ Modifier'),
           CE('div',{style:{fontSize:11,color:'var(--text-3)',marginTop:6}},[t.type,t.onglet&&('onglet '+t.onglet),t.appareil,t.version].filter(Boolean).join(' · ')),
           original&&CE('div',{style:{fontSize:12,marginTop:6,color:'var(--text-2)'}},'↪ Doublon de « '+original.titre+' » ('+original.statut+')'),
           t.reponse&&CE('div',{style:{marginTop:8,padding:'8px 10px',borderRadius:8,background:'#eff6ff',border:'1px solid #bfdbfe',fontSize:13,color:'#1e3a8a',whiteSpace:'pre-wrap'}},
