@@ -10,8 +10,10 @@
   Page des travailleurs sociaux (AG-042, 04/11/2026) : consultation seule
   des ateliers « Planifié » à venir. Sans menu, sans bibliothèque externe ;
   tout texte venu du serveur est posé par textContent, jamais en HTML.
-  Accès : demande (e-mail pro) → compte créé par l'Admin → mot de passe
-  provisoire à changer. Les comptes admin/superviseur s'y connectent aussi.
+  Accès : demande (e-mail @lotetgaronne.fr) → compte créé aussitôt, mot de
+  passe provisoire envoyé par mail, à changer à la 1re connexion ; « mot de
+  passe oublié » par mail aussi (AG-043). Les comptes admin/superviseur s'y
+  connectent aussi.
   Même page dans NEWGEN et NextStep (scripts/parite.js).
 -->
 <style>
@@ -31,6 +33,7 @@
   button{font-family:inherit}
   .btn{width:100%;min-height:48px;margin-top:14px;border:none;border-radius:12px;background:var(--p);color:#fff;font-size:16px;font-weight:700;cursor:pointer}
   .btn:disabled{background:#94a3b8}
+  .liens{display:flex;flex-direction:column;align-items:flex-start;margin-top:6px}
   .lien{background:none;border:none;color:var(--p);text-decoration:underline;cursor:pointer;font-size:14px;padding:8px 0;margin-top:8px}
   .sortir{background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.5);color:#fff;border-radius:10px;padding:8px 12px;font-size:14px;cursor:pointer}
   .note{font-size:12px;color:var(--t2);line-height:1.5}
@@ -72,21 +75,37 @@
     <div class="mdp"><input id="c-mdp" name="password" type="password" autocomplete="current-password" required><button type="button" class="oeil" data-cible="c-mdp" aria-label="Afficher le mot de passe">👁</button></div>
     <button class="btn" type="submit" id="c-ok">Se connecter</button>
     <p class="erreur" id="c-err"></p>
-    <button type="button" class="lien" id="aller-demande">Pas encore d'accès ? Demander un accès</button>
+    <div class="liens">
+      <button type="button" class="lien" id="aller-demande">Pas encore d'accès ? Créer mon accès</button>
+      <button type="button" class="lien" id="aller-oubli">Mot de passe oublié ?</button>
+    </div>
   </form>
 
   <!-- Demande d'accès -->
   <form class="carte etroit cache" id="v-demande">
-    <h2>Demander un accès</h2>
-    <p class="note">Indiquez votre adresse e-mail professionnelle : elle sera votre identifiant. L'équipe des conseillers numériques crée votre accès et vous transmet un mot de passe provisoire.</p>
+    <h2>Créer mon accès</h2>
+    <p class="note">Réservé aux adresses <strong>@lotetgaronne.fr</strong>. Indiquez votre adresse e-mail professionnelle : elle sera votre identifiant, et un mot de passe provisoire vous y est envoyé aussitôt.</p>
     <label for="d-email">E-mail professionnel</label>
     <input id="d-email" type="email" inputmode="email" autocomplete="email" autocapitalize="none" autocorrect="off" spellcheck="false" required>
     <div class="piege" aria-hidden="true"><label for="d-url">Ne pas remplir</label><input id="d-url" type="text" tabindex="-1" autocomplete="off"></div>
-    <button class="btn" type="submit" id="d-ok">Envoyer la demande</button>
+    <button class="btn" type="submit" id="d-ok">Recevoir mon mot de passe</button>
     <p class="erreur" id="d-err"></p>
-    <p class="succes cache" id="d-merci">Demande envoyée. Vous recevrez vos accès de l'équipe des conseillers numériques.</p>
-    <p class="note">Votre adresse sert uniquement à gérer votre accès à cette page. Une demande non traitée est effacée au bout de 90 jours.</p>
+    <p class="succes cache" id="d-merci">Si cette adresse n'a pas encore d'accès, un mail avec votre mot de passe provisoire vient de vous être envoyé (pensez aux courriers indésirables). Si vous avez déjà un accès, utilisez « Mot de passe oublié ».</p>
+    <p class="note">Votre adresse sert uniquement à gérer votre accès à cette page. Un accès dont le mot de passe provisoire n'a jamais été changé est supprimé au bout de 30 jours.</p>
     <button type="button" class="lien" id="retour-connexion">← Retour à la connexion</button>
+  </form>
+
+  <!-- Mot de passe oublié -->
+  <form class="carte etroit cache" id="v-oubli">
+    <h2>Mot de passe oublié</h2>
+    <p class="note">Indiquez votre adresse <strong>@lotetgaronne.fr</strong> : si elle a un accès, un nouveau mot de passe provisoire vous y est envoyé. Votre mot de passe actuel reste valable tant que vous n'utilisez pas le nouveau.</p>
+    <label for="o-email">E-mail professionnel</label>
+    <input id="o-email" type="email" inputmode="email" autocomplete="email" autocapitalize="none" autocorrect="off" spellcheck="false" required>
+    <div class="piege" aria-hidden="true"><label for="o-url">Ne pas remplir</label><input id="o-url" type="text" tabindex="-1" autocomplete="off"></div>
+    <button class="btn" type="submit" id="o-ok">Recevoir un nouveau mot de passe</button>
+    <p class="erreur" id="o-err"></p>
+    <p class="succes cache" id="o-merci">Si cette adresse a un accès, un mail avec un nouveau mot de passe provisoire vient de vous être envoyé (pensez aux courriers indésirables). Il est valable 24 heures.</p>
+    <button type="button" class="lien" id="retour-connexion-2">← Retour à la connexion</button>
   </form>
 
   <!-- Mot de passe provisoire à changer -->
@@ -117,6 +136,18 @@
 </main>
 <script src="utils.js?v=54"></script>
 <script>
+// Bac à sable (AG-019) : même bandeau rouge que les autres pages, pour ne jamais
+// le confondre avec la production (ts.html ne charge pas shared.js).
+if(urlApiPour(location.hostname,location.pathname).indexOf('/api-sandbox/')>=0){
+  document.addEventListener('DOMContentLoaded',function(){
+    var b=document.createElement('div');b.id='bandeau-bac-a-sable';
+    b.style.cssText='position:sticky;top:0;z-index:99999;background:#c2410c;color:#fff;font:700 11px/18px sans-serif;text-align:center;letter-spacing:.02em;padding:3px 8px';
+    b.textContent='BAC À SABLE — fausses données, rien n\'arrive en production';
+    document.body.prepend(b);document.title='[BAC À SABLE] '+document.title;
+  });
+}
+</script>
+<script>
 (function(){
   var CLE='ts_jeton';
   var ateliers=[];
@@ -132,7 +163,7 @@
     return fetch(urlApiPour(location.hostname,location.pathname)+'?action='+action,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:corps.toString()})
       .then(function(r){return r.json();});
   }
-  var VUES=['v-connexion','v-demande','v-mdp','v-liste'];
+  var VUES=['v-connexion','v-demande','v-oubli','v-mdp','v-liste'];
   function vue(nom){
     VUES.forEach(function(v){$(v).classList.toggle('cache',v!==nom);});
     $('sortir').classList.toggle('cache',nom!=='v-mdp'&&nom!=='v-liste');
@@ -155,11 +186,13 @@
   // du téléphone en ajoute (« Michel. Aswad@… »). Un nom d'admin (sans @)
   // est gardé tel quel.
   function identifiantPropre(v){v=String(v||'').trim();return v.indexOf('@')>=0?v.replace(/\s+/g,'').toLowerCase():v;}
-  ['c-id','d-email'].forEach(function(id){
-    $(id).addEventListener('blur',function(){var x=identifiantPropre(this.value);if(id==='d-email'||x.indexOf('@')>=0)this.value=x;});
+  ['c-id','d-email','o-email'].forEach(function(id){
+    $(id).addEventListener('blur',function(){var x=identifiantPropre(this.value);if(id!=='c-id'||x.indexOf('@')>=0)this.value=x;});
   });
   $('aller-demande').addEventListener('click',function(){vue('v-demande');$('d-email').focus();});
+  $('aller-oubli').addEventListener('click',function(){vue('v-oubli');$('o-email').value=$('c-id').value.indexOf('@')>=0?identifiantPropre($('c-id').value):'';$('o-email').focus();});
   $('retour-connexion').addEventListener('click',function(){vue('v-connexion');});
+  $('retour-connexion-2').addEventListener('click',function(){vue('v-connexion');});
 
   // ── Connexion ──
   $('v-connexion').addEventListener('submit',function(ev){
@@ -185,6 +218,18 @@
       })
       .catch(function(){$('d-err').textContent='Pas de connexion : réessayez dans un instant.';})
       .then(function(){$('d-ok').disabled=false;});
+  });
+
+  // ── Mot de passe oublié ──
+  $('v-oubli').addEventListener('submit',function(ev){
+    ev.preventDefault();$('o-err').textContent='';$('o-ok').disabled=true;
+    appel('tsMdpOublie',{email:identifiantPropre($('o-email').value),url:$('o-url').value})
+      .then(function(r){
+        if(r&&r.ok){$('o-merci').classList.remove('cache');$('o-ok').classList.add('cache');$('o-email').disabled=true;}
+        else{$('o-err').textContent=(r&&r.error)||'Envoi impossible, réessayez.';}
+      })
+      .catch(function(){$('o-err').textContent='Pas de connexion : réessayez dans un instant.';})
+      .then(function(){$('o-ok').disabled=false;});
   });
 
   // ── Mot de passe provisoire ──
@@ -255,7 +300,9 @@
       afficher();
     }).catch(function(){$('compte').textContent='Pas de connexion : rechargez la page.';});
   }
-  if(jeton)charger();else vue('v-connexion');
+  // Arrivée : toujours la connexion (liens « Créer mon accès » et « Mot de passe oublié »).
+  vue('v-connexion');
+  if(jeton)charger();
 })();
 </script>
 </body>

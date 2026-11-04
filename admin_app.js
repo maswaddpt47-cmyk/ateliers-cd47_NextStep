@@ -914,7 +914,7 @@ function VueAccesTS(){
   const fmt=d=>{const m=String(d||'').match(/^(\d{4})-(\d{2})-(\d{2})/);return m?m[3]+'/'+m[2]+'/'+m[1]:'';};
   return CE('div',{className:'admin-section'},
     CE('h3',null,'🤝 Accès travailleurs sociaux'),
-    CE('p',{style:{fontSize:12,color:'#4a5568',marginBottom:8}},'Page de consultation (ateliers planifiés à venir, sans menu, lecture seule) : ',CE('a',{href:page,target:'_blank',rel:'noopener'},page),'. Les demandes d\'accès arrivent ici et par mail. Créer le compte donne un mot de passe provisoire à transmettre ; il sera changé à la première connexion. Vous pouvez aussi vous y connecter avec vos propres accès.'),
+    CE('p',{style:{fontSize:12,color:'#4a5568',marginBottom:8}},'Page de consultation (ateliers planifiés à venir, sans menu, lecture seule) : ',CE('a',{href:page,target:'_blank',rel:'noopener'},page),'. Seules les adresses @lotetgaronne.fr sont acceptées. Le compte se crée tout seul à la demande : le mot de passe provisoire part par mail à l\'agent (à changer à la première connexion, supprimé au bout de 30 jours s\'il n\'est jamais changé). « Mot de passe oublié » marche de même, par mail. Vous pouvez aussi créer un compte ici ou vous connecter avec vos propres accès.'),
     erreur&&CE('p',{style:{fontSize:13,color:'#c53030'}},'❌ '+erreur),
     mdp&&CE('div',{style:{margin:'8px 0 12px',padding:'12px 14px',background:'#f0fff4',border:'1.5px solid #9ae6b4',borderRadius:8}},
       CE('div',{style:{fontSize:12,color:'#276749',fontWeight:700,marginBottom:6}},'✅ Mot de passe provisoire de '+mdp.email+' (affiché une seule fois) :'),
@@ -924,15 +924,7 @@ function VueAccesTS(){
       )
     ),
     data&&CE('div',null,
-      CE('h4',{style:{fontSize:13,margin:'10px 0 4px'}},'Demandes en attente ('+data.demandes.length+(data.demandes.length>=data.demandesMax?' — plafond atteint, les nouvelles sont refusées':'')+')'),
-      data.demandes.length===0&&CE('p',{style:{fontSize:12,color:'#718096'}},'Aucune demande.'),
-      data.demandes.map(d=>CE('div',{key:'d'+d.email,style:ligne},
-        CE('span',{style:{flex:'1 1 200px',fontWeight:600,overflowWrap:'anywhere'}},d.email),
-        CE('span',{style:{color:'#718096'}},fmt(d.demande_le)+(d.site?' · '+d.site:'')),
-        CE('button',{className:'btn btn-sm btn-primary',disabled:!!enCours,onClick:()=>agir('tsCreerCompte',d.email)},'✅ Créer le compte'),
-        CE('button',{className:'btn btn-sm btn-secondary',disabled:!!enCours,onClick:()=>agir('tsSupprimer',d.email,null,'Refuser la demande de '+d.email+' ? Elle sera effacée.')},'✖ Refuser')
-      )),
-      CE('h4',{style:{fontSize:13,margin:'14px 0 4px'}},'Comptes ('+data.comptes.length+')'),
+      CE('h4',{style:{fontSize:13,margin:'10px 0 4px'}},'Comptes ('+data.comptes.length+')'),
       data.comptes.length===0&&CE('p',{style:{fontSize:12,color:'#718096'}},'Aucun compte.'),
       data.comptes.map(c=>CE('div',{key:'c'+c.email,style:{...ligne,opacity:c.actif?1:.55}},
         CE('span',{style:{flex:'1 1 200px',fontWeight:600,overflowWrap:'anywhere'}},c.email),
@@ -942,10 +934,45 @@ function VueAccesTS(){
         CE('button',{className:'btn btn-sm btn-danger',disabled:!!enCours,onClick:()=>agir('tsSupprimer',c.email,null,'Supprimer définitivement le compte de '+c.email+' ?')},'🗑 Supprimer')
       )),
       CE('div',{style:{display:'flex',gap:8,flexWrap:'wrap',alignItems:'flex-end',marginTop:12}},
-        CE('div',{style:{flex:'1 1 220px'}},CE('label',{style:{fontSize:12}},'Créer un compte sans demande (e-mail pro)'),
-          CE('input',{type:'email',value:saisie,onChange:e=>setSaisie(e.target.value),placeholder:'prenom.nom@exemple.fr',style:{display:'block',width:'100%',marginTop:4,padding:'8px 12px',border:'1px solid #e2e8f0',borderRadius:6,fontSize:13}})),
+        CE('div',{style:{flex:'1 1 220px'}},CE('label',{style:{fontSize:12}},'Créer un compte à la main (e-mail @lotetgaronne.fr, mot de passe affiché ici)'),
+          CE('input',{type:'email',value:saisie,onChange:e=>setSaisie(e.target.value),placeholder:'prenom.nom@lotetgaronne.fr',style:{display:'block',width:'100%',marginTop:4,padding:'8px 12px',border:'1px solid #e2e8f0',borderRadius:6,fontSize:13}})),
         CE('button',{className:'btn btn-primary',disabled:!saisie.trim()||!!enCours,onClick:()=>agir('tsCreerCompte',saisie.trim())},'➕ Créer')
       )
+    )
+  );
+}
+
+// ── Connexions à la page TS (AG-043, 04/11/2026) ──────────────────────────
+// Lecture du journal existant, 30 jours : connexions réussies par compte et par
+// jour, échecs, comptes créés par demande. Rien n'est journalisé par cette lecture.
+function VueConnexionsTS(){
+  const[st,setSt]=React.useState(null);
+  const[erreur,setErreur]=React.useState('');
+  async function charger(){
+    try{const r=await apiFetch('tsStats');if(r&&r.ok){const t=r.total||{};setSt({depuis:r.depuis||'',comptes:Array.isArray(r.comptes)?r.comptes:[],jours:Array.isArray(r.jours)?r.jours:[],total:{connexions:+t.connexions||0,echecs:+t.echecs||0}});setErreur('');}else setErreur(r&&r.error||'Erreur serveur');}
+    catch(_){setErreur('Hors-ligne');}
+  }
+  React.useEffect(()=>{charger();},[]);
+  const fmtJour=d=>{const m=String(d||'').match(/^(\d{4})-(\d{2})-(\d{2})/);return m?m[3]+'/'+m[2]+'/'+m[1]:'';};
+  const fmtHeure=d=>{const m=String(d||'').match(/^(\d{4})-(\d{2})-(\d{2}) (\d{2}:\d{2})/);return m?m[3]+'/'+m[2]+' '+m[4]:'—';};
+  const cell={padding:'4px 8px',borderBottom:'1px solid #edf2f7',fontSize:13,textAlign:'left'};
+  return CE('div',{className:'admin-section'},
+    CE('h3',null,'📊 Connexions à la page des travailleurs sociaux'),
+    CE('p',{style:{fontSize:12,color:'#4a5568',marginBottom:8}},'30 derniers jours'+(st?' (depuis le '+fmtJour(st.depuis)+')':'')+', d\'après le journal. Une connexion = un mot de passe accepté ; les échecs comptent aussi les adresses sans compte.',' ',CE('button',{className:'btn btn-sm btn-secondary',onClick:charger},'↻ Actualiser')),
+    erreur&&CE('p',{style:{fontSize:13,color:'#c53030'}},'❌ '+erreur),
+    st&&CE('div',null,
+      CE('p',{style:{fontSize:13,fontWeight:700,margin:'6px 0'}},st.total.connexions+' connexion'+(st.total.connexions>1?'s':'')+' · '+st.total.echecs+' échec'+(st.total.echecs>1?'s':'')),
+      CE('div',{style:{overflowX:'auto'}},
+        CE('table',{style:{borderCollapse:'collapse',width:'100%',maxWidth:640}},
+          CE('thead',null,CE('tr',null,['Compte','Type','Connexions','Dernière','Échecs'].map(t=>CE('th',{key:t,style:{...cell,color:'#718096',fontWeight:600}},t)))),
+          CE('tbody',null,st.comptes.length===0?CE('tr',null,CE('td',{colSpan:5,style:{...cell,color:'#718096'}},'Aucune connexion sur la période.')):st.comptes.map(c=>CE('tr',{key:c.compte},
+            CE('td',{style:{...cell,overflowWrap:'anywhere'}},c.compte),CE('td',{style:cell},c.type),CE('td',{style:cell},c.connexions),CE('td',{style:cell},fmtHeure(c.derniere)),CE('td',{style:cell},c.echecs)))))),
+      CE('h4',{style:{fontSize:13,margin:'12px 0 4px'}},'Par jour'),
+      CE('div',{style:{overflowX:'auto'}},
+        CE('table',{style:{borderCollapse:'collapse',width:'100%',maxWidth:480}},
+          CE('thead',null,CE('tr',null,['Jour','Connexions','Échecs','Comptes créés'].map(t=>CE('th',{key:t,style:{...cell,color:'#718096',fontWeight:600}},t)))),
+          CE('tbody',null,st.jours.length===0?CE('tr',null,CE('td',{colSpan:4,style:{...cell,color:'#718096'}},'Aucune activité sur la période.')):st.jours.map(j=>CE('tr',{key:j.jour},
+            CE('td',{style:cell},fmtJour(j.jour)),CE('td',{style:cell},j.connexions),CE('td',{style:cell},j.echecs),CE('td',{style:cell},j.creations))))))
     )
   );
 }
@@ -1427,6 +1454,7 @@ function VueAdminV10({entries,onRefresh,addLog,conseillersList,onSaveColors,anne
         CE('button',{className:'btn btn-primary',style:{marginTop:16},onClick:handleSaveVisibility,disabled:visSaving},visSaving?'…':'💾 Enregistrer la visibilité')
       ),
       CE(VueAccesTS,null),
+      CE(VueConnexionsTS,null),
 
       CE('div',{className:'admin-section',style:{border:'2px solid '+(maintenanceOn?'#dc2626':'#e2e8f0'),background:maintenanceOn?'#fff5f5':'#fff'}},
         CE('h3',null,'🔧 Mode Maintenance'),
