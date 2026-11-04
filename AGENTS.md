@@ -34,6 +34,10 @@ spécifiques du projet restent applicables.
   Préférer un connecteur fonctionnel. Ne pas contourner un refus d’accès.
 - Continuer les tâches indépendantes d’une réponse manquante. Respecter les
   autorisations déjà accordées et les limites explicites, dont la lecture seule.
+- Fin de tâche (04/11/2026) : vérifier que les opérations et revues nécessaires
+  sont terminées, puis conclure le message final par une ligne distincte :
+  **✅ TÂCHE TERMINÉE**. Si un traitement reste en cours ou bloque la livraison,
+  préciser son état sans annoncer la tâche terminée.
 
 ## Décisions, preuves et périmètre
 
