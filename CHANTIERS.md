@@ -1,6 +1,6 @@
 # Chantiers en cours — Ateliers CD47 NextStep
 
-État au **04/11/2026, 20:54 (heure de Paris)**, base `main` `4a80510`.
+État au **04/11/2026, 21:36 (heure de Paris)**, base `main` `998de94`.
 Dernière livraison fonctionnelle : `b076d21`, alignée sur NEWGEN `36db64f`
 (tests, déploiements et parité verts). Livré le 04/11 : page des travailleurs sociaux (tuile à
 l'image de l'Historique, titre « Agenda des ateliers collectifs… », première connexion sans
@@ -12,6 +12,10 @@ La consigne **✅ TÂCHE TERMINÉE** est dans les deux `AGENTS.md` (NextStep `54
 NEWGEN `137198a`). Les `CLAUDE.md` ont été allégés (`4a80510` / `2d78af9`).
 Les confirmations GitHub répétées restent non résolues malgré le réglage d'autorisation ;
 constat et suites partagés consignés dans `ATELIERS_NEWGEN/CHANTIERS.md`.
+
+**Consignes Codex (04/11/2026)** : `AGENTS.md` aligné sur MD-LIB `17413bd`
+(autorisations, tous les tests du déploiement avant push, « Main toujours »).
+Mise à jour documentaire seule ; aucune nouvelle revue des correctifs livrés.
 
 NextStep (équipe) et NEWGEN (utilisateur) parlent à
 la même API Alwaysdata et à la même base depuis la bascule du 25/09/2026 :
