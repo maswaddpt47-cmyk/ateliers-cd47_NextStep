@@ -3022,9 +3022,7 @@ function VueHistorique({onOuvrirGestionOrdi,entries,onEdit,onDelete,onRefresh,on
             PUBLICS.map(p=>CE('span',{key:p,className:'chip'+(filtPublic.includes(p)?' active':''),onClick:()=>basculerPublic(p)},p))),
           CE('div',{className:'chip-bar',style:{marginBottom:0},'aria-label':'Ouvert à tous'},
             CE('span',{style:{fontSize:11,fontWeight:700,color:'#718096',alignSelf:'center'}},'Ouvert à tous :'),
-            ['Tous',...OUVERT_A_TOUS_CHOIX].map(v=>CE('span',{key:v,className:'chip'+(v==='Tous'?' chip-all':'')+(filtOuvert===v?' active':''),onClick:()=>setFiltOuvert(v)},v)),
-            // Portée du filtre dite à l'écran (AG-047, vérification de Codex).
-            CE('span',{style:{fontSize:11,color:'#718096',flexBasis:'100%',marginTop:2}},'Ce filtre s\'applique uniquement à la liste et aux exports, pas aux tuiles.'))
+            ['Tous',...OUVERT_A_TOUS_CHOIX].map(v=>CE('span',{key:v,className:'chip'+(v==='Tous'?' chip-all':'')+(filtOuvert===v?' active':''),onClick:()=>setFiltOuvert(v)},v)))
         ),
         CE('div',{style:{display:'flex',gap:8,flexWrap:'wrap',alignItems:'center',marginTop:8}},
         CE('div',{style:{display:'flex',alignItems:'center',gap:4}},
