@@ -6930,7 +6930,7 @@ function ReponseTicket({t,tickets,onMaj,onSuppr}){
       const r=await window.apiFetch('repondreTicket',{_id:t.id,statut,reponse,doublon_de:doublon});
       if(r&&r.ok){
         // Ce que l'API dit de l'envoi (AG-045) : jamais « mail envoyé » si le mail n'est pas parti.
-        const etat={envoye:' — ✉️ mail envoyé à '+r.mail_a,echec:' — ⚠️ le mail à '+r.mail_a+' n\'a pas pu partir',sans_adresse:' — ⚠️ pas de mail : aucune adresse enregistrée pour '+r.mail_a,desactive:' — mail au demandeur désactivé (interrupteur en haut de la liste)'}[r.mail]||'';
+        const etat={envoye:' — ✉️ mail envoyé à '+r.mail_a,echec:' — ⚠️ le mail à '+r.mail_a+' n\'a pas pu partir',sans_adresse:' — ⚠️ pas de mail : aucune adresse enregistrée pour '+r.mail_a,desactive:' — pas de mail : le mail au demandeur est désactivé (interrupteur en haut de la liste)',inchange:' — pas de mail : ni le statut ni la réponse n\'ont changé',auteur:' — pas de mail : vous êtes l\'auteur de ce ticket',anonyme:' — pas de mail : l\'auteur de ce ticket est anonymisé',deja:' — pas de mail : un envoi identique vient d\'être fait'}[r.mail]||'';
         showToast('✅ Ticket mis à jour'+etat,!(r.mail==='echec'||r.mail==='sans_adresse'));
         onMaj(r.ticket);
       }
