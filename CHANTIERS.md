@@ -1,8 +1,9 @@
 # Chantiers en cours — Ateliers CD47 NextStep
 
-État au **02/11/2026**, base `main` (`bfa45f2`). Depuis le 27/10 : bilans
-(style des tuiles, 28/10), règles MD-LIB propagées dans `CLAUDE.md`, repère en
-pointillé de la frise du parc (02/11, voir NEWGEN) — `git log`.
+État au **04/11/2026**, base `main` (`4c5873b`). Depuis le 02/11 : annonce
+n° 30 (bilan mensuel le 5 du mois, 03/11) et tickets modifiables par l'équipe
+tant qu'ils sont « Nouveau » (03/11, AG-041 de NEWGEN) — `git log`. Reprise :
+section « À reprendre en premier » du `CHANTIERS.md` de NEWGEN.
 NextStep (équipe) et NEWGEN (utilisateur) parlent à
 la même API Alwaysdata et à la même base depuis la bascule du 25/09/2026 :
 **les restes communs** (registres, audit trimestriel, sauvegardes,
