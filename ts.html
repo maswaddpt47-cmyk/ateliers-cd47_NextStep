@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Ateliers numériques — Travailleurs sociaux</title>
+<link rel="icon" href="icons/icon-app-32.png">
+<!--
+  Page des travailleurs sociaux (AG-042, 04/11/2026) : consultation seule
+  des ateliers « Planifié » à venir. Sans menu, sans bibliothèque externe ;
+  tout texte venu du serveur est posé par textContent, jamais en HTML.
+  Accès : demande (e-mail pro) → compte créé par l'Admin → mot de passe
+  provisoire à changer. Les comptes admin/superviseur s'y connectent aussi.
+  Même page dans NEWGEN et NextStep (scripts/parite.js).
+-->
+<style>
+  :root{--p:#4389BD;--p2:#e6f0f8;--t:#13202a;--t2:#4e6270;--b:#d4dfe6;--fond:#eef3f6;--carte:#fff;--ok:#0f7a4a}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:Verdana,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--fond);color:var(--t)}
+  header{background:var(--p);color:#fff;padding:14px 16px}
+  header .in{max-width:960px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+  header h1{font-size:18px;margin:0}
+  header p{font-size:13px;margin:2px 0 0;opacity:.9}
+  main{max-width:960px;margin:0 auto;padding:16px}
+  .carte{background:var(--carte);border-radius:14px;padding:16px;box-shadow:0 2px 10px rgba(12,36,48,.08);margin-bottom:12px}
+  .etroit{max-width:420px;margin:24px auto}
+  h2{font-size:17px;margin:0 0 12px;color:var(--p)}
+  label{display:block;font-size:13px;font-weight:700;margin:10px 0 4px}
+  input,select{width:100%;font-size:16px;padding:10px;border:2px solid var(--b);border-radius:10px;font-family:inherit;background:#fff;color:var(--t)}
+  button{font-family:inherit}
+  .btn{width:100%;min-height:48px;margin-top:14px;border:none;border-radius:12px;background:var(--p);color:#fff;font-size:16px;font-weight:700;cursor:pointer}
+  .btn:disabled{background:#94a3b8}
+  .lien{background:none;border:none;color:var(--p);text-decoration:underline;cursor:pointer;font-size:14px;padding:8px 0;margin-top:8px}
+  .sortir{background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.5);color:#fff;border-radius:10px;padding:8px 12px;font-size:14px;cursor:pointer}
+  .note{font-size:12px;color:var(--t2);line-height:1.5}
+  .erreur{color:#b91c1c;font-weight:700;font-size:14px;min-height:1em}
+  .succes{color:var(--ok);font-weight:700;font-size:14px}
+  .piege{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
+  .filtres{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;align-items:end}
+  .filtres label{margin-top:0}
+  .compte{font-size:14px;color:var(--t2);margin:4px 0 12px}
+  .grille{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
+  .tuile{background:var(--carte);border-radius:12px;padding:14px;box-shadow:0 1px 6px rgba(12,36,48,.08);border-left:5px solid var(--p)}
+  .tuile .haut{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:8px}
+  .tuile .date{font-weight:700;font-size:15px}
+  .badge{font-size:12px;font-weight:700;background:var(--p2);color:var(--p);border-radius:999px;padding:3px 10px;white-space:nowrap}
+  .tuile .theme{font-size:16px;font-weight:700;margin:0 0 8px;color:var(--t)}
+  .tuile dl{margin:0;display:grid;grid-template-columns:auto 1fr;gap:3px 10px;font-size:14px}
+  .tuile dt{color:var(--t2)}
+  .tuile dd{margin:0;overflow-wrap:anywhere}
+  .vide{text-align:center;color:var(--t2);padding:24px}
+  .cache{display:none!important}
+</style>
+</head>
+<body>
+<header><div class="in">
+  <div><h1>Ateliers numériques du Département</h1><p>Programme des ateliers à venir — espace travailleurs sociaux</p></div>
+  <button type="button" class="sortir cache" id="sortir">Se déconnecter</button>
+</div></header>
+<main>
+  <!-- Connexion -->
+  <form class="carte etroit" id="v-connexion" autocomplete="on">
+    <h2>Connexion</h2>
+    <label for="c-id">Identifiant (e-mail professionnel)</label>
+    <input id="c-id" name="username" type="text" autocomplete="username" required>
+    <label for="c-mdp">Mot de passe</label>
+    <input id="c-mdp" name="password" type="password" autocomplete="current-password" required>
+    <button class="btn" type="submit" id="c-ok">Se connecter</button>
+    <p class="erreur" id="c-err"></p>
+    <button type="button" class="lien" id="aller-demande">Pas encore d'accès ? Demander un accès</button>
+  </form>
+
+  <!-- Demande d'accès -->
+  <form class="carte etroit cache" id="v-demande">
+    <h2>Demander un accès</h2>
+    <p class="note">Indiquez votre adresse e-mail professionnelle : elle sera votre identifiant. L'équipe des conseillers numériques crée votre accès et vous transmet un mot de passe provisoire.</p>
+    <label for="d-email">E-mail professionnel</label>
+    <input id="d-email" type="email" autocomplete="email" required>
+    <div class="piege" aria-hidden="true"><label for="d-url">Ne pas remplir</label><input id="d-url" type="text" tabindex="-1" autocomplete="off"></div>
+    <button class="btn" type="submit" id="d-ok">Envoyer la demande</button>
+    <p class="erreur" id="d-err"></p>
+    <p class="succes cache" id="d-merci">Demande envoyée. Vous recevrez vos accès de l'équipe des conseillers numériques.</p>
+    <p class="note">Votre adresse sert uniquement à gérer votre accès à cette page. Une demande non traitée est effacée au bout de 90 jours.</p>
+    <button type="button" class="lien" id="retour-connexion">← Retour à la connexion</button>
+  </form>
+
+  <!-- Mot de passe provisoire à changer -->
+  <form class="carte etroit cache" id="v-mdp">
+    <h2>Choisissez votre mot de passe</h2>
+    <p class="note">Votre mot de passe est provisoire. Choisissez-en un : au moins 12 caractères, une majuscule, une minuscule, un chiffre et un caractère spécial.</p>
+    <input type="text" class="piege" autocomplete="username" id="m-id" tabindex="-1" aria-hidden="true">
+    <label for="m-1">Nouveau mot de passe</label>
+    <input id="m-1" type="password" autocomplete="new-password" required>
+    <label for="m-2">Confirmer</label>
+    <input id="m-2" type="password" autocomplete="new-password" required>
+    <button class="btn" type="submit" id="m-ok">Enregistrer</button>
+    <p class="erreur" id="m-err"></p>
+  </form>
+
+  <!-- Liste -->
+  <section class="cache" id="v-liste">
+    <div class="carte">
+      <div class="filtres">
+        <div><label for="f-du">Du</label><input id="f-du" type="date"></div>
+        <div><label for="f-au">Au</label><input id="f-au" type="date"></div>
+        <div><label for="f-commune">Commune</label><select id="f-commune"><option value="">Toutes</option></select></div>
+        <div id="bloc-public" class="cache"><label for="f-public">Type de public</label><select id="f-public"><option value="">Tous</option></select></div>
+      </div>
+    </div>
+    <p class="compte" id="compte"></p>
+    <div class="grille" id="grille"></div>
+  </section>
+</main>
+<script src="utils.js?v=54"></script>
+<script>
+(function(){
+  var CLE='ts_jeton';
+  var ateliers=[],filtrePublic=false;
+  function $(id){return document.getElementById(id);}
+  // Site d'où vient l'appel, noté au journal de l'API.
+  var site=/nextstep/i.test(location.pathname)?'nextstep':'newgen';
+  function lireJeton(){try{return sessionStorage.getItem(CLE)||'';}catch(e){return '';}}
+  function ecrireJeton(j){try{if(j)sessionStorage.setItem(CLE,j);else sessionStorage.removeItem(CLE);}catch(e){}}
+  var jeton=lireJeton();
+  function appel(action,donnees){
+    var corps=new URLSearchParams(donnees||{});corps.set('action',action);corps.set('site',site);
+    if(jeton)corps.set('token',jeton);
+    return fetch(urlApiPour(location.hostname,location.pathname)+'?action='+action,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:corps.toString()})
+      .then(function(r){return r.json();});
+  }
+  var VUES=['v-connexion','v-demande','v-mdp','v-liste'];
+  function vue(nom){
+    VUES.forEach(function(v){$(v).classList.toggle('cache',v!==nom);});
+    $('sortir').classList.toggle('cache',nom!=='v-mdp'&&nom!=='v-liste');
+  }
+  function deconnecter(){
+    if(jeton)appel('logout').catch(function(){});
+    jeton='';ecrireJeton('');ateliers=[];$('grille').textContent='';
+    $('c-mdp').value='';vue('v-connexion');
+  }
+  $('sortir').addEventListener('click',deconnecter);
+  $('aller-demande').addEventListener('click',function(){vue('v-demande');$('d-email').focus();});
+  $('retour-connexion').addEventListener('click',function(){vue('v-connexion');});
+
+  // ── Connexion ──
+  $('v-connexion').addEventListener('submit',function(ev){
+    ev.preventDefault();$('c-err').textContent='';$('c-ok').disabled=true;
+    appel('tsConnexion',{identifiant:$('c-id').value,password:$('c-mdp').value,userAgent:navigator.userAgent})
+      .then(function(r){
+        if(!r||!r.ok){$('c-err').textContent=(r&&r.error)||'Connexion impossible';return;}
+        jeton=r.token;ecrireJeton(jeton);$('c-mdp').value='';
+        if(r.doit_changer){$('m-id').value=$('c-id').value;vue('v-mdp');$('m-1').focus();}
+        else charger();
+      })
+      .catch(function(){$('c-err').textContent='Pas de connexion : réessayez dans un instant.';})
+      .then(function(){$('c-ok').disabled=false;});
+  });
+
+  // ── Demande d'accès ──
+  $('v-demande').addEventListener('submit',function(ev){
+    ev.preventDefault();$('d-err').textContent='';$('d-ok').disabled=true;
+    appel('tsDemandeAcces',{email:$('d-email').value,url:$('d-url').value})
+      .then(function(r){
+        if(r&&r.ok){$('d-merci').classList.remove('cache');$('d-ok').classList.add('cache');$('d-email').disabled=true;}
+        else{$('d-err').textContent=(r&&r.error)||'Envoi impossible, réessayez.';}
+      })
+      .catch(function(){$('d-err').textContent='Pas de connexion : réessayez dans un instant.';})
+      .then(function(){$('d-ok').disabled=false;});
+  });
+
+  // ── Mot de passe provisoire ──
+  $('v-mdp').addEventListener('submit',function(ev){
+    ev.preventDefault();$('m-err').textContent='';
+    if($('m-1').value!==$('m-2').value){$('m-err').textContent='Les deux saisies diffèrent.';return;}
+    $('m-ok').disabled=true;
+    appel('tsChangerMdp',{password:$('m-1').value})
+      .then(function(r){
+        if(r&&r.ok){$('m-1').value='';$('m-2').value='';charger();}
+        else if(r&&r.auth)deconnecter();
+        else $('m-err').textContent=(r&&r.error)||'Enregistrement impossible';
+      })
+      .catch(function(){$('m-err').textContent='Pas de connexion : réessayez dans un instant.';})
+      .then(function(){$('m-ok').disabled=false;});
+  });
+
+  // ── Liste ──
+  var JOURS=['dimanche','lundi','mardi','mercredi','jeudi','vendredi','samedi'];
+  function dateLisible(iso){
+    var d=String(iso||'').split('-');if(d.length!==3)return String(iso||'');
+    var j=new Date(+d[0],+d[1]-1,+d[2]);
+    return JOURS[j.getDay()]+' '+d[2]+'/'+d[1]+'/'+d[0];
+  }
+  function remplirSelect(sel,valeurs,tous){
+    var garde=sel.value;sel.textContent='';
+    var o=document.createElement('option');o.value='';o.textContent=tous;sel.appendChild(o);
+    valeurs.forEach(function(v){var x=document.createElement('option');x.value=v;x.textContent=v;sel.appendChild(x);});
+    if(valeurs.indexOf(garde)>=0)sel.value=garde;
+  }
+  function distincts(champ){
+    var s={};ateliers.forEach(function(a){var v=String(a[champ]||'').trim();if(v)s[v]=1;});
+    return Object.keys(s).sort(function(a,b){return a.localeCompare(b,'fr');});
+  }
+  function ligne(dl,titre,valeur){
+    var dt=document.createElement('dt');dt.textContent=titre;
+    var dd=document.createElement('dd');dd.textContent=String(valeur||'').trim()||'—';
+    dl.appendChild(dt);dl.appendChild(dd);
+  }
+  function afficher(){
+    var du=$('f-du').value,au=$('f-au').value,commune=$('f-commune').value,pub=filtrePublic?$('f-public').value:'';
+    var liste=ateliers.filter(function(a){
+      return (!du||a.date>=du)&&(!au||a.date<=au)&&(!commune||String(a.commune||'').trim()===commune)&&(!pub||String(a.public||'').trim()===pub);
+    });
+    var g=$('grille');g.textContent='';
+    $('compte').textContent=liste.length+' atelier'+(liste.length>1?'s':'')+' planifié'+(liste.length>1?'s':'');
+    if(!liste.length){var v=document.createElement('div');v.className='vide carte';v.textContent='Aucun atelier planifié pour ces critères.';g.appendChild(v);return;}
+    liste.forEach(function(a){
+      var t=document.createElement('article');t.className='tuile';
+      var h=document.createElement('div');h.className='haut';
+      var d=document.createElement('div');d.className='date';d.textContent=dateLisible(a.date);
+      var b=document.createElement('span');b.className='badge';b.textContent=a.statut||'Planifié';
+      h.appendChild(d);h.appendChild(b);t.appendChild(h);
+      var th=document.createElement('p');th.className='theme';th.textContent=String(a.thematique||'').trim()||'Atelier numérique';t.appendChild(th);
+      var dl=document.createElement('dl');
+      ligne(dl,'Commune',a.commune);ligne(dl,'Lieu',a.lieu);ligne(dl,'Public',a.public);ligne(dl,'Orienteur',a.orienteur);
+      t.appendChild(dl);g.appendChild(t);
+    });
+  }
+  ['f-du','f-au','f-commune','f-public'].forEach(function(id){$(id).addEventListener('change',afficher);});
+  function charger(){
+    vue('v-liste');$('compte').textContent='Chargement…';
+    appel('tsAteliers').then(function(r){
+      if(r&&r.doit_changer){vue('v-mdp');return;}
+      if(!r||!r.ok){if(r&&r.auth){deconnecter();$('c-err').textContent='Session terminée : reconnectez-vous.';}else $('compte').textContent=(r&&r.error)||'Chargement impossible';return;}
+      ateliers=r.ateliers||[];filtrePublic=!!r.filtrePublic;
+      $('bloc-public').classList.toggle('cache',!filtrePublic);
+      if(!filtrePublic)$('f-public').value='';
+      remplirSelect($('f-commune'),distincts('commune'),'Toutes');
+      remplirSelect($('f-public'),distincts('public'),'Tous');
+      afficher();
+    }).catch(function(){$('compte').textContent='Pas de connexion : rechargez la page.';});
+  }
+  if(jeton)charger();else vue('v-connexion');
+})();
+</script>
+</body>
+</html>
