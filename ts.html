@@ -36,6 +36,10 @@
   .note{font-size:12px;color:var(--t2);line-height:1.5}
   .erreur{color:#b91c1c;font-weight:700;font-size:14px;min-height:1em}
   .succes{color:var(--ok);font-weight:700;font-size:14px}
+  .mdp{position:relative}
+  .mdp input{padding-right:52px}
+  .oeil{position:absolute;right:4px;top:50%;transform:translateY(-50%);width:44px;height:40px;border:none;background:none;font-size:20px;cursor:pointer;opacity:.6}
+  .oeil[aria-pressed=true]{opacity:1}
   .piege{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
   .filtres{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;align-items:end}
   .filtres label{margin-top:0}
@@ -63,9 +67,9 @@
   <form class="carte etroit" id="v-connexion" autocomplete="on">
     <h2>Connexion</h2>
     <label for="c-id">Identifiant (e-mail professionnel)</label>
-    <input id="c-id" name="username" type="text" autocomplete="username" required>
+    <input id="c-id" name="username" type="text" inputmode="email" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" required>
     <label for="c-mdp">Mot de passe</label>
-    <input id="c-mdp" name="password" type="password" autocomplete="current-password" required>
+    <div class="mdp"><input id="c-mdp" name="password" type="password" autocomplete="current-password" required><button type="button" class="oeil" data-cible="c-mdp" aria-label="Afficher le mot de passe">👁</button></div>
     <button class="btn" type="submit" id="c-ok">Se connecter</button>
     <p class="erreur" id="c-err"></p>
     <button type="button" class="lien" id="aller-demande">Pas encore d'accès ? Demander un accès</button>
@@ -76,7 +80,7 @@
     <h2>Demander un accès</h2>
     <p class="note">Indiquez votre adresse e-mail professionnelle : elle sera votre identifiant. L'équipe des conseillers numériques crée votre accès et vous transmet un mot de passe provisoire.</p>
     <label for="d-email">E-mail professionnel</label>
-    <input id="d-email" type="email" autocomplete="email" required>
+    <input id="d-email" type="email" inputmode="email" autocomplete="email" autocapitalize="none" autocorrect="off" spellcheck="false" required>
     <div class="piege" aria-hidden="true"><label for="d-url">Ne pas remplir</label><input id="d-url" type="text" tabindex="-1" autocomplete="off"></div>
     <button class="btn" type="submit" id="d-ok">Envoyer la demande</button>
     <p class="erreur" id="d-err"></p>
@@ -91,9 +95,9 @@
     <p class="note">Votre mot de passe est provisoire. Choisissez-en un : au moins 12 caractères, une majuscule, une minuscule, un chiffre et un caractère spécial.</p>
     <input type="text" class="piege" autocomplete="username" id="m-id" tabindex="-1" aria-hidden="true">
     <label for="m-1">Nouveau mot de passe</label>
-    <input id="m-1" type="password" autocomplete="new-password" required>
+    <div class="mdp"><input id="m-1" type="password" autocomplete="new-password" required><button type="button" class="oeil" data-cible="m-1" aria-label="Afficher le mot de passe">👁</button></div>
     <label for="m-2">Confirmer</label>
-    <input id="m-2" type="password" autocomplete="new-password" required>
+    <div class="mdp"><input id="m-2" type="password" autocomplete="new-password" required><button type="button" class="oeil" data-cible="m-2" aria-label="Afficher le mot de passe">👁</button></div>
     <button class="btn" type="submit" id="m-ok">Enregistrer</button>
     <p class="erreur" id="m-err"></p>
   </form>
@@ -140,13 +144,28 @@
     $('c-mdp').value='';vue('v-connexion');
   }
   $('sortir').addEventListener('click',deconnecter);
+  document.querySelectorAll('.oeil').forEach(function(b){
+    b.addEventListener('click',function(){
+      var c=$(b.dataset.cible),voir=c.type==='password';
+      c.type=voir?'text':'password';
+      b.setAttribute('aria-pressed',voir?'true':'false');
+      b.setAttribute('aria-label',voir?'Masquer le mot de passe':'Afficher le mot de passe');
+    });
+  });
+  // Une adresse e-mail ne contient ni espace ni majuscule utile : le clavier
+  // du téléphone en ajoute (« Michel. Aswad@… »). Un nom d'admin (sans @)
+  // est gardé tel quel.
+  function identifiantPropre(v){v=String(v||'').trim();return v.indexOf('@')>=0?v.replace(/\s+/g,'').toLowerCase():v;}
+  ['c-id','d-email'].forEach(function(id){
+    $(id).addEventListener('blur',function(){var x=identifiantPropre(this.value);if(id==='d-email'||x.indexOf('@')>=0)this.value=x;});
+  });
   $('aller-demande').addEventListener('click',function(){vue('v-demande');$('d-email').focus();});
   $('retour-connexion').addEventListener('click',function(){vue('v-connexion');});
 
   // ── Connexion ──
   $('v-connexion').addEventListener('submit',function(ev){
     ev.preventDefault();$('c-err').textContent='';$('c-ok').disabled=true;
-    appel('tsConnexion',{identifiant:$('c-id').value,password:$('c-mdp').value,userAgent:navigator.userAgent})
+    appel('tsConnexion',{identifiant:identifiantPropre($('c-id').value),password:$('c-mdp').value,userAgent:navigator.userAgent})
       .then(function(r){
         if(!r||!r.ok){$('c-err').textContent=(r&&r.error)||'Connexion impossible';return;}
         jeton=r.token;ecrireJeton(jeton);$('c-mdp').value='';
@@ -160,7 +179,7 @@
   // ── Demande d'accès ──
   $('v-demande').addEventListener('submit',function(ev){
     ev.preventDefault();$('d-err').textContent='';$('d-ok').disabled=true;
-    appel('tsDemandeAcces',{email:$('d-email').value,url:$('d-url').value})
+    appel('tsDemandeAcces',{email:identifiantPropre($('d-email').value),url:$('d-url').value})
       .then(function(r){
         if(r&&r.ok){$('d-merci').classList.remove('cache');$('d-ok').classList.add('cache');$('d-email').disabled=true;}
         else{$('d-err').textContent=(r&&r.error)||'Envoi impossible, réessayez.';}
