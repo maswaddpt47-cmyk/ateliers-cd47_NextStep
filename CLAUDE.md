@@ -171,6 +171,7 @@ NEWGEN). → Dis « pull » à Codex.**` (MD-LIB `agora.md` §4, 04/11/2026).
 ## Branche de travail
 
 Toujours committer et pousser directement sur `main`. Ne pas créer de branche intermédiaire.
+**Jamais par `sandbox` sauf demande explicite de l'utilisateur** (rappelé le 04/11/2026 : un détour par le bac à sable non demandé a coûté un déploiement et un tour).
 Seule exception : la branche `sandbox`, que `deploy-sandbox.yml` d'ATELIERS_NEWGEN
 publie dans le bac à sable (`…alwaysdata.net/sandbox/nextstep/`, AG-033,
 27/10/2026) ; elle part de `main` et y revient après l'essai de l'utilisateur.
