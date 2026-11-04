@@ -970,7 +970,7 @@ function VueConnexionsTS(){
       CE('h4',{style:{fontSize:13,margin:'12px 0 4px'}},'Par jour'),
       CE('div',{style:{overflowX:'auto'}},
         CE('table',{style:{borderCollapse:'collapse',width:'100%',maxWidth:480}},
-          CE('thead',null,CE('tr',null,['Jour','Connexions','Échecs','Comptes créés'].map(t=>CE('th',{key:t,style:{...cell,color:'#718096',fontWeight:600}},t)))),
+          CE('thead',null,CE('tr',null,['Jour','Connexions','Échecs','Créations par demande'].map(t=>CE('th',{key:t,style:{...cell,color:'#718096',fontWeight:600}},t)))),
           CE('tbody',null,st.jours.length===0?CE('tr',null,CE('td',{colSpan:4,style:{...cell,color:'#718096'}},'Aucune activité sur la période.')):st.jours.map(j=>CE('tr',{key:j.jour},
             CE('td',{style:cell},fmtJour(j.jour)),CE('td',{style:cell},j.connexions),CE('td',{style:cell},j.echecs),CE('td',{style:cell},j.creations))))))
     )
