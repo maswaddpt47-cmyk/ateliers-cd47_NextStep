@@ -6915,7 +6915,12 @@ function ReponseTicket({t,tickets,onMaj,onSuppr}){
     setEnvoi(true);
     try{
       const r=await window.apiFetch('repondreTicket',{_id:t.id,statut,reponse,doublon_de:doublon});
-      if(r&&r.ok){showToast('✅ Ticket mis à jour');onMaj(r.ticket);}
+      if(r&&r.ok){
+        // Ce que l'API dit de l'envoi (AG-045) : jamais « mail envoyé » si le mail n'est pas parti.
+        const etat={envoye:' — ✉️ mail envoyé à '+r.mail_a,echec:' — ⚠️ le mail à '+r.mail_a+' n\'a pas pu partir',sans_adresse:' — ⚠️ pas de mail : aucune adresse enregistrée pour '+r.mail_a,desactive:' — mail au demandeur désactivé (interrupteur en haut de la liste)'}[r.mail]||'';
+        showToast('✅ Ticket mis à jour'+etat,!(r.mail==='echec'||r.mail==='sans_adresse'));
+        onMaj(r.ticket);
+      }
       else showToast('❌ '+((r&&r.error)||'Erreur'),false);
     }catch(e){showToast('❌ '+(e.message||'Erreur réseau'),false);}
     finally{setEnvoi(false);}
@@ -6952,8 +6957,9 @@ function VueTickets({admin,onglets,ongletCourant,onVu}){
   const[form,setForm]=React.useState(false);
   const[ouverts,setOuverts]=React.useState(()=>new Set());
   const[edition,setEdition]=React.useState('');   // id du ticket en cours de modification (AG-041)
+  const[mailDem,setMailDem]=React.useState(null);   // interrupteur « prévenir le demandeur par mail » (AG-045), Admin seulement
   React.useEffect(()=>{if(onVu)onVu();
-    window.apiFetch('getTickets').then(r=>{if(r&&r.ok){setTickets(r.tickets||[]);setMoi(r.moi||'');}else setErr((r&&r.error)||'Erreur');})
+    window.apiFetch('getTickets').then(r=>{if(r&&r.ok){setTickets(r.tickets||[]);setMoi(r.moi||'');if(typeof r.mail_demandeur==='boolean')setMailDem(r.mail_demandeur);}else setErr((r&&r.error)||'Erreur');})
       .catch(e=>setErr(e.message||'Erreur réseau'));},[]);
   const basculer=id=>setOuverts(o=>{const x=new Set(o);x.has(id)?x.delete(id):x.add(id);return x;});
   const remplacer=t=>setTickets(l=>{const a=(l||[]).filter(x=>x.id!==t.id);return [t,...a].sort((x,y)=>String(y.cree_le).localeCompare(String(x.cree_le)));});
@@ -6965,6 +6971,15 @@ function VueTickets({admin,onglets,ongletCourant,onVu}){
       CE('h2',{style:{margin:0,fontSize:18,flex:1}},admin?'🎫 Tickets de l\'équipe':'💬 Contribuer'),
       !form&&CE('button',{type:'button',onClick:()=>setForm(true),style:{padding:'8px 14px',borderRadius:8,border:'none',background:'#1e3a8a',color:'#fff',fontWeight:700,fontSize:13,cursor:'pointer'}},'＋ Nouvelle contribution')),
     CE('p',{style:{margin:'0 0 12px',fontSize:13,color:'var(--text-3)'}},'Une idée, un souci, une question ? Dites-le ici pour améliorer l\'outil ensemble. Toute l\'équipe voit les contributions, ce qui évite les doublons ; la réponse s\'affiche dans le ticket.'),
+    admin&&mailDem!==null&&CE('label',{style:{display:'flex',alignItems:'center',gap:8,fontSize:12,margin:'0 0 10px',color:'var(--text-2)',cursor:'pointer'}},
+      CE('input',{type:'checkbox',checked:mailDem,onChange:async e=>{
+        const v=e.target.checked;setMailDem(v);
+        try{const r=await window.apiFetch('setConfig',{key:'tickets_mail_demandeur',value:v?'true':'false'});
+          if(!(r&&r.ok)){setMailDem(!v);showToast('❌ '+((r&&r.error)||'Erreur'),false);}
+          else showToast(v?'✉️ Le demandeur sera prévenu par mail à chaque réponse ou changement de statut (s\'il a une adresse enregistrée)':'Mails au demandeur désactivés');
+        }catch(err){setMailDem(!v);showToast('❌ '+(err.message||'Erreur réseau'),false);}
+      }}),
+      '✉️ Prévenir le demandeur par mail à chaque réponse ou changement de statut'),
     form&&CE(FormulaireTicket,{onglets,ongletCourant,onCree:t=>{remplacer(t);setForm(false);setFiltre('miens');},onAnnuler:()=>setForm(false)}),
     CE('div',{style:{display:'flex',gap:6,flexWrap:'wrap',marginBottom:10}},onglet('ouverts','Ouverts'),onglet('miens','Mes contributions'),onglet('archives','🗄️ Archives')),
     err&&CE('p',{style:{color:'#c53030',fontSize:13}},err),
