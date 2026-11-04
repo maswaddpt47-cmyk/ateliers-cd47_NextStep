@@ -48,14 +48,19 @@
   .filtres label{margin-top:0}
   .compte{font-size:14px;color:var(--t2);margin:4px 0 12px}
   .grille{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
-  .tuile{background:var(--carte);border-radius:12px;padding:14px;box-shadow:0 1px 6px rgba(12,36,48,.08);border-left:5px solid var(--p)}
-  .tuile .haut{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:8px}
-  .tuile .date{font-weight:700;font-size:15px}
-  .badge{font-size:12px;font-weight:700;background:var(--p2);color:var(--p);border-radius:999px;padding:3px 10px;white-space:nowrap}
-  .tuile .theme{font-size:16px;font-weight:700;margin:0 0 8px;color:var(--t)}
-  .tuile dl{margin:0;display:grid;grid-template-columns:auto 1fr;gap:3px 10px;font-size:14px}
-  .tuile dt{color:var(--t2)}
-  .tuile dd{margin:0;overflow-wrap:anywhere}
+  /* Tuile à l'image de l'Historique de NextStep (04/11/2026) : colonne date à gauche, corps à droite. */
+  .tuile{background:var(--carte);border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,.08);display:flex;overflow:hidden;border-left:5px solid var(--p)}
+  .tuile .t-date{width:64px;flex-shrink:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:14px 8px;background:var(--p2);border-right:1px solid #c9dcec}
+  .tuile .t-jj{font-size:26px;font-weight:800;color:var(--t);line-height:1}
+  .tuile .t-mois,.tuile .t-sem{font-size:11px;font-weight:700;color:var(--t2);text-transform:uppercase;letter-spacing:.05em}
+  .tuile .t-sem{font-size:10px;margin-top:2px}
+  .tuile .t-heure{font-size:12px;color:var(--t);margin-top:4px;font-weight:600}
+  .tuile .t-corps{flex:1;padding:12px 14px;min-width:0}
+  .tuile .t-badges{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:6px;align-items:center}
+  .tuile .t-orienteur{font-size:12px;color:var(--t2);font-style:italic}
+  .tuile .t-public{display:inline-block;padding:2px 9px;border-radius:20px;font-size:12px;font-weight:600;background:#f1f5f9;color:#475569}
+  .tuile .theme{font-size:15px;font-weight:700;color:var(--t);line-height:1.3;margin:0 0 4px}
+  .tuile .t-sub{font-size:13px;color:var(--t2);margin:0;overflow-wrap:anywhere}
   .vide{text-align:center;color:var(--t2);padding:24px}
   .cache{display:none!important}
 </style>
@@ -280,17 +285,6 @@ if(urlApiPour(location.hostname,location.pathname).indexOf('/api-sandbox/')>=0){
   });
 
   // ── Liste ──
-  var JOURS=['dimanche','lundi','mardi','mercredi','jeudi','vendredi','samedi'];
-  function dateLisible(iso){
-    var d=String(iso||'').split('-');if(d.length!==3)return String(iso||'');
-    var j=new Date(+d[0],+d[1]-1,+d[2]);
-    return JOURS[j.getDay()]+' '+d[2]+'/'+d[1]+'/'+d[0];
-  }
-  // « 9:30 » ou « 14:00 » → « · 9h30 » ; horaire vide : rien (atelier sans heure saisie).
-  function heureLisible(h){
-    var m=String(h||'').match(/^\s*(\d{1,2}):(\d{2})/);
-    return m?' · '+(+m[1])+'h'+m[2]:'';
-  }
   function remplirSelect(sel,valeurs,tous){
     var garde=sel.value;sel.textContent='';
     var o=document.createElement('option');o.value='';o.textContent=tous;sel.appendChild(o);
@@ -301,11 +295,7 @@ if(urlApiPour(location.hostname,location.pathname).indexOf('/api-sandbox/')>=0){
     var s={};ateliers.forEach(function(a){var v=String(a[champ]||'').trim();if(v)s[v]=1;});
     return Object.keys(s).sort(function(a,b){return a.localeCompare(b,'fr');});
   }
-  function ligne(dl,titre,valeur){
-    var dt=document.createElement('dt');dt.textContent=titre;
-    var dd=document.createElement('dd');dd.textContent=String(valeur||'').trim()||'—';
-    dl.appendChild(dt);dl.appendChild(dd);
-  }
+  function el(parent,tag,cls,texte){var x=document.createElement(tag);x.className=cls;x.textContent=texte;parent.appendChild(x);return x;}
   function afficher(){
     var du=$('f-du').value,au=$('f-au').value,commune=$('f-commune').value;
     var liste=ateliers.filter(function(a){
@@ -316,13 +306,20 @@ if(urlApiPour(location.hostname,location.pathname).indexOf('/api-sandbox/')>=0){
     if(!liste.length){var v=document.createElement('div');v.className='vide carte';v.textContent='Aucun atelier planifié pour ces critères.';g.appendChild(v);return;}
     liste.forEach(function(a){
       var t=document.createElement('article');t.className='tuile';
-      var h=document.createElement('div');h.className='haut';
-      var d=document.createElement('div');d.className='date';d.textContent=dateLisible(a.date)+heureLisible(a.horaire);
-      h.appendChild(d);t.appendChild(h);
-      var th=document.createElement('p');th.className='theme';th.textContent=String(a.thematique||'').trim()||'Atelier numérique';t.appendChild(th);
-      var dl=document.createElement('dl');
-      ligne(dl,'Commune',a.commune);ligne(dl,'Lieu',a.lieu);ligne(dl,'Public',a.public);ligne(dl,'Orienteur',a.orienteur);
-      t.appendChild(dl);g.appendChild(t);
+      var fd=fmtCardDate(a.date);
+      var col=document.createElement('div');col.className='t-date';
+      el(col,'div','t-jj',fd.day);el(col,'div','t-mois',fd.month);el(col,'div','t-sem',fd.jour);
+      var hm=String(a.horaire||'').match(/^\s*(\d{1,2}):(\d{2})/);if(hm)el(col,'div','t-heure',hm[1]+':'+hm[2]);
+      t.appendChild(col);
+      var c=document.createElement('div');c.className='t-corps';
+      var bd=document.createElement('div');bd.className='t-badges';
+      var orient=String(a.orienteur||'').trim();if(orient)el(bd,'span','t-orienteur',orient);
+      el(bd,'span','t-public',String(a.public||'').trim()||'Tous publics');
+      c.appendChild(bd);
+      el(c,'p','theme',String(a.thematique||'').trim()||'Atelier numérique');
+      var lieu=[String(a.commune||'').trim(),String(a.lieu||'').trim()].filter(Boolean).join(' — ');
+      if(lieu)el(c,'p','t-sub',lieu);
+      t.appendChild(c);g.appendChild(t);
     });
   }
   ['f-du','f-au','f-commune'].forEach(function(id){$(id).addEventListener('change',afficher);});
