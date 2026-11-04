@@ -883,6 +883,73 @@ function ReinitialiserMotDePasseCollegue({conseillers}){
   );
 }
 
+// ── Accès travailleurs sociaux (AG-042, 04/11/2026) ───────────────────────
+// Demandes déposées sur ts.html et comptes TS (table à part, jamais dans
+// Comptes). Le mot de passe provisoire n'est montré qu'une fois : l'Admin le
+// transmet, le TS le change à sa première connexion.
+function VueAccesTS(){
+  const[data,setData]=React.useState(null);
+  const[erreur,setErreur]=React.useState('');
+  const[saisie,setSaisie]=React.useState('');
+  const[enCours,setEnCours]=React.useState('');
+  const[mdp,setMdp]=React.useState(null);   // {email, newPassword}
+  const[copie,setCopie]=React.useState(false);
+  async function charger(){
+    try{const r=await apiFetch('tsListe');if(r&&r.ok){setData({demandes:Array.isArray(r.demandes)?r.demandes:[],comptes:Array.isArray(r.comptes)?r.comptes:[],demandesMax:r.demandesMax||30});setErreur('');}else setErreur(r&&r.error||'Erreur serveur');}
+    catch(_){setErreur('Hors-ligne');}
+  }
+  React.useEffect(()=>{charger();},[]);
+  async function agir(action,email,extra,question){
+    if(question&&!window.confirm(question))return;
+    setEnCours(email+action);setMdp(null);setCopie(false);
+    try{
+      const r=await apiFetch(action,{email,...(extra||{})});
+      if(r&&r.ok){if(r.newPassword)setMdp({email:r.email||email,newPassword:r.newPassword});if(action==='tsCreerCompte')setSaisie('');showToast('✅ Fait');await charger();}
+      else showToast('❌ '+(r&&r.error||'Erreur serveur'),false);
+    }catch(_){showToast('❌ Hors-ligne',false);}
+    finally{setEnCours('');}
+  }
+  const page=location.origin+location.pathname.replace(/[^/]*$/,'ts.html');
+  const ligne={display:'flex',alignItems:'center',gap:8,flexWrap:'wrap',padding:'8px 0',borderBottom:'1px solid #edf2f7',fontSize:13};
+  const fmt=d=>{const m=String(d||'').match(/^(\d{4})-(\d{2})-(\d{2})/);return m?m[3]+'/'+m[2]+'/'+m[1]:'';};
+  return CE('div',{className:'admin-section'},
+    CE('h3',null,'🤝 Accès travailleurs sociaux'),
+    CE('p',{style:{fontSize:12,color:'#4a5568',marginBottom:8}},'Page de consultation (ateliers planifiés à venir, sans menu, lecture seule) : ',CE('a',{href:page,target:'_blank',rel:'noopener'},page),'. Les demandes d\'accès arrivent ici et par mail. Créer le compte donne un mot de passe provisoire à transmettre ; il sera changé à la première connexion. Vous pouvez aussi vous y connecter avec vos propres accès.'),
+    erreur&&CE('p',{style:{fontSize:13,color:'#c53030'}},'❌ '+erreur),
+    mdp&&CE('div',{style:{margin:'8px 0 12px',padding:'12px 14px',background:'#f0fff4',border:'1.5px solid #9ae6b4',borderRadius:8}},
+      CE('div',{style:{fontSize:12,color:'#276749',fontWeight:700,marginBottom:6}},'✅ Mot de passe provisoire de '+mdp.email+' (affiché une seule fois) :'),
+      CE('div',{style:{display:'flex',alignItems:'center',gap:10}},
+        CE('code',{style:{fontFamily:"'SF Mono',Consolas,monospace",fontSize:14,color:'#22543d',background:'#fff',border:'1px solid #9ae6b4',borderRadius:6,padding:'4px 10px'}},mdp.newPassword),
+        CE('button',{className:'btn btn-sm btn-secondary',onClick:()=>{navigator.clipboard.writeText(mdp.newPassword).then(()=>{setCopie(true);setTimeout(()=>setCopie(false),1200);});}},copie?'✅ Copié':'📋 Copier')
+      )
+    ),
+    data&&CE('div',null,
+      CE('h4',{style:{fontSize:13,margin:'10px 0 4px'}},'Demandes en attente ('+data.demandes.length+(data.demandes.length>=data.demandesMax?' — plafond atteint, les nouvelles sont refusées':'')+')'),
+      data.demandes.length===0&&CE('p',{style:{fontSize:12,color:'#718096'}},'Aucune demande.'),
+      data.demandes.map(d=>CE('div',{key:'d'+d.email,style:ligne},
+        CE('span',{style:{flex:'1 1 200px',fontWeight:600,overflowWrap:'anywhere'}},d.email),
+        CE('span',{style:{color:'#718096'}},fmt(d.demande_le)+(d.site?' · '+d.site:'')),
+        CE('button',{className:'btn btn-sm btn-primary',disabled:!!enCours,onClick:()=>agir('tsCreerCompte',d.email)},'✅ Créer le compte'),
+        CE('button',{className:'btn btn-sm btn-secondary',disabled:!!enCours,onClick:()=>agir('tsSupprimer',d.email,null,'Refuser la demande de '+d.email+' ? Elle sera effacée.')},'✖ Refuser')
+      )),
+      CE('h4',{style:{fontSize:13,margin:'14px 0 4px'}},'Comptes ('+data.comptes.length+')'),
+      data.comptes.length===0&&CE('p',{style:{fontSize:12,color:'#718096'}},'Aucun compte.'),
+      data.comptes.map(c=>CE('div',{key:'c'+c.email,style:{...ligne,opacity:c.actif?1:.55}},
+        CE('span',{style:{flex:'1 1 200px',fontWeight:600,overflowWrap:'anywhere'}},c.email),
+        CE('span',{style:{color:'#718096'}},(c.actif?'':'désactivé · ')+(c.doit_changer?'provisoire non changé · ':'')+'créé le '+fmt(c.cree_le)),
+        CE('button',{className:'btn btn-sm btn-secondary',disabled:!!enCours,onClick:()=>agir('tsReinitMdp',c.email,null,'Donner un nouveau mot de passe provisoire à '+c.email+' ? Son mot de passe actuel ne marchera plus.')},'🔑 Provisoire'),
+        CE('button',{className:'btn btn-sm btn-secondary',disabled:!!enCours,onClick:()=>agir('tsActiver',c.email,{actif:c.actif?'0':'1'})},c.actif?'⏸ Désactiver':'▶ Réactiver'),
+        CE('button',{className:'btn btn-sm btn-danger',disabled:!!enCours,onClick:()=>agir('tsSupprimer',c.email,null,'Supprimer définitivement le compte de '+c.email+' ?')},'🗑 Supprimer')
+      )),
+      CE('div',{style:{display:'flex',gap:8,flexWrap:'wrap',alignItems:'flex-end',marginTop:12}},
+        CE('div',{style:{flex:'1 1 220px'}},CE('label',{style:{fontSize:12}},'Créer un compte sans demande (e-mail pro)'),
+          CE('input',{type:'email',value:saisie,onChange:e=>setSaisie(e.target.value),placeholder:'prenom.nom@exemple.fr',style:{display:'block',width:'100%',marginTop:4,padding:'8px 12px',border:'1px solid #e2e8f0',borderRadius:6,fontSize:13}})),
+        CE('button',{className:'btn btn-primary',disabled:!saisie.trim()||!!enCours,onClick:()=>agir('tsCreerCompte',saisie.trim())},'➕ Créer')
+      )
+    )
+  );
+}
+
 // ── VueLogs : audit des connexions (admin seulement) ─────────
 const LOGS_COLONNES=[
   {label:'Horodatage',key:'timestamp'},
@@ -1344,6 +1411,22 @@ function VueAdminV10({entries,onRefresh,addLog,conseillersList,onSaveColors,anne
         )),
         CE('button',{className:'btn btn-primary',style:{marginTop:16},onClick:handleSaveVisibility,disabled:visSaving},visSaving?'…':'💾 Enregistrer la visibilité')
       ),
+
+      // Page des travailleurs sociaux (AG-042) : un interrupteur par type de
+      // public (Listes → Types de public), décision du 04/11/2026. Éteint = ses
+      // ateliers ne partent pas vers la page (tri fait par l'API). Clés à plat
+      // « ts_public:<type> » de la config « visibility », même enregistrement
+      // que la visibilité d'Index. Absent = allumé.
+      visibility&&CE('div',{className:'admin-section'},
+        CE('h3',null,'👁️ Visibilité — Page travailleurs sociaux'),
+        CE('p',{style:{fontSize:12,color:'#4a5568',marginBottom:12}},"Choisissez les types de public dont les ateliers s'affichent sur la page des travailleurs sociaux. Un type éteint : ses ateliers n'y apparaissent pas. Les travailleurs sociaux filtrent par période et par commune."),
+        [...new Set([...(PUBLICS||[]),...Object.keys(visibility).filter(k=>k.indexOf('ts_public:')===0).map(k=>k.slice(10))])].filter(p=>String(p).trim()).map(p=>{const k='ts_public:'+p;return CE('div',{key:k,className:'toggle-row'},
+          CE('div',null,CE('div',{className:'toggle-label'},'👥 '+p),CE('div',{className:'toggle-sub'},visibility[k]===false?'Ateliers cachés aux travailleurs sociaux':'Ateliers visibles par les travailleurs sociaux')),
+          CE('label',{className:'tgl'},CE('input',{type:'checkbox',checked:visibility[k]!==false,onChange:()=>setVisibility(v=>({...v,[k]:v[k]===false}))}),CE('span',{className:'tgl-track'}))
+        );}),
+        CE('button',{className:'btn btn-primary',style:{marginTop:16},onClick:handleSaveVisibility,disabled:visSaving},visSaving?'…':'💾 Enregistrer la visibilité')
+      ),
+      CE(VueAccesTS,null),
 
       CE('div',{className:'admin-section',style:{border:'2px solid '+(maintenanceOn?'#dc2626':'#e2e8f0'),background:maintenanceOn?'#fff5f5':'#fff'}},
         CE('h3',null,'🔧 Mode Maintenance'),
