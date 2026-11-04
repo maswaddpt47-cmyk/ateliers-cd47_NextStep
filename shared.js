@@ -1863,7 +1863,9 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
   // Conseiller connecté proposé par défaut (lot 1 UX, 01/10/2026) : fourni par
   // l'interface des conseillers seulement, l'Admin saisit pour les autres.
   const consDef=conseillerDefaut&&conseillers.includes(conseillerDefaut)?conseillerDefaut:'';
-  const empty={_id:'',_n:'',statut:'',date:'',horaire:'',ampm:'',duree:DUREE_DEFAUT,orienteur:'',commune:'',lieu:'',thematique:'',inscrits:4,presents:'',public:'',conseiller:consDef,co_animateur:'',materiel:[],residence:'',remarques:'',nb_ordinateurs:'',date_prelevement_materiel:'',date_retour_materiel:'',ouvert_a_tous:''};
+  // Planifié coché dès l'ouverture (demande du 04/11/2026) ; une date passée le
+  // remplace par Réalisé tant qu'aucun statut n'a été cliqué (statutSelonDate).
+  const empty={_id:'',_n:'',statut:'Planifié',date:'',horaire:'',ampm:'',duree:DUREE_DEFAUT,orienteur:'',commune:'',lieu:'',thematique:'',inscrits:4,presents:'',public:'',conseiller:consDef,co_animateur:'',materiel:[],residence:'',remarques:'',nb_ordinateurs:'',date_prelevement_materiel:'',date_retour_materiel:'',ouvert_a_tous:''};
 
   // ── états mode unique ──
   const[form,setForm]   = React.useState(empty);
@@ -2266,19 +2268,18 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
         CE('select',{style:sStyle(errs.public),value:frm.public,onChange:e=>setFn('public',e.target.value)},
           CE('option',{value:'',disabled:true},'— Choisir —'),
           publics.map(p=>CE('option',{key:p,value:p},p))),
-        errs.public&&CE('span',{style:{color:'#e53e3e',fontSize:11,fontWeight:600}},errs.public)),
+        errs.public&&CE('span',{style:{color:'#e53e3e',fontSize:11,fontWeight:600}},errs.public),
+        // Ouvert à tous (AG-047), sous le type de public (demande du 04/11/2026) :
+        // Oui / Non obligatoire, sans présélection ; un seul choix pour un cycle.
+        CE('div',{style:{marginTop:10}},
+          Lbl({t:'Ouvert à tous *',err:!!errs.ouvert_a_tous}),
+          CE('div',{role:'radiogroup','aria-label':'Ouvert à tous',style:{display:'flex',gap:8}},
+            OUVERT_A_TOUS_CHOIX.map(v=>{const chk=frm.ouvert_a_tous===v;
+              return CE('button',{key:v,type:'button',role:'radio','aria-checked':chk,onClick:()=>setFn('ouvert_a_tous',v),style:{padding:'7px 18px',border:`2px solid ${chk?ac:(errs.ouvert_a_tous?'#e53e3e':'#e2e8f0')}`,borderRadius:20,cursor:'pointer',fontSize:12,fontWeight:700,color:chk?ac:'#718096',background:chk?acLight:'#fff'}},v);})),
+          errs.ouvert_a_tous&&CE('span',{style:{color:'#e53e3e',fontSize:11,fontWeight:600}},errs.ouvert_a_tous))),
       CE('div',null,
         LblG({t:'Résidence'}),
         CE('input',{type:'text',style:iStyle(false),value:frm.residence,placeholder:'Commune d\'origine',onChange:e=>setFn('residence',e.target.value)}))
-    ),
-    // Ouvert à tous (AG-047) : Oui / Non obligatoire, sans présélection ; en
-    // cycle et à l'import Outlook, un seul choix pour toutes les séances.
-    CE('div',{style:{marginTop:12}},
-      Lbl({t:'Ouvert à tous *',err:!!errs.ouvert_a_tous}),
-      CE('div',{role:'radiogroup','aria-label':'Ouvert à tous',style:{display:'flex',gap:8}},
-        OUVERT_A_TOUS_CHOIX.map(v=>{const chk=frm.ouvert_a_tous===v;
-          return CE('button',{key:v,type:'button',role:'radio','aria-checked':chk,onClick:()=>setFn('ouvert_a_tous',v),style:{padding:'7px 18px',border:`2px solid ${chk?ac:(errs.ouvert_a_tous?'#e53e3e':'#e2e8f0')}`,borderRadius:20,cursor:'pointer',fontSize:12,fontWeight:700,color:chk?ac:'#718096',background:chk?acLight:'#fff'}},v);})),
-      errs.ouvert_a_tous&&CE('span',{style:{color:'#e53e3e',fontSize:11,fontWeight:600}},errs.ouvert_a_tous)
     ),
     CE('div',{style:{marginTop:12}},
       LblG({t:'Matériel utilisé'}),
@@ -2560,6 +2561,7 @@ function PanneauAtelier({panel,onClose,entries,onEntryUpdated,onRefresh,onEdit,o
   const[panelHoraire,setPanelHoraire]=React.useState('');const[panelDuree,setPanelDuree]=React.useState(DUREE_DEFAUT);
   const[panelNbOrdi,setPanelNbOrdi]=React.useState('');
   const[panelPublic,setPanelPublic]=React.useState('');
+  const[panelOuvert,setPanelOuvert]=React.useState('');
   const[panelMobile,setPanelMobile]=React.useState(false);
   const[panelPrelev,setPanelPrelev]=React.useState('');
   const[panelRetour,setPanelRetour]=React.useState('');
@@ -2568,7 +2570,7 @@ function PanneauAtelier({panel,onClose,entries,onEntryUpdated,onRefresh,onEdit,o
   const[qrAvis,setQrAvis]=React.useState(null);
   const[saving,setSaving]=React.useState(false);
   // Réinitialise les champs à chaque atelier ouvert (ce que faisait openPanel).
-  React.useEffect(()=>{if(!panel)return;const e=panel;setPanelStatut(e.statut);setPanelInscrits(e.inscrits===undefined||e.inscrits===''?'':String(e.inscrits));setPanelPresents(e.presents===undefined||e.presents===''?'':String(e.presents));setPanelThematique(e.thematique||'');setPanelNote(e.remarques||'');setPanelDate(normalizeDate(e.date)||'');setPanelHoraire(normalizeHoraire(e.horaire)||'');setPanelDuree(parseInt(e.duree)||DUREE_DEFAUT);setPanelBilan(e.fiche_bilan&&typeof e.fiche_bilan==='object'?e.fiche_bilan:{});setPanelNbOrdi(e.nb_ordinateurs===undefined||e.nb_ordinateurs===''||e.nb_ordinateurs===null?'':String(e.nb_ordinateurs));setPanelPublic(e.public||'');setPanelMobile(matIncludes(e.materiel,'Classe mobile'));setPanelPrelev(normalizeDate(e.date_prelevement_materiel)||'');setPanelRetour(normalizeDate(e.date_retour_materiel)||'');},[panel]);
+  React.useEffect(()=>{if(!panel)return;const e=panel;setPanelStatut(e.statut);setPanelInscrits(e.inscrits===undefined||e.inscrits===''?'':String(e.inscrits));setPanelPresents(e.presents===undefined||e.presents===''?'':String(e.presents));setPanelThematique(e.thematique||'');setPanelNote(e.remarques||'');setPanelDate(normalizeDate(e.date)||'');setPanelHoraire(normalizeHoraire(e.horaire)||'');setPanelDuree(parseInt(e.duree)||DUREE_DEFAUT);setPanelBilan(e.fiche_bilan&&typeof e.fiche_bilan==='object'?e.fiche_bilan:{});setPanelNbOrdi(e.nb_ordinateurs===undefined||e.nb_ordinateurs===''||e.nb_ordinateurs===null?'':String(e.nb_ordinateurs));setPanelPublic(e.public||'');setPanelOuvert(e.ouvert_a_tous==='Oui'?'Oui':'Non');setPanelMobile(matIncludes(e.materiel,'Classe mobile'));setPanelPrelev(normalizeDate(e.date_prelevement_materiel)||'');setPanelRetour(normalizeDate(e.date_retour_materiel)||'');},[panel]);
   const closePanel=onClose;
   async function savePanel(){
     if(!panel)return;if(!panelDate){showToast('❌ Date requise',false);return;}if(panelMobile&&!(parseInt(panelNbOrdi)>0)){showToast('❌ Ordinateurs prêtés requis avec la Classe mobile',false);return;}
@@ -2577,7 +2579,7 @@ function PanneauAtelier({panel,onClose,entries,onEntryUpdated,onRefresh,onEdit,o
     }
     setSaving(true);
     try{
-      const updated={...panel,fiche_bilan:panelStatut==='Réalisé'?(Object.keys(panelBilan).length?panelBilan:''):(panel.fiche_bilan||''),statut:panelStatut,inscrits:panelInscrits===''?'':parseInt(panelInscrits)||0,presents:panelPresents===''?'':parseInt(panelPresents)||0,thematique:panelThematique,date:panelDate,horaire:panelHoraire,ampm:ampmDepuisHoraire(panelHoraire)||panel.ampm,duree:parseInt(panelDuree)||DUREE_DEFAUT,public:panelPublic,nb_ordinateurs:panelMobile?(panelNbOrdi===''?'':parseInt(panelNbOrdi)||0):'',date_prelevement_materiel:panelMobile?panelPrelev:'',date_retour_materiel:panelMobile?panelRetour:'',remarques:panelNote,materiel:matierePanneau(panel,panelMobile).join('|')};
+      const updated={...panel,fiche_bilan:panelStatut==='Réalisé'?(Object.keys(panelBilan).length?panelBilan:''):(panel.fiche_bilan||''),statut:panelStatut,inscrits:panelInscrits===''?'':parseInt(panelInscrits)||0,presents:panelPresents===''?'':parseInt(panelPresents)||0,thematique:panelThematique,date:panelDate,horaire:panelHoraire,ampm:ampmDepuisHoraire(panelHoraire)||panel.ampm,duree:parseInt(panelDuree)||DUREE_DEFAUT,public:panelPublic,ouvert_a_tous:OUVERT_A_TOUS_CHOIX.includes(panelOuvert)?panelOuvert:(panel.ouvert_a_tous||'Non'),nb_ordinateurs:panelMobile?(panelNbOrdi===''?'':parseInt(panelNbOrdi)||0):'',date_prelevement_materiel:panelMobile?panelPrelev:'',date_retour_materiel:panelMobile?panelRetour:'',remarques:panelNote,materiel:matierePanneau(panel,panelMobile).join('|')};
       const res=await apiFetch('saveEntry',{entry:updated});
       if(!res.ok)throw new Error(res.error);
       showToast('✅ Mis à jour');closePanel();
@@ -2650,6 +2652,11 @@ function PanneauAtelier({panel,onClose,entries,onEntryUpdated,onRefresh,onEdit,o
             CE('select',{value:panelPublic,onChange:e=>setPanelPublic(e.target.value),style:{width:'100%',padding:'8px 10px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:13}},
               CE('option',{value:''},'—'),
               [...PUBLICS,...(panelPublic&&!PUBLICS.includes(panelPublic)?[panelPublic]:[])].map(x=>CE('option',{key:x,value:x},x)))),
+          // Ouvert à tous (AG-047), sous le type de public (demande du 04/11/2026).
+          CE('div',{className:'sp-field'},CE('label',null,'Ouvert à tous'),
+            CE('div',{role:'radiogroup','aria-label':'Ouvert à tous',style:{display:'flex',gap:8}},
+              OUVERT_A_TOUS_CHOIX.map(v=>{const chk=panelOuvert===v;
+                return CE('button',{key:v,type:'button',role:'radio','aria-checked':chk,onClick:()=>setPanelOuvert(v),style:{padding:'6px 18px',border:'1.5px solid '+(chk?'#1e3a8a':'#e2e8f0'),borderRadius:20,cursor:'pointer',fontSize:13,fontWeight:700,color:chk?'#1e3a8a':'#718096',background:chk?'#eff6ff':'#fff'}},v);}))),
           // Classe mobile : case comme dans le formulaire ; le nombre
           // d'ordinateurs n'apparaît (et ne compte) que si elle est cochée.
           CE('label',{style:{display:'flex',alignItems:'center',justifyContent:'flex-start',gap:8,fontSize:13,fontWeight:600,cursor:'pointer',margin:'4px 0',width:'auto'}},
@@ -3057,7 +3064,10 @@ function VueHistorique({onOuvrirGestionOrdi,entries,onEdit,onDelete,onRefresh,on
           CE('div',{className:'atelier-card-badges'},
             badgePill(e.statut,retard),
             e.orienteur&&CE('span',{style:{fontSize:11,color:'#718096',fontStyle:'italic',alignSelf:'center'}},e.orienteur),
-            CE('span',{className:'badge-pill bp-public'},e.public||'Tous publics')
+            // Même ligne que le type de public (demande du 04/11/2026, AG-047).
+            CE('span',{style:{display:'inline-flex',gap:6,flexWrap:'wrap'}},
+              CE('span',{className:'badge-pill bp-public'},e.public||'Tous publics'),
+              CE('span',{className:'badge-pill bp-public',style:e.ouvert_a_tous==='Oui'?{background:'#dcfce7',color:'#166534'}:undefined,title:'Ouvert à tous'},'Ouvert à tous : '+(e.ouvert_a_tous==='Oui'?'Oui':'Non')))
           ),
           CE('div',{className:'atelier-card-conseiller',style:{color:cColor}},e.conseiller),
           CE('div',{className:'atelier-card-title'},e.thematique),
