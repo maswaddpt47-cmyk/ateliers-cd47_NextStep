@@ -98,6 +98,14 @@ spécifiques du projet restent applicables.
 - Garder les instructions courtes : fusionner les doublons, dater les hypothèses
   et préférer un contrôle utile à une nouvelle couche de règles.
 
+## AGORA — ce que « pull » veut dire (03/11/2026)
+
+Les blocs AGORA de NextStep vivent dans l'`AGORA.md` d'**ATELIERS_NEWGEN** (même
+API, même base). Quand l'utilisateur dit « pull » pour l'AGORA, c'est dans ce
+dépôt-là qu'il faut répondre, selon la section du même nom de son `AGENTS.md` :
+blocs ouverts marqués **Contradicteur : Codex** sans réponse de Codex, réponse
+dans `AGORA.md` seulement, commit et push sur `main`, jamais de code.
+
 ## Sources communes
 
 Référentiel : `maswaddpt47-cmyk/MD-LIB`, notamment `collaboration.md`,
