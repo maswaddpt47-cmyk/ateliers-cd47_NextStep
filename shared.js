@@ -4462,15 +4462,22 @@ function VueAnomalies({entries,onEdit,communes:communesProp,apiFetch,showToast,a
   const[validees,setValidees]=React.useState({});
   const[voirValidees,setVoirValidees]=React.useState(false);
   const[valEnCours,setValEnCours]=React.useState('');
-  React.useEffect(()=>{
+  // Lecture des validations : « pas encore lue » ou « échec de lecture » n'est pas « aucune validation »
+  // (Codex, AG-044) : les compteurs ne sont donnés pour établis qu'après une lecture réussie.
+  const[etatLecture,setEtatLecture]=React.useState(apiFetch?'chargement':'ok');
+  // Mutations déjà réussies pendant la lecture : une réponse de lecture plus ancienne ne les défait pas.
+  const mutations=React.useRef({});
+  const lireValidees=React.useCallback(()=>{
     if(!apiFetch)return;
-    let vivant=true;
+    setEtatLecture('chargement');
     apiFetch('getAnomaliesValidees').then(r=>{
-      if(!vivant||!r||!r.ok||!Array.isArray(r.validees))return;
-      const m={};r.validees.forEach(v=>{m[v.atelier_id+'|'+v.categorie]=v;});setValidees(m);
-    }).catch(()=>{});
-    return()=>{vivant=false;};
+      if(!r||!r.ok||!Array.isArray(r.validees)){setEtatLecture('erreur');return;}
+      const m={};r.validees.forEach(v=>{m[v.atelier_id+'|'+v.categorie]=v;});
+      Object.entries(mutations.current).forEach(([k,x])=>{if(x.t==='set')m[k]=x.v;else delete m[k];});
+      setValidees(m);setEtatLecture('ok');
+    }).catch(()=>setEtatLecture('erreur'));
   },[]);
+  React.useEffect(()=>{lireValidees();},[]);
   const empreinteAno=(a,c)=>c==='manquants'?a.champsVides.join(','):c==='communes'?String(a.e.commune||''):c==='chiffres'?(a.e.presents+'/'+a.e.inscrits):c==='ordi'?String(a.e.nb_ordinateurs):String(a.e.horaire||'');
   const catActive=(a,c)=>c==='manquants'?a.champsVides.length>0:c==='communes'?!!a.communeInvalide:c==='chiffres'?!!a.chiffres:c==='ordi'?!!a.ordiSansMobile:!!a.tard;
   const estValidee=(a,c)=>{const v=validees[a.e._id+'|'+c];return!!v&&v.empreinte===empreinteAno(a,c);};
@@ -4490,7 +4497,7 @@ function VueAnomalies({entries,onEdit,communes:communesProp,apiFetch,showToast,a
     setValEnCours(cle);
     try{
       const r=await apiFetch('validerAnomalie',{_id:a.e._id,categorie:c,empreinte:emp});
-      if(r&&r.ok){setValidees(m=>({...m,[cle]:{atelier_id:a.e._id,categorie:c,empreinte:emp,valide_le:new Date().toISOString().slice(0,10),par:''}}));if(showToast)showToast('✅ Anomalie validée');if(addLog)addLog('Anomalie validée : '+a.e._id+' ('+c+')','ok');}
+      if(r&&r.ok){const v={atelier_id:a.e._id,categorie:c,empreinte:emp,valide_le:r.valide_le||'',par:r.par||''};mutations.current[cle]={t:'set',v};setValidees(m=>({...m,[cle]:v}));if(showToast)showToast('✅ Anomalie validée');if(addLog)addLog('Anomalie validée : '+a.e._id+' ('+c+')','ok');}
       else if(showToast)showToast('⚠️ '+((r&&r.error)||'Erreur serveur'));
     }catch(err){if(showToast)showToast('⚠️ Erreur : '+err.message);}
     setValEnCours('');
@@ -4501,7 +4508,7 @@ function VueAnomalies({entries,onEdit,communes:communesProp,apiFetch,showToast,a
     setValEnCours(cle);
     try{
       const r=await apiFetch('annulerAnomalie',{_id:a.e._id,categorie:c});
-      if(r&&r.ok){setValidees(m=>{const n={...m};delete n[cle];return n;});if(showToast)showToast('↩ Validation annulée');}
+      if(r&&r.ok){mutations.current[cle]={t:'del'};setValidees(m=>{const n={...m};delete n[cle];return n;});if(showToast)showToast('↩ Validation annulée');}
       else if(showToast)showToast('⚠️ '+((r&&r.error)||'Erreur serveur'));
     }catch(err){if(showToast)showToast('⚠️ Erreur : '+err.message);}
     setValEnCours('');
@@ -4523,13 +4530,14 @@ function VueAnomalies({entries,onEdit,communes:communesProp,apiFetch,showToast,a
   const nbTotal=anomaliesFiltrees.length,nbManquants=anomaliesFiltrees.filter(a=>a.champsVides.length>0).length,nbCommunes=anomaliesFiltrees.filter(a=>a.communeInvalide).length,nbChiffres=anomaliesFiltrees.filter(a=>a.chiffres).length,nbOrdi=anomaliesFiltrees.filter(a=>a.ordiSansMobile).length,nbTard=anomaliesFiltrees.filter(a=>a.tard).length;
   const listeValidees=anomaliesBrutes.filter(a=>filtreConum==='Tous'||a.e.conseiller===filtreConum||a.e.co_animateur===filtreConum).flatMap(a=>CATS_ANO.filter(c=>catActive(a,c)&&estValidee(a,c)).map(c=>({a,c})));
   const dateCourte=d=>{const m=String(d||'').match(/^(\d{4})-(\d{2})-(\d{2})/);return m?m[3]+'/'+m[2]+'/'+m[1]:'';};
-  const conumsList=['Tous',...Array.from(new Set(anomalies.map(a=>a.e.conseiller).filter(Boolean))).sort()];
+  // Puces construites sur TOUTES les anomalies, validées ou non : un conseiller dont tout est validé reste choisissable (Codex, AG-044).
+  const conumsList=['Tous',...Array.from(new Set([...anomaliesBrutes.map(a=>a.e.conseiller),...(filtreConum!=='Tous'?[filtreConum]:[])].filter(Boolean))).sort()];
   return CE('div',{className:'card',style:{maxWidth:900,margin:'0 auto'}},
     CE('div',{style:{display:'flex',alignItems:'center',gap:12,marginBottom:16}},
       CE('span',{style:{fontSize:22}},'⚠️'),
       CE('div',null,
         CE('h2',{style:{margin:0,fontSize:16,fontWeight:700}},'Anomalies BDD'),
-        CE('p',{style:{margin:0,fontSize:12,color:'#6b7280'}},nbTotal+' entrée(s) avec anomalie(s) sur '+entries.length+' au total')
+        CE('p',{style:{margin:0,fontSize:12,color:'#6b7280'}},nbTotal+' entrée(s) avec anomalie(s) non validée(s) sur '+entries.length+' au total')
       )
     ),
     CE('div',{style:{display:'flex',gap:10,marginBottom:12,flexWrap:'wrap'}},
@@ -4562,9 +4570,14 @@ function VueAnomalies({entries,onEdit,communes:communesProp,apiFetch,showToast,a
       conumsList.map(c=>CE('span',{key:c,className:'chip'+(c==='Tous'?' chip-all':'')+(filtreConum===c?' active':''),style:c!=='Tous'?{color:conseillerColor(c)}:{},onClick:()=>setFiltreConum(p=>p===c&&c!=='Tous'?'Tous':c)},
         CE('span',{className:'chip-dot',style:c!=='Tous'?{background:conseillerColor(c)}:{}}),c))
     ),
+    apiFetch&&etatLecture==='chargement'&&CE('div',{role:'status',style:{marginBottom:10,padding:'6px 10px',borderRadius:6,background:'#f3f4f6',fontSize:12,color:'#4b5563'}},'⏳ Lecture des anomalies déjà validées… les comptes ci-dessous ne sont pas encore définitifs.'),
+    apiFetch&&etatLecture==='erreur'&&CE('div',{role:'alert',style:{marginBottom:10,padding:'8px 10px',borderRadius:6,background:'#fef2f2',border:'1px solid #fecaca',fontSize:12,color:'#991b1b',display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}},
+      '⚠️ Les validations n\'ont pas pu être lues : cette liste peut contenir des anomalies déjà validées.',
+      CE('button',{onClick:lireValidees,style:{fontSize:11,padding:'2px 8px',borderRadius:4,border:'1px solid #dc2626',background:'#fff',color:'#991b1b',cursor:'pointer'}},'↻ Réessayer')),
     apiFetch&&listeValidees.length>0&&CE('div',{style:{marginBottom:12}},
       CE('button',{onClick:()=>setVoirValidees(v=>!v),style:{fontSize:12,padding:'4px 10px',borderRadius:6,border:'1px solid #16a34a',background:voirValidees?'#dcfce7':'#f0fdf4',color:'#15803d',cursor:'pointer',fontWeight:600}},'✅ Validées ('+listeValidees.length+')'+(voirValidees?' ▲':' ▼')),
       voirValidees&&CE('div',{style:{display:'flex',flexDirection:'column',gap:6,marginTop:8}},
+        CE('div',{style:{fontSize:11,color:'#6b7280'}},'Une ligne par anomalie validée (atelier et catégorie) : un atelier peut en compter plusieurs, alors que le total ci-dessus compte des ateliers.'),
         listeValidees.map(({a,c})=>{const v=validees[a.e._id+'|'+c];return CE('div',{key:a.e._id+'|'+c,style:{background:'#f0fdf4',border:'1px solid #bbf7d0',borderRadius:8,padding:'8px 12px',display:'flex',alignItems:'center',gap:8,flexWrap:'wrap',fontSize:12}},
           CE('span',{style:{fontWeight:700,color:'#374151',flex:'1 1 240px'}},[a.e.thematique,a.e.commune,fmtDate(a.e.date)].filter(Boolean).join(' — ')||a.e._id),
           CE('span',{style:{color:'#15803d'}},LIB_CAT_ANO[c]+' — validée'+(v&&v.valide_le?' le '+dateCourte(v.valide_le):'')+(v&&v.par?' par '+v.par:'')),
@@ -6915,7 +6928,12 @@ function ReponseTicket({t,tickets,onMaj,onSuppr}){
     setEnvoi(true);
     try{
       const r=await window.apiFetch('repondreTicket',{_id:t.id,statut,reponse,doublon_de:doublon});
-      if(r&&r.ok){showToast('✅ Ticket mis à jour');onMaj(r.ticket);}
+      if(r&&r.ok){
+        // Ce que l'API dit de l'envoi (AG-045) : jamais « mail envoyé » si le mail n'est pas parti.
+        const etat={envoye:' — ✉️ mail envoyé à '+r.mail_a,echec:' — ⚠️ le mail à '+r.mail_a+' n\'a pas pu partir',sans_adresse:' — ⚠️ pas de mail : aucune adresse enregistrée pour '+r.mail_a,desactive:' — mail au demandeur désactivé (interrupteur en haut de la liste)'}[r.mail]||'';
+        showToast('✅ Ticket mis à jour'+etat,!(r.mail==='echec'||r.mail==='sans_adresse'));
+        onMaj(r.ticket);
+      }
       else showToast('❌ '+((r&&r.error)||'Erreur'),false);
     }catch(e){showToast('❌ '+(e.message||'Erreur réseau'),false);}
     finally{setEnvoi(false);}
@@ -6952,8 +6970,9 @@ function VueTickets({admin,onglets,ongletCourant,onVu}){
   const[form,setForm]=React.useState(false);
   const[ouverts,setOuverts]=React.useState(()=>new Set());
   const[edition,setEdition]=React.useState('');   // id du ticket en cours de modification (AG-041)
+  const[mailDem,setMailDem]=React.useState(null);   // interrupteur « prévenir le demandeur par mail » (AG-045), Admin seulement
   React.useEffect(()=>{if(onVu)onVu();
-    window.apiFetch('getTickets').then(r=>{if(r&&r.ok){setTickets(r.tickets||[]);setMoi(r.moi||'');}else setErr((r&&r.error)||'Erreur');})
+    window.apiFetch('getTickets').then(r=>{if(r&&r.ok){setTickets(r.tickets||[]);setMoi(r.moi||'');if(typeof r.mail_demandeur==='boolean')setMailDem(r.mail_demandeur);}else setErr((r&&r.error)||'Erreur');})
       .catch(e=>setErr(e.message||'Erreur réseau'));},[]);
   const basculer=id=>setOuverts(o=>{const x=new Set(o);x.has(id)?x.delete(id):x.add(id);return x;});
   const remplacer=t=>setTickets(l=>{const a=(l||[]).filter(x=>x.id!==t.id);return [t,...a].sort((x,y)=>String(y.cree_le).localeCompare(String(x.cree_le)));});
@@ -6965,6 +6984,15 @@ function VueTickets({admin,onglets,ongletCourant,onVu}){
       CE('h2',{style:{margin:0,fontSize:18,flex:1}},admin?'🎫 Tickets de l\'équipe':'💬 Contribuer'),
       !form&&CE('button',{type:'button',onClick:()=>setForm(true),style:{padding:'8px 14px',borderRadius:8,border:'none',background:'#1e3a8a',color:'#fff',fontWeight:700,fontSize:13,cursor:'pointer'}},'＋ Nouvelle contribution')),
     CE('p',{style:{margin:'0 0 12px',fontSize:13,color:'var(--text-3)'}},'Une idée, un souci, une question ? Dites-le ici pour améliorer l\'outil ensemble. Toute l\'équipe voit les contributions, ce qui évite les doublons ; la réponse s\'affiche dans le ticket.'),
+    admin&&mailDem!==null&&CE('label',{style:{display:'flex',alignItems:'center',gap:8,fontSize:12,margin:'0 0 10px',color:'var(--text-2)',cursor:'pointer'}},
+      CE('input',{type:'checkbox',checked:mailDem,onChange:async e=>{
+        const v=e.target.checked;setMailDem(v);
+        try{const r=await window.apiFetch('setConfig',{key:'tickets_mail_demandeur',value:v?'true':'false'});
+          if(!(r&&r.ok)){setMailDem(!v);showToast('❌ '+((r&&r.error)||'Erreur'),false);}
+          else showToast(v?'✉️ Le demandeur sera prévenu par mail à chaque réponse ou changement de statut (s\'il a une adresse enregistrée)':'Mails au demandeur désactivés');
+        }catch(err){setMailDem(!v);showToast('❌ '+(err.message||'Erreur réseau'),false);}
+      }}),
+      '✉️ Prévenir le demandeur par mail à chaque réponse ou changement de statut'),
     form&&CE(FormulaireTicket,{onglets,ongletCourant,onCree:t=>{remplacer(t);setForm(false);setFiltre('miens');},onAnnuler:()=>setForm(false)}),
     CE('div',{style:{display:'flex',gap:6,flexWrap:'wrap',marginBottom:10}},onglet('ouverts','Ouverts'),onglet('miens','Mes contributions'),onglet('archives','🗄️ Archives')),
     err&&CE('p',{style:{color:'#c53030',fontSize:13}},err),
