@@ -1,9 +1,9 @@
 # Chantiers en cours — Ateliers CD47 NextStep
 
-État au **04/11/2026, 12:30 (heure de Paris)**, base `main` (`0c5a763`, déploiement
-vert, aligné sur NEWGEN `144e5c7`). Depuis le 02/11 : page des travailleurs sociaux
-(`ts.html`), onglet Connexions TS, validation des anomalies, mail aux demandeurs de
-tickets, tickets modifiables tant qu'ils sont « Nouveau » — `git log`. **Reprise :
+État au **04/11/2026, 20:00 (heure de Paris)**, base `main` (`b2b601e`, déploiements
+verts, aligné sur NEWGEN `2089304`). Livré le 04/11 : page des travailleurs sociaux (tuile à
+l'image de l'Historique, titre « Agenda des ateliers collectifs… », première connexion sans
+code), message et mail des tickets, validation des anomalies — `git log`. **Reprise :
 section « À reprendre en premier » du `CHANTIERS.md` de NEWGEN.**
 NextStep (équipe) et NEWGEN (utilisateur) parlent à
 la même API Alwaysdata et à la même base depuis la bascule du 25/09/2026 :
