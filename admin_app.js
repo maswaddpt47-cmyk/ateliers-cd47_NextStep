@@ -1412,15 +1412,18 @@ function VueAdminV10({entries,onRefresh,addLog,conseillersList,onSaveColors,anne
         CE('button',{className:'btn btn-primary',style:{marginTop:16},onClick:handleSaveVisibility,disabled:visSaving},visSaving?'…':'💾 Enregistrer la visibilité')
       ),
 
-      // Page des travailleurs sociaux (AG-042) : même enregistrement que la
-      // visibilité d'Index (clé ts_filtre_public de la config « visibility »).
+      // Page des travailleurs sociaux (AG-042) : un interrupteur par type de
+      // public (Listes → Types de public), décision du 04/11/2026. Éteint = ses
+      // ateliers ne partent pas vers la page (tri fait par l'API). Clés à plat
+      // « ts_public:<type> » de la config « visibility », même enregistrement
+      // que la visibilité d'Index. Absent = allumé.
       visibility&&CE('div',{className:'admin-section'},
         CE('h3',null,'👁️ Visibilité — Page travailleurs sociaux'),
-        CE('p',{style:{fontSize:12,color:'#4a5568',marginBottom:12}},'Choisissez les filtres proposés sur la page des travailleurs sociaux. Période et commune sont toujours proposés.'),
-        CE('div',{className:'toggle-row'},
-          CE('div',null,CE('div',{className:'toggle-label'},'👥 Filtre « Type de public »'),CE('div',{className:'toggle-sub'},'Menu de choix du type de public sur la page TS')),
-          CE('label',{className:'tgl'},CE('input',{type:'checkbox',checked:!!visibility.ts_filtre_public,onChange:()=>setVisibility(v=>({...v,ts_filtre_public:!v.ts_filtre_public}))}),CE('span',{className:'tgl-track'}))
-        ),
+        CE('p',{style:{fontSize:12,color:'#4a5568',marginBottom:12}},"Choisissez les types de public dont les ateliers s'affichent sur la page des travailleurs sociaux. Un type éteint : ses ateliers n'y apparaissent pas, ni dans le menu de filtre. Période et commune sont toujours proposés."),
+        [...new Set([...(PUBLICS||[]),...Object.keys(visibility).filter(k=>k.indexOf('ts_public:')===0).map(k=>k.slice(10))])].filter(p=>String(p).trim()).map(p=>{const k='ts_public:'+p;return CE('div',{key:k,className:'toggle-row'},
+          CE('div',null,CE('div',{className:'toggle-label'},'👥 '+p),CE('div',{className:'toggle-sub'},visibility[k]===false?'Ateliers cachés aux travailleurs sociaux':'Ateliers visibles par les travailleurs sociaux')),
+          CE('label',{className:'tgl'},CE('input',{type:'checkbox',checked:visibility[k]!==false,onChange:()=>setVisibility(v=>({...v,[k]:v[k]===false}))}),CE('span',{className:'tgl-track'}))
+        );}),
         CE('button',{className:'btn btn-primary',style:{marginTop:16},onClick:handleSaveVisibility,disabled:visSaving},visSaving?'…':'💾 Enregistrer la visibilité')
       ),
       CE(VueAccesTS,null),
