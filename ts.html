@@ -254,6 +254,11 @@ if(urlApiPour(location.hostname,location.pathname).indexOf('/api-sandbox/')>=0){
     var j=new Date(+d[0],+d[1]-1,+d[2]);
     return JOURS[j.getDay()]+' '+d[2]+'/'+d[1]+'/'+d[0];
   }
+  // « 9:30 » ou « 14:00 » → « · 9h30 » ; horaire vide : rien (atelier sans heure saisie).
+  function heureLisible(h){
+    var m=String(h||'').match(/^\s*(\d{1,2}):(\d{2})/);
+    return m?' · '+(+m[1])+'h'+m[2]:'';
+  }
   function remplirSelect(sel,valeurs,tous){
     var garde=sel.value;sel.textContent='';
     var o=document.createElement('option');o.value='';o.textContent=tous;sel.appendChild(o);
@@ -280,7 +285,7 @@ if(urlApiPour(location.hostname,location.pathname).indexOf('/api-sandbox/')>=0){
     liste.forEach(function(a){
       var t=document.createElement('article');t.className='tuile';
       var h=document.createElement('div');h.className='haut';
-      var d=document.createElement('div');d.className='date';d.textContent=dateLisible(a.date);
+      var d=document.createElement('div');d.className='date';d.textContent=dateLisible(a.date)+heureLisible(a.horaire);
       var b=document.createElement('span');b.className='badge';b.textContent=a.statut||'Planifié';
       h.appendChild(d);h.appendChild(b);t.appendChild(h);
       var th=document.createElement('p');th.className='theme';th.textContent=String(a.thematique||'').trim()||'Atelier numérique';t.appendChild(th);
