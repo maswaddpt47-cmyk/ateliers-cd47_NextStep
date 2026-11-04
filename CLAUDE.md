@@ -164,6 +164,9 @@ dans le code. Contradiction d'une proposition : `AGORA.md` d'ATELIERS_NEWGEN
 (blocs de sécurité : Codex). **Tout changement qui touche un calcul ou un
 chiffre affiché ouvre un bloc dans cette AGORA, systématiquement, avant la
 correction (critère 7, contradicteur Codex, 26/10/2026).**
+Un bloc ouvert s'annonce **sur une ligne à part en tête du message, 🔴 et en
+gras** : `🔴 **⚖️ AGORA : critère N — <sujet>. Bloc AG-00N commité (AGORA de
+NEWGEN). → Dis « pull » à Codex.**` (MD-LIB `agora.md` §4, 04/11/2026).
 
 ## Branche de travail
 
