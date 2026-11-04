@@ -12,7 +12,7 @@ const TEMOIN={_id:'atelier-temoin',_n:1,date:JOUR,horaire:'14:00',ampm:'PM',
 const VISIBILITE={saisie:true,historique:true,dashboard:true,agenda:true,
   calendrier:true,planning:true,carte:true,bingo:true,gestion_ordi:true};
 
-async function preparer(page){
+async function preparer(page,entrees=[TEMOIN]){
   const etat={dialogues:[],accepter:false,ecritures:[],erreurs:[],partiel:false};
   page.on('pageerror',e=>etat.erreurs.push(e.message));
   page.on('console',message=>{
@@ -35,7 +35,7 @@ async function preparer(page){
     let rep={ok:true};
     if(action==='getComptes')rep={ok:true,comptes:[{conseiller:NOM,role:'admin',actif:'OUI'}]};
     else if(action==='checkPassword')rep={ok:true,role:'admin',conseiller:NOM,token:'a'.repeat(64)};
-    else if(action==='getAll')rep={ok:true,entries:[TEMOIN],
+    else if(action==='getAll')rep={ok:true,entries:entrees,
       years:(params.get('years')||params.get('year')||'').split(',').filter(Boolean),
       lists:{statuts:['Planifié','Réalisé','Annulé','Reporté','Non réalisé'],
         conseillers:[NOM],publics:['Adultes'],materiels:['Ordinateur']},
@@ -258,3 +258,23 @@ for(const fichier of ['index.html','admin.html']){
     expect(etat.erreurs).toEqual([]);
   });
 }
+
+// AG-048 : les tuiles suivent le filtre « Ouvert à tous », comme les autres filtres.
+test('historique — tuile Total : 2 ateliers, filtre Oui → 1',async({page})=>{
+  const oui={...TEMOIN,_id:'atelier-oui',_n:2,thematique:'Atelier ouvert',ouvert_a_tous:'Oui'};
+  const etat=await preparer(page,[TEMOIN,oui]);
+  await connecter(page,'index.html');
+  await nav(page,'Historique');
+  const total=page.locator('.kpi-histo b, .kpi-histo .v').first();
+  await expect(total).toHaveText('2');
+  await page.getByText('Filtres',{exact:true}).filter({visible:true}).first().click();
+  // NEWGEN range le filtre dans la section « Public & commune » ; NextStep l'affiche directement.
+  const section=page.getByText('Public & commune').filter({visible:true});
+  if(await section.count())await section.first().click();
+  const groupe=page.locator('div[aria-label="Ouvert à tous"]:not([role="radiogroup"])').filter({visible:true});
+  await groupe.getByText('Oui',{exact:true}).click();
+  await expect(total).toHaveText('1');
+  await expect(page.getByText('Atelier ouvert',{exact:true}).filter({visible:true})).toHaveCount(1);
+  await expect(page.getByText('Atelier témoin',{exact:true}).filter({visible:true})).toHaveCount(0);
+  expect(etat.erreurs).toEqual([]);
+});

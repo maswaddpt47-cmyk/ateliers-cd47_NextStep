@@ -889,8 +889,8 @@ describe('tauxPresence', () => {
 });
 
 // « Ouvert à tous » (AG-047) : le filtre ne garde que le choix demandé ; un
-// atelier sans valeur (d'avant le champ) compte « Non » ; les tuiles gardent
-// leur base (Codex n° 3 : kpiHistorique calculé avant ce filtre).
+// atelier sans valeur (d'avant le champ) compte « Non » ; les tuiles comptent
+// la liste filtrée (AG-048, 04/11/2026).
 describe('filtrerOuvertATous', () => {
   const { filtrerOuvertATous, kpiHistorique } = require('./utils.js');
   const liste = [
@@ -903,10 +903,10 @@ describe('filtrerOuvertATous', () => {
     assert.deepEqual(filtrerOuvertATous(liste, 'Non').map(e => e._id), ['b', 'c']);
     assert.equal(filtrerOuvertATous(liste, 'Tous'), liste);
   });
-  it('les tuiles ne dépendent pas du filtre', () => {
-    const avant = kpiHistorique(liste);
-    filtrerOuvertATous(liste, 'Oui');
-    assert.deepEqual(kpiHistorique(liste), avant);
-    assert.equal(avant.total, 3);
+  it('tuiles calculées sur la liste filtrée', () => {
+    const oui = kpiHistorique(filtrerOuvertATous(liste, 'Oui'));
+    assert.equal(oui.total, 1);
+    assert.equal(oui.planifies, 1);
+    assert.equal(kpiHistorique(filtrerOuvertATous(liste, 'Non')).total, 2);
   });
 });

@@ -2858,8 +2858,8 @@ function VueHistorique({onOuvrirGestionOrdi,entries,onEdit,onDelete,onRefresh,on
   // Plusieurs publics sélectionnables (26/09/2026) : [] = tous.
   const[filtPublic,setFiltPublic]=React.useState([]);
   const basculerPublic=p=>setFiltPublic(l=>l.includes(p)?l.filter(x=>x!==p):[...l,p]);
-  // Ouvert à tous (AG-047) : 'Tous' / 'Oui' / 'Non', appliqué à la liste et aux
-  // exports seulement — les tuiles et les compteurs de statut gardent leur base.
+  // Ouvert à tous (AG-047) : 'Tous' / 'Oui' / 'Non', appliqué comme les autres filtres :
+  // tuiles, compteurs de statut, liste et exports (AG-048, demande du 04/11/2026).
   const[filtOuvert,setFiltOuvert]=React.useState('Tous');
   // Filtres repliés à chaque ouverture de l'Historique, plus de mémoire d'une
   // session à l'autre (demande du 02/10/2026) ; l'ancienne clé est effacée.
@@ -2910,6 +2910,8 @@ function VueHistorique({onOuvrirGestionOrdi,entries,onEdit,onDelete,onRefresh,on
     if(filtCommune!=='Toutes'){const normFilt=filtCommune.replace(/\s*\(\d+\)\s*/g,'').trim().toUpperCase();r=r.filter(e=>e.commune===filtCommune||e.commune.replace(/\s*\(\d+\)\s*/g,'').trim().toUpperCase()===normFilt);}
     if(filtConseiller!=='Tous')r=r.filter(e=>e.conseiller===filtConseiller);
     if(filtPublic.length)r=r.filter(e=>filtPublic.includes(e.public||'Tous publics'));
+    // Ouvert à tous : un filtre comme les autres, tuiles comprises (AG-048, 04/11/2026).
+    r=filtrerOuvertATous(r,filtOuvert);
     if(dateFrom)r=r.filter(e=>e.date>=dateFrom);
     if(dateTo)r=r.filter(e=>e.date<=dateTo);
     if(dSearch){const q=stripAccents(dSearch);r=r.filter(e=>[e.lieu,e.thematique,e.orienteur,e.commune,e.public,e.remarques].some(v=>stripAccents(String(v||'')).includes(q)));}
@@ -2921,8 +2923,8 @@ function VueHistorique({onOuvrirGestionOrdi,entries,onEdit,onDelete,onRefresh,on
       else window._newIdsFilter=null;
     }
     return r;
-  },[entries,filtMois,filtCommune,filtConseiller,filtPublic,dSearch,dateFrom,dateTo]);
-  const filtered=React.useMemo(()=>[...filtrerOuvertATous(filtStatut!=='Tous'?sansStatut.filter(e=>e.statut===filtStatut):sansStatut,filtOuvert)].sort((a,b)=>comparerHistorique(a,b,sortDir)),[sansStatut,filtStatut,filtOuvert,sortDir]);
+  },[entries,filtMois,filtCommune,filtConseiller,filtPublic,filtOuvert,dSearch,dateFrom,dateTo]);
+  const filtered=React.useMemo(()=>[...(filtStatut!=='Tous'?sansStatut.filter(e=>e.statut===filtStatut):sansStatut)].sort((a,b)=>comparerHistorique(a,b,sortDir)),[sansStatut,filtStatut,sortDir]);
   const nbFiltresActifs=(filtStatut!=='Tous'?1:0)+(search?1:0)+(filtMois!=='Tous'?1:0)+(filtCommune!=='Toutes'?1:0)+(filtConseiller!=='Tous'?1:0)+(filtPublic.length?1:0)+(filtOuvert!=='Tous'?1:0)+(dateFrom||dateTo?1:0);
 
   const kpi=React.useMemo(()=>kpiHistorique(sansStatut),[sansStatut]);

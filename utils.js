@@ -104,7 +104,7 @@ function parseDateICS(d){
 const DUREE_DEFAUT=90;
 // « Ouvert à tous » (AG-047, 04/11/2026) : Oui / Non, obligatoire à la
 // création ; les ateliers d'avant valent « Non ». Filtre : 'Tous', 'Oui' ou
-// 'Non' ; il ne change que la liste et les exports, jamais les tuiles ni les KPI.
+// 'Non' ; appliqué comme les autres filtres de l'Historique, tuiles comprises (AG-048).
 const OUVERT_A_TOUS_CHOIX=['Oui','Non'];
 function filtrerOuvertATous(liste,choix){
   if(!OUVERT_A_TOUS_CHOIX.includes(choix))return liste;
