@@ -75,10 +75,22 @@
     <div class="mdp"><input id="c-mdp" name="password" type="password" autocomplete="current-password" required><button type="button" class="oeil" data-cible="c-mdp" aria-label="Afficher le mot de passe">👁</button></div>
     <button class="btn" type="submit" id="c-ok">Se connecter</button>
     <p class="erreur" id="c-err"></p>
+    <p class="note">Après votre mot de passe, un code à 6 chiffres vous est envoyé par mail.</p>
     <div class="liens">
       <button type="button" class="lien" id="aller-demande">Pas encore d'accès ? Créer mon accès</button>
       <button type="button" class="lien" id="aller-oubli">Mot de passe oublié ?</button>
     </div>
+  </form>
+
+  <!-- Code de connexion (2FA par mail) -->
+  <form class="carte etroit cache" id="v-code" autocomplete="off">
+    <h2>Code de connexion</h2>
+    <p class="note">Un code à 6 chiffres vient d'être envoyé à votre adresse e-mail professionnelle. Il est valable 10 minutes (pensez aux courriers indésirables).</p>
+    <label for="k-code">Code reçu par mail</label>
+    <input id="k-code" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="one-time-code" required>
+    <button class="btn" type="submit" id="k-ok">Valider</button>
+    <p class="erreur" id="k-err"></p>
+    <button type="button" class="lien" id="retour-connexion-3">← Recommencer la connexion</button>
   </form>
 
   <!-- Demande d'accès -->
@@ -104,7 +116,7 @@
     <div class="piege" aria-hidden="true"><label for="o-url">Ne pas remplir</label><input id="o-url" type="text" tabindex="-1" autocomplete="off"></div>
     <button class="btn" type="submit" id="o-ok">Recevoir un nouveau mot de passe</button>
     <p class="erreur" id="o-err"></p>
-    <p class="succes cache" id="o-merci">Si cette adresse a un accès, un mail avec un nouveau mot de passe provisoire vient de vous être envoyé (pensez aux courriers indésirables). Il est valable 24 heures.</p>
+    <p class="succes cache" id="o-merci">Si cette adresse a un accès, un mail avec un nouveau mot de passe provisoire vous a été envoyé, ou l'avait déjà été il y a moins de 15 minutes : vérifiez vos courriers, y compris les indésirables. Il est valable 24 heures.</p>
     <button type="button" class="lien" id="retour-connexion-2">← Retour à la connexion</button>
   </form>
 
@@ -157,13 +169,14 @@ if(urlApiPour(location.hostname,location.pathname).indexOf('/api-sandbox/')>=0){
   function lireJeton(){try{return sessionStorage.getItem(CLE)||'';}catch(e){return '';}}
   function ecrireJeton(j){try{if(j)sessionStorage.setItem(CLE,j);else sessionStorage.removeItem(CLE);}catch(e){}}
   var jeton=lireJeton();
+  var defi='';   // jeton de défi de la 2FA : en mémoire seulement, jamais stocké
   function appel(action,donnees){
     var corps=new URLSearchParams(donnees||{});corps.set('action',action);corps.set('site',site);
     if(jeton)corps.set('token',jeton);
     return fetch(urlApiPour(location.hostname,location.pathname)+'?action='+action,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:corps.toString()})
       .then(function(r){return r.json();});
   }
-  var VUES=['v-connexion','v-demande','v-oubli','v-mdp','v-liste'];
+  var VUES=['v-connexion','v-code','v-demande','v-oubli','v-mdp','v-liste'];
   function vue(nom){
     VUES.forEach(function(v){$(v).classList.toggle('cache',v!==nom);});
     $('sortir').classList.toggle('cache',nom!=='v-mdp'&&nom!=='v-liste');
@@ -193,6 +206,14 @@ if(urlApiPour(location.hostname,location.pathname).indexOf('/api-sandbox/')>=0){
   $('aller-oubli').addEventListener('click',function(){vue('v-oubli');$('o-email').value=$('c-id').value.indexOf('@')>=0?identifiantPropre($('c-id').value):'';$('o-email').focus();});
   $('retour-connexion').addEventListener('click',function(){vue('v-connexion');});
   $('retour-connexion-2').addEventListener('click',function(){vue('v-connexion');});
+  $('retour-connexion-3').addEventListener('click',function(){defi='';$('k-code').value='';vue('v-connexion');});
+
+  // Session ouverte (connexion complète) : liste, ou changement du provisoire.
+  function ouvrir(r){
+    jeton=r.token;ecrireJeton(jeton);$('c-mdp').value='';defi='';
+    if(r.doit_changer){$('m-id').value=$('c-id').value;vue('v-mdp');$('m-1').focus();}
+    else charger();
+  }
 
   // ── Connexion ──
   $('v-connexion').addEventListener('submit',function(ev){
@@ -200,12 +221,23 @@ if(urlApiPour(location.hostname,location.pathname).indexOf('/api-sandbox/')>=0){
     appel('tsConnexion',{identifiant:identifiantPropre($('c-id').value),password:$('c-mdp').value,userAgent:navigator.userAgent})
       .then(function(r){
         if(!r||!r.ok){$('c-err').textContent=(r&&r.error)||'Connexion impossible';return;}
-        jeton=r.token;ecrireJeton(jeton);$('c-mdp').value='';
-        if(r.doit_changer){$('m-id').value=$('c-id').value;vue('v-mdp');$('m-1').focus();}
-        else charger();
+        if(r.etape2){defi=r.defi;$('c-mdp').value='';$('k-err').textContent='';$('k-code').value='';vue('v-code');$('k-code').focus();return;}
+        ouvrir(r);
       })
       .catch(function(){$('c-err').textContent='Pas de connexion : réessayez dans un instant.';})
       .then(function(){$('c-ok').disabled=false;});
+  });
+
+  // ── Code de connexion (2FA) ──
+  $('v-code').addEventListener('submit',function(ev){
+    ev.preventDefault();$('k-err').textContent='';$('k-ok').disabled=true;
+    appel('tsCode',{defi:defi,code:$('k-code').value,userAgent:navigator.userAgent})
+      .then(function(r){
+        if(!r||!r.ok){$('k-err').textContent=(r&&r.error)||'Code refusé';return;}
+        $('k-code').value='';ouvrir(r);
+      })
+      .catch(function(){$('k-err').textContent='Pas de connexion : réessayez dans un instant.';})
+      .then(function(){$('k-ok').disabled=false;});
   });
 
   // ── Demande d'accès ──
@@ -286,8 +318,7 @@ if(urlApiPour(location.hostname,location.pathname).indexOf('/api-sandbox/')>=0){
       var t=document.createElement('article');t.className='tuile';
       var h=document.createElement('div');h.className='haut';
       var d=document.createElement('div');d.className='date';d.textContent=dateLisible(a.date)+heureLisible(a.horaire);
-      var b=document.createElement('span');b.className='badge';b.textContent=a.statut||'Planifié';
-      h.appendChild(d);h.appendChild(b);t.appendChild(h);
+      h.appendChild(d);t.appendChild(h);
       var th=document.createElement('p');th.className='theme';th.textContent=String(a.thematique||'').trim()||'Atelier numérique';t.appendChild(th);
       var dl=document.createElement('dl');
       ligne(dl,'Commune',a.commune);ligne(dl,'Lieu',a.lieu);ligne(dl,'Public',a.public);ligne(dl,'Orienteur',a.orienteur);
