@@ -678,7 +678,7 @@ const LOGS_KEY = lsKey('adm_logs');
           view==='gestion_ordi'&&CE(VueGestionOrdi,{key:'go_'+(dateGestionOrdi||''),dateInitiale:dateGestionOrdi,entries,onEdit:handleEdit,onDelete:handleDelete,onDuplicate:handleDuplicate,canDelete:true}),
 
           view==='admin'&&role==='admin'&&CE(VueAdmin,{entries,onRefresh:()=>loadData(),addLog,conseillersList:lists.conseillers,onSaveColors:(c)=>{applyColors(c);},annee:anneeReference(annee),adminConseiller}),
-          view==='logs_connexion'&&(role==='admin'||role==='superviseur')&&CE(React.Fragment,null,CE(VueUsageOnglets,null),CE(VueLogs,null)),
+          view==='logs_connexion'&&(role==='admin'||role==='superviseur')&&CE(VueConnexions,null),
           view==='corbeille'&&(role==='admin'||role==='superviseur')&&CE(VueCorbeille,{peutPurger:true}),
           view==='sauvegardes'&&(role==='admin'||role==='superviseur')&&CE(VueSauvegardes,null),
           view==='tickets'&&(role==='admin'||role==='superviseur')&&CE(VueTickets,{admin:true,onglets:Object.values(VIEW_META).map(m=>m.label)}),
@@ -974,6 +974,17 @@ function VueConnexionsTS(){
           CE('tbody',null,st.jours.length===0?CE('tr',null,CE('td',{colSpan:4,style:{...cell,color:'#718096'}},'Aucune activité sur la période.')):st.jours.map(j=>CE('tr',{key:j.jour},
             CE('td',{style:cell},fmtJour(j.jour)),CE('td',{style:cell},j.connexions),CE('td',{style:cell},j.echecs),CE('td',{style:cell},j.creations))))))
     )
+  );
+}
+
+// Onglet « Connexions » : le journal des connexions des applications et, dans un onglet à part,
+// les connexions à la page des travailleurs sociaux (demande de l'utilisateur, 04/11/2026).
+function VueConnexions(){
+  const[onglet,setOnglet]=React.useState('journal');
+  const bouton=(id,label)=>CE('button',{className:'btn btn-sm '+(onglet===id?'btn-primary':'btn-secondary'),onClick:()=>setOnglet(id)},label);
+  return CE(React.Fragment,null,
+    CE('div',{style:{display:'flex',gap:8,margin:'0 0 12px',flexWrap:'wrap'}},bouton('journal','📜 Journal des connexions'),bouton('ts','🤝 Page travailleurs sociaux')),
+    onglet==='journal'?CE(React.Fragment,null,CE(VueUsageOnglets,null),CE(VueLogs,null)):CE(VueConnexionsTS,null)
   );
 }
 
@@ -1454,7 +1465,6 @@ function VueAdminV10({entries,onRefresh,addLog,conseillersList,onSaveColors,anne
         CE('button',{className:'btn btn-primary',style:{marginTop:16},onClick:handleSaveVisibility,disabled:visSaving},visSaving?'…':'💾 Enregistrer la visibilité')
       ),
       CE(VueAccesTS,null),
-      CE(VueConnexionsTS,null),
 
       CE('div',{className:'admin-section',style:{border:'2px solid '+(maintenanceOn?'#dc2626':'#e2e8f0'),background:maintenanceOn?'#fff5f5':'#fff'}},
         CE('h3',null,'🔧 Mode Maintenance'),
