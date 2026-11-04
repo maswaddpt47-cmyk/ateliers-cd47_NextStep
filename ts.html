@@ -145,13 +145,14 @@
         <div><label for="f-du">Du</label><input id="f-du" type="date"></div>
         <div><label for="f-au">Au</label><input id="f-au" type="date"></div>
         <div><label for="f-commune">Commune</label><select id="f-commune"><option value="">Toutes</option></select></div>
+        <div class="cache" id="b-ouvert"><label for="f-ouvert">Ouvert à tous</label><select id="f-ouvert"><option value="">Tous</option><option value="Oui">Oui</option><option value="Non">Non</option></select></div>
       </div>
     </div>
     <p class="compte" id="compte"></p>
     <div class="grille" id="grille"></div>
   </section>
 </main>
-<script src="utils.js?v=54"></script>
+<script src="utils.js?v=55"></script>
 <script>
 // Bac à sable (AG-019) : même bandeau rouge que les autres pages, pour ne jamais
 // le confondre avec la production (ts.html ne charge pas shared.js).
@@ -167,7 +168,7 @@ if(urlApiPour(location.hostname,location.pathname).indexOf('/api-sandbox/')>=0){
 <script>
 (function(){
   var CLE='ts_jeton';
-  var ateliers=[];
+  var ateliers=[],filtreOuvert=false;
   function $(id){return document.getElementById(id);}
   // Site d'où vient l'appel, noté au journal de l'API.
   var site=/nextstep/i.test(location.pathname)?'nextstep':'newgen';
@@ -301,6 +302,8 @@ if(urlApiPour(location.hostname,location.pathname).indexOf('/api-sandbox/')>=0){
     var liste=ateliers.filter(function(a){
       return (!du||a.date>=du)&&(!au||a.date<=au)&&(!commune||String(a.commune||'').trim()===commune);
     });
+    // Ouvert à tous (AG-047) : filtre montré seulement s'il est activé dans Admin → Visibilité.
+    if(filtreOuvert)liste=filtrerOuvertATous(liste,$('f-ouvert').value);
     var g=$('grille');g.textContent='';
     $('compte').textContent=liste.length+' atelier'+(liste.length>1?'s':'')+' planifié'+(liste.length>1?'s':'');
     if(!liste.length){var v=document.createElement('div');v.className='vide carte';v.textContent='Aucun atelier planifié pour ces critères.';g.appendChild(v);return;}
@@ -322,13 +325,16 @@ if(urlApiPour(location.hostname,location.pathname).indexOf('/api-sandbox/')>=0){
       t.appendChild(c);g.appendChild(t);
     });
   }
-  ['f-du','f-au','f-commune'].forEach(function(id){$(id).addEventListener('change',afficher);});
+  ['f-du','f-au','f-commune','f-ouvert'].forEach(function(id){$(id).addEventListener('change',afficher);});
   function charger(){
     vue('v-liste');$('compte').textContent='Chargement…';
     appel('tsAteliers').then(function(r){
       if(r&&r.doit_changer){vue('v-mdp');return;}
       if(!r||!r.ok){if(r&&r.auth){deconnecter();$('c-err').textContent='Session terminée : reconnectez-vous.';}else $('compte').textContent=(r&&r.error)||'Chargement impossible';return;}
       ateliers=r.ateliers||[];
+      filtreOuvert=r.filtreOuvert===true;
+      $('b-ouvert').classList.toggle('cache',!filtreOuvert);
+      if(!filtreOuvert)$('f-ouvert').value='';
       remplirSelect($('f-commune'),distincts('commune'),'Toutes');
       afficher();
     }).catch(function(){$('compte').textContent='Pas de connexion : rechargez la page.';});

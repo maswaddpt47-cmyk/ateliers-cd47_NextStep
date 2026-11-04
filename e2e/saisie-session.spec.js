@@ -8,7 +8,7 @@ const TEMOIN={_id:'atelier-temoin',_n:1,date:JOUR,horaire:'14:00',ampm:'PM',
   duree:90,statut:'Planifié',conseiller:NOM,co_animateur:'',
   commune:'AGEN (47000)',lieu:'Salle témoin',thematique:'Atelier témoin',
   inscrits:4,presents:'',materiel:[],orienteur:'Partenaire fictif',public:'Adultes',
-  residence:'',remarques:'',nb_ordinateurs:'',date_prelevement_materiel:'',date_retour_materiel:''};
+  residence:'',remarques:'',nb_ordinateurs:'',date_prelevement_materiel:'',date_retour_materiel:'',ouvert_a_tous:'Non'};
 const VISIBILITE={saisie:true,historique:true,dashboard:true,agenda:true,
   calendrier:true,planning:true,carte:true,bingo:true,gestion_ordi:true};
 
@@ -207,6 +207,7 @@ for(const fichier of ['index.html','admin.html']){
     await formulaire(page).locator('.combo-item').filter({hasText:'AGEN'}).first().click();
     await formulaire(page).locator('select').filter({has:page.locator('option[value="'+NOM+'"]')}).first().selectOption(NOM);
     await formulaire(page).locator('select').filter({has:page.locator('option[value="Adultes"]')}).first().selectOption('Adultes');
+    await formulaire(page).getByRole('radio',{name:'Oui',exact:true}).click();
     await formulaire(page).locator('input[type="date"]').nth(0).fill('2026-11-03');
     await formulaire(page).locator('input[type="time"]').nth(0).fill('09:00');
     await formulaire(page).getByPlaceholder('Thème de la séance').nth(0).fill('Séance A');
@@ -237,6 +238,8 @@ for(const fichier of ['index.html','admin.html']){
     await expect.poll(()=>etat.ecritures.filter(e=>e.action==='saveMany').length).toBe(1);
     await valeurs(formulaire(page).locator('input[type="date"]'),['2026-11-03']);
     const premier=etat.ecritures.find(e=>e.action==='saveMany').entries;
+    // Ouvert à tous (AG-047) : un seul choix pour toutes les séances du cycle.
+    expect(premier.map(e=>e.ouvert_a_tous)).toEqual(['Oui','Oui','Oui']);
     await nav(page,'Agenda');
     await nav(page,'Nouveau');
     await expect(lieu(page)).toHaveValue('Salle du cycle');

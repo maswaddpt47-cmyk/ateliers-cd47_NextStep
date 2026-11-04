@@ -1457,11 +1457,17 @@ function VueAdminV10({entries,onRefresh,addLog,conseillersList,onSaveColors,anne
       // que la visibilité d'Index. Absent = allumé.
       visibility&&CE('div',{className:'admin-section'},
         CE('h3',null,'👁️ Visibilité — Page travailleurs sociaux'),
-        CE('p',{style:{fontSize:12,color:'#4a5568',marginBottom:12}},"Choisissez les types de public dont les ateliers s'affichent sur la page des travailleurs sociaux. Un type éteint : ses ateliers n'y apparaissent pas. Les travailleurs sociaux filtrent par période et par commune."),
+        CE('p',{style:{fontSize:12,color:'#4a5568',marginBottom:12}},"Choisissez les types de public dont les ateliers s'affichent sur la page des travailleurs sociaux. Un type éteint : ses ateliers n'y apparaissent pas. Les travailleurs sociaux filtrent par période et par commune, et par « Ouvert à tous » si ce filtre est activé ci-dessous."),
         [...new Set([...(PUBLICS||[]),...Object.keys(visibility).filter(k=>k.indexOf('ts_public:')===0).map(k=>k.slice(10))])].filter(p=>String(p).trim()).map(p=>{const k='ts_public:'+p;return CE('div',{key:k,className:'toggle-row'},
           CE('div',null,CE('div',{className:'toggle-label'},'👥 '+p),CE('div',{className:'toggle-sub'},visibility[k]===false?'Ateliers cachés aux travailleurs sociaux':'Ateliers visibles par les travailleurs sociaux')),
           CE('label',{className:'tgl'},CE('input',{type:'checkbox',checked:visibility[k]!==false,onChange:()=>setVisibility(v=>({...v,[k]:v[k]===false}))}),CE('span',{className:'tgl-track'}))
         );}),
+        // Filtre « Ouvert à tous » sur la page TS (AG-047, demande de l'utilisateur
+        // du 04/11/2026) : éteint tant qu'il n'est pas activé ici (absent = éteint).
+        CE('div',{className:'toggle-row',style:{marginTop:12,borderTop:'1px solid #e2e8f0',paddingTop:12}},
+          CE('div',null,CE('div',{className:'toggle-label'},'🔓 Filtre « Ouvert à tous »'),CE('div',{className:'toggle-sub'},visibility.ts_filtre_ouvert===true?'Les travailleurs sociaux peuvent filtrer Oui / Non':'Filtre caché aux travailleurs sociaux')),
+          CE('label',{className:'tgl'},CE('input',{type:'checkbox',checked:visibility.ts_filtre_ouvert===true,onChange:()=>setVisibility(v=>({...v,ts_filtre_ouvert:v.ts_filtre_ouvert!==true}))}),CE('span',{className:'tgl-track'}))
+        ),
         CE('button',{className:'btn btn-primary',style:{marginTop:16},onClick:handleSaveVisibility,disabled:visSaving},visSaving?'…':'💾 Enregistrer la visibilité')
       ),
       CE(VueAccesTS,null),

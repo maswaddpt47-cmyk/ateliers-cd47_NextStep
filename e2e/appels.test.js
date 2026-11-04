@@ -345,6 +345,7 @@ test('cycle — un second clic après échec renvoie les mêmes _id', async ({ p
   const sels = page.locator(F + 'select');
   await sels.nth(0).selectOption('Michel Aswad');
   await sels.nth(2).selectOption({ index:1 });
+  await page.locator(F + '[role="radio"]', { hasText:'Oui' }).click();   // ouvert à tous (AG-047)
   await page.locator(F + 'input[type="date"]').first().fill('2026-11-02');
   await page.locator(F + 'input[type="time"]').first().fill('14:00');
   await page.locator('input[placeholder="Thème de la séance"]').first().fill('TBD');
@@ -407,6 +408,7 @@ test('cycle — réponse perdue mais ateliers dans la feuille : succès affiché
   const sels = page.locator(F + 'select');
   await sels.nth(0).selectOption('Michel Aswad');
   await sels.nth(2).selectOption({ index:1 });
+  await page.locator(F + '[role="radio"]', { hasText:'Oui' }).click();   // ouvert à tous (AG-047)
   await page.locator(F + 'input[type="date"]').first().fill('2026-11-02');
   await page.locator(F + 'input[type="time"]').first().fill('14:00');
   await page.locator('input[placeholder="Thème de la séance"]').first().fill('TBD');

@@ -26,6 +26,7 @@ function buildEntry(overrides = {}) {
     remarques:    '',
     duree:        90,                   // minutes, par demi-heure (AG-017)
     fiche_bilan:  '',                   // fiche bilan, objet JSON une fois réalisé (AG-020)
+    ouvert_a_tous:             'Non',
     ...overrides,
   };
 }

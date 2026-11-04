@@ -1,6 +1,9 @@
 # Chantiers en cours — Ateliers CD47 NextStep
 
-État au **04/11/2026, 22:08 (heure de Paris)**, base `main` `cb9985e`.
+État au **04/11/2026, 22:48 (heure de Paris)**, base `main` `cb9985e`.
+**Champ « Ouvert à tous » (AG-047) livré le 04/11/2026** avec NEWGEN : formulaire, filtre de
+l'Historique, colonne XLSX, page TS (filtre activé dans Admin → Visibilité). Détail et essais
+à faire : `CHANTIERS.md` de NEWGEN.
 Dernière livraison fonctionnelle : `b076d21`, alignée sur NEWGEN `36db64f`
 (tests, déploiements et parité verts). Livré le 04/11 : page des travailleurs sociaux (tuile à
 l'image de l'Historique, titre « Agenda des ateliers collectifs… », première connexion sans

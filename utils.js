@@ -102,6 +102,14 @@ function parseDateICS(d){
 // Durée d'un atelier en minutes (AG-017, 03/10/2026) : par demi-heure, de
 // 30 min à 8 h ; 1 h 30 par défaut, et pour un atelier saisi avant (vide).
 const DUREE_DEFAUT=90;
+// « Ouvert à tous » (AG-047, 04/11/2026) : Oui / Non, obligatoire à la
+// création ; les ateliers d'avant valent « Non ». Filtre : 'Tous', 'Oui' ou
+// 'Non' ; il ne change que la liste et les exports, jamais les tuiles ni les KPI.
+const OUVERT_A_TOUS_CHOIX=['Oui','Non'];
+function filtrerOuvertATous(liste,choix){
+  if(!OUVERT_A_TOUS_CHOIX.includes(choix))return liste;
+  return (liste||[]).filter(e=>(e&&e.ouvert_a_tous==='Oui'?'Oui':'Non')===choix);
+}
 const DUREES_ATELIER=Array.from({length:16},(_,i)=>(i+1)*30);
 function dureeArrondie(min){
   const v=parseFloat(min);
@@ -974,7 +982,7 @@ if (typeof module !== 'undefined') {
     normCommune,normalizeCommune,stripAccents,htmlEsc,trunc,
     normalizeDate,normalizeHoraire,fmtDate,fmtCardDate,todayLocal,addJoursIso,
     escapeICS,foldICSLine,parseHoraireICS,parseDateICS,buildICS,
-    DUREE_DEFAUT,DUREES_ATELIER,dureeArrondie,fmtDuree,minutesHoraire,voiesPlanning,urlApiPour,urlAvisPour,rappelFichePrevu,BILAN_CHOIX,BILAN_MULTIPLES,basculerBilan,
+    DUREE_DEFAUT,DUREES_ATELIER,OUVERT_A_TOUS_CHOIX,filtrerOuvertATous,dureeArrondie,fmtDuree,minutesHoraire,voiesPlanning,urlApiPour,urlAvisPour,rappelFichePrevu,BILAN_CHOIX,BILAN_MULTIPLES,basculerBilan,
     resumeLogsTexte,
     suppressionAboutie,
     anneesListe,
