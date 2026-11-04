@@ -1419,7 +1419,7 @@ function VueAdminV10({entries,onRefresh,addLog,conseillersList,onSaveColors,anne
       // que la visibilité d'Index. Absent = allumé.
       visibility&&CE('div',{className:'admin-section'},
         CE('h3',null,'👁️ Visibilité — Page travailleurs sociaux'),
-        CE('p',{style:{fontSize:12,color:'#4a5568',marginBottom:12}},"Choisissez les types de public dont les ateliers s'affichent sur la page des travailleurs sociaux. Un type éteint : ses ateliers n'y apparaissent pas, ni dans le menu de filtre. Période et commune sont toujours proposés."),
+        CE('p',{style:{fontSize:12,color:'#4a5568',marginBottom:12}},"Choisissez les types de public dont les ateliers s'affichent sur la page des travailleurs sociaux. Un type éteint : ses ateliers n'y apparaissent pas. Les travailleurs sociaux filtrent par période et par commune."),
         [...new Set([...(PUBLICS||[]),...Object.keys(visibility).filter(k=>k.indexOf('ts_public:')===0).map(k=>k.slice(10))])].filter(p=>String(p).trim()).map(p=>{const k='ts_public:'+p;return CE('div',{key:k,className:'toggle-row'},
           CE('div',null,CE('div',{className:'toggle-label'},'👥 '+p),CE('div',{className:'toggle-sub'},visibility[k]===false?'Ateliers cachés aux travailleurs sociaux':'Ateliers visibles par les travailleurs sociaux')),
           CE('label',{className:'tgl'},CE('input',{type:'checkbox',checked:visibility[k]!==false,onChange:()=>setVisibility(v=>({...v,[k]:v[k]===false}))}),CE('span',{className:'tgl-track'}))

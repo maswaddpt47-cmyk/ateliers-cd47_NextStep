@@ -109,7 +109,6 @@
         <div><label for="f-du">Du</label><input id="f-du" type="date"></div>
         <div><label for="f-au">Au</label><input id="f-au" type="date"></div>
         <div><label for="f-commune">Commune</label><select id="f-commune"><option value="">Toutes</option></select></div>
-        <div id="bloc-public" class="cache"><label for="f-public">Type de public</label><select id="f-public"><option value="">Tous</option></select></div>
       </div>
     </div>
     <p class="compte" id="compte"></p>
@@ -120,7 +119,7 @@
 <script>
 (function(){
   var CLE='ts_jeton';
-  var ateliers=[],filtrePublic=false;
+  var ateliers=[];
   function $(id){return document.getElementById(id);}
   // Site d'où vient l'appel, noté au journal de l'API.
   var site=/nextstep/i.test(location.pathname)?'nextstep':'newgen';
@@ -226,9 +225,9 @@
     dl.appendChild(dt);dl.appendChild(dd);
   }
   function afficher(){
-    var du=$('f-du').value,au=$('f-au').value,commune=$('f-commune').value,pub=filtrePublic?$('f-public').value:'';
+    var du=$('f-du').value,au=$('f-au').value,commune=$('f-commune').value;
     var liste=ateliers.filter(function(a){
-      return (!du||a.date>=du)&&(!au||a.date<=au)&&(!commune||String(a.commune||'').trim()===commune)&&(!pub||String(a.public||'').trim()===pub);
+      return (!du||a.date>=du)&&(!au||a.date<=au)&&(!commune||String(a.commune||'').trim()===commune);
     });
     var g=$('grille');g.textContent='';
     $('compte').textContent=liste.length+' atelier'+(liste.length>1?'s':'')+' planifié'+(liste.length>1?'s':'');
@@ -245,17 +244,14 @@
       t.appendChild(dl);g.appendChild(t);
     });
   }
-  ['f-du','f-au','f-commune','f-public'].forEach(function(id){$(id).addEventListener('change',afficher);});
+  ['f-du','f-au','f-commune'].forEach(function(id){$(id).addEventListener('change',afficher);});
   function charger(){
     vue('v-liste');$('compte').textContent='Chargement…';
     appel('tsAteliers').then(function(r){
       if(r&&r.doit_changer){vue('v-mdp');return;}
       if(!r||!r.ok){if(r&&r.auth){deconnecter();$('c-err').textContent='Session terminée : reconnectez-vous.';}else $('compte').textContent=(r&&r.error)||'Chargement impossible';return;}
-      ateliers=r.ateliers||[];filtrePublic=!!r.filtrePublic;
-      $('bloc-public').classList.toggle('cache',!filtrePublic);
-      if(!filtrePublic)$('f-public').value='';
+      ateliers=r.ateliers||[];
       remplirSelect($('f-commune'),distincts('commune'),'Toutes');
-      remplirSelect($('f-public'),distincts('public'),'Tous');
       afficher();
     }).catch(function(){$('compte').textContent='Pas de connexion : rechargez la page.';});
   }
