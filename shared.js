@@ -639,7 +639,9 @@ const GAS_ACTIONS_ECRITURE = new Set([
   // jamais doublé en vol ; repondreTicket et modifierTicket (AG-041) non plus.
   'creerTicket','modifierTicket','repondreTicket','supprimerTicket','supprimerAvis',
   // Avis papier : chaque envoi crée un avis, jamais doublé (AG-021).
-  'saisirAvisPapier'
+  'saisirAvisPapier',
+  // Comptes de la page des travailleurs sociaux (AG-042) : jamais doublés.
+  'tsCreerCompte','tsReinitMdp','tsActiver','tsSupprimer'
 ]);
 const GAS_HEDGE_MS            = 7000;   // délai avant de doubler une lecture
 const GAS_TENTATIVES_LECTURE  = 3;
