@@ -1424,8 +1424,30 @@ function VueAdminV10({entries,onRefresh,addLog,conseillersList,onSaveColors,anne
   }
   const STATUT_COLOR={'Planifié':'#9683EC','Réalisé':'#70AD47','Annulé':'#FF5050','Non réalisé':'#FFC000','Reporté':'#ED7D31'};
 
+  // Sections repliables (demande du 05/11/2026) : un clic sur le titre ouvre ou ferme ;
+  // fermées à l'arrivée, celles ouvertes restent ouvertes dans ce navigateur.
+  const LS_SECTIONS=lsKey('admin_sections_ouvertes');
+  const lireOuvertes=()=>{try{const v=JSON.parse(localStorage.getItem(LS_SECTIONS)||'[]');return Array.isArray(v)?v:[];}catch(_){return [];}};
+  const titreSection=s=>{const h=s.querySelector(':scope>h3');return h?h.textContent.trim():'';};
+  React.useEffect(()=>{
+    if(!adminRef.current)return;
+    const ouv=lireOuvertes();
+    adminRef.current.querySelectorAll('.admin-section').forEach(s=>{if(ouv.includes(titreSection(s)))s.setAttribute('data-ouvert','1');else s.removeAttribute('data-ouvert');});
+  });
+  function basculerSection(ev){
+    const h=ev.target.closest('h3');const s=h&&h.parentElement;
+    if(!s||!s.classList.contains('admin-section')||!adminRef.current||!adminRef.current.contains(s))return;
+    const t=titreSection(s);const ouv=lireOuvertes().filter(x=>x!==t);
+    if(s.getAttribute('data-ouvert')==='1')s.removeAttribute('data-ouvert');else{s.setAttribute('data-ouvert','1');ouv.push(t);}
+    try{localStorage.setItem(LS_SECTIONS,JSON.stringify(ouv));}catch(_){}
+  }
   return CE(React.Fragment,null,
-    CE('div',{ref:adminRef},
+    CE('style',null,'.admin-replie .admin-section:has(>h3):not([data-ouvert="1"])>*:not(h3){display:none}'
+      +'.admin-replie .admin-section:has(>h3):not([data-ouvert="1"])>h3{margin-bottom:0}'
+      +'.admin-replie .admin-section>h3{cursor:pointer;user-select:none}'
+      +'.admin-replie .admin-section>h3::after{content:"▾";margin-left:auto;font-size:13px;color:#94a3b8;transition:transform .2s}'
+      +'.admin-replie .admin-section:not([data-ouvert="1"])>h3::after{transform:rotate(-90deg)}'),
+    CE('div',{ref:adminRef,className:'admin-replie',onClick:basculerSection},
 
       CE('div',{className:'admin-section'},
         CE('h3',null,'🎨 Couleurs des conseillers'),
