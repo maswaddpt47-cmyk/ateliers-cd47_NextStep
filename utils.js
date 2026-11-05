@@ -129,10 +129,22 @@ function fmtDuree(min){
   const h=Math.floor(n/60),m=n%60;
   return h?(h+' h'+(m?' '+String(m).padStart(2,'0'):'')):(m+' min');
 }
-// annulation (05/11/2026) : mêmes événements, même UID, marqués annulés (METHOD:CANCEL,
-// STATUS:CANCELLED, SEQUENCE plus haute) pour qu'Outlook retire ceux qu'il a reçus de l'appli.
-function buildICS(evts, annulation){
-  const out=['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Ateliers Numerique 47//FR','CALSCALE:GREGORIAN',annulation?'METHOD:CANCEL':'METHOD:PUBLISH'];
+// Titre du rendez-vous dans l'agenda : « Atelier <partenaire> » (12/10/2026), sinon la thématique.
+function titreAgenda(e){
+  return 'Atelier'+(e.orienteur&&String(e.orienteur).trim()?' '+String(e.orienteur).trim():(e.thematique?' '+e.thematique:''));
+}
+// Ateliers annulés à retirer d'Outlook (05/11/2026) : l'essai d'un .ics d'annulation a créé « Annulé : … »
+// à côté du rendez-vous au lieu de le retirer (Outlook classique). Cause non établie : rendez-vous peut-être
+// créés dans Outlook puis importés (UID différent), ou annulation ignorée pour un rendez-vous importé.
+// Liste à copier : date, heure et titre exact, triés, pour les retrouver et les supprimer à la main.
+function listeSuppressionOutlook(evts){
+  return (evts||[]).filter(e=>e&&e.date)
+    .slice().sort((a,b)=>String(a.date+(a.horaire||'')).localeCompare(String(b.date+(b.horaire||''))))
+    .map(e=>fmtDate(e.date)+(e.horaire?' '+e.horaire:'')+' — '+titreAgenda(e)+(e.commune?' ('+e.commune+')':''))
+    .join('\n');
+}
+function buildICS(evts){
+  const out=['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Ateliers Numerique 47//FR','CALSCALE:GREGORIAN','METHOD:PUBLISH'];
   for(const e of evts){
     const pd=parseDateICS(e.date);if(!pd)continue;
     const{hh,mm}=parseHoraireICS(e.horaire);
@@ -144,7 +156,7 @@ function buildICS(evts, annulation){
     const dte=`${f.getUTCFullYear()}${p2(f.getUTCMonth()+1)}${p2(f.getUTCDate())}T${p2(f.getUTCHours())}${p2(f.getUTCMinutes())}00`;
     // Titre « Atelier <partenaire> » (12/10/2026, demande de l'utilisateur) ;
     // thématique, commune et le reste dans le corps.
-    const summary=escapeICS('Atelier'+(e.orienteur&&String(e.orienteur).trim()?' '+String(e.orienteur).trim():(e.thematique?' '+e.thematique:'')));
+    const summary=escapeICS(titreAgenda(e));
     const location=escapeICS([e.lieu,e.commune].filter(Boolean).join(', '));
     const descParts=[
       e.thematique&&'Thématique : '+e.thematique,
@@ -161,8 +173,7 @@ function buildICS(evts, annulation){
       e.date_retour_materiel&&'Retour du matériel : '+fmtDate(e.date_retour_materiel),
       e.remarques&&'Remarques : '+e.remarques,
     ].filter(Boolean);
-    out.push('BEGIN:VEVENT','DTSTART:'+dts,'DTEND:'+dte,'SUMMARY:'+(annulation?escapeICS('Annulé : ')+summary:summary));
-    if(annulation)out.push('STATUS:CANCELLED','SEQUENCE:1');
+    out.push('BEGIN:VEVENT','DTSTART:'+dts,'DTEND:'+dte,'SUMMARY:'+summary);
     if(location)out.push('LOCATION:'+location);
     if(descParts.length)out.push('DESCRIPTION:'+escapeICS(descParts.join('\n')));
     out.push('UID:'+e._id+'@ateliers-newgen','END:VEVENT');
@@ -994,7 +1005,7 @@ if (typeof module !== 'undefined') {
     normCommune,normalizeCommune,stripAccents,htmlEsc,trunc,
     normalizeDate,normalizeHoraire,fmtDate,fmtCardDate,todayLocal,addJoursIso,
     escapeICS,foldICSLine,parseHoraireICS,parseDateICS,buildICS,
-    DUREE_DEFAUT,DUREES_ATELIER,OUVERT_A_TOUS_CHOIX,filtrerOuvertATous,STATUTS_INACTIFS,ateliersDemiCase,dureeArrondie,fmtDuree,minutesHoraire,voiesPlanning,urlApiPour,urlAvisPour,rappelFichePrevu,BILAN_CHOIX,BILAN_MULTIPLES,basculerBilan,
+    DUREE_DEFAUT,DUREES_ATELIER,OUVERT_A_TOUS_CHOIX,filtrerOuvertATous,STATUTS_INACTIFS,ateliersDemiCase,titreAgenda,listeSuppressionOutlook,dureeArrondie,fmtDuree,minutesHoraire,voiesPlanning,urlApiPour,urlAvisPour,rappelFichePrevu,BILAN_CHOIX,BILAN_MULTIPLES,basculerBilan,
     resumeLogsTexte,
     suppressionAboutie,
     anneesListe,

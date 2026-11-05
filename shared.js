@@ -1803,7 +1803,7 @@ function jourDeLaDate(iso){
 // Après une création (12/10/2026) : barre en bas d'écran pour ajouter les
 // ateliers à Outlook (.ics). Hors React : elle survit au passage sur
 // l'Historique qui suit l'enregistrement. Disparaît au clic ou après 60 s.
-function proposerICS(liste,annulation){
+function proposerICS(liste){
   try{
     const evts=(liste||[]).filter(e=>e&&e.date);if(!evts.length)return;
     const old=document.getElementById('barre-ics');if(old)old.remove();
@@ -1812,24 +1812,47 @@ function proposerICS(liste,annulation){
     barre.style.cssText='position:fixed;left:50%;bottom:84px;transform:translateX(-50%);z-index:4000;display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:center;'
       +'background:#1e293b;color:#f8fafc;padding:10px 14px;border-radius:10px;box-shadow:0 6px 18px rgba(0,0,0,.3);font:13px system-ui,sans-serif;max-width:calc(100vw - 32px)';
     const txt=document.createElement('span');
-    txt.textContent=annulation
-      ?evts.length+' atelier(s) annulé(s) — les retirer de votre agenda Outlook ?'
-      :evts.length>1?evts.length+' ateliers créés — les ajouter à votre agenda Outlook ?':'Atelier créé — l\'ajouter à votre agenda Outlook ?';
-    const btn=document.createElement('button');btn.type='button';btn.textContent=annulation?'📅 Télécharger l\'annulation (.ics)':'📅 Télécharger le .ics';
+    txt.textContent=evts.length>1?evts.length+' ateliers créés — les ajouter à votre agenda Outlook ?':'Atelier créé — l\'ajouter à votre agenda Outlook ?';
+    const btn=document.createElement('button');btn.type='button';btn.textContent='📅 Télécharger le .ics';
     btn.style.cssText='background:#3b82f6;color:#fff;border:none;border-radius:6px;padding:6px 12px;font-weight:700;cursor:pointer';
     const fermer=document.createElement('button');fermer.type='button';fermer.textContent='✕';fermer.setAttribute('aria-label','Fermer');
     fermer.style.cssText='background:transparent;color:#cbd5e1;border:none;font-size:15px;cursor:pointer';
     const retirer=()=>{clearTimeout(minuterie);barre.remove();};
     btn.onclick=()=>{
       const tri=evts.slice().sort((a,b)=>String(a.date+(a.horaire||'')).localeCompare(String(b.date+(b.horaire||''))));
-      const url=URL.createObjectURL(new Blob([buildICS(tri,annulation)],{type:'text/calendar;charset=utf-8'}));
-      const a=document.createElement('a');a.href=url;a.download=(annulation?'annulation-':'')+(tri.length>1?'cycle-'+tri[0].date:'atelier-'+tri[0].date)+'.ics';
+      const url=URL.createObjectURL(new Blob([buildICS(tri)],{type:'text/calendar;charset=utf-8'}));
+      const a=document.createElement('a');a.href=url;a.download=(tri.length>1?'cycle-'+tri[0].date:'atelier-'+tri[0].date)+'.ics';
       document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);
-      retirer();showToast(annulation?'✅ Fichier .ics téléchargé : ouvrez-le dans Outlook pour retirer ces rendez-vous':'✅ Fichier .ics téléchargé : ouvrez-le pour l\'ajouter à Outlook');
+      retirer();showToast('✅ Fichier .ics téléchargé : ouvrez-le pour l\'ajouter à Outlook');
     };
     fermer.onclick=retirer;
     barre.append(txt,btn,fermer);document.body.appendChild(barre);
     const minuterie=setTimeout(retirer,60000);
+  }catch(_){}
+}
+// Ateliers annulés : liste à copier pour les supprimer dans Outlook (05/11/2026). Le .ics d'annulation
+// essayé ne les retirait pas (cause non établie, voir listeSuppressionOutlook dans utils.js).
+function proposerListeOutlook(liste){
+  try{
+    const texte=listeSuppressionOutlook(liste);if(!texte)return;
+    const n=texte.split('\n').length;
+    const old=document.getElementById('barre-ics');if(old)old.remove();
+    const barre=document.createElement('div');barre.id='barre-ics';barre.setAttribute('role','status');
+    barre.style.cssText='position:fixed;left:50%;bottom:84px;transform:translateX(-50%);z-index:4000;display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:center;'
+      +'background:#1e293b;color:#f8fafc;padding:10px 14px;border-radius:10px;box-shadow:0 6px 18px rgba(0,0,0,.3);font:13px system-ui,sans-serif;max-width:calc(100vw - 32px)';
+    const txt=document.createElement('span');
+    txt.textContent=n+' atelier(s) annulé(s) : à supprimer aussi dans Outlook. Astuce : Affichage → Modifier l\'affichage → Liste, recherchez le titre, Ctrl+clic, Suppr (menu à vérifier).';
+    const btn=document.createElement('button');btn.type='button';btn.textContent='📋 Copier la liste à supprimer dans Outlook';
+    btn.style.cssText='background:#3b82f6;color:#fff;border:none;border-radius:6px;padding:6px 12px;font-weight:700;cursor:pointer';
+    const fermer=document.createElement('button');fermer.type='button';fermer.textContent='✕';fermer.setAttribute('aria-label','Fermer');
+    fermer.style.cssText='background:transparent;color:#cbd5e1;border:none;font-size:15px;cursor:pointer';
+    btn.onclick=()=>{
+      const ok=()=>{barre.remove();showToast('✅ Liste copiée ('+n+' rendez-vous) : collez-la dans le Bloc-notes ou un mail');};
+      if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(texte).then(ok,()=>window.prompt('Copiez la liste (Ctrl+C) :',texte));
+      else window.prompt('Copiez la liste (Ctrl+C) :',texte);
+    };
+    fermer.onclick=()=>barre.remove();
+    barre.append(txt,btn,fermer);document.body.appendChild(barre);
   }catch(_){}
 }
 // Alertes sous l'horaire (12/10/2026) : heure hors du créneau choisi dans
@@ -2838,7 +2861,7 @@ function BarreSelection({actif,setActif,sel,setSel,filtered}){
     else{showToast(`✅ ${ok} atelier(s) supprimé(s)`);setActif(false);}
   }
   // Statut changé pour toute la sélection (05/11/2026) : un seul saveMany, ateliers renvoyés entiers
-  // (comme la mise à jour Outlook) ; rejouable sans doublon (mêmes _id). Annulé : .ics d'annulation proposé.
+  // (comme la mise à jour Outlook) ; rejouable sans doublon (mêmes _id). Annulé : liste à supprimer dans Outlook.
   async function appliquerStatut(){
     const choisis=filtered.filter(e=>sel.has(e._id));
     if(!choisis.length||!statutGroupe)return;
@@ -2850,7 +2873,7 @@ function BarreSelection({actif,setActif,sel,setSel,filtered}){
       if(!r||!r.ok)throw new Error((r&&r.error)||'Erreur');
       choisis.forEach(e=>entreeSauvegardee({...e,statut:statutGroupe}));
       showToast(`✅ ${liste.length} atelier(s) passé(s) en « ${statutGroupe} »`);
-      if(statutGroupe==='Annulé')proposerICS(choisis.map(e=>({...e,statut:statutGroupe})),true);
+      if(statutGroupe==='Annulé')proposerListeOutlook(choisis);
       setSel(new Set());setActif(false);
     }catch(err){showToast('❌ '+(err.message||'Erreur réseau')+' — vous pouvez réappliquer, sans doublon.',false);}
     finally{setEnCours('');}

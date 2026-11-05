@@ -279,7 +279,7 @@ test('historique — tuile Total : 2 ateliers, filtre Oui → 1',async({page})=>
   expect(etat.erreurs).toEqual([]);
 });
 
-// Statut groupé (05/11/2026) : la sélection passe en « Annulé » par un seul saveMany, .ics d'annulation proposé.
+// Statut groupé (05/11/2026) : la sélection passe en « Annulé » par un seul saveMany, liste Outlook proposée.
 test('historique — sélection multiple : passer en Annulé, un seul saveMany',async({page})=>{
   const etat=await preparer(page);
   etat.accepter=true;
@@ -292,7 +292,7 @@ test('historique — sélection multiple : passer en Annulé, un seul saveMany',
   await expect.poll(()=>etat.ecritures.filter(e=>e.action==='saveMany').length).toBe(1);
   const lot=etat.ecritures.find(e=>e.action==='saveMany').entries;
   expect(lot.map(e=>[e._id,e.statut])).toEqual([['atelier-temoin','Annulé']]);
-  await expect(page.getByRole('button',{name:/Télécharger l'annulation/})).toBeVisible();
+  await expect(page.getByRole('button',{name:/Copier la liste à supprimer dans Outlook/})).toBeVisible();
   expect(etat.erreurs).toEqual([]);
 });
 

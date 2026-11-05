@@ -924,16 +924,14 @@ describe('ateliersDemiCase', () => {
   });
 });
 
-// .ics d'annulation (05/11/2026) : même UID que le .ics de création, marqué annulé.
-describe('buildICS — annulation', () => {
-  const { buildICS } = require('./utils.js');
-  const e = { _id: 'at_1', date: '2026-11-12', horaire: '14:00', duree: 90, orienteur: 'CCAS', statut: 'Annulé' };
-  it('CANCEL, STATUS:CANCELLED et le même UID que la création', () => {
-    const cree = buildICS([e]), annule = buildICS([e], true);
-    const uid = s => (s.match(/UID:[^\r\n]+/) || [''])[0];
-    assert.ok(/METHOD:PUBLISH/.test(cree) && !/STATUS:CANCELLED/.test(cree));
-    assert.ok(/METHOD:CANCEL/.test(annule) && /STATUS:CANCELLED/.test(annule) && /SEQUENCE:1/.test(annule));
-    assert.equal(uid(annule), uid(cree));
-    assert.ok(/SUMMARY:Annulé : Atelier CCAS/.test(annule));
+// Liste à supprimer dans Outlook (05/11/2026) : triée, titre identique au SUMMARY du .ics de création.
+describe('listeSuppressionOutlook', () => {
+  const { listeSuppressionOutlook, buildICS } = require('./utils.js');
+  const a = { _id: 'a', date: '2026-11-19', horaire: '15:00', orienteur: 'Régie', commune: 'Fumel' };
+  const b = { _id: 'b', date: '2026-11-19', horaire: '14:00', orienteur: 'Régie', commune: 'Fumel' };
+  it('triée par date et heure, même titre que dans Outlook', () => {
+    const l = listeSuppressionOutlook([a, b]).split('\n');
+    assert.deepEqual(l, ['Jeu 19/11/2026 14:00 — Atelier Régie (Fumel)', 'Jeu 19/11/2026 15:00 — Atelier Régie (Fumel)']);
+    assert.ok(buildICS([b]).includes('SUMMARY:Atelier Régie'));
   });
 });
