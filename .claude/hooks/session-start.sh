@@ -22,6 +22,8 @@ echo "🌐 Tests Playwright (smoke)..."
 UI_CHANGED=$(git log --name-only -5 --format="" 2>/dev/null | grep -E '^shared\.js$|\.html$' | head -1)
 if [ -n "$UI_CHANGED" ]; then
   kill $(lsof -ti:7474) 2>/dev/null || true
+  # Conteneur neuf : sans node_modules, npx télécharge un Playwright au hasard et échoue.
+  [ -d node_modules ] || npm ci --silent >/dev/null 2>&1 || FAIL=1
   PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 npx playwright test --reporter=line 2>&1 | tail -6 || FAIL=1
 else
   echo "⏭  e2e — ignoré (pas de changement UI dans les 5 derniers commits)"
