@@ -1505,7 +1505,7 @@ function VueAdminV10({entries,onRefresh,addLog,conseillersList,onSaveColors,anne
       ),
       CE(VueAccesTS,null),
 
-      CE('div',{className:'admin-section',style:{border:'2px solid '+(maintenanceOn?'#dc2626':'#fca5a5'),background:maintenanceOn?'#fff5f5':'#fff'}},
+      CE('div',{className:'admin-section',style:{border:'2px solid '+(maintenanceOn?'#dc2626':'#fca5a5'),background:maintenanceOn?'#fff5f5':undefined}},
         CE('h3',null,'🔧 Mode Maintenance'),
         CE('p',{style:{fontSize:12,color:'#4a5568',marginBottom:16}},"Activez pour bloquer l'accès à l'interface conseiller."),
         maintenanceLoaded&&CE('div',null,
