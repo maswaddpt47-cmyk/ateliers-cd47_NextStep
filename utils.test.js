@@ -917,11 +917,9 @@ describe('ateliersDemiCase', () => {
   it('un annulé à côté d\'un actif ne compte pas', () => {
     const r = ateliersDemiCase([{ _id: 'a', statut: 'Annulé' }, { _id: 'b', statut: 'Planifié' }]);
     assert.deepEqual(r.visibles.map(e => e._id), ['b']);
-    assert.equal(r.inactive, false);
   });
-  it('seulement des inactifs : montrés, estompés', () => {
-    const r = ateliersDemiCase([{ _id: 'a', statut: 'Annulé' }, { _id: 'c', statut: 'Reporté' }]);
-    assert.equal(r.visibles.length, 2);
-    assert.equal(r.inactive, true);
+  it('seulement des inactifs : case vide (décision du 05/11/2026)', () => {
+    const r = ateliersDemiCase([{ _id: 'a', statut: 'Annulé' }, { _id: 'c', statut: 'Reporté' }, { _id: 'd', statut: 'Non réalisé' }]);
+    assert.equal(r.visibles.length, 0);
   });
 });

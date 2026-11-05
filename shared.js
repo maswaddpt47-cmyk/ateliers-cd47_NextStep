@@ -5186,10 +5186,9 @@ function VuePlanning({annees,entries,onEdit,onDelete,onDuplicate,canDelete,accen
   }
 
   function demiCase(nom,j,demi){
-    const liste=parDemi[nom+'|'+j+'|'+demi]||[];
-    if(!liste.length)return CE('div',{style:{height:18}});
-    // AG-051 : chiffre et couleur sur les ateliers actifs ; un annulé ne compte plus à côté d'un actif.
-    const {visibles,inactive:tous}=ateliersDemiCase(liste);
+    // AG-051 : seuls les ateliers actifs ; sans actif, la case reste vide (décision du 05/11/2026).
+    const {visibles}=ateliersDemiCase(parDemi[nom+'|'+j+'|'+demi]);
+    if(!visibles.length)return CE('div',{style:{height:18}});
     const e=visibles[0],c=conseillerColor(e.conseiller),retard=visibles.some(isRetard);
     return CE('div',{
       title:visibles.map(x=>(x.horaire||(demi==='AM'?'matin':'après-midi'))+' '+(x.thematique||'—')+' — '+(x.commune||'')+' ('+(x.statut||'')+')').join('\n'),
@@ -5197,7 +5196,7 @@ function VuePlanning({annees,entries,onEdit,onDelete,onDuplicate,canDelete,accen
       onClick:ev=>{setSurvol(null);if(visibles.length===1)setSelectedEntry(e);else setChoix({x:ev.clientX,y:ev.clientY,liste:visibles});},
       style:{height:16,margin:'1px 2px',borderRadius:4,cursor:'pointer',background:visibles.some(x=>x.statut==='Réalisé')?c:c+'cc',
         color:'#fff',fontSize:10,fontWeight:800,lineHeight:'16px',textAlign:'center',
-        outline:retard?'2px solid #dc2626':'none',outlineOffset:-1,...(tous?STYLE_STATUT[e.statut]:{})}},
+        outline:retard?'2px solid #dc2626':'none',outlineOffset:-1}},
       visibles.length>1?visibles.length:'');
   }
   const navMois=CE('div',{style:{display:'flex',gap:4}},
@@ -5240,7 +5239,7 @@ function VuePlanning({annees,entries,onEdit,onDelete,onDuplicate,canDelete,accen
               background:j===aujourdhui?ac+'0d':ferie?'#fef2f2':'transparent'}},
               demiCase(nom,j,'AM'),CE('div',{style:{borderTop:'1px dashed var(--border,#e2e8f0)',margin:'0 3px'}}),demiCase(nom,j,'PM'));}))))),
     CE('p',{style:{fontSize:11,color:'var(--text-3,#94a3b8)',margin:'8px 0 0'}},
-      'Haut de case : matin ; bas : après-midi ; chiffre : plusieurs ateliers ; contour rouge : à mettre à jour ; estompé : annulé, non réalisé ou reporté. Clic : détails.'));
+      'Haut de case : matin ; bas : après-midi ; chiffre : plusieurs ateliers ; contour rouge : à mettre à jour ; annulés, non réalisés et reportés non affichés (voir Historique ou vue Semaine). Clic : détails.'));
 
   return CE('div',null,
     creneauxOuvert&&CE(CreneauxLibres,{annees,entries,conseillers:noms,conseillerFixe,onNouveau,onCycle,onFermer:()=>setCreneauxOuvert(false),ac}),

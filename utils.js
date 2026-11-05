@@ -106,14 +106,14 @@ const DUREE_DEFAUT=90;
 // création ; les ateliers d'avant valent « Non ». Filtre : 'Tous', 'Oui' ou
 // 'Non' ; appliqué comme les autres filtres de l'Historique, tuiles comprises (AG-048).
 const OUVERT_A_TOUS_CHOIX=['Oui','Non'];
-// Planning, vue Mois (AG-051, 05/11/2026) : une demi-journée ne compte et ne colore que ses
-// ateliers actifs ; les inactifs (annulé, non réalisé, reporté) ne s'y montrent, estompés, que
-// s'il n'y a rien d'autre. Renvoie {visibles, inactive} ; la liste au clic garde tout.
+// Planning, vue Mois (AG-051, 05/11/2026) : une demi-journée ne montre que ses ateliers actifs ;
+// les inactifs (annulé, non réalisé, reporté) n'y apparaissent jamais — seuls, la case reste vide
+// (décision de l'utilisateur). Ils restent dans l'Historique et la vue Semaine.
 const STATUTS_INACTIFS=['Annulé','Non réalisé','Reporté'];
 function ateliersDemiCase(liste){
   const l=liste||[];
   const actifs=l.filter(e=>!STATUTS_INACTIFS.includes(e&&e.statut));
-  return actifs.length?{visibles:actifs,inactive:false}:{visibles:l,inactive:l.length>0};
+  return {visibles:actifs};
 }
 function filtrerOuvertATous(liste,choix){
   if(!OUVERT_A_TOUS_CHOIX.includes(choix))return liste;
