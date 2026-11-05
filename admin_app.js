@@ -1448,7 +1448,7 @@ function VueAdminV10({entries,onRefresh,addLog,conseillersList,onSaveColors,anne
     try{localStorage.setItem(LS_SECTIONS,JSON.stringify(ouv));}catch(_){}
   }
   return CE(React.Fragment,null,
-    CE('style',null,'.admin-replie .admin-section:has(>h3):not([data-ouvert="1"])>*:not(h3){display:none}'
+    CE('style',null,'.admin-replie .admin-section:has(>h3):not([data-ouvert="1"])>*:not(h3){display:none!important}'
       +'.admin-replie .admin-section:has(>h3):not([data-ouvert="1"])>h3{margin-bottom:0}'
       +'.admin-replie .admin-section>h3{cursor:pointer;user-select:none}'
       +'.admin-replie .admin-section>h3::after{content:"▾";margin-left:auto;font-size:13px;color:#94a3b8;transition:transform .2s}'
