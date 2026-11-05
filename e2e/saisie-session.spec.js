@@ -278,3 +278,21 @@ test('historique — tuile Total : 2 ateliers, filtre Oui → 1',async({page})=>
   await expect(page.getByText('Atelier témoin',{exact:true}).filter({visible:true})).toHaveCount(0);
   expect(etat.erreurs).toEqual([]);
 });
+
+// Statut groupé (05/11/2026) : la sélection passe en « Annulé » par un seul saveMany, .ics d'annulation proposé.
+test('historique — sélection multiple : passer en Annulé, un seul saveMany',async({page})=>{
+  const etat=await preparer(page);
+  etat.accepter=true;
+  await connecter(page,'index.html');
+  await nav(page,'Historique');
+  await page.getByRole('button',{name:'☑ Sélectionner plusieurs ateliers'}).filter({visible:true}).first().click();
+  await page.getByText('Atelier témoin',{exact:true}).filter({visible:true}).first().click();
+  await page.getByRole('combobox',{name:'Nouveau statut'}).selectOption('Annulé');
+  await page.getByRole('button',{name:/^Appliquer \(1\)$/}).click();
+  await expect.poll(()=>etat.ecritures.filter(e=>e.action==='saveMany').length).toBe(1);
+  const lot=etat.ecritures.find(e=>e.action==='saveMany').entries;
+  expect(lot.map(e=>[e._id,e.statut])).toEqual([['atelier-temoin','Annulé']]);
+  await expect(page.getByRole('button',{name:/Télécharger l'annulation/})).toBeVisible();
+  expect(etat.erreurs).toEqual([]);
+});
+

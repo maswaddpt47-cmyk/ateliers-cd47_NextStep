@@ -129,8 +129,10 @@ function fmtDuree(min){
   const h=Math.floor(n/60),m=n%60;
   return h?(h+' h'+(m?' '+String(m).padStart(2,'0'):'')):(m+' min');
 }
-function buildICS(evts){
-  const out=['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Ateliers Numerique 47//FR','CALSCALE:GREGORIAN','METHOD:PUBLISH'];
+// annulation (05/11/2026) : mêmes événements, même UID, marqués annulés (METHOD:CANCEL,
+// STATUS:CANCELLED, SEQUENCE plus haute) pour qu'Outlook retire ceux qu'il a reçus de l'appli.
+function buildICS(evts, annulation){
+  const out=['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Ateliers Numerique 47//FR','CALSCALE:GREGORIAN',annulation?'METHOD:CANCEL':'METHOD:PUBLISH'];
   for(const e of evts){
     const pd=parseDateICS(e.date);if(!pd)continue;
     const{hh,mm}=parseHoraireICS(e.horaire);
@@ -159,7 +161,8 @@ function buildICS(evts){
       e.date_retour_materiel&&'Retour du matériel : '+fmtDate(e.date_retour_materiel),
       e.remarques&&'Remarques : '+e.remarques,
     ].filter(Boolean);
-    out.push('BEGIN:VEVENT','DTSTART:'+dts,'DTEND:'+dte,'SUMMARY:'+summary);
+    out.push('BEGIN:VEVENT','DTSTART:'+dts,'DTEND:'+dte,'SUMMARY:'+(annulation?escapeICS('Annulé : ')+summary:summary));
+    if(annulation)out.push('STATUS:CANCELLED','SEQUENCE:1');
     if(location)out.push('LOCATION:'+location);
     if(descParts.length)out.push('DESCRIPTION:'+escapeICS(descParts.join('\n')));
     out.push('UID:'+e._id+'@ateliers-newgen','END:VEVENT');

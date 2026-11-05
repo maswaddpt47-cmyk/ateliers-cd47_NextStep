@@ -923,3 +923,17 @@ describe('ateliersDemiCase', () => {
     assert.equal(r.visibles.length, 0);
   });
 });
+
+// .ics d'annulation (05/11/2026) : même UID que le .ics de création, marqué annulé.
+describe('buildICS — annulation', () => {
+  const { buildICS } = require('./utils.js');
+  const e = { _id: 'at_1', date: '2026-11-12', horaire: '14:00', duree: 90, orienteur: 'CCAS', statut: 'Annulé' };
+  it('CANCEL, STATUS:CANCELLED et le même UID que la création', () => {
+    const cree = buildICS([e]), annule = buildICS([e], true);
+    const uid = s => (s.match(/UID:[^\r\n]+/) || [''])[0];
+    assert.ok(/METHOD:PUBLISH/.test(cree) && !/STATUS:CANCELLED/.test(cree));
+    assert.ok(/METHOD:CANCEL/.test(annule) && /STATUS:CANCELLED/.test(annule) && /SEQUENCE:1/.test(annule));
+    assert.equal(uid(annule), uid(cree));
+    assert.ok(/SUMMARY:Annulé : Atelier CCAS/.test(annule));
+  });
+});
