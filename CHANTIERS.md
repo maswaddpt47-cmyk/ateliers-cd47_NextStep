@@ -1,24 +1,22 @@
 # Chantiers en cours — Ateliers CD47 NextStep
 
-État au **04/11/2026, 22:48 (heure de Paris)**, base `main` `cb9985e`.
-**Champ « Ouvert à tous » (AG-047) livré le 04/11/2026** avec NEWGEN : formulaire, filtre de
-l'Historique, colonne XLSX, page TS (filtre activé dans Admin → Visibilité). Détail et essais
-à faire : `CHANTIERS.md` de NEWGEN.
-Dernière livraison fonctionnelle : `b076d21`, alignée sur NEWGEN `36db64f`
-(tests, déploiements et parité verts). Livré le 04/11 : page des travailleurs sociaux (tuile à
-l'image de l'Historique, titre « Agenda des ateliers collectifs… », première connexion sans
-code), message et mail des tickets, validation des anomalies — `git log`. **Reprise :
-section « À reprendre en premier » du `CHANTIERS.md` de NEWGEN.**
+État au **05/11/2026, 17:32 (heure de Paris)**, base `main` `c59833e`.
+Dernière livraison fonctionnelle : `c59833e`, alignée sur NEWGEN `bf7bdf3`.
+CI Pages en succès observée le 05/11/2026 (run `42051245179`).
 
-**Passation Codex — 04/11/2026** : AG-045 et AG-046 confirmés dans NEWGEN `85b5d7b`.
-La consigne **✅ TÂCHE TERMINÉE** est dans les deux `AGENTS.md` (NextStep `5434557`,
-NEWGEN `137198a`). Les `CLAUDE.md` ont été allégés (`4a80510` / `2d78af9`).
-Les confirmations GitHub répétées restent non résolues malgré le réglage d'autorisation ;
-constat et suites partagés consignés dans `ATELIERS_NEWGEN/CHANTIERS.md`.
+**Passation Codex — 05/11/2026** : repartir d'une copie propre de `main`, sans
+réappliquer d'anciens brouillons. Aucun bloc AGORA ouvert dans NEWGEN ; les
+blocs AG-047 à AG-051 sont clos, pas de nouvelle revue automatique.
+Statut groupé et volet Détail livrés ; validation du volet par l'utilisateur
+consignée dans NEWGEN. Ces derniers ajouts n'ont pas été réaudités par Codex.
 
-**Consignes Codex (04/11/2026)** : `AGENTS.md` aligné sur MD-LIB `17413bd`
-(autorisations, tous les tests du déploiement avant push, « Main toujours »).
-Mise à jour documentaire seule ; aucune nouvelle revue des correctifs livrés.
+**Consignes communes** : lire `MD-LIB/collaboration.md` et les consignes locales.
+L'annonce **✅ TÂCHE TERMINÉE** est déjà dans cet `AGENTS.md` et dans MD-LIB
+(`9c4f349`, règle 18) ; une session déjà ouverte doit relire explicitement les
+sources. Les autres projets se mettent à jour au prochain pull, sans propagation groupée.
+**Suite** : reprendre `ATELIERS_NEWGEN/CHANTIERS.md` et son `AGORA.md` actualisés ;
+les vérifications, limites et blocages communs y sont tenus. Aucun test produit
+relancé pour cette passation documentaire.
 
 NextStep (équipe) et NEWGEN (utilisateur) parlent à
 la même API Alwaysdata et à la même base depuis la bascule du 25/09/2026 :
