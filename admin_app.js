@@ -904,7 +904,12 @@ function VueAccesTS(){
     setEnCours(email+action);setMdp(null);setCopie(false);
     try{
       const r=await apiFetch(action,{email,...(extra||{})});
-      if(r&&r.ok){if(r.newPassword)setMdp({email:r.email||email,newPassword:r.newPassword});if(action==='tsCreerCompte')setSaisie('');showToast('✅ Fait');await charger();}
+      if(r&&r.ok){
+        // AG-050 : le provisoire part par mail ; affiché seulement si le mail n'a pas pu partir.
+        if(r.newPassword)setMdp({email:r.email||email,newPassword:r.newPassword,nonEnvoye:r.mailEnvoye===false});
+        if(action==='tsCreerCompte')setSaisie('');
+        showToast(r.mailEnvoye?'✅ Mot de passe provisoire envoyé par mail à '+(r.email||email):r.newPassword?'⚠️ Mail non parti : transmettez le mot de passe affiché':'✅ Fait',!(r.mailEnvoye===false));
+        await charger();}
       else showToast('❌ '+(r&&r.error||'Erreur serveur'),false);
     }catch(_){showToast('❌ Hors-ligne',false);}
     finally{setEnCours('');}
@@ -914,10 +919,10 @@ function VueAccesTS(){
   const fmt=d=>{const m=String(d||'').match(/^(\d{4})-(\d{2})-(\d{2})/);return m?m[3]+'/'+m[2]+'/'+m[1]:'';};
   return CE('div',{className:'admin-section'},
     CE('h3',null,'🤝 Accès travailleurs sociaux'),
-    CE('p',{style:{fontSize:12,color:'#4a5568',marginBottom:8}},'Page de consultation (ateliers planifiés à venir, sans menu, lecture seule) : ',CE('a',{href:page,target:'_blank',rel:'noopener'},page),'. Seules les adresses @lotetgaronne.fr sont acceptées. Le compte se crée tout seul à la demande : le mot de passe provisoire part par mail à l\'agent (à changer à la première connexion, supprimé au bout de 30 jours s\'il n\'est jamais changé). « Mot de passe oublié » marche de même, par mail. Vous pouvez aussi créer un compte ici ou vous connecter avec vos propres accès.'),
+    CE('p',{style:{fontSize:12,color:'#4a5568',marginBottom:8}},'Page de consultation (ateliers planifiés à venir, sans menu, lecture seule) : ',CE('a',{href:page,target:'_blank',rel:'noopener'},page),'. Seules les adresses @lotetgaronne.fr sont acceptées. Le compte se crée tout seul à la demande : le mot de passe provisoire part par mail à l\'agent (à changer à la première connexion, supprimé au bout de 30 jours s\'il n\'est jamais changé). « Mot de passe oublié » marche de même, par mail. Vous pouvez aussi créer un compte ici : le mot de passe provisoire part par mail à l\'agent, comme avec « Provisoire ». Vous pouvez vous connecter avec vos propres accès.'),
     erreur&&CE('p',{style:{fontSize:13,color:'#c53030'}},'❌ '+erreur),
     mdp&&CE('div',{style:{margin:'8px 0 12px',padding:'12px 14px',background:'#f0fff4',border:'1.5px solid #9ae6b4',borderRadius:8}},
-      CE('div',{style:{fontSize:12,color:'#276749',fontWeight:700,marginBottom:6}},'✅ Mot de passe provisoire de '+mdp.email+' (affiché une seule fois) :'),
+      CE('div',{style:{fontSize:12,color:mdp.nonEnvoye?'#c05621':'#276749',fontWeight:700,marginBottom:6}},(mdp.nonEnvoye?'⚠️ Le mail n\'a pas pu partir. Transmettez vous-même le mot de passe provisoire de ':'✅ Mot de passe provisoire de ')+mdp.email+' (affiché une seule fois) :'),
       CE('div',{style:{display:'flex',alignItems:'center',gap:10}},
         CE('code',{style:{fontFamily:"'SF Mono',Consolas,monospace",fontSize:14,color:'#22543d',background:'#fff',border:'1px solid #9ae6b4',borderRadius:6,padding:'4px 10px'}},mdp.newPassword),
         CE('button',{className:'btn btn-sm btn-secondary',onClick:()=>{navigator.clipboard.writeText(mdp.newPassword).then(()=>{setCopie(true);setTimeout(()=>setCopie(false),1200);});}},copie?'✅ Copié':'📋 Copier')
@@ -934,7 +939,7 @@ function VueAccesTS(){
         CE('button',{className:'btn btn-sm btn-danger',disabled:!!enCours,onClick:()=>agir('tsSupprimer',c.email,null,'Supprimer définitivement le compte de '+c.email+' ?')},'🗑 Supprimer')
       )),
       CE('div',{style:{display:'flex',gap:8,flexWrap:'wrap',alignItems:'flex-end',marginTop:12}},
-        CE('div',{style:{flex:'1 1 220px'}},CE('label',{style:{fontSize:12}},'Créer un compte à la main (e-mail @lotetgaronne.fr, mot de passe affiché ici)'),
+        CE('div',{style:{flex:'1 1 220px'}},CE('label',{style:{fontSize:12}},'Créer un compte à la main (e-mail @lotetgaronne.fr, mot de passe provisoire envoyé par mail)'),
           CE('input',{type:'email',value:saisie,onChange:e=>setSaisie(e.target.value),placeholder:'prenom.nom@lotetgaronne.fr',style:{display:'block',width:'100%',marginTop:4,padding:'8px 12px',border:'1px solid #e2e8f0',borderRadius:6,fontSize:13}})),
         CE('button',{className:'btn btn-primary',disabled:!saisie.trim()||!!enCours,onClick:()=>agir('tsCreerCompte',saisie.trim())},'➕ Créer')
       )
