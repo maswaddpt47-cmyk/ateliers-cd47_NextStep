@@ -296,3 +296,19 @@ test('historique — sélection multiple : passer en Annulé, un seul saveMany',
   expect(etat.erreurs).toEqual([]);
 });
 
+// Volet Détail (05/11/2026) : commune, lieu, orienteur, conseiller et co-animateur modifiables sur place.
+test('historique — volet : lieu modifié sur place et enregistré',async({page})=>{
+  const etat=await preparer(page);
+  await connecter(page,'index.html');
+  await nav(page,'Historique');
+  await page.getByText('Atelier témoin',{exact:true}).filter({visible:true}).first().click();
+  const lieuVolet=page.getByPlaceholder('Salle, médiathèque, établissement…').filter({visible:true}).last();
+  await expect(lieuVolet).toHaveValue(TEMOIN.lieu);
+  await lieuVolet.fill('Salle modifiée dans le volet');
+  await page.getByRole('button',{name:/Enregistrer/}).filter({visible:true}).last().click();
+  await expect.poll(()=>etat.ecritures.filter(e=>e.action==='saveEntry').length).toBe(1);
+  const e=etat.ecritures.find(x=>x.action==='saveEntry').entry;
+  expect([e.lieu,e.commune,e.conseiller]).toEqual(['Salle modifiée dans le volet',TEMOIN.commune,TEMOIN.conseiller]);
+  expect(etat.erreurs).toEqual([]);
+});
+

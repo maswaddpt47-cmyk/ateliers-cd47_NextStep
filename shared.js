@@ -2590,6 +2590,9 @@ function PanneauAtelier({panel,onClose,entries,onEntryUpdated,onRefresh,onEdit,o
   const[panelNbOrdi,setPanelNbOrdi]=React.useState('');
   const[panelPublic,setPanelPublic]=React.useState('');
   const[panelOuvert,setPanelOuvert]=React.useState('');
+  // Identité de l'atelier modifiable dans le volet (demande du 05/11/2026).
+  const[panelCommune,setPanelCommune]=React.useState('');const[panelLieu,setPanelLieu]=React.useState('');
+  const[panelOrienteur,setPanelOrienteur]=React.useState('');const[panelConseiller,setPanelConseiller]=React.useState('');const[panelCoAnim,setPanelCoAnim]=React.useState('');
   const[panelMobile,setPanelMobile]=React.useState(false);
   const[panelPrelev,setPanelPrelev]=React.useState('');
   const[panelRetour,setPanelRetour]=React.useState('');
@@ -2598,7 +2601,7 @@ function PanneauAtelier({panel,onClose,entries,onEntryUpdated,onRefresh,onEdit,o
   const[qrAvis,setQrAvis]=React.useState(null);
   const[saving,setSaving]=React.useState(false);
   // Réinitialise les champs à chaque atelier ouvert (ce que faisait openPanel).
-  React.useEffect(()=>{if(!panel)return;const e=panel;setPanelStatut(e.statut);setPanelInscrits(e.inscrits===undefined||e.inscrits===''?'':String(e.inscrits));setPanelPresents(e.presents===undefined||e.presents===''?'':String(e.presents));setPanelThematique(e.thematique||'');setPanelNote(e.remarques||'');setPanelDate(normalizeDate(e.date)||'');setPanelHoraire(normalizeHoraire(e.horaire)||'');setPanelDuree(parseInt(e.duree)||DUREE_DEFAUT);setPanelBilan(e.fiche_bilan&&typeof e.fiche_bilan==='object'?e.fiche_bilan:{});setPanelNbOrdi(e.nb_ordinateurs===undefined||e.nb_ordinateurs===''||e.nb_ordinateurs===null?'':String(e.nb_ordinateurs));setPanelPublic(e.public||'');setPanelOuvert(e.ouvert_a_tous==='Oui'?'Oui':'Non');setPanelMobile(matIncludes(e.materiel,'Classe mobile'));setPanelPrelev(normalizeDate(e.date_prelevement_materiel)||'');setPanelRetour(normalizeDate(e.date_retour_materiel)||'');},[panel]);
+  React.useEffect(()=>{if(!panel)return;const e=panel;setPanelStatut(e.statut);setPanelInscrits(e.inscrits===undefined||e.inscrits===''?'':String(e.inscrits));setPanelPresents(e.presents===undefined||e.presents===''?'':String(e.presents));setPanelThematique(e.thematique||'');setPanelNote(e.remarques||'');setPanelDate(normalizeDate(e.date)||'');setPanelHoraire(normalizeHoraire(e.horaire)||'');setPanelDuree(parseInt(e.duree)||DUREE_DEFAUT);setPanelBilan(e.fiche_bilan&&typeof e.fiche_bilan==='object'?e.fiche_bilan:{});setPanelNbOrdi(e.nb_ordinateurs===undefined||e.nb_ordinateurs===''||e.nb_ordinateurs===null?'':String(e.nb_ordinateurs));setPanelPublic(e.public||'');setPanelOuvert(e.ouvert_a_tous==='Oui'?'Oui':'Non');setPanelCommune(e.commune||'');setPanelLieu(e.lieu||'');setPanelOrienteur(e.orienteur||'');setPanelConseiller(e.conseiller||'');setPanelCoAnim(e.co_animateur||'');setPanelMobile(matIncludes(e.materiel,'Classe mobile'));setPanelPrelev(normalizeDate(e.date_prelevement_materiel)||'');setPanelRetour(normalizeDate(e.date_retour_materiel)||'');},[panel]);
   const closePanel=onClose;
   async function savePanel(){
     if(!panel)return;if(!panelDate){showToast('❌ Date requise',false);return;}if(panelMobile&&!(parseInt(panelNbOrdi)>0)){showToast('❌ Ordinateurs prêtés requis avec la Classe mobile',false);return;}
@@ -2607,7 +2610,7 @@ function PanneauAtelier({panel,onClose,entries,onEntryUpdated,onRefresh,onEdit,o
     }
     setSaving(true);
     try{
-      const updated={...panel,fiche_bilan:panelStatut==='Réalisé'?(Object.keys(panelBilan).length?panelBilan:''):(panel.fiche_bilan||''),statut:panelStatut,inscrits:panelInscrits===''?'':parseInt(panelInscrits)||0,presents:panelPresents===''?'':parseInt(panelPresents)||0,thematique:panelThematique,date:panelDate,horaire:panelHoraire,ampm:ampmDepuisHoraire(panelHoraire)||panel.ampm,duree:parseInt(panelDuree)||DUREE_DEFAUT,public:panelPublic,ouvert_a_tous:OUVERT_A_TOUS_CHOIX.includes(panelOuvert)?panelOuvert:(panel.ouvert_a_tous||'Non'),nb_ordinateurs:panelMobile?(panelNbOrdi===''?'':parseInt(panelNbOrdi)||0):'',date_prelevement_materiel:panelMobile?panelPrelev:'',date_retour_materiel:panelMobile?panelRetour:'',remarques:panelNote,materiel:matierePanneau(panel,panelMobile).join('|')};
+      const updated={...panel,fiche_bilan:panelStatut==='Réalisé'?(Object.keys(panelBilan).length?panelBilan:''):(panel.fiche_bilan||''),statut:panelStatut,inscrits:panelInscrits===''?'':parseInt(panelInscrits)||0,presents:panelPresents===''?'':parseInt(panelPresents)||0,thematique:panelThematique,date:panelDate,horaire:panelHoraire,ampm:ampmDepuisHoraire(panelHoraire)||panel.ampm,duree:parseInt(panelDuree)||DUREE_DEFAUT,commune:panelCommune.trim()||panel.commune,lieu:panelLieu.trim()||panel.lieu,orienteur:panelOrienteur.trim()||panel.orienteur,conseiller:panelConseiller||panel.conseiller,co_animateur:panelCoAnim===panelConseiller?'':panelCoAnim,public:panelPublic,ouvert_a_tous:OUVERT_A_TOUS_CHOIX.includes(panelOuvert)?panelOuvert:(panel.ouvert_a_tous||'Non'),nb_ordinateurs:panelMobile?(panelNbOrdi===''?'':parseInt(panelNbOrdi)||0):'',date_prelevement_materiel:panelMobile?panelPrelev:'',date_retour_materiel:panelMobile?panelRetour:'',remarques:panelNote,materiel:matierePanneau(panel,panelMobile).join('|')};
       const res=await apiFetch('saveEntry',{entry:updated});
       if(!res.ok)throw new Error(res.error);
       showToast('✅ Mis à jour');closePanel();
@@ -2649,10 +2652,18 @@ function PanneauAtelier({panel,onClose,entries,onEntryUpdated,onRefresh,onEdit,o
               panelStatut!==panel.statut&&CE('span',{style:{color:'#b45309',fontWeight:600}},' (pas encore enregistré — avant : '+(panel.statut||'—')+')'))
           ),
           CE('div',{style:{fontSize:13,fontWeight:700,color:'#1a202c',marginBottom:8}},panel.thematique),
-          CE('div',{className:'sp-info-row'},CE('span',null,'Commune'),CE('span',null,panel.commune)),
-          CE('div',{className:'sp-info-row'},CE('span',null,'Lieu'),CE('span',null,panel.lieu)),
-          panel.orienteur&&CE('div',{className:'sp-info-row'},CE('span',null,'Orienteur'),CE('span',null,panel.orienteur)),
-          CE('div',{className:'sp-info-row'},CE('span',null,'Conseiller'),CE('span',{style:{color:conseillerColor(panel.conseiller),fontWeight:700}},panel.conseiller)),panel.co_animateur&&CE('div',{className:'sp-info-row'},CE('span',null,'Co-animateur'),CE('span',{style:{color:conseillerColor(panel.co_animateur),fontWeight:700}},panel.co_animateur)),
+          CE('div',{className:'sp-field'},CE('label',null,'Commune'),CE(ComboCommune,{value:panelCommune,onChange:setPanelCommune,hasError:false})),
+          CE('div',{className:'sp-field'},CE('label',null,'Lieu'),
+            CE('input',{type:'text',value:panelLieu,onChange:e=>setPanelLieu(e.target.value),placeholder:'Salle, médiathèque, établissement…',style:{width:'100%',padding:'8px 10px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:13}})),
+          CE('div',{className:'sp-field'},CE('label',null,'Orienteur'),CE(ComboOrienteur,{value:panelOrienteur,onChange:setPanelOrienteur,entries,hasError:false})),
+          CE('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}},
+            CE('div',{className:'sp-field'},CE('label',null,'Conseiller'),
+              CE('select',{value:panelConseiller,onChange:e=>setPanelConseiller(e.target.value),style:{width:'100%',padding:'8px 10px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:13}},
+                [...CONSEILLERS,...(panelConseiller&&!CONSEILLERS.includes(panelConseiller)?[panelConseiller]:[])].map(c=>CE('option',{key:c,value:c},c)))),
+            CE('div',{className:'sp-field'},CE('label',null,'Co-animateur'),
+              CE('select',{value:panelCoAnim,onChange:e=>setPanelCoAnim(e.target.value),style:{width:'100%',padding:'8px 10px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:13}},
+                CE('option',{value:''},'— Aucun —'),
+                [...CONSEILLERS,...(panelCoAnim&&!CONSEILLERS.includes(panelCoAnim)?[panelCoAnim]:[])].filter(c=>c!==panelConseiller).map(c=>CE('option',{key:c,value:c},c))))),
           panel.materiel&&panel.materiel.length>0&&CE('div',{style:{marginTop:10,marginBottom:4}},
             CE('div',{style:{fontSize:11,fontWeight:700,color:'#718096',marginBottom:4}},'MATÉRIEL'),
             panel.materiel.map(m=>CE('span',{key:m,className:'mat-chip'},m))
