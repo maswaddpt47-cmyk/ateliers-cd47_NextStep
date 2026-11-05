@@ -106,3 +106,14 @@ test('politique d\'appel GAS', async (t) => {
     assert.ok(!/GAS_TIMEOUT_MS/.test(SRC), 'GAS_TIMEOUT_MS (35 s/25 s) doit avoir disparu');
   });
 });
+
+// AG-050 (Codex, 05/11/2026) : tsCreerCompte et tsReinitMdp créent un provisoire et envoient un
+// mail à chaque appel ; jamais rejoués après une réponse perdue (une seule tentative).
+test('provisoire TS : jamais rejoué — GAS_SANS_REPRISE, une seule tentative', () => {
+  {
+    const m = /const GAS_SANS_REPRISE = new Set\(\[([^\]]*)\]\)/.exec(SRC);
+    assert.ok(m, 'GAS_SANS_REPRISE introuvable');
+    assert.ok(/'tsCreerCompte'/.test(m[1]) && /'tsReinitMdp'/.test(m[1]));
+    assert.ok(/const tentatives = GAS_SANS_REPRISE\.has\(action\) \? 1 :/.test(SRC), 'la tentative unique n\'est plus appliquée');
+  }
+});

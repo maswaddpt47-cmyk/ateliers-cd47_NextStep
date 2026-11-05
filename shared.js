@@ -646,6 +646,9 @@ const GAS_ACTIONS_ECRITURE = new Set([
 const GAS_HEDGE_MS            = 7000;   // délai avant de doubler une lecture
 const GAS_TENTATIVES_LECTURE  = 3;
 const GAS_TENTATIVES_ECRITURE = 2;
+// Une seule tentative, jamais rejouées (AG-050, Codex) : chaque appel crée un nouveau mot de passe
+// provisoire et envoie un mail ; une reprise après une réponse perdue en enverrait un second.
+const GAS_SANS_REPRISE = new Set(['tsCreerCompte','tsReinitMdp']);
 const GAS_PAUSE_LECTURE_MS    = 300;    // inutile d'attendre : ce n'est pas une file d'attente
 const GAS_PAUSE_ECRITURE_MS   = 1000;   // laisse retomber une écriture encore en vol
 const GAS_BUDGET_TOTAL_MS     = 45000;  // au-delà, on rend la main (bouton Réessayer)
@@ -812,7 +815,7 @@ window.gasAppel = async function(url, action, corps){
   const plafond    = gasPlafond(action, ecriture);
   const pause      = ecriture ? GAS_PAUSE_ECRITURE_MS   : GAS_PAUSE_LECTURE_MS;
   const doubler    = !ecriture && !GAS_SANS_DOUBLON.has(action);
-  const tentatives = ecriture ? GAS_TENTATIVES_ECRITURE : GAS_TENTATIVES_LECTURE;
+  const tentatives = GAS_SANS_REPRISE.has(action) ? 1 : ecriture ? GAS_TENTATIVES_ECRITURE : GAS_TENTATIVES_LECTURE;
   const t0 = Date.now();
   let derniere = null;
   for(let n=1; n<=tentatives; n++){

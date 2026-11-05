@@ -911,7 +911,13 @@ function VueAccesTS(){
         showToast(r.mailEnvoye?'✅ Mot de passe provisoire envoyé par mail à '+(r.email||email):r.newPassword?'⚠️ Mail non parti : transmettez le mot de passe affiché':'✅ Fait',!(r.mailEnvoye===false));
         await charger();}
       else showToast('❌ '+(r&&r.error||'Erreur serveur'),false);
-    }catch(_){showToast('❌ Hors-ligne',false);}
+    }catch(_){
+      // AG-050 : jamais rejoué automatiquement ; le mail est peut-être parti.
+      showToast(action==='tsCreerCompte'||action==='tsReinitMdp'
+        ?'⚠️ Pas de réponse du serveur : le mail est peut-être déjà parti. Demandez à l\'agent s\'il l\'a reçu avant de recliquer.'
+        :'❌ Hors-ligne',false);
+      if(action==='tsCreerCompte'||action==='tsReinitMdp')charger();
+    }
     finally{setEnCours('');}
   }
   const page=location.origin+location.pathname.replace(/[^/]*$/,'ts.html');
