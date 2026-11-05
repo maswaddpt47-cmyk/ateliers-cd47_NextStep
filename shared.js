@@ -5192,8 +5192,9 @@ function VuePlanning({annees,entries,onEdit,onDelete,onDuplicate,canDelete,accen
     const {visibles,inactive:tous}=ateliersDemiCase(liste);
     const e=visibles[0],c=conseillerColor(e.conseiller),retard=visibles.some(isRetard);
     return CE('div',{
-      title:liste.map(x=>(x.horaire||(demi==='AM'?'matin':'après-midi'))+' '+(x.thematique||'—')+' — '+(x.commune||'')+' ('+(x.statut||'')+')').join('\n'),
-      onClick:ev=>{setSurvol(null);if(liste.length===1)setSelectedEntry(e);else setChoix({x:ev.clientX,y:ev.clientY,liste});},
+      title:visibles.map(x=>(x.horaire||(demi==='AM'?'matin':'après-midi'))+' '+(x.thematique||'—')+' — '+(x.commune||'')+' ('+(x.statut||'')+')').join('\n'),
+      // Liste au clic : les mêmes ateliers que la case (un annulé à côté d'un actif n'y figure plus, demande du 05/11/2026).
+      onClick:ev=>{setSurvol(null);if(visibles.length===1)setSelectedEntry(e);else setChoix({x:ev.clientX,y:ev.clientY,liste:visibles});},
       style:{height:16,margin:'1px 2px',borderRadius:4,cursor:'pointer',background:visibles.some(x=>x.statut==='Réalisé')?c:c+'cc',
         color:'#fff',fontSize:10,fontWeight:800,lineHeight:'16px',textAlign:'center',
         outline:retard?'2px solid #dc2626':'none',outlineOffset:-1,...(tous?STYLE_STATUT[e.statut]:{})}},
