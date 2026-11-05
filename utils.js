@@ -106,6 +106,15 @@ const DUREE_DEFAUT=90;
 // création ; les ateliers d'avant valent « Non ». Filtre : 'Tous', 'Oui' ou
 // 'Non' ; appliqué comme les autres filtres de l'Historique, tuiles comprises (AG-048).
 const OUVERT_A_TOUS_CHOIX=['Oui','Non'];
+// Planning, vue Mois (AG-051, 05/11/2026) : une demi-journée ne compte et ne colore que ses
+// ateliers actifs ; les inactifs (annulé, non réalisé, reporté) ne s'y montrent, estompés, que
+// s'il n'y a rien d'autre. Renvoie {visibles, inactive} ; la liste au clic garde tout.
+const STATUTS_INACTIFS=['Annulé','Non réalisé','Reporté'];
+function ateliersDemiCase(liste){
+  const l=liste||[];
+  const actifs=l.filter(e=>!STATUTS_INACTIFS.includes(e&&e.statut));
+  return actifs.length?{visibles:actifs,inactive:false}:{visibles:l,inactive:l.length>0};
+}
 function filtrerOuvertATous(liste,choix){
   if(!OUVERT_A_TOUS_CHOIX.includes(choix))return liste;
   return (liste||[]).filter(e=>(e&&e.ouvert_a_tous==='Oui'?'Oui':'Non')===choix);
@@ -982,7 +991,7 @@ if (typeof module !== 'undefined') {
     normCommune,normalizeCommune,stripAccents,htmlEsc,trunc,
     normalizeDate,normalizeHoraire,fmtDate,fmtCardDate,todayLocal,addJoursIso,
     escapeICS,foldICSLine,parseHoraireICS,parseDateICS,buildICS,
-    DUREE_DEFAUT,DUREES_ATELIER,OUVERT_A_TOUS_CHOIX,filtrerOuvertATous,dureeArrondie,fmtDuree,minutesHoraire,voiesPlanning,urlApiPour,urlAvisPour,rappelFichePrevu,BILAN_CHOIX,BILAN_MULTIPLES,basculerBilan,
+    DUREE_DEFAUT,DUREES_ATELIER,OUVERT_A_TOUS_CHOIX,filtrerOuvertATous,STATUTS_INACTIFS,ateliersDemiCase,dureeArrondie,fmtDuree,minutesHoraire,voiesPlanning,urlApiPour,urlAvisPour,rappelFichePrevu,BILAN_CHOIX,BILAN_MULTIPLES,basculerBilan,
     resumeLogsTexte,
     suppressionAboutie,
     anneesListe,

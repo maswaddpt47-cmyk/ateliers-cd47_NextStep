@@ -5188,15 +5188,16 @@ function VuePlanning({annees,entries,onEdit,onDelete,onDuplicate,canDelete,accen
   function demiCase(nom,j,demi){
     const liste=parDemi[nom+'|'+j+'|'+demi]||[];
     if(!liste.length)return CE('div',{style:{height:18}});
-    const e=liste[0],c=conseillerColor(e.conseiller),retard=liste.some(isRetard);
-    const tous=liste.every(x=>STYLE_STATUT[x.statut]);
+    // AG-051 : chiffre et couleur sur les ateliers actifs ; un annulé ne compte plus à côté d'un actif.
+    const {visibles,inactive:tous}=ateliersDemiCase(liste);
+    const e=visibles[0],c=conseillerColor(e.conseiller),retard=visibles.some(isRetard);
     return CE('div',{
       title:liste.map(x=>(x.horaire||(demi==='AM'?'matin':'après-midi'))+' '+(x.thematique||'—')+' — '+(x.commune||'')+' ('+(x.statut||'')+')').join('\n'),
       onClick:ev=>{setSurvol(null);if(liste.length===1)setSelectedEntry(e);else setChoix({x:ev.clientX,y:ev.clientY,liste});},
-      style:{height:16,margin:'1px 2px',borderRadius:4,cursor:'pointer',background:liste.some(x=>x.statut==='Réalisé')?c:c+'cc',
+      style:{height:16,margin:'1px 2px',borderRadius:4,cursor:'pointer',background:visibles.some(x=>x.statut==='Réalisé')?c:c+'cc',
         color:'#fff',fontSize:10,fontWeight:800,lineHeight:'16px',textAlign:'center',
         outline:retard?'2px solid #dc2626':'none',outlineOffset:-1,...(tous?STYLE_STATUT[e.statut]:{})}},
-      liste.length>1?liste.length:'');
+      visibles.length>1?visibles.length:'');
   }
   const navMois=CE('div',{style:{display:'flex',gap:4}},
     CE('button',{className:'btn btn-secondary btn-sm',onClick:()=>setMoisOffset(m=>m-1)},'← Préc.'),
@@ -5297,7 +5298,7 @@ function VuePlanning({annees,entries,onEdit,onDelete,onDuplicate,canDelete,accen
         background:'var(--surface,#fff)',border:'1px solid var(--border,#e2e8f0)',borderRadius:8,boxShadow:'0 6px 18px rgba(0,0,0,.2)',padding:4}},
         choix.liste.map(e=>CE('button',{key:e._id,onClick:()=>{setChoix(null);setSelectedEntry(e);},
           style:{display:'block',width:'100%',textAlign:'left',border:'none',background:'transparent',padding:'6px 8px',fontSize:12,cursor:'pointer',borderRadius:6,color:'var(--text,#1a202c)'}},
-          (e.horaire||'—')+' · '+(e.thematique||'—')+(e.commune?' · '+e.commune:''))))),
+          (e.horaire||'—')+' · '+(e.thematique||'—')+(e.commune?' · '+e.commune:'')+(STATUTS_INACTIFS.includes(e.statut)?' · '+e.statut:''))))),
     CE(PanneauAtelier,{panel:selectedEntry,onClose:()=>setSelectedEntry(null),entries,onEdit,onDuplicate,canDelete,
       onAskDelete:e=>setConfirmDel({id:e._id,label:`${fmtDate(e.date)} — ${e.thematique||e.commune||e._id}`})}),
     confirmDel&&CE(ConfirmModal,{

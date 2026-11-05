@@ -910,3 +910,18 @@ describe('filtrerOuvertATous', () => {
     assert.equal(kpiHistorique(filtrerOuvertATous(liste, 'Non')).total, 2);
   });
 });
+
+// AG-051 : une demi-journée du Planning ne compte que ses ateliers actifs.
+describe('ateliersDemiCase', () => {
+  const { ateliersDemiCase } = require('./utils.js');
+  it('un annulé à côté d\'un actif ne compte pas', () => {
+    const r = ateliersDemiCase([{ _id: 'a', statut: 'Annulé' }, { _id: 'b', statut: 'Planifié' }]);
+    assert.deepEqual(r.visibles.map(e => e._id), ['b']);
+    assert.equal(r.inactive, false);
+  });
+  it('seulement des inactifs : montrés, estompés', () => {
+    const r = ateliersDemiCase([{ _id: 'a', statut: 'Annulé' }, { _id: 'c', statut: 'Reporté' }]);
+    assert.equal(r.visibles.length, 2);
+    assert.equal(r.inactive, true);
+  });
+});
