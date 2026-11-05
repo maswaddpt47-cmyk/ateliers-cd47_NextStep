@@ -1505,11 +1505,12 @@ function VueAdminV10({entries,onRefresh,addLog,conseillersList,onSaveColors,anne
       ),
       CE(VueAccesTS,null),
 
-      CE('div',{className:'admin-section',style:{border:'2px solid '+(maintenanceOn?'#dc2626':'#fca5a5'),background:maintenanceOn?'#fff5f5':undefined}},
+      // Coupée : liseré et fond du thème, comme les autres sections (clair et sombre) ; active : rouge vif.
+      CE('div',{className:'admin-section',style:maintenanceOn?{border:'2px solid #dc2626',background:'rgba(220,38,38,.08)'}:undefined},
         CE('h3',null,'🔧 Mode Maintenance'),
         CE('p',{style:{fontSize:12,color:'#4a5568',marginBottom:16}},"Activez pour bloquer l'accès à l'interface conseiller."),
         maintenanceLoaded&&CE('div',null,
-          CE('div',{style:{display:'flex',alignItems:'center',gap:16,marginBottom:14,padding:'12px 16px',background:maintenanceOn?'#fef2f2':'#f0fdf4',borderRadius:10,border:'1px solid '+(maintenanceOn?'#fca5a5':'#86efac')}},
+          CE('div',{style:{display:'flex',alignItems:'center',gap:16,marginBottom:14,padding:'12px 16px',background:maintenanceOn?'rgba(220,38,38,.10)':'rgba(22,163,74,.10)',borderRadius:10,border:'1px solid '+(maintenanceOn?'#fca5a5':'#86efac')}},
             CE('div',{style:{flex:1}},
               CE('div',{style:{fontWeight:700,fontSize:14,color:maintenanceOn?'#dc2626':'#16a34a'}},maintenanceOn?'🔴 Maintenance ACTIVE':'🟢 Application en ligne'),
               CE('div',{style:{fontSize:12,color:'#718096',marginTop:2}},maintenanceOn?'Les conseillers voient l\'écran de maintenance.':'Les conseillers ont accès normalement.')
