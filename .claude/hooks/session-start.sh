@@ -17,6 +17,7 @@ node --test utils.test.js       2>&1 | tail -4 || FAIL=1
 node --test logic.test.js       2>&1 | tail -4 || FAIL=1
 node --test contract.test.js    2>&1 | tail -4 || FAIL=1
 node --test integration.test.js 2>&1 | tail -4 || FAIL=1
+node --test reseau.test.js      2>&1 | tail -4 || FAIL=1
 
 echo "🌐 Tests Playwright (smoke)..."
 UI_CHANGED=$(git log --name-only -5 --format="" 2>/dev/null | grep -E '^shared\.js$|\.html$' | head -1)
