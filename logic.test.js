@@ -911,3 +911,28 @@ describe('bilanPeriode — bilan à date et « À venir » (AG-038, 28/10/2026)'
     assert.deepEqual([f.activite.programmes, f.aVenir.ateliers], [0, 3]);
   });
 });
+
+describe('Sauvegardes : dernière copie de nuit (AG-052)', () => {
+  const { derniereCopieNuit } = require('./logic.js');
+  it('ignore les copies de déploiement ou manuelles, garde la plus récente de 02:00 à 04:59', () => {
+    const copies = [
+      { nom: 'c', date: '2026-11-05 09:12:00' },
+      { nom: 'b', date: '2026-11-05 03:00:12' },
+      { nom: 'z', date: '2026-11-04 01:59:59' },
+      { nom: 'a', date: '2026-11-04 03:00:05' },
+      { nom: 'y', date: '2026-11-03 05:00:00' },
+    ];
+    assert.equal(derniereCopieNuit(copies).nom, 'b');
+    assert.equal(derniereCopieNuit(copies.filter(c => c.nom !== 'b')).nom, 'a');
+    assert.equal(derniereCopieNuit([copies[3], copies[1]]).nom, 'b', 'liste non triée');
+  });
+  it('bornes : 01:59 et 05:00 exclues, 04:59 retenue', () => {
+    const copies = [{ nom: 'cinq', date: '2026-11-05 05:00:00' }, { nom: 'une', date: '2026-11-05 01:59:59' }, { nom: 'quatre', date: '2026-11-04 04:59:59' }];
+    assert.equal(derniereCopieNuit(copies).nom, 'quatre');
+  });
+  it('aucune copie de nuit, liste vide ou absente : null', () => {
+    assert.equal(derniereCopieNuit([{ date: '2026-11-05 09:12:00' }, { date: 'n/a' }]), null);
+    assert.equal(derniereCopieNuit([]), null);
+    assert.equal(derniereCopieNuit(undefined), null);
+  });
+});

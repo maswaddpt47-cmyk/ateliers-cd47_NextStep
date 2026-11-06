@@ -703,8 +703,26 @@ function comparaisonAnnuelle(entries, options = {}) {
   return result;
 }
 
+// Sauvegardes (AG-052) : la tuile « Copie de nuit » ne retient que les copies
+// datées entre 02:00 et 04:59. Les copies des déploiements et du bouton
+// « Faire une copie maintenant » portent le même nom de fichier : sans ce
+// filtre, une nuit en panne suivie d'un déploiement restait verte.
+// copies : [{date:'AAAA-MM-JJ HH:MM:SS', ...}] → la plus récente de nuit, ou null.
+function derniereCopieNuit(copies) {
+  let res = null;
+  for (const c of copies || []) {
+    const d = String((c && c.date) || '');
+    if (!/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}/.test(d)) continue;
+    const h = Number(d.slice(11, 13));
+    if (h < 2 || h > 4) continue;
+    if (!res || d > res.date) res = c;
+  }
+  return res;
+}
+
 if (typeof module !== 'undefined') {
   module.exports = {
+    derniereCopieNuit,
     comparaisonAnnuelle,
     filterMaterielsVisibles,
     findMobileClassConflicts,

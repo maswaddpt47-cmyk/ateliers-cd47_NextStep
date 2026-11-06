@@ -1074,7 +1074,10 @@ function VueSauvegardes(){
   // Une copie de plus de 26 h veut dire que la tâche de nuit n'a pas tourné.
   const age=s=>{ if(!s) return Infinity; const d=new Date(String(s).replace(' ','T')); return isNaN(d)?Infinity:(Date.now()-d.getTime())/3600000; };
   const affDate=s=>s?fmtDate(String(s).slice(0,10))+' à '+String(s).slice(11,16):'jamais';
-  const derniere=etat&&etat.copies&&etat.copies[0];
+  // AG-052 : la tuile de nuit ne prend que les copies de 02:00 à 04:59 ; la
+  // plus récente des autres (déploiement, bouton) est dite à part.
+  const derniere=etat&&derniereCopieNuit(etat.copies);
+  const autre=etat&&(etat.copies||[]).find(c=>c!==derniere&&(!derniere||String(c.date)>String(derniere.date)));
   const p2=n=>String(n).padStart(2,'0');
   const affIso=s=>{ const d=new Date(s); return isNaN(d)?'jamais':affDate(d.getFullYear()+'-'+p2(d.getMonth()+1)+'-'+p2(d.getDate())+' '+p2(d.getHours())+':'+p2(d.getMinutes())); };
   const veilleOk=etatVeille(veille);
@@ -1093,7 +1096,8 @@ function VueSauvegardes(){
     etat&&CE(React.Fragment,null,
       CE('div',{style:{display:'flex',gap:12,flexWrap:'wrap',marginBottom:14}},
         tuile('Copie de nuit (Alwaysdata, 03:00)',age(derniere&&derniere.date)<26,affDate(derniere&&derniere.date),
-          (etat.copies||[]).length+' copie(s) gardée(s), '+etat.jours+' jours'),
+          CE(React.Fragment,null,(etat.copies||[]).length+' copie(s) gardée(s), '+etat.jours+' jours',
+            autre&&CE(React.Fragment,null,CE('br'),'Copie plus récente, hors nuit (déploiement ou bouton) : '+affDate(autre.date)))),
         tuile('Copie chiffrée hors site (chaque matin)',age(etat.chiffree)<26,affDate(etat.chiffree),
           CE(React.Fragment,null,'Dépôt GitHub privé, lisible avec la clé privée seulement',CE('br'),
             // Consigne visible seulement quand il faut agir (26/09/2026).
