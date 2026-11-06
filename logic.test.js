@@ -936,3 +936,26 @@ describe('Sauvegardes : dernière copie de nuit (AG-052)', () => {
     assert.equal(derniereCopieNuit(undefined), null);
   });
 });
+
+describe('Sauvegardes : âge lu en heure de Paris (AG-052, amendement)', () => {
+  const { ageHeuresParis, instantParis } = require('./logic.js');
+  it('hiver : 03:00 Paris = 02:00 UTC, quel que soit le fuseau de la machine', () => {
+    assert.equal(instantParis('2026-11-05 03:00:00'), Date.UTC(2026, 10, 5, 2, 0, 0));
+    // Rejeu de Codex : contrôle à 2026-11-06T04:30Z → 26,5 h (rouge), pas 25,5 h.
+    assert.equal(ageHeuresParis('2026-11-05 03:00:00', Date.UTC(2026, 10, 6, 4, 30)), 26.5);
+  });
+  it('été : 03:00 Paris = 01:00 UTC ; minutes seules acceptées', () => {
+    assert.equal(instantParis('2026-07-01 03:00'), Date.UTC(2026, 6, 1, 1, 0, 0));
+  });
+  it('jour du changement d heure (29/03/2026) : 03:30 Paris = 01:30 UTC', () => {
+    assert.equal(instantParis('2026-03-29 03:30:00'), Date.UTC(2026, 2, 29, 1, 30, 0));
+  });
+  it('veille du passage à l heure d hiver (25/10/2026) : 01:30 Paris (été) = 23:30 UTC le 24', () => {
+    assert.equal(instantParis('2026-10-25 01:30:00'), Date.UTC(2026, 9, 24, 23, 30, 0));
+  });
+  it('décalage explicite lu tel quel ; vide ou illisible : Infinity', () => {
+    assert.equal(instantParis('2026-11-05T02:00:00Z'), Date.UTC(2026, 10, 5, 2, 0, 0));
+    assert.equal(ageHeuresParis('', 0), Infinity);
+    assert.equal(ageHeuresParis('n/a', 0), Infinity);
+  });
+});

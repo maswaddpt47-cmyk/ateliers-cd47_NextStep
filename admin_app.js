@@ -1072,7 +1072,8 @@ function VueSauvegardes(){
     finally{ setCopie(false); }
   }
   // Une copie de plus de 26 h veut dire que la tâche de nuit n'a pas tourné.
-  const age=s=>{ if(!s) return Infinity; const d=new Date(String(s).replace(' ','T')); return isNaN(d)?Infinity:(Date.now()-d.getTime())/3600000; };
+  // Dates du serveur en heure de Paris, lues comme telles (AG-052, amendement de Codex).
+  const age=s=>ageHeuresParis(s,Date.now());
   const affDate=s=>s?fmtDate(String(s).slice(0,10))+' à '+String(s).slice(11,16):'jamais';
   // AG-052 : la tuile de nuit ne prend que les copies de 02:00 à 04:59 ; la
   // plus récente des autres (déploiement, bouton) est dite à part.

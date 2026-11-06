@@ -720,8 +720,33 @@ function derniereCopieNuit(copies) {
   return res;
 }
 
+// Âge en heures d'une date du serveur (AG-052, amendement de Codex). Le serveur
+// écrit ses dates en heure de Paris, sans décalage ('AAAA-MM-JJ HH:MM[:SS]') :
+// les lire dans le fuseau du navigateur décalait le seuil d'une heure ou deux
+// hors de France. Une date avec décalage explicite (Z, +01:00) est lue telle
+// quelle. Date absente ou illisible : Infinity.
+function instantParis(s) {
+  const t = String(s || '').trim();
+  if (/[zZ]$|[+-]\d{2}:?\d{2}$/.test(t)) { const d = new Date(t); return isNaN(d) ? NaN : d.getTime(); }
+  const m = t.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?/);
+  if (!m) return NaN;
+  const mur = Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +(m[6] || 0));
+  const f = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Paris', hourCycle: 'h23',
+    year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  const murA = x => { const o = {}; f.formatToParts(new Date(x)).forEach(q => { o[q.type] = +q.value; });
+    return Date.UTC(o.year, o.month - 1, o.day, o.hour, o.minute, o.second); };
+  let ts = mur - (murA(mur) - mur);
+  ts = mur - (murA(ts) - ts);   // second passage : changement d'heure
+  return ts;
+}
+function ageHeuresParis(s, maintenant) {
+  const ts = instantParis(s);
+  return isNaN(ts) ? Infinity : (maintenant - ts) / 3600000;
+}
+
 if (typeof module !== 'undefined') {
   module.exports = {
+    instantParis, ageHeuresParis,
     derniereCopieNuit,
     comparaisonAnnuelle,
     filterMaterielsVisibles,
