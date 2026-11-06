@@ -1,8 +1,9 @@
 # Chantiers en cours — Ateliers CD47 NextStep
 
-État au **05/11/2026, 17:32 (heure de Paris)**, base `main` `c59833e`.
-Dernière livraison fonctionnelle : `c59833e`, alignée sur NEWGEN `bf7bdf3`.
-CI Pages en succès observée le 05/11/2026 (run `42051245179`).
+État au **06/11/2026, 07:45 (heure de Paris)**, base `main` `ff9bba6`.
+Dernière livraison fonctionnelle : `ff9bba6`, alignée sur NEWGEN `2fec538` (tuile « Copie de
+nuit », AG-052, vérification Codex attendue). Hook de démarrage : `npm ci` si `node_modules`
+manque, `reseau.test.js` ajouté (05/11).
 
 **Passation Codex — 05/11/2026** : repartir d'une copie propre de `main`, sans
 réappliquer d'anciens brouillons. Aucun bloc AGORA ouvert dans NEWGEN ; les
