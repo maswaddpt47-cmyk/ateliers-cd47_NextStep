@@ -1,9 +1,8 @@
 # Chantiers en cours — Ateliers CD47 NextStep
 
-État au **06/11/2026, 08:15 (heure de Paris)**, base `main` `ab00c17`, alignée sur NEWGEN `eff63f5`.
-Dernière livraison : tuile « Copie de nuit » (AG-052, amendé par Codex et clos : copies de 02:00 à
-04:59, âge lu en heure de Paris). Hook de démarrage : `npm ci` si `node_modules` manque,
-`reseau.test.js` ajouté (05/11).
+État au **06/11/2026 (heure de Paris)**, base `main` `aef1aaf`, alignée sur NEWGEN `baaded6`.
+Dernière livraison : page TS sans filtre « Ouvert à tous », choisi par l'Admin (AG-053, vérification
+de Codex attendue). Avant : tuile « Copie de nuit » (AG-052, clos).
 
 **Passation Codex — 05/11/2026** : repartir d'une copie propre de `main`, sans
 réappliquer d'anciens brouillons. Aucun bloc AGORA ouvert dans NEWGEN ; les
