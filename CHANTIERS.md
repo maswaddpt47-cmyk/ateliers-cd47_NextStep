@@ -1,6 +1,6 @@
 # Chantiers en cours — Ateliers CD47 NextStep
 
-État au **06/11/2026 (heure de Paris)**, base `main` `aef1aaf`, alignée sur NEWGEN `baaded6`.
+État au **12/11/2026 (heure de Paris)**, base `main` `51f1fdf`, alignée sur NEWGEN `f13b2ea` (tableau d'usage triable).
 Dernière livraison : page TS sans filtre « Ouvert à tous », choisi par l'Admin (AG-053, vérification
 de Codex attendue). Avant : tuile « Copie de nuit » (AG-052, clos).
 
