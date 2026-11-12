@@ -6642,8 +6642,20 @@ function VueUsageOnglets(){
       if(!m[k]) m[k] = {page:u.page, onglet:u.onglet, newgen:0, nextstep:0, total:0};
       m[k][u.site] = (m[k][u.site]||0) + u.vues; m[k].total += u.vues;
     });
-    return Object.values(m).sort((a,b)=>b.total-a.total);
+    return Object.values(m);
   },[usage]);
+  // Tri au clic sur un en-tête (demande de l'utilisateur, 12/11/2026) : un
+  // clic trie, un second inverse. Nombres d'abord décroissants, textes A → Z.
+  // Égalité : total décroissant, puis onglet. Par défaut : total décroissant.
+  const[tri,setTri] = React.useState({col:'total', sens:-1});
+  const COLS = [['onglet','Onglet'],['page','Page'],['nextstep','NextStep'],['newgen','NEWGEN'],['total','Total']];
+  const val = (l,c)=>c==='onglet'?l.onglet.replace(/_/g,' '):c==='page'?(l.page==='admin'?'Admin':'Index'):(l[c]||0);
+  const triees = React.useMemo(()=>lignes.slice().sort((a,b)=>{
+    const x = val(a,tri.col), y = val(b,tri.col);
+    const d = typeof x==='number' ? x-y : String(x).localeCompare(String(y),'fr');
+    return d*tri.sens || b.total-a.total || a.onglet.localeCompare(b.onglet,'fr');
+  }),[lignes,tri]);
+  const trier = c=>setTri(t=>t.col===c?{col:c, sens:-t.sens}:{col:c, sens:(c==='onglet'||c==='page')?1:-1});
   const cell = {padding:'6px 10px', borderBottom:'1px solid var(--border,#e2e8f0)', fontSize:13};
   const num = Object.assign({}, cell, {textAlign:'right', fontVariantNumeric:'tabular-nums'});
   return CE('div',{className:'card', style:{marginBottom:16}},
@@ -6655,8 +6667,10 @@ function VueUsageOnglets(){
     : !lignes.length ? CE('p',{style:{fontSize:13}},'Pas encore de données.')
     : CE('div',{style:{overflowX:'auto'}},CE('table',{style:{width:'100%', borderCollapse:'collapse'}},
         CE('thead',null,CE('tr',null,
-          ['Onglet','Page','NextStep','NEWGEN','Total'].map((t,i)=>CE('th',{key:t, style:Object.assign({}, i>1?num:cell, {fontWeight:700})},t)))),
-        CE('tbody',null, lignes.map(l=>CE('tr',{key:l.page+l.onglet},
+          COLS.map(([c,t],i)=>CE('th',{key:c, onClick:()=>trier(c), title:'Trier par '+t, 'aria-sort':tri.col===c?(tri.sens>0?'ascending':'descending'):'none',
+            style:Object.assign({}, i>1?num:cell, {fontWeight:700, cursor:'pointer', userSelect:'none', whiteSpace:'nowrap'})},
+            t+(tri.col===c?(tri.sens>0?' ▲':' ▼'):''))))),
+        CE('tbody',null, triees.map(l=>CE('tr',{key:l.page+l.onglet},
           CE('td',{style:cell},l.onglet.replace(/_/g,' ')),
           CE('td',{style:cell},l.page==='admin'?'Admin':'Index'),
           CE('td',{style:num},l.nextstep||'—'),
