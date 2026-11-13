@@ -1,6 +1,6 @@
 # Chantiers en cours — Ateliers CD47 NextStep
 
-État au **13/11/2026 (heure de Paris)**, base `main` `9cea74d`, alignée sur NEWGEN `f0c23ee` (fériés AG-054, communes AG-056).
+État au **13/11/2026 (heure de Paris)**, base `main` `c491810`, alignée sur NEWGEN `05e7081` (fériés, communes, vacances scolaires AG-057).
 Dernière livraison : page TS sans filtre « Ouvert à tous », choisi par l'Admin (AG-053, vérification
 de Codex attendue). Avant : tuile « Copie de nuit » (AG-052, clos).
 
