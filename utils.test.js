@@ -957,3 +957,13 @@ describe('Jours fériés contrôlés (AG-054)', () => {
     assert.equal(atelierUnJourFerie({ date: '2026-12-24', statut: 'Planifié' }), false);
   });
 });
+
+describe('Communes comparées sans tirets (AG-056)', () => {
+  const { cleCommune } = require('./utils.js');
+  it('tirets, apostrophes, accents et casse ignorés', () => {
+    assert.equal(cleCommune('VILLENEUVE-SUR-LOT'), cleCommune('Villeneuve sur Lot'));
+    assert.equal(cleCommune("Saint-Pardoux-d'Isaac"), cleCommune("SAINT PARDOUX D ISAAC"));
+    assert.equal(cleCommune('Nérac'), 'nerac');
+    assert.notEqual(cleCommune('Agen'), cleCommune('Agnac'));
+  });
+});

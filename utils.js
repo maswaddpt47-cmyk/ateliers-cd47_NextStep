@@ -497,6 +497,12 @@ function ordiSansClasseMobile(e) {
   return matierePanneau(e, false).length === liste.length;
 }
 
+// Commune comparée sans accents, casse, tirets ni apostrophes (AG-056) :
+// « Villeneuve-sur-Lot » = « VILLENEUVE SUR LOT ».
+function cleCommune(x) {
+  return stripAccents(String(x || '')).replace(/[-'’]/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
 // Jour férié (métropole) d'une date AAAA-MM-JJ : son libellé, sinon '' (AG-054).
 // Calculé pour toute année (Pâques par l'algorithme grégorien) : aucune liste
 // à tenir à jour d'une année sur l'autre.
@@ -1036,7 +1042,7 @@ if (typeof module !== 'undefined') {
   ateliersPartenaire,
   matierePanneau,
   ordiSansClasseMobile,
-  debutApres1530, ferieDe, atelierUnJourFerie,
+  debutApres1530, ferieDe, atelierUnJourFerie, cleCommune,
     presentsSuperieursInscrits,
   };
 }

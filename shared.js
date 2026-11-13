@@ -4519,6 +4519,8 @@ function VueAnomalies({entries,onEdit,communes:communesProp,apiFetch,showToast,a
   const[saved,setSaved]=React.useState({});
   const[filtreConum,setFiltreConum]=React.useState('Tous');
   const[communes,setCommunes]=React.useState(COMMUNES_47_CACHE||(communesProp&&communesProp.length>0?communesProp:[]));
+  // Liste de secours de loadCommunes47 (codes « 47??? ») : la liste officielle n'est pas arrivée (AG-056).
+  const listeSecours=communes.length>0&&communes.every(c=>c.cp==='47???');
   const[loadingCommunes,setLoadingCommunes]=React.useState(!COMMUNES_47_CACHE||COMMUNES_47_CACHE.length===0);
   React.useEffect(()=>{
     if(communes&&communes.length>0){setLoadingCommunes(false);return;}
@@ -4526,7 +4528,7 @@ function VueAnomalies({entries,onEdit,communes:communesProp,apiFetch,showToast,a
   },[]);
   const anomaliesBrutes=React.useMemo(()=>{
     if(!entries||!Array.isArray(entries))return[];
-    const nomsCommunesOff=new Set(communes.map(c=>stripAccents(c.nom.toLowerCase())));
+    const nomsCommunesOff=new Set(communes.map(c=>cleCommune(c.nom)));
     return entries.map(e=>{
       const champsVides=[
         ...CHAMPS_OBL.filter(k=>!e[k]||!String(e[k]).trim()),
@@ -4534,8 +4536,9 @@ function VueAnomalies({entries,onEdit,communes:communesProp,apiFetch,showToast,a
         ...(e.statut==='Réalisé'&&(e.presents===''||e.presents===null||e.presents===undefined)?['presents']:[]),
       ];
       let communeInvalide=false,communeSugg=null;
-      if(e.commune&&communes.length>0){
-        const q=stripAccents(e.commune.replace(/\s*\(\d+\)\s*/g,'').trim().toLowerCase());
+      // Liste de secours (geo.api.gouv.fr hors délai) : contrôle suspendu, pas de fausses alertes (AG-056).
+      if(e.commune&&communes.length>0&&!listeSecours){
+        const q=cleCommune(e.commune.replace(/\s*\(\d+\)\s*/g,''));
         if(!nomsCommunesOff.has(q)){
           communeInvalide=true;
           function lev(a,b){const m=a.length,n=b.length;const dp=Array.from({length:m+1},(_,i)=>Array.from({length:n+1},(_,j)=>i===0?j:j===0?i:0));for(let i=1;i<=m;i++)for(let j=1;j<=n;j++)dp[i][j]=a[i-1]===b[j-1]?dp[i-1][j-1]:1+Math.min(dp[i-1][j],dp[i][j-1],dp[i-1][j-1]);return dp[m][n];}
@@ -4650,8 +4653,8 @@ function VueAnomalies({entries,onEdit,communes:communesProp,apiFetch,showToast,a
         CE('div',{style:{fontSize:11,color:'#7f1d1d'}},'Champs manquants')
       ),
       CE('div',{style:{background:'#ede9fe',borderRadius:8,padding:'8px 14px',flex:'1',minWidth:120,cursor:'pointer',border:filter==='communes'?'2px solid #7c3aed':'2px solid transparent'},onClick:()=>setFilter('communes')},
-        CE('div',{style:{fontSize:20,fontWeight:700,color:'#6d28d9'}},nbCommunes),
-        CE('div',{style:{fontSize:11,color:'#4c1d95'}},loadingCommunes?'⏳ Chargement…':'Communes invalides')
+        CE('div',{style:{fontSize:20,fontWeight:700,color:'#6d28d9'}},listeSecours?'—':nbCommunes),
+        CE('div',{style:{fontSize:11,color:'#4c1d95'}},loadingCommunes?'⏳ Chargement…':listeSecours?'Communes : liste officielle indisponible, contrôle suspendu — rechargez la page':'Communes invalides')
       ),
       CE('div',{style:{background:'#ffedd5',borderRadius:8,padding:'8px 14px',flex:'1',minWidth:120,cursor:'pointer',border:filter==='chiffres'?'2px solid #ea580c':'2px solid transparent'},onClick:()=>setFilter('chiffres')},
         CE('div',{style:{fontSize:20,fontWeight:700,color:'#c2410c'}},nbChiffres),
@@ -4701,7 +4704,7 @@ function VueAnomalies({entries,onEdit,communes:communesProp,apiFetch,showToast,a
             const estCorrige=saved[e._id];
             return CE('div',{key:e._id,style:{background:estCorrige?'#f0fdf4':'#fff',border:'1px solid '+(estCorrige?'#86efac':'#e5e7eb'),borderRadius:8,padding:'10px 14px'}},
               CE('div',{style:{display:'flex',alignItems:'center',gap:8,marginBottom:6,flexWrap:'wrap'}},
-                CE('span',{style:{fontWeight:700,fontSize:12,color:'#374151',flex:1}},[e.thematique,e.commune,fmtDate(e.date)].filter(Boolean).join(' — ')||e._id),
+                CE('span',{style:{fontWeight:700,fontSize:12,color:'#374151',flex:1}},[e.thematique,e.commune,fmtDate(e.date),e.orienteur&&'Orienteur : '+e.orienteur].filter(Boolean).join(' — ')||e._id),
                 estCorrige&&CE('span',{style:{fontSize:11,color:'#16a34a',fontWeight:600}},'✅ Corrigé'),
                 onEdit&&CE('button',{onClick:()=>onEdit(e._id),style:{fontSize:11,padding:'2px 8px',borderRadius:4,border:'1px solid #3b82f6',background:'#eff6ff',color:'#1d4ed8',cursor:'pointer'}},'✏️ Ouvrir')
               ),
