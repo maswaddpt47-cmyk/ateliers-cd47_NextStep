@@ -176,7 +176,7 @@ function App(){
   // Lien « mot de passe oublié » reçu par mail (?reinit=…).
   const[jetonReinit,setJetonReinit]= React.useState(()=>window.jetonReinitUrl());
   const[adminConseiller,setAdminConseiller]= React.useState(()=>localStorage.getItem(lsKey('adm_conseiller'))||'');
-  const[view,setView]           = React.useState('historique');
+  const[view,setView]           = React.useState(()=>window.OLK_RECU?'planning':'historique');   // lien de rendez-vous Outlook reçu (AG-058)
   const controleSaisie=React.useRef(null);
   // Date d'ouverture de Gestion ordi depuis l'alerte d'une tuile (05/10/2026),
   // oubliée dès qu'on quitte l'onglet.

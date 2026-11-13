@@ -258,7 +258,7 @@ function VueLoginIndex({conseillers,onSuccess}){
 
 function App(){
   const[authed,setAuthed]          = React.useState(()=>!!window.authToken.get());
-  const[view,setView]              = React.useState('accueil');
+  const[view,setView]              = React.useState(()=>window.OLK_RECU?'planning':'accueil');   // lien de rendez-vous Outlook reçu (AG-058)
   const controleSaisie=React.useRef(null);
   // Date d'ouverture de Gestion ordi depuis l'alerte d'une tuile (05/10/2026),
   // oubliée dès qu'on quitte l'onglet.
@@ -629,7 +629,8 @@ function App(){
   function handleChoixConseiller(nom, skipLog){
     setFiltreConseiller(nom);
     setShowPicker(false);
-    setView(visibility.historique?'historique':visibility.calendrier?'calendrier':visibility.saisie?'saisie':'dashboard');
+    // Lien de rendez-vous Outlook reçu (AG-058) : arrivée sur le Planning, où se trouve la confirmation.
+    setView(window.OLK_RECU&&visibility.planning?'planning':visibility.historique?'historique':visibility.calendrier?'calendrier':visibility.saisie?'saisie':'dashboard');
     if(nom){
       sessionStorage.setItem('gs_conseiller', nom);
     }

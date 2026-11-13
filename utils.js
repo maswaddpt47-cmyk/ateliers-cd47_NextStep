@@ -497,6 +497,50 @@ function ordiSansClasseMobile(e) {
   return matierePanneau(e, false).length === liste.length;
 }
 
+// Rendez-vous Outlook envoyés au téléphone par un lien (AG-058, amendements de
+// Codex) : charge « 1~le~ignores~du~au~liste », sans nom ni titre. du = base
+// absolue des écarts (aujourd'hui ou début de l'export) ; au = fin de l'export,
+// vide si l'export ne la donnait pas (couverture inconnue, jamais inventée) ;
+// liste = écart en jours depuis du (base 36) + a (matin) / p (après-midi).
+// Seules les demi-journées à venir partent. Trop grand : refusé, jamais tronqué
+// (des occupations omises passeraient pour libres).
+const OLK_MAX = 300;
+const _isoOk = d => /^\d{4}-\d{2}-\d{2}$/.test(d) && new Date(d + 'T00:00:00Z').toISOString().slice(0, 10) === d;
+const _ecartJours = (a, b) => Math.round((Date.parse(b + 'T00:00:00Z') - Date.parse(a + 'T00:00:00Z')) / 86400000);
+function encoderOlk(olk, aujourdhui) {
+  if (!olk || !Array.isArray(olk.occupees) || !_isoOk(aujourdhui)) return null;
+  const c = olk.couvre && _isoOk(olk.couvre.de) && _isoOk(olk.couvre.a) ? olk.couvre : null;
+  const du = c && c.de > aujourdhui ? c.de : aujourdhui, au = c ? c.a : '';
+  if (au && au < du) return null;
+  const occ = [...new Set(olk.occupees.filter(k => /^\d{4}-\d{2}-\d{2}\|(AM|PM)$/.test(k)
+    && k.slice(0, 10) >= du && (!au || k.slice(0, 10) <= au)))].sort();
+  if (occ.length > OLK_MAX) return null;
+  const items = occ.map(k => _ecartJours(du, k.slice(0, 10)).toString(36) + (k.slice(11) === 'AM' ? 'a' : 'p'));
+  return ['1', _isoOk(olk.le) ? olk.le : '', String(Math.max(0, parseInt(olk.ignores, 10) || 0)), du, au, items.join('.')].join('~');
+}
+// Charge reçue → {le, ignores, couvre, occupees} ou null (version, dates,
+// écarts, doublons et taille vérifiés avant toute écriture).
+function decoderOlk(chaine) {
+  const t = String(chaine || '').split('~');
+  if (t.length !== 6 || t[0] !== '1') return null;
+  const [, le, ign, du, au, liste] = t;
+  if ((le && !_isoOk(le)) || !/^\d{1,4}$/.test(ign) || !_isoOk(du) || (au && (!_isoOk(au) || au < du))) return null;
+  const items = liste ? liste.split('.') : [];
+  if (items.length > OLK_MAX) return null;
+  const occ = [];
+  for (const it of items) {
+    const m = /^([0-9a-z]{1,3})([ap])$/.exec(it);
+    if (!m) return null;
+    const n = parseInt(m[1], 36);
+    if (n > 3660) return null;
+    const d = new Date(Date.parse(du + 'T00:00:00Z') + n * 86400000).toISOString().slice(0, 10);
+    if (au && d > au) return null;
+    occ.push(d + '|' + (m[2] === 'a' ? 'AM' : 'PM'));
+  }
+  if (new Set(occ).size !== occ.length) return null;
+  return { le, ignores: parseInt(ign, 10), couvre: au ? { de: du, a: au } : null, occupees: occ.sort() };
+}
+
 // Commune comparée sans accents, casse, tirets ni apostrophes (AG-056) :
 // « Villeneuve-sur-Lot » = « VILLENEUVE SUR LOT ».
 function cleCommune(x) {
@@ -1075,6 +1119,7 @@ if (typeof module !== 'undefined') {
   ordiSansClasseMobile,
   debutApres1530, ferieDe, atelierUnJourFerie, cleCommune,
   vacancesDe, atelierCollege, atelierEnVacancesCollege, atelierCollegeHorsCalendrier,
+  encoderOlk, decoderOlk, OLK_MAX,
     presentsSuperieursInscrits,
   };
 }

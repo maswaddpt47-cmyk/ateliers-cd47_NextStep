@@ -5085,6 +5085,13 @@ function VueAgendaSemaine({entries,onEdit,onDelete,onDuplicate,canDelete,initCon
 // d'un conseiller sur les jours choisis (calcul : creneauxLibres, logic.js).
 // Index : le conseiller connecté seulement ; Admin : au choix.
 // ═══════════════════════════════════════════════════════════
+// Lien « #olk= » reçu par mail (AG-058) : lu en mémoire au chargement, retiré
+// aussitôt de l'adresse (même en cas d'erreur), jamais écrit sans confirmation.
+window.OLK_RECU=(function(){try{
+  const h=location.hash||'';if(!h.startsWith('#olk='))return null;
+  history.replaceState(null,'',location.pathname+location.search);
+  return decoderOlk(decodeURIComponent(h.slice(5)))||{erreur:true};
+}catch(_){return {erreur:true};}})();
 function CreneauxLibres({annees,entries,conseillers,conseillerFixe,onNouveau,onCycle,onFermer,ac}){
   const JOURS_SEM=[[1,'Lun'],[2,'Mar'],[3,'Mer'],[4,'Jeu'],[5,'Ven']];
   const NOMS_JOURS=['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
@@ -5121,6 +5128,23 @@ function CreneauxLibres({annees,entries,conseillers,conseillerFixe,onNouveau,onC
     r.readAsText(f);
   }
   function retirerOlk(){setOlk(null);try{localStorage.removeItem(CLE_OLK);}catch(_){}}
+  // AG-058 : envoi au téléphone par un mail à soi-même (lien sans nom ni titre).
+  function envoyerOlk(){
+    const code=olkActif&&encoderOlk(olkActif,auj);
+    const lien=code&&location.origin+location.pathname+'#olk='+code;
+    const mail=lien&&'mailto:?subject='+encodeURIComponent('Mes rendez-vous Outlook — Disponibilités')
+      +'&body='+encodeURIComponent('Ouvrez ce lien sur votre téléphone pour y retrouver vos rendez-vous Outlook dans Planning → Disponibilités :\n\n'+lien);
+    if(!mail||mail.length>1900){showToast('⚠️ Trop de demi-journées occupées à envoyer : exportez depuis Outlook une période plus courte, puis recommencez.',false);return;}
+    location.href=mail;
+    showToast('✉️ Votre messagerie s\'ouvre : envoyez-vous ce mail, puis ouvrez le lien sur votre téléphone.');
+  }
+  const[recu,setRecu]=React.useState(()=>window.OLK_RECU);
+  function finRecu(){window.OLK_RECU=null;setRecu(null);}
+  function enregistrerRecu(){
+    const v={conseiller:cons,le:recu.le||auj,occupees:recu.occupees,ignores:recu.ignores,couvre:recu.couvre};
+    setOlk(v);try{localStorage.setItem(CLE_OLK,JSON.stringify(v));}catch(_){}
+    showToast('✅ '+recu.occupees.length+' demi-journée(s) occupée(s) enregistrée(s) pour '+cons);finRecu();
+  }
   const cocher=k=>setSel(l=>l.includes(k)?l.filter(x=>x!==k):[...l,k]);
   const bascule=(liste,set,v)=>set(liste.includes(v)?liste.filter(x=>x!==v):[...liste,v].sort());
   const libres=React.useMemo(()=>creneauxLibres(entries,{conseiller:cons,du,au,jours,moments,bloques:olkActif?olkActif.occupees:[],
@@ -5166,9 +5190,18 @@ function CreneauxLibres({annees,entries,conseillers,conseillerFixe,onNouveau,onC
         ?CE(React.Fragment,null,
           CE('span',{style:{color:'#166534',fontWeight:600}},'✅ Outlook du '+fmtDate(olkActif.le)+' : '+olkActif.occupees.length+' demi-journée(s) occupée(s) retirée(s)'
             +(olkActif.ignores?' · '+olkActif.ignores+' série(s) non lue(s)':'')),
+          CE('button',{className:'btn btn-secondary btn-sm',style:{fontSize:11},onClick:envoyerOlk},'✉️ M\'envoyer le lien (téléphone)'),
           CE('button',{className:'btn btn-secondary btn-sm',style:{fontSize:11},onClick:retirerOlk},'Retirer'))
         :CE('span',{style:{color:'var(--text-3,#64748b)'}},'Dans Outlook : Fichier → Enregistrer le calendrier → « Disponibilité uniquement » → fichier .ics.'),
-      CE('span',{style:{flexBasis:'100%',color:'#92400e'}},'Congés et absences : dans Outlook, réglez « Afficher en tant que » sur « Absent(e) » — un événement laissé en « Libre » n\'est pas exporté. L\'import reste sur cet appareil : après un effacement des cookies et données du site, rechargez votre fichier.')),
+      CE('span',{style:{flexBasis:'100%',color:'#92400e'}},'Congés et absences : dans Outlook, réglez « Afficher en tant que » sur « Absent(e) » — un événement laissé en « Libre » n\'est pas exporté. L\'import reste sur cet appareil : après un effacement des cookies et données du site, rechargez votre fichier. Pour le retrouver sur votre téléphone : « ✉️ M\'envoyer le lien ».')),
+    // Rendez-vous reçus par le lien du mail (AG-058) : confirmation et choix du conseiller avant toute écriture.
+    recu&&CE('div',{style:{fontSize:13,background:recu.erreur?'#fef2f2':'#eff6ff',border:'1px solid '+(recu.erreur?'#fecaca':'#bfdbfe'),borderRadius:8,padding:'8px 10px',marginBottom:10,display:'flex',flexWrap:'wrap',gap:8,alignItems:'center'}},
+      recu.erreur
+        ?CE('span',{style:{color:'#991b1b',fontWeight:600}},'⚠️ Lien de rendez-vous Outlook illisible ou d\'une ancienne version : rien n\'a été enregistré. Renvoyez-le depuis le PC.')
+        :CE('span',{style:{fontWeight:600}},'📱 Rendez-vous Outlook reçus (import du '+(recu.le?fmtDate(recu.le):'?')+') : '+recu.occupees.length+' demi-journée(s) occupée(s)'
+          +(recu.couvre?' du '+fmtDate(recu.couvre.de)+' au '+fmtDate(recu.couvre.a):', période de l\'export inconnue')+(recu.ignores?' · '+recu.ignores+' série(s) non lue(s)':'')+'. Les enregistrer pour '+(cons||'—')+' ?'),
+      !recu.erreur&&cons&&CE('button',{className:'btn btn-primary btn-sm',style:{fontSize:12},onClick:enregistrerRecu},'Enregistrer pour '+cons),
+      CE('button',{className:'btn btn-secondary btn-sm',style:{fontSize:12},onClick:finRecu},recu.erreur?'Fermer':'Ignorer')),
     // Export Outlook plus court que la période (20/10/2026) : Outlook n'exporte
     // par défaut que la journée en cours, les jours suivants paraissaient libres.
     (()=>{const c=olkActif&&olkActif.couvre;if(!c||!du||!au||(du>=c.de&&au<=c.a))return null;

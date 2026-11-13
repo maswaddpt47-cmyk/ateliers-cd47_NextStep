@@ -1002,3 +1002,36 @@ describe('Vacances scolaires, ateliers de collège (AG-057)', () => {
     assert.equal(atelierCollegeHorsCalendrier(e, P), false);
   });
 });
+
+describe('Rendez-vous Outlook envoyés au téléphone (AG-058)', () => {
+  const { encoderOlk, decoderOlk, OLK_MAX } = require('./utils.js');
+  // Import fictif : export Outlook du 01/11 au 31/12/2026, lu le 12/11.
+  const olk = { conseiller: 'Agent fictif', le: '2026-11-12', ignores: 2, couvre: { de: '2026-11-01', a: '2026-12-31' },
+    occupees: ['2026-11-05|AM', '2026-11-13|AM', '2026-11-13|PM', '2026-12-31|PM'] };
+  it('aller-retour : à venir seulement, couverture recoupée, ni nom ni titre', () => {
+    const c = encoderOlk(olk, '2026-11-13');
+    assert.ok(!c.includes('Agent'), 'aucun nom dans le lien');
+    assert.deepEqual(decoderOlk(c), { le: '2026-11-12', ignores: 2, couvre: { de: '2026-11-13', a: '2026-12-31' },
+      occupees: ['2026-11-13|AM', '2026-11-13|PM', '2026-12-31|PM'] });
+  });
+  it('base absolue : le décodage ne dépend pas du jour où le téléphone ouvre le lien', () => {
+    const c = encoderOlk(olk, '2026-11-13');
+    assert.equal(decoderOlk(c).occupees[2], '2026-12-31|PM');
+  });
+  it('couverture inconnue : jamais inventée', () => {
+    const d = decoderOlk(encoderOlk({ ...olk, couvre: null }, '2026-11-13'));
+    assert.equal(d.couvre, null);
+    assert.equal(d.occupees.length, 3);
+  });
+  it('trop grand : refusé, jamais tronqué', () => {
+    const occ = []; for (let i = 0; i <= OLK_MAX; i++) occ.push(new Date(Date.UTC(2026, 10, 13 + Math.floor(i / 2))).toISOString().slice(0, 10) + (i % 2 ? '|PM' : '|AM'));
+    assert.equal(encoderOlk({ ...olk, couvre: null, occupees: occ }, '2026-11-13'), null);
+    assert.ok(encoderOlk({ ...olk, couvre: null, occupees: occ.slice(0, OLK_MAX) }, '2026-11-13'));
+  });
+  it('liens abîmés, d\'une autre version, ou avec doublon : refusés', () => {
+    const c = encoderOlk(olk, '2026-11-13');
+    for (const mauvais of ['', '2' + c.slice(1), c + '~x', c.replace('2026-12-31', '2026-02-31'), c.replace(/0a$/, '0a').replace('~0a', '~0a.0a'), c.replace(/[ap]$/, 'z')])
+      assert.equal(decoderOlk(mauvais), null, mauvais);
+    assert.equal(decoderOlk('1~2026-11-12~0~2026-11-13~2026-11-20~zz9a'), null, 'occupation hors couverture');
+  });
+});
