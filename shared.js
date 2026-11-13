@@ -4542,7 +4542,7 @@ function VueAnomalies({entries,onEdit,communes:communesProp,apiFetch,showToast,a
         if(!nomsCommunesOff.has(q)){
           communeInvalide=true;
           function lev(a,b){const m=a.length,n=b.length;const dp=Array.from({length:m+1},(_,i)=>Array.from({length:n+1},(_,j)=>i===0?j:j===0?i:0));for(let i=1;i<=m;i++)for(let j=1;j<=n;j++)dp[i][j]=a[i-1]===b[j-1]?dp[i-1][j-1]:1+Math.min(dp[i-1][j],dp[i][j-1],dp[i-1][j-1]);return dp[m][n];}
-          const scored=communes.map(c=>({nom:c.nom,d:lev(q,stripAccents(c.nom.toLowerCase()))})).sort((a,b)=>a.d-b.d);
+          const scored=communes.map(c=>({nom:c.nom,d:lev(q,cleCommune(c.nom))})).sort((a,b)=>a.d-b.d);   // même normalisation des deux côtés (AG-056, Codex)
           if(scored.length>0&&scored[0].d<=3)communeSugg=scored[0].nom;
         }
       }
@@ -4693,10 +4693,15 @@ function VueAnomalies({entries,onEdit,communes:communesProp,apiFetch,showToast,a
       )
     ),
     filtered.length===0
-      ?CE('div',{style:{textAlign:'center',padding:'40px 0',color:'#16a34a',fontSize:14}},
+      // Contrôle des communes suspendu : pas de « ✅ aucune anomalie », le contrôle n'a pas eu lieu (AG-056, Codex).
+      ?(filter==='communes'&&listeSecours
+        ?CE('div',{style:{textAlign:'center',padding:'40px 0',color:'#6d28d9',fontSize:14}},
+            CE('div',{style:{fontSize:32,marginBottom:8}},'⏸️'),
+            'Contrôle des communes suspendu : liste officielle indisponible — rechargez la page')
+        :CE('div',{style:{textAlign:'center',padding:'40px 0',color:'#16a34a',fontSize:14}},
           CE('div',{style:{fontSize:32,marginBottom:8}},'✅'),
           'Aucune anomalie dans cette catégorie'
-        )
+        ))
       :CE('div',{style:{display:'flex',flexDirection:'column',gap:8}},
           filtered.map(a=>{
             const{e,champsVides,communeInvalide,communeSugg,chiffres,ordiSansMobile,tard,ferie}=a;
