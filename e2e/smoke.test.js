@@ -108,8 +108,7 @@ async function login(page) {
 async function loginIndex(page) {
   await page.goto('/index.html');
   await page.waitForSelector('input[type="password"]', { timeout: 10000 });
-  // 'test' ne correspond au mot de passe par défaut d'aucun conseiller mocké
-  // (defaultPwdIndex → "cd47<prénom>") : évite l'écran de changement forcé.
+  // Le serveur mocké ne renvoie pas doit_changer : pas d'écran de changement forcé.
   await page.locator('select').first().selectOption({ index: 1 }).catch(() => {});  // aucun nom présélectionné (25/09/2026)
   await page.fill('input[type="password"]', 'test');
   await page.getByText('🔓 Connexion', { exact: true }).click();

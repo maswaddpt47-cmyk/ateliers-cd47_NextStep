@@ -52,14 +52,6 @@ function VueAccueilStatic({onChoix,conseillers}){
   );
 }
 
-// Miroir JS de defaultPwd() côté GAS — formule publique (cd47+prénom), pas un
-// secret : sert uniquement à détecter côté client qu'un conum utilise encore
-// son mot de passe de création, pour déclencher le changement obligatoire.
-function defaultPwdIndex(nom){
-  var p=(nom||'').split(' ')[0]||nom||'';
-  p=p.toLowerCase().replace(/[àâä]/g,'a').replace(/[éèêë]/g,'e').replace(/[îï]/g,'i').replace(/[ôö]/g,'o').replace(/[ùûü]/g,'u').replace(/ç/g,'c');
-  return 'cd47'+p;
-}
 
 // ── Annonce de la nouvelle version (bascule vers Alwaysdata) ──────────────
 // Affichée sur l'écran de connexion jusqu'à ce que le conseiller clique
@@ -133,9 +125,7 @@ function VueLoginIndex({conseillers,onSuccess}){
       const res=await apiFetch('checkPassword',{conseiller,password:pwd,userAgent:navigator.userAgent,source:'index.html'});
       if(res.ok){
         setFailCount(0);setLockUntil(0);
-        // doit_changer : mot de passe provisoire donné par l'API (resetPassword
-        // tire un mot de passe aléatoire, plus cd47+prénom).
-        if(res.doit_changer||pwd.trim()===defaultPwdIndex(conseiller)){
+        if(res.doit_changer){   // posé par le serveur (provisoire, mot de passe hors règle : AG-060)
           setPendingRes(res);
           setMustChangePwd(true);
         }else{

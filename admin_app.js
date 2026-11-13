@@ -59,6 +59,23 @@ function AdminLogin({onLogin,savedName,onResetProfil,conseillers:conseillersProp
   },[lockUntil]);
 
   const isLocked=lockUntil>Date.now()||countdown>0;
+  // Mot de passe à changer (AG-060, 13/11/2026) : le serveur refuse tout le reste tant qu'il n'est pas changé.
+  const[aChanger,setAChanger]=React.useState(null);
+  const[mdp1,setMdp1]=React.useState('');
+  const[mdp2,setMdp2]=React.useState('');
+  const[errMdp,setErrMdp]=React.useState('');
+  async function enregistrerMdp(){
+    if(!pwdPolicyOk(mdp1)){setErrMdp('❌ '+PWD_POLICY_MSG);return;}
+    if(mdp1!==mdp2){setErrMdp('Les deux mots de passe ne correspondent pas.');return;}
+    setLoading(true);setErrMdp('');
+    try{
+      const r2=await apiFetch('selfSetPassword',{password:mdp1,currentPwd:pwd,token:aChanger.token});
+      if(r2&&r2.ok){touchSession();window.onLoginSuccess(conseiller,aChanger);onLogin(aChanger.role||'user',conseiller);}
+      else setErrMdp((r2&&r2.error)||'Erreur serveur');
+    }catch(e){setErrMdp('Erreur réseau : '+e.message);}
+    finally{setLoading(false);}
+  }
+
 
   async function handleSubmit(){
     if(!conseiller){setErr('Choisissez votre nom dans la liste.');return;}
@@ -85,6 +102,7 @@ function AdminLogin({onLogin,savedName,onResetProfil,conseillers:conseillersProp
           setLoading(false);return;
         }
         setFailCount(0);setLockUntil(0);
+        if(res.doit_changer){setAChanger(res);return;}   // AG-060 : choisir d'abord un mot de passe conforme
         touchSession();
         window.onLoginSuccess(conseiller, res);
         onLogin(res.role||'user',conseiller);
@@ -108,6 +126,20 @@ function AdminLogin({onLogin,savedName,onResetProfil,conseillers:conseillersProp
   }
 
   const mins=Math.floor(countdown/60), secs=String(countdown%60).padStart(2,'0');
+
+  if(aChanger)return CE('div',{className:'login-wrap'},
+    CE('div',{className:'login-card'},
+      CE('h2',null,'🔑 Choisissez votre mot de passe'),
+      CE('p',{style:{fontSize:13,color:'var(--text-2)',marginBottom:10,lineHeight:1.5}},'Votre mot de passe actuel ne respecte pas la règle : '+PWD_POLICY_MSG),
+      CE('form',{autoComplete:'on',action:'#',onSubmit:e=>{e.preventDefault();enregistrerMdp();}},
+        CE('input',{type:'text',name:'username',autoComplete:'username',value:conseiller,readOnly:true,tabIndex:-1,'aria-hidden':'true',style:{position:'absolute',left:'-9999px'}}),
+        CE('input',{type:'password',name:'new-password',autoComplete:'new-password',placeholder:'Nouveau mot de passe',value:mdp1,onChange:e=>setMdp1(e.target.value),style:{width:'100%',padding:'10px 14px',border:'1px solid var(--border)',borderRadius:8,fontSize:14,outline:'none',boxSizing:'border-box',background:'var(--surface)',color:'var(--text)',marginBottom:10}}),
+        CE('input',{type:'password',name:'new-password-2',autoComplete:'new-password',placeholder:'Confirmer le mot de passe',value:mdp2,onChange:e=>setMdp2(e.target.value),style:{width:'100%',padding:'10px 14px',border:'1px solid var(--border)',borderRadius:8,fontSize:14,outline:'none',boxSizing:'border-box',background:'var(--surface)',color:'var(--text)',marginBottom:10}}),
+        errMdp&&CE('p',{style:{color:'#c53030',fontSize:13,marginBottom:8}},errMdp),
+        CE('button',{type:'submit',disabled:loading||!mdp1||!mdp2,style:{width:'100%',padding:'11px',background:'#1e3a8a',color:'#fff',border:'none',borderRadius:8,fontSize:14,fontWeight:700,cursor:'pointer'}},loading?'Enregistrement…':'Enregistrer et continuer')
+      )
+    )
+  );
 
   return CE('div',{className:'login-wrap'},
     CE('div',{className:'login-card'},
