@@ -368,6 +368,8 @@ const LOGS_KEY = lsKey('adm_logs');
       if(data.emails){setEmails(data.emails);addLog('Emails chargés','ok');}
       // L'API rend la forme NEWGEN (materielsCaches), pas materiels_masques.
       if(Array.isArray(data.materielsCaches)){setMaterielsMasques(data.materielsCaches);MATERIELS_CACHES=data.materielsCaches;}
+      // Vacances scolaires de Bordeaux (AG-057) : utilisées par la saisie et les Anomalies.
+      if(data.vacances)window.VACANCES_SCOLAIRES=data.vacances;
       if(data.stockOrdinateurs){STOCK_ORDINATEURS=parseInt(data.stockOrdinateurs)||STOCK_ORDINATEURS;}
       addLog(`${incoming.length} ateliers chargés (${annee})`,'ok');
       setLastSync(new Date());

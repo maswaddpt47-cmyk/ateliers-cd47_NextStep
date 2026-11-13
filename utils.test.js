@@ -967,3 +967,38 @@ describe('Communes comparées sans tirets (AG-056)', () => {
     assert.notEqual(cleCommune('Agen'), cleCommune('Agnac'));
   });
 });
+
+describe('Vacances scolaires, ateliers de collège (AG-057)', () => {
+  const { vacancesDe, atelierCollege, atelierEnVacancesCollege, atelierCollegeHorsCalendrier } = require('./utils.js');
+  // Calendrier tel que l'API le transmet (officiel, Bordeaux) : connu du 01/09/2025 au 03/07/2028.
+  const P = { du: '2025-09-01', au: '2028-07-03', periodes: [
+    { debut: '2026-10-17', fin: '2026-11-01', libelle: 'Vacances de la Toussaint' },
+    { debut: '2027-05-07', fin: '2027-05-07', libelle: "Pont de l'Ascension" }] };
+  it('période contenant la date, bornes incluses ; reprise exclue', () => {
+    assert.equal(vacancesDe('2026-10-17', P), 'Vacances de la Toussaint');
+    assert.equal(vacancesDe('2026-11-01', P), 'Vacances de la Toussaint');
+    assert.equal(vacancesDe('2026-11-02', P), '');
+    assert.equal(vacancesDe('2026-10-16', P), '');
+    assert.equal(vacancesDe('2027-05-07', P), "Pont de l'Ascension");
+    assert.equal(vacancesDe('2026-10-20', null), null, 'calendrier absent : inconnu, pas « hors vacances »');
+    assert.equal(vacancesDe('2028-07-10', P), null, 'au-delà du calendrier publié : inconnu');
+    assert.equal(vacancesDe('2025-08-31', P), null, 'avant la couverture : inconnu');
+  });
+  it('collège : public « Collèges » ou orienteur « Collège … »', () => {
+    assert.equal(atelierCollege({ public: 'Collèges', orienteur: 'CAF' }), true);
+    assert.equal(atelierCollege({ public: 'Jeunes', orienteur: 'Collège Jasmin' }), true);
+    assert.equal(atelierCollege({ public: 'Jeunes', orienteur: 'COLLEGES DU FUMELOIS' }), true);
+    assert.equal(atelierCollege({ public: 'Jeunes', orienteur: 'CAF' }), false);
+    assert.equal(atelierCollege({ public: 'Jeunes', orienteur: 'Collégiale' }), false);
+  });
+  it('anomalie : collège, Planifié ou Réalisé, pendant les vacances ; calendrier inconnu = rien', () => {
+    const e = { date: '2026-10-20', statut: 'Planifié', public: 'Collèges', orienteur: '' };
+    assert.equal(atelierEnVacancesCollege(e, P), true);
+    assert.equal(atelierEnVacancesCollege({ ...e, statut: 'Annulé' }, P), false);
+    assert.equal(atelierEnVacancesCollege({ ...e, public: 'Séniors' }, P), false);
+    assert.equal(atelierEnVacancesCollege({ ...e, date: '2026-11-02' }, P), false);
+    assert.equal(atelierEnVacancesCollege(e, null), false);
+    assert.equal(atelierCollegeHorsCalendrier({ ...e, date: '2028-07-10' }, P), true);
+    assert.equal(atelierCollegeHorsCalendrier(e, P), false);
+  });
+});

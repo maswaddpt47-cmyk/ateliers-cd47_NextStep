@@ -519,6 +519,37 @@ function atelierUnJourFerie(e) {
   return !!e && (e.statut === 'Planifié' || e.statut === 'Réalisé') && !!ferieDe(normalizeDate(e.date));
 }
 
+// Vacances scolaires de l'académie de Bordeaux (AG-057) : calendrier
+// {periodes: [{debut, fin (dernier jour, inclus), libelle}], du, au} transmis
+// par getAll. Libellé de la période qui contient la date, '' hors vacances,
+// null si on ne sait pas : calendrier absent ou date hors des jours couverts
+// (au-delà du calendrier publié, Codex) — jamais un faux « hors vacances ».
+function vacancesDe(iso, cal) {
+  const d = String(iso || '').slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return '';
+  if (!cal || !Array.isArray(cal.periodes)) return null;
+  if ((cal.du && d < cal.du) || (cal.au && d > cal.au)) return null;
+  const p = cal.periodes.find(x => x && x.debut <= d && d <= x.fin);
+  return p ? String(p.libelle || 'Vacances scolaires') : '';
+}
+// Atelier avec un collège (choix de l'utilisateur, 13/11/2026) : public
+// « Collèges » ou orienteur contenant « collège(s) » (accents, casse ignorés).
+function atelierCollege(e) {
+  if (!e) return false;
+  return cleCommune(e.public) === 'colleges' || /\bcolleges?\b/.test(cleCommune(e.orienteur));
+}
+// Anomalie « vacances scolaires » : atelier de collège Planifié ou Réalisé
+// daté pendant les vacances (date inconnue du calendrier : false).
+function atelierEnVacancesCollege(e, cal) {
+  return !!e && (e.statut === 'Planifié' || e.statut === 'Réalisé') && atelierCollege(e)
+    && !!vacancesDe(normalizeDate(e.date), cal);
+}
+// Même atelier, mais daté hors du calendrier connu : on ne sait pas trancher.
+function atelierCollegeHorsCalendrier(e, cal) {
+  return !!e && (e.statut === 'Planifié' || e.statut === 'Réalisé') && atelierCollege(e)
+    && !!normalizeDate(e.date) && vacancesDe(normalizeDate(e.date), cal) === null;
+}
+
 // Anomalie : atelier qui commence après 15 h 30 (demande du 25/10/2026) ;
 // 15 h 30 pile n'en est pas une. Annulés exceptés : ils n'ont pas eu lieu.
 // Horaire vide ou illisible : pas concerné (un horaire vide est déjà un
@@ -1043,6 +1074,7 @@ if (typeof module !== 'undefined') {
   matierePanneau,
   ordiSansClasseMobile,
   debutApres1530, ferieDe, atelierUnJourFerie, cleCommune,
+  vacancesDe, atelierCollege, atelierEnVacancesCollege, atelierCollegeHorsCalendrier,
     presentsSuperieursInscrits,
   };
 }

@@ -473,6 +473,8 @@ function App(){
       // L'API rend la forme NEWGEN (materielsCaches), pas materiels_masques.
       if(Array.isArray(data.materielsCaches)){setMaterielsMasques(data.materielsCaches);MATERIELS_CACHES=data.materielsCaches;}
       if(Array.isArray(data.conseillers_inactifs))setInactifsSet(new Set(data.conseillers_inactifs));
+      // Vacances scolaires de Bordeaux (AG-057) : utilisées par la saisie et les Anomalies.
+      if(data.vacances)window.VACANCES_SCOLAIRES=data.vacances;
       if(data.stockOrdinateurs)STOCK_ORDINATEURS=parseInt(data.stockOrdinateurs)||STOCK_ORDINATEURS;
       setLastSync(new Date());
       setSeenIds(prev=>{
