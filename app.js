@@ -207,28 +207,33 @@ function VueLoginIndex({conseillers,onSuccess}){
             CE('div',{style:{fontSize:14,fontWeight:700,color:'#1a202c',textAlign:'center',marginBottom:4}},'Mot de passe par défaut détecté'),
             CE('div',{style:{fontSize:12,color:'#718096',textAlign:'center',marginBottom:4}},'Choisissez un nouveau mot de passe personnel pour continuer.'),
             CE('div',{style:{fontSize:11,color:'#a0aec0',textAlign:'center',marginBottom:12}},'12 caractères min. avec majuscule, minuscule, chiffre et caractère spécial.'),
+            // Gestionnaire de mots de passe (MD-LIB règle 69, demande du 13/11/2026) : vrai formulaire, identifiant caché = nom choisi, champ nommé, bouton submit.
+            CE('form',{autoComplete:'on',action:'#',onSubmit:e=>{e.preventDefault();handleChangePwd();}},
+            CE('input',{type:'text',name:'username',autoComplete:'username',value:conseiller,readOnly:true,tabIndex:-1,'aria-hidden':'true',style:{position:'absolute',left:'-9999px'}}),
             CE('div',{style:{position:'relative',margin:'0 0 10px'}},
               CE('input',{
-                type:showNewPwd?'text':'password',placeholder:'Nouveau mot de passe',value:newPwd,
+                type:showNewPwd?'text':'password',name:'new-password',id:'mdp-nouveau-index',autoComplete:'new-password',placeholder:'Nouveau mot de passe',value:newPwd,
                 onChange:e=>setNewPwd(e.target.value),
                 style:{width:'100%',padding:'10px 40px 10px 14px',border:'1px solid var(--border)',borderRadius:8,fontSize:14,outline:'none',boxSizing:'border-box',background:'var(--surface)',color:'var(--text)'}
               }),
-              CE('button',{onClick:()=>setShowNewPwd(s=>!s),style:{position:'absolute',right:10,top:'50%',transform:'translateY(-50%)',background:'none',border:'none',cursor:'pointer',fontSize:16,color:'#718096',padding:0}},showNewPwd?'🙈':'👁️')
+              CE('button',{type:'button','aria-label':'Afficher ou masquer le mot de passe',onClick:()=>setShowNewPwd(s=>!s),style:{position:'absolute',right:10,top:'50%',transform:'translateY(-50%)',background:'none',border:'none',cursor:'pointer',fontSize:16,color:'#718096',padding:0}},showNewPwd?'🙈':'👁️')
             ),
             CE('div',{style:{position:'relative',margin:'0 0 10px'}},
               CE('input',{
-                type:showNewPwd?'text':'password',placeholder:'Confirmer',value:newPwd2,
+                type:showNewPwd?'text':'password',name:'new-password-confirm',id:'mdp-confirmer-index',autoComplete:'new-password',placeholder:'Confirmer',value:newPwd2,
                 onChange:e=>setNewPwd2(e.target.value),
-                onKeyDown:e=>e.key==='Enter'&&handleChangePwd(),
                 style:{width:'100%',padding:'10px 40px 10px 14px',border:'1px solid var(--border)',borderRadius:8,fontSize:14,outline:'none',boxSizing:'border-box',background:'var(--surface)',color:'var(--text)'}
               }),
-              CE('button',{onClick:()=>setShowNewPwd(s=>!s),style:{position:'absolute',right:10,top:'50%',transform:'translateY(-50%)',background:'none',border:'none',cursor:'pointer',fontSize:16,color:'#718096',padding:0}},showNewPwd?'🙈':'👁️')
+              CE('button',{type:'button','aria-label':'Afficher ou masquer le mot de passe',onClick:()=>setShowNewPwd(s=>!s),style:{position:'absolute',right:10,top:'50%',transform:'translateY(-50%)',background:'none',border:'none',cursor:'pointer',fontSize:16,color:'#718096',padding:0}},showNewPwd?'🙈':'👁️')
             ),
             newPwdErr&&CE('p',{style:{color:'#c53030',fontSize:13,marginBottom:8}},newPwdErr),
-            CE('button',{className:'accueil-btn',disabled:changingPwd||!newPwd||!newPwd2,onClick:handleChangePwd},changingPwd?'Enregistrement…':'✅ Valider et continuer')
+            CE('button',{type:'submit',className:'accueil-btn',disabled:changingPwd||!newPwd||!newPwd2},changingPwd?'Enregistrement…':'✅ Valider et continuer'))
           )
         : CE(React.Fragment,null,
             CE(AnnonceNouvelleVersion),
+            // Gestionnaire de mots de passe (MD-LIB règle 69, demande du 13/11/2026) : vrai formulaire, identifiant caché = nom choisi, champ nommé, bouton submit.
+            CE('form',{autoComplete:'on',action:'#',onSubmit:e=>{e.preventDefault();handleSubmit();}},
+            CE('input',{type:'text',name:'username',autoComplete:'username',value:conseiller,readOnly:true,tabIndex:-1,'aria-hidden':'true',style:{position:'absolute',left:'-9999px'}}),
             CE('label',{className:'accueil-label'},'Qui êtes-vous ?'),
             CE('select',{className:'accueil-select',value:conseiller,onChange:e=>setConseiller(e.target.value)},
               CE('option',{value:''},'— Choisir votre nom —'),
@@ -236,15 +241,14 @@ function VueLoginIndex({conseillers,onSuccess}){
             ),
             CE('div',{style:{position:'relative',margin:'10px 0'}},
               CE('input',{
-                type:show?'text':'password',placeholder:'Mot de passe',value:pwd,
+                type:show?'text':'password',name:'password',id:'mdp-connexion-index',autoComplete:'current-password',placeholder:'Mot de passe',value:pwd,
                 onChange:e=>setPwd(e.target.value),
-                onKeyDown:e=>e.key==='Enter'&&handleSubmit(),
                 style:{width:'100%',padding:'10px 40px 10px 14px',border:'1px solid var(--border)',borderRadius:8,fontSize:14,outline:'none',boxSizing:'border-box',background:'var(--surface)',color:'var(--text)'}
               }),
-              CE('button',{onClick:()=>setShow(s=>!s),style:{position:'absolute',right:10,top:'50%',transform:'translateY(-50%)',background:'none',border:'none',cursor:'pointer',fontSize:16,color:'#718096',padding:0}},show?'🙈':'👁️')
+              CE('button',{type:'button','aria-label':'Afficher ou masquer le mot de passe',onClick:()=>setShow(s=>!s),style:{position:'absolute',right:10,top:'50%',transform:'translateY(-50%)',background:'none',border:'none',cursor:'pointer',fontSize:16,color:'#718096',padding:0}},show?'🙈':'👁️')
             ),
             err&&CE('p',{style:{color:'#c53030',fontSize:13,marginBottom:8}},err),
-            CE('button',{className:'accueil-btn',disabled:loading||!conseiller||!pwd.trim(),onClick:handleSubmit},loading?'Vérification…':'🔓 Connexion'),
+            CE('button',{type:'submit',className:'accueil-btn',disabled:loading||!conseiller||!pwd.trim()},loading?'Vérification…':'🔓 Connexion')),
             CE(LienMotDePasseOublie,{conseiller}),
             CE(MentionVersion)
           )

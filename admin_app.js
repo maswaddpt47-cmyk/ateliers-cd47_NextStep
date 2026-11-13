@@ -121,6 +121,9 @@ function AdminLogin({onLogin,savedName,onResetProfil,conseillers:conseillersProp
             CE('div',{style:{fontSize:12,color:'#9ca3af',marginTop:4}},'Trop de tentatives incorrectes')
           )
         : CE(React.Fragment,null,
+            // Gestionnaire de mots de passe (MD-LIB règle 69, demande du 13/11/2026) : vrai formulaire, identifiant caché = nom choisi, champ nommé, bouton submit.
+            CE('form',{autoComplete:'on',action:'#',onSubmit:e=>{e.preventDefault();handleSubmit();}},
+            CE('input',{type:'text',name:'username',autoComplete:'username',value:conseiller,readOnly:true,tabIndex:-1,'aria-hidden':'true',style:{position:'absolute',left:'-9999px'}}),
             CE('div',{style:{marginBottom:10}},
               CE('label',{style:{fontSize:12,fontWeight:600,color:'var(--text-2)',display:'block',marginBottom:4}},'Conseiller'),
               CE('select',{value:conseiller,onChange:e=>setConseiller(e.target.value),style:{width:'100%',padding:'10px 14px',border:'1px solid var(--border)',borderRadius:8,fontSize:14,outline:'none',boxSizing:'border-box',background:'var(--surface)',color:'var(--text)'}},
@@ -130,16 +133,15 @@ function AdminLogin({onLogin,savedName,onResetProfil,conseillers:conseillersProp
             ),
             CE('div',{style:{position:'relative',marginBottom:10}},
               CE('input',{
-                type:show?'text':'password',placeholder:'Mot de passe',value:pwd,
+                type:show?'text':'password',name:'password',id:'mdp-connexion-admin',autoComplete:'current-password',placeholder:'Mot de passe',value:pwd,
                 onChange:e=>setPwd(e.target.value),
-                onKeyDown:e=>e.key==='Enter'&&handleSubmit(),
                 style:{width:'100%',padding:'10px 40px 10px 14px',border:'1px solid var(--border)',borderRadius:8,fontSize:14,outline:'none',boxSizing:'border-box',background:'var(--surface)',color:'var(--text)'}
               }),
-              CE('button',{onClick:()=>setShow(s=>!s),style:{position:'absolute',right:10,top:'50%',transform:'translateY(-50%)',background:'none',border:'none',cursor:'pointer',fontSize:16,color:'#718096',padding:0}},show?'🙈':'👁️')
+              CE('button',{type:'button','aria-label':'Afficher ou masquer le mot de passe',onClick:()=>setShow(s=>!s),style:{position:'absolute',right:10,top:'50%',transform:'translateY(-50%)',background:'none',border:'none',cursor:'pointer',fontSize:16,color:'#718096',padding:0}},show?'🙈':'👁️')
             ),
             err&&CE('p',{style:{color:'#c53030',fontSize:13,marginBottom:8}},err),
             hint&&!err&&CE('p',{style:{color:'#718096',fontSize:12,marginBottom:8,display:'flex',alignItems:'center',gap:6}},CE('span',{className:'spinner',style:{width:12,height:12,borderWidth:2}}),hint),
-            CE('button',{onClick:handleSubmit,disabled:loading||!conseiller||!pwd.trim(),style:{width:'100%',padding:'11px',background:'#1e3a8a',color:'#fff',border:'none',borderRadius:8,fontSize:14,fontWeight:700,cursor:'pointer'}},loading?'Vérification…':'Connexion'),
+            CE('button',{type:'submit',disabled:loading||!conseiller||!pwd.trim(),style:{width:'100%',padding:'11px',background:'#1e3a8a',color:'#fff',border:'none',borderRadius:8,fontSize:14,fontWeight:700,cursor:'pointer'}},loading?'Vérification…':'Connexion')),
             CE(LienMotDePasseOublie,{conseiller}),
             CE(MentionVersion)
           )
