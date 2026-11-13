@@ -70,7 +70,8 @@ plateforme (le signaler une fois, puis continuer le reste).
 - Fin de tâche (04/11/2026) : vérifier que les opérations et revues nécessaires
   sont terminées, puis conclure le message final par une ligne distincte :
   **✅ TÂCHE TERMINÉE**. Si un traitement reste en cours ou bloque la livraison,
-  préciser son état sans annoncer la tâche terminée.
+  préciser son état sans annoncer la tâche terminée. La tâche est le travail
+  demandé dans le message, pas l’objectif d’ensemble (13/11/2026).
 
 ## Décisions, preuves et périmètre
 
@@ -149,7 +150,9 @@ plateforme (le signaler une fois, puis continuer le reste).
   `type="password"` `name="password"` `autocomplete="current-password"` avec un
   `id` unique, et un bouton `type="submit"` ; sur `submit`, `preventDefault()`,
   même enregistrement qu’à la frappe et message de confirmation. Sinon Proton
-  Pass ne propose pas la clé.
+  Pass ne propose pas la clé. Bouton qui lance l’application : il devient le
+  `submit`, garde son libellé, et les `onkeydown` / `onclick` d’origine sont
+  retirés (sinon l’action part deux fois).
 - Garder les instructions courtes : fusionner les doublons, dater les hypothèses
   et préférer un contrôle utile à une nouvelle couche de règles.
 
