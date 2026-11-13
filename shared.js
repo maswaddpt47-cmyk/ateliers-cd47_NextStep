@@ -2626,8 +2626,9 @@ function PanneauAtelier({panel,onClose,entries,onEntryUpdated,onRefresh,onEdit,o
     const ferieVolet=panelStatut!=='Annulé'&&panelDate!==panel.date?ferieDe(panelDate):'';
     if(ferieVolet&&!window.confirm('Le '+fmtDate(panelDate)+' est férié ('+ferieVolet+').\n\nEnregistrer quand même ?'))return;
     // Vacances scolaires (AG-057) : date ou orienteur changés sur un atelier de collège.
-    const orientVolet=(panelOrienteur||'').trim()||panel.orienteur;
-    const vacVolet=panelStatut!=='Annulé'&&(panelDate!==panel.date||orientVolet!==panel.orienteur)&&atelierCollege({...panel,orienteur:orientVolet})
+    // Valeurs qui seront enregistrées, public compris (Codex, vérification d'AG-057).
+    const orientVolet=(panelOrienteur||'').trim()||panel.orienteur,pubVolet=panelPublic||panel.public;
+    const vacVolet=panelStatut!=='Annulé'&&(panelDate!==panel.date||orientVolet!==panel.orienteur||pubVolet!==panel.public)&&atelierCollege({...panel,orienteur:orientVolet,public:pubVolet})
       ?vacancesDe(panelDate,calendrierScolaire()):'';
     if(vacVolet&&!window.confirm('Le '+fmtDate(panelDate)+' tombe pendant les vacances scolaires ('+vacVolet+', académie de Bordeaux) : atelier avec un collège.\n\nEnregistrer quand même ?'))return;
     if(vacVolet===null&&!window.confirm('Vacances scolaires non vérifiables le '+fmtDate(panelDate)+' (calendrier officiel non publié ou indisponible) : atelier avec un collège.\n\nEnregistrer quand même ?'))return;
@@ -4722,10 +4723,11 @@ function VueAnomalies({entries,onEdit,communes:communesProp,apiFetch,showToast,a
     ),
     filtered.length===0
       // Contrôle des communes suspendu : pas de « ✅ aucune anomalie », le contrôle n'a pas eu lieu (AG-056, Codex).
-      ?(filter==='vacances'&&!vacCal
+      ?(filter==='vacances'&&(!vacCal||nbHorsCal>0)
         ?CE('div',{style:{textAlign:'center',padding:'40px 0',color:'#047857',fontSize:14}},
             CE('div',{style:{fontSize:32,marginBottom:8}},'⏸️'),
-            'Contrôle des vacances scolaires suspendu : calendrier indisponible — rechargez la page')
+            !vacCal?'Contrôle des vacances scolaires suspendu : calendrier indisponible — rechargez la page'
+              :nbHorsCal+' atelier(s) de collège non vérifiable(s) : calendrier officiel publié jusqu\'au '+fmtDate(vacCal.au)+' seulement')
         :filter==='communes'&&listeSecours
         ?CE('div',{style:{textAlign:'center',padding:'40px 0',color:'#6d28d9',fontSize:14}},
             CE('div',{style:{fontSize:32,marginBottom:8}},'⏸️'),
@@ -6823,6 +6825,9 @@ function ImportOutlook({entries,ac,acLight,onImporter,ouvertInit,onPreparation})
     const liste=majChoisies.map(x=>x.ch
       ?{...chaine(x.e),date:x.ch.date||x.e.date,horaire:x.ch.horaire||x.e.horaire,ampm:ampmDepuisHoraire(x.ch.horaire||x.e.horaire)||x.e.ampm,duree:x.ch.duree||parseInt(x.e.duree)||DUREE_DEFAUT}
       :{...chaine(x.e),statut:'Annulé'});
+    // Dates déplacées par Outlook : même contrôle qu'à la saisie, fériés et vacances scolaires (Codex, AG-057).
+    const alertesMaj=liste.filter(e=>e.statut!=='Annulé').flatMap(e=>alertesSaisie([],e,null));
+    if(alertesMaj.length&&!window.confirm(alertesMaj.slice(0,8).join('\n')+(alertesMaj.length>8?'\n…':'')+'\n\nEnregistrer quand même ?'))return;
     setEnvoiMaj(true);
     try{
       const r=await apiFetch('saveMany',{entries:liste});
