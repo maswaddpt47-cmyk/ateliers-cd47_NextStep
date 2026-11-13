@@ -71,6 +71,7 @@ function AdminLogin({onLogin,savedName,onResetProfil,conseillers:conseillersProp
     try{
       const r2=await apiFetch('selfSetPassword',{password:mdp1,currentPwd:pwd,token:aChanger.token});
       if(r2&&r2.ok){touchSession();window.onLoginSuccess(conseiller,aChanger);onLogin(aChanger.role||'user',conseiller);}
+      else if(r2&&r2.auth){setAChanger(null);setMdp1('');setMdp2('');setPwd('');setErr('Session expirée : reconnectez-vous.');}   // AG-060, Codex : retour à la connexion
       else setErrMdp((r2&&r2.error)||'Erreur serveur');
     }catch(e){setErrMdp('Erreur réseau : '+e.message);}
     finally{setLoading(false);}
@@ -130,7 +131,7 @@ function AdminLogin({onLogin,savedName,onResetProfil,conseillers:conseillersProp
   if(aChanger)return CE('div',{className:'login-wrap'},
     CE('div',{className:'login-card'},
       CE('h2',null,'🔑 Choisissez votre mot de passe'),
-      CE('p',{style:{fontSize:13,color:'var(--text-2)',marginBottom:10,lineHeight:1.5}},'Votre mot de passe actuel ne respecte pas la règle : '+PWD_POLICY_MSG),
+      CE('p',{style:{fontSize:13,color:'var(--text-2)',marginBottom:10,lineHeight:1.5}},'Votre mot de passe actuel ne respecte pas la règle. '+PWD_POLICY_MSG),
       CE('form',{autoComplete:'on',action:'#',onSubmit:e=>{e.preventDefault();enregistrerMdp();}},
         CE('input',{type:'text',name:'username',autoComplete:'username',value:conseiller,readOnly:true,tabIndex:-1,'aria-hidden':'true',style:{position:'absolute',left:'-9999px'}}),
         CE('input',{type:'password',name:'new-password',autoComplete:'new-password',placeholder:'Nouveau mot de passe',value:mdp1,onChange:e=>setMdp1(e.target.value),style:{width:'100%',padding:'10px 14px',border:'1px solid var(--border)',borderRadius:8,fontSize:14,outline:'none',boxSizing:'border-box',background:'var(--surface)',color:'var(--text)',marginBottom:10}}),
