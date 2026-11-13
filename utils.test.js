@@ -935,3 +935,25 @@ describe('listeSuppressionOutlook', () => {
     assert.ok(buildICS([b]).includes('SUMMARY:Atelier Régie'));
   });
 });
+
+describe('Jours fériés contrôlés (AG-054)', () => {
+  const { ferieDe, atelierUnJourFerie } = require('./utils.js');
+  it('fériés fixes et mobiles, pour les années à venir', () => {
+    assert.equal(ferieDe('2026-11-11'), 'Armistice');
+    assert.equal(ferieDe('2026-11-12'), '');
+    // Pâques 2027 : 28/03 ; 2028 : 16/04 ; 2030 : 21/04 (lundis, Ascension, Pentecôte calculés).
+    assert.equal(ferieDe('2027-03-29'), 'Lundi de Pâques');
+    assert.equal(ferieDe('2028-05-25'), 'Ascension');
+    assert.equal(ferieDe('2030-06-10'), 'Lundi de Pentecôte');
+    assert.equal(ferieDe('2031-07-14'), 'Fête nationale');
+    assert.equal(ferieDe(''), '');
+    assert.equal(ferieDe('n/a'), '');
+  });
+  it('anomalie : Planifié ou Réalisé un jour férié ; Annulé, Reporté, Non réalisé exclus', () => {
+    assert.equal(atelierUnJourFerie({ date: '2026-12-25', statut: 'Planifié' }), true);
+    assert.equal(atelierUnJourFerie({ date: '2026-11-11', statut: 'Réalisé' }), true);
+    for (const statut of ['Annulé', 'Reporté', 'Non réalisé'])
+      assert.equal(atelierUnJourFerie({ date: '2026-12-25', statut }), false, statut);
+    assert.equal(atelierUnJourFerie({ date: '2026-12-24', statut: 'Planifié' }), false);
+  });
+});

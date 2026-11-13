@@ -1862,6 +1862,9 @@ function alertesSaisie(entries, cand, creneau) {
   const out = [];
   const nom = {AM:'matin', PM:'après-midi'};
   const d = demiSaisie(cand);
+  // Jour férié (AG-054, 13/11/2026) : confirmation demandée, pas de blocage ; un atelier annulé n'est pas concerné.
+  const ferie = cand.statut !== 'Annulé' ? ferieDe(cand.date) : '';
+  if (ferie) out.push('Le ' + fmtDate(cand.date) + ' est férié (' + ferie + ').');
   if (creneau && creneau.date === cand.date && cand.horaire && d && d !== creneau.demi)
     out.push('Créneau libre choisi : ' + nom[creneau.demi] + ' — ' + cand.horaire + ' tombe le ' + nom[d] + '.');
   conflitsConseiller(entries, cand).forEach(e => out.push((e.conseiller === cand.conseiller || e.co_animateur === cand.conseiller ? (cand.conseiller || '') : (cand.co_animateur || '')) + ' a déjà un atelier ' + (d ? 'ce ' + nom[d] : 'ce jour') + ' : ' + (e.horaire || 'sans horaire') + ' ' + (e.thematique || '—') + (e.commune ? ' (' + e.commune + ')' : '') + '.'));
@@ -2608,6 +2611,9 @@ function PanneauAtelier({panel,onClose,entries,onEntryUpdated,onRefresh,onEdit,o
     if(panelStatut==='Réalisé'&&panel.statut!=='Réalisé'&&ficheBilanVide(panelBilan)&&await demanderFicheBilan({...panel,date:panelDate})==='remplir'){
       const f=document.getElementById('fiche-bilan-volet');if(f)f.scrollIntoView({behavior:'smooth',block:'start'});return;
     }
+    // Date déplacée sur un jour férié (AG-054) : confirmation, comme à la saisie.
+    const ferieVolet=panelStatut!=='Annulé'&&panelDate!==panel.date?ferieDe(panelDate):'';
+    if(ferieVolet&&!window.confirm('Le '+fmtDate(panelDate)+' est férié ('+ferieVolet+').\n\nEnregistrer quand même ?'))return;
     setSaving(true);
     try{
       const updated={...panel,fiche_bilan:panelStatut==='Réalisé'?(Object.keys(panelBilan).length?panelBilan:''):(panel.fiche_bilan||''),statut:panelStatut,inscrits:panelInscrits===''?'':parseInt(panelInscrits)||0,presents:panelPresents===''?'':parseInt(panelPresents)||0,thematique:panelThematique,date:panelDate,horaire:panelHoraire,ampm:ampmDepuisHoraire(panelHoraire)||panel.ampm,duree:parseInt(panelDuree)||DUREE_DEFAUT,commune:panelCommune.trim()||panel.commune,lieu:panelLieu.trim()||panel.lieu,orienteur:panelOrienteur.trim()||panel.orienteur,conseiller:panelConseiller||panel.conseiller,co_animateur:panelCoAnim===panelConseiller?'':panelCoAnim,public:panelPublic,ouvert_a_tous:OUVERT_A_TOUS_CHOIX.includes(panelOuvert)?panelOuvert:(panel.ouvert_a_tous||'Non'),nb_ordinateurs:panelMobile?(panelNbOrdi===''?'':parseInt(panelNbOrdi)||0):'',date_prelevement_materiel:panelMobile?panelPrelev:'',date_retour_materiel:panelMobile?panelRetour:'',remarques:panelNote,materiel:matierePanneau(panel,panelMobile).join('|')};
@@ -4541,15 +4547,17 @@ function VueAnomalies({entries,onEdit,communes:communesProp,apiFetch,showToast,a
       const chiffres=typeof presentsSuperieursInscrits==='function'&&presentsSuperieursInscrits(e);
       const ordiSansMobile=typeof ordiSansClasseMobile==='function'&&ordiSansClasseMobile(e);
       const tard=typeof debutApres1530==='function'&&debutApres1530(e);
-      if(champsVides.length===0&&!communeInvalide&&!chiffres&&!ordiSansMobile&&!tard)return null;
-      return{e,champsVides,communeInvalide,communeSugg,chiffres,ordiSansMobile,tard};
+      // Jour férié (AG-054) : libellé du férié, '' sinon.
+      const ferie=typeof atelierUnJourFerie==='function'&&atelierUnJourFerie(e)?ferieDe(normalizeDate(e.date)):'';
+      if(champsVides.length===0&&!communeInvalide&&!chiffres&&!ordiSansMobile&&!tard&&!ferie)return null;
+      return{e,champsVides,communeInvalide,communeSugg,chiffres,ordiSansMobile,tard,ferie};
     }).filter(Boolean);
   },[entries,communes]);
   // Validation d'une anomalie vérifiée (AG-044, 04/11/2026) : un couple (atelier, catégorie) validé sort
   // de la liste et des compteurs tant que la valeur concernée (empreinte) ne change pas. Aucun autre
   // calcul n'en tient compte (stock, conflits, indicateurs, bilans, exports).
-  const CATS_ANO=['manquants','communes','chiffres','ordi','tard'];
-  const LIB_CAT_ANO={manquants:'Champs manquants',communes:'Commune invalide',chiffres:'Présents > inscrits',ordi:'Ordinateurs sans Classe mobile',tard:'Début après 15h30'};
+  const CATS_ANO=['manquants','communes','chiffres','ordi','tard','ferie'];
+  const LIB_CAT_ANO={manquants:'Champs manquants',communes:'Commune invalide',chiffres:'Présents > inscrits',ordi:'Ordinateurs sans Classe mobile',tard:'Début après 15h30',ferie:'Jour férié'};
   const[validees,setValidees]=React.useState({});
   const[voirValidees,setVoirValidees]=React.useState(false);
   const[valEnCours,setValEnCours]=React.useState('');
@@ -4569,8 +4577,8 @@ function VueAnomalies({entries,onEdit,communes:communesProp,apiFetch,showToast,a
     }).catch(()=>setEtatLecture('erreur'));
   },[]);
   React.useEffect(()=>{lireValidees();},[]);
-  const empreinteAno=(a,c)=>c==='manquants'?a.champsVides.join(','):c==='communes'?String(a.e.commune||''):c==='chiffres'?(a.e.presents+'/'+a.e.inscrits):c==='ordi'?String(a.e.nb_ordinateurs):String(a.e.horaire||'');
-  const catActive=(a,c)=>c==='manquants'?a.champsVides.length>0:c==='communes'?!!a.communeInvalide:c==='chiffres'?!!a.chiffres:c==='ordi'?!!a.ordiSansMobile:!!a.tard;
+  const empreinteAno=(a,c)=>c==='manquants'?a.champsVides.join(','):c==='communes'?String(a.e.commune||''):c==='chiffres'?(a.e.presents+'/'+a.e.inscrits):c==='ordi'?String(a.e.nb_ordinateurs):c==='ferie'?normalizeDate(a.e.date):String(a.e.horaire||'');
+  const catActive=(a,c)=>c==='manquants'?a.champsVides.length>0:c==='communes'?!!a.communeInvalide:c==='chiffres'?!!a.chiffres:c==='ordi'?!!a.ordiSansMobile:c==='ferie'?!!a.ferie:!!a.tard;
   const estValidee=(a,c)=>{const v=validees[a.e._id+'|'+c];return!!v&&v.empreinte===empreinteAno(a,c);};
   const anomalies=React.useMemo(()=>anomaliesBrutes.map(a=>{
     const m={...a};
@@ -4579,8 +4587,9 @@ function VueAnomalies({entries,onEdit,communes:communesProp,apiFetch,showToast,a
     if(estValidee(a,'chiffres'))m.chiffres=false;
     if(estValidee(a,'ordi'))m.ordiSansMobile=false;
     if(estValidee(a,'tard'))m.tard=false;
+    if(estValidee(a,'ferie'))m.ferie='';
     return m;
-  }).filter(m=>m.champsVides.length>0||m.communeInvalide||m.chiffres||m.ordiSansMobile||m.tard),[anomaliesBrutes,validees]);
+  }).filter(m=>m.champsVides.length>0||m.communeInvalide||m.chiffres||m.ordiSansMobile||m.tard||m.ferie),[anomaliesBrutes,validees]);
   async function validerAno(a,c){
     if(!apiFetch)return;
     if(!window.confirm('Valider cette anomalie ('+LIB_CAT_ANO[c]+') ? Elle sort de la liste tant que la valeur concernée ne change pas.'))return;
@@ -4606,7 +4615,7 @@ function VueAnomalies({entries,onEdit,communes:communesProp,apiFetch,showToast,a
   }
   const boutonValider=(a,c)=>apiFetch&&CE('button',{disabled:valEnCours===a.e._id+'|'+c,onClick:()=>validerAno(a,c),title:'Anomalie vérifiée : la sortir de la liste',style:{fontSize:11,padding:'2px 8px',borderRadius:4,border:'1px solid #16a34a',background:'#f0fdf4',color:'#15803d',cursor:'pointer',marginLeft:8}},'✅ Valider');
   const anomaliesFiltrees=filtreConum==='Tous'?anomalies:anomalies.filter(a=>a.e.conseiller===filtreConum||a.e.co_animateur===filtreConum);
-  const filtered=filter==='manquants'?anomaliesFiltrees.filter(a=>a.champsVides.length>0):filter==='communes'?anomaliesFiltrees.filter(a=>a.communeInvalide):filter==='chiffres'?anomaliesFiltrees.filter(a=>a.chiffres):filter==='ordi'?anomaliesFiltrees.filter(a=>a.ordiSansMobile):filter==='tard'?anomaliesFiltrees.filter(a=>a.tard):anomaliesFiltrees;
+  const filtered=filter==='manquants'?anomaliesFiltrees.filter(a=>a.champsVides.length>0):filter==='communes'?anomaliesFiltrees.filter(a=>a.communeInvalide):filter==='chiffres'?anomaliesFiltrees.filter(a=>a.chiffres):filter==='ordi'?anomaliesFiltrees.filter(a=>a.ordiSansMobile):filter==='tard'?anomaliesFiltrees.filter(a=>a.tard):filter==='ferie'?anomaliesFiltrees.filter(a=>a.ferie):anomaliesFiltrees;
   async function handleSaveCommune(entry,valeur){
     if(!valeur||!valeur.trim())return;
     setSaving(entry._id);
@@ -4618,7 +4627,7 @@ function VueAnomalies({entries,onEdit,communes:communesProp,apiFetch,showToast,a
     }catch(err){if(showToast)showToast('⚠️ Erreur : '+err.message);}
     setSaving(null);
   }
-  const nbTotal=anomaliesFiltrees.length,nbManquants=anomaliesFiltrees.filter(a=>a.champsVides.length>0).length,nbCommunes=anomaliesFiltrees.filter(a=>a.communeInvalide).length,nbChiffres=anomaliesFiltrees.filter(a=>a.chiffres).length,nbOrdi=anomaliesFiltrees.filter(a=>a.ordiSansMobile).length,nbTard=anomaliesFiltrees.filter(a=>a.tard).length;
+  const nbTotal=anomaliesFiltrees.length,nbManquants=anomaliesFiltrees.filter(a=>a.champsVides.length>0).length,nbCommunes=anomaliesFiltrees.filter(a=>a.communeInvalide).length,nbChiffres=anomaliesFiltrees.filter(a=>a.chiffres).length,nbOrdi=anomaliesFiltrees.filter(a=>a.ordiSansMobile).length,nbTard=anomaliesFiltrees.filter(a=>a.tard).length,nbFerie=anomaliesFiltrees.filter(a=>a.ferie).length;
   const listeValidees=anomaliesBrutes.filter(a=>filtreConum==='Tous'||a.e.conseiller===filtreConum||a.e.co_animateur===filtreConum).flatMap(a=>CATS_ANO.filter(c=>catActive(a,c)&&estValidee(a,c)).map(c=>({a,c})));
   const dateCourte=d=>{const m=String(d||'').match(/^(\d{4})-(\d{2})-(\d{2})/);return m?m[3]+'/'+m[2]+'/'+m[1]:'';};
   // Puces construites sur TOUTES les anomalies, validées ou non : un conseiller dont tout est validé reste choisissable (Codex, AG-044).
@@ -4655,6 +4664,10 @@ function VueAnomalies({entries,onEdit,communes:communesProp,apiFetch,showToast,a
       CE('div',{style:{background:'#fce7f3',borderRadius:8,padding:'8px 14px',flex:'1',minWidth:120,cursor:'pointer',border:filter==='tard'?'2px solid #db2777':'2px solid transparent'},onClick:()=>setFilter('tard')},
         CE('div',{style:{fontSize:20,fontWeight:700,color:'#be185d'}},nbTard),
         CE('div',{style:{fontSize:11,color:'#831843'}},'Début après 15h30')
+      ),
+      CE('div',{style:{background:'#fef2f2',borderRadius:8,padding:'8px 14px',flex:'1',minWidth:120,cursor:'pointer',border:filter==='ferie'?'2px solid #b91c1c':'2px solid transparent'},onClick:()=>setFilter('ferie')},
+        CE('div',{style:{fontSize:20,fontWeight:700,color:'#b91c1c'}},nbFerie),
+        CE('div',{style:{fontSize:11,color:'#7f1d1d'}},'Jour férié')
       )
     ),
     CE('div',{className:'chip-bar',style:{marginBottom:12}},
@@ -4683,7 +4696,7 @@ function VueAnomalies({entries,onEdit,communes:communesProp,apiFetch,showToast,a
         )
       :CE('div',{style:{display:'flex',flexDirection:'column',gap:8}},
           filtered.map(a=>{
-            const{e,champsVides,communeInvalide,communeSugg,chiffres,ordiSansMobile,tard}=a;
+            const{e,champsVides,communeInvalide,communeSugg,chiffres,ordiSansMobile,tard,ferie}=a;
             const corrVal=corrections[e._id]?.commune!==undefined?corrections[e._id].commune:(communeSugg||e.commune||'');
             const estCorrige=saved[e._id];
             return CE('div',{key:e._id,style:{background:estCorrige?'#f0fdf4':'#fff',border:'1px solid '+(estCorrige?'#86efac':'#e5e7eb'),borderRadius:8,padding:'10px 14px'}},
@@ -4694,6 +4707,8 @@ function VueAnomalies({entries,onEdit,communes:communesProp,apiFetch,showToast,a
               ),
               tard&&CE('div',{style:{fontSize:11,color:'#be185d',fontWeight:600,marginBottom:6}},
                 '🕓 Commence à '+e.horaire+', après 15h30 — à vérifier via ✏️ Ouvrir',boutonValider(a,'tard')),
+              ferie&&CE('div',{style:{fontSize:11,color:'#b91c1c',fontWeight:600,marginBottom:6}},
+                '📅 Le '+fmtDate(e.date)+' est férié ('+ferie+') — à déplacer via ✏️ Ouvrir, ou à valider s\'il est maintenu',boutonValider(a,'ferie')),
               ordiSansMobile&&CE('div',{style:{fontSize:11,color:'#0369a1',fontWeight:600,marginBottom:6}},
                 '🖥️ '+e.nb_ordinateurs+' ordinateur(s) prêté(s) sans « Classe mobile » cochée : non compté(s) dans le stock — ✏️ Ouvrir pour cocher la case ou vider le nombre',boutonValider(a,'ordi')),
               chiffres&&CE('div',{style:{fontSize:11,color:'#c2410c',fontWeight:600,marginBottom:(champsVides.length>0||communeInvalide)?6:0}},
@@ -5317,8 +5332,8 @@ function VuePlanning({annees,entries,onEdit,onDelete,onDuplicate,canDelete,accen
           // En-tête : jours et heures
           CE('div',{style:{display:'flex',borderBottom:'1px solid var(--border,#e2e8f0)'}},
             CE('div',{style:{width:NOM,flexShrink:0,position:'sticky',left:0,zIndex:2,background:'var(--surface,#fff)'}}),
-            jours.map((d,i)=>{const auj=cles[i]===aujourdhui;return CE('div',{key:cles[i],style:{width:LJ,flexShrink:0,borderLeft:'1px solid var(--border,#e2e8f0)',background:auj?ac+'14':'var(--surface-2,#f8fafc)',padding:'4px 0 2px'}},
-              CE('div',{style:{textAlign:'center',fontSize:12,fontWeight:800,color:auj?ac:'var(--text,#1a202c)'}},JOURS[d.getDay()]+' '+d.getDate()+' '+MOIS[d.getMonth()]),
+            jours.map((d,i)=>{const auj=cles[i]===aujourdhui,ferie=ferieDe(cles[i]);return CE('div',{key:cles[i],title:ferie||undefined,style:{width:LJ,flexShrink:0,borderLeft:'1px solid var(--border,#e2e8f0)',background:auj?ac+'14':ferie?'#fef2f2':'var(--surface-2,#f8fafc)',padding:'4px 0 2px'}},
+              CE('div',{style:{textAlign:'center',fontSize:12,fontWeight:800,color:auj?ac:ferie?'#b91c1c':'var(--text,#1a202c)'}},JOURS[d.getDay()]+' '+d.getDate()+' '+MOIS[d.getMonth()]+(ferie?' — férié':'')),
               CE('div',{style:{position:'relative',height:14}},heures.map(h=>CE('span',{key:h,style:{position:'absolute',left:pos(h),transform:h===hMin?'none':'translateX(-50%)',fontSize:9,color:'var(--text-3,#94a3b8)'}},(h/60)+'h'))));})),
           // Une ligne par conseiller
           noms.map(nom=>{
@@ -5327,7 +5342,7 @@ function VuePlanning({annees,entries,onEdit,onDelete,onDuplicate,canDelete,accen
               CE('div',{style:{width:NOM,flexShrink:0,position:'sticky',left:0,zIndex:2,background:'var(--surface,#fff)',display:'flex',alignItems:'center',gap:6,padding:'0 8px',fontSize:11,fontWeight:700,color:conseillerColor(nom),boxShadow:'1px 0 0 var(--border,#e2e8f0)'}},
                 CE('span',{style:{width:8,height:8,borderRadius:'50%',background:conseillerColor(nom),flexShrink:0}}),
                 CE('span',{style:{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}},nom)),
-              cles.map(j=>CE('div',{key:j,style:{width:LJ,flexShrink:0,height:h,position:'relative',borderLeft:'1px solid var(--border,#e2e8f0)',backgroundImage:grille,backgroundColor:j===aujourdhui?ac+'0d':'transparent'}},
+              cles.map(j=>CE('div',{key:j,style:{width:LJ,flexShrink:0,height:h,position:'relative',borderLeft:'1px solid var(--border,#e2e8f0)',backgroundImage:grille,backgroundColor:j===aujourdhui?ac+'0d':ferieDe(j)?'#fef2f2':'transparent'}},
                 (parCase[nom+'|'+j]||[]).map(barre))));
           }))),
       CE('p',{style:{fontSize:11,color:'var(--text-3,#94a3b8)',margin:'8px 0 0'}},

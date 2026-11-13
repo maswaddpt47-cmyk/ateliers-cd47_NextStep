@@ -497,6 +497,22 @@ function ordiSansClasseMobile(e) {
   return matierePanneau(e, false).length === liste.length;
 }
 
+// Jour férié (métropole) d'une date AAAA-MM-JJ : son libellé, sinon '' (AG-054).
+// Calculé pour toute année (Pâques par l'algorithme grégorien) : aucune liste
+// à tenir à jour d'une année sur l'autre.
+const FERIES_PAR_ANNEE = {};
+function ferieDe(iso) {
+  const d = String(iso || '').slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return '';
+  const a = +d.slice(0, 4);
+  return (FERIES_PAR_ANNEE[a] = FERIES_PAR_ANNEE[a] || joursFeries(a))[d] || '';
+}
+// Anomalie « jour férié » (AG-054) : atelier Planifié ou Réalisé (qui a lieu ou
+// a eu lieu) daté d'un jour férié. Annulé, Reporté, Non réalisé : pas concernés.
+function atelierUnJourFerie(e) {
+  return !!e && (e.statut === 'Planifié' || e.statut === 'Réalisé') && !!ferieDe(normalizeDate(e.date));
+}
+
 // Anomalie : atelier qui commence après 15 h 30 (demande du 25/10/2026) ;
 // 15 h 30 pile n'en est pas une. Annulés exceptés : ils n'ont pas eu lieu.
 // Horaire vide ou illisible : pas concerné (un horaire vide est déjà un
@@ -1020,7 +1036,7 @@ if (typeof module !== 'undefined') {
   ateliersPartenaire,
   matierePanneau,
   ordiSansClasseMobile,
-  debutApres1530,
+  debutApres1530, ferieDe, atelierUnJourFerie,
     presentsSuperieursInscrits,
   };
 }
