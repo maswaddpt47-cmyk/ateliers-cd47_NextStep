@@ -51,7 +51,7 @@ jobs:
           fi
 
   e2e:
-    needs: test
+    # En parallèle de test (15/11/2026) : deploy attend déjà les deux, aucun contrôle retiré.
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

@@ -1,6 +1,6 @@
 # Chantiers en cours — Ateliers CD47 NextStep
 
-État au **15/11/2026 (relu par « pull »)**, base `main` `96d512e`. Arrivé depuis
+État au **15/11/2026**, base `main` `96d512e`. Arrivé depuis
 `c491810` (13/11/2026) : écarts de Codex sur les vacances scolaires (AG-057,
 `1e67088`) ; connexions Admin et Index reconnues par les gestionnaires de mots
 de passe (règle 69 de MD-LIB, `eb5db57`) ; Nouveautés 39 et 40 (`45e9181`) ;
@@ -94,13 +94,9 @@ Règle 20 du `CLAUDE.md`. Ne pas reproposer une piste écartée sans fait nouvea
 
 **Proposées, en attente** : tenues dans `CHANTIERS.md` d'ATELIERS_NEWGEN
 (mêmes interfaces, même base).
-- 15/11/2026 — **CI plus rapide, à examiner au prochain « pull »** (proposition
-  de la session PAPPERBOARD ; mise en ligne ~1 min 30 mesurée sur NextStep). Dans
-  `deploy.yml`, `e2e` attend `test` (`needs: test`) alors que `deploy` attend déjà
-  les deux : les lancer en parallèle fait gagner la durée de `test`, sans retirer
-  aucun contrôle. Piste secondaire : ne plus télécharger Chromium à chaque passage
-  (cache). Mesurer la durée de chaque job avant et après. Dans PAPPERBOARD, la
-  mise en parallèle a fait passer les tests de 206 s à 122 s.
+- 15/11/2026 — **CI plus rapide : faite le 15/11/2026** (`e2e` en parallèle de `test`, ici et
+  dans NEWGEN ; mesuré avant : 1 min 51 s, dont `test` 15 s, `e2e` 75 s, `deploy` 20 s ; gain
+  attendu ~15 s, à mesurer au prochain passage). Cache de Chromium non fait : 12 s au mieux.
 
 **Écartées** (date — piste — raison)
 - 03/10/2026 — lien d'abonnement agenda pour les partenaires — « pour l'instant » (utilisateur).
