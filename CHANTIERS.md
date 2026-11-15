@@ -1,6 +1,6 @@
 # Chantiers en cours — Ateliers CD47 NextStep
 
-État au **15/11/2026**, base `main` `96d512e`. Arrivé depuis
+État au **15/11/2026**, base `main` `65b12a8` (CI en parallèle, 15/11 ; suite : `CHANTIERS.md` de NEWGEN). Arrivé depuis
 `c491810` (13/11/2026) : écarts de Codex sur les vacances scolaires (AG-057,
 `1e67088`) ; connexions Admin et Index reconnues par les gestionnaires de mots
 de passe (règle 69 de MD-LIB, `eb5db57`) ; Nouveautés 39 et 40 (`45e9181`) ;
