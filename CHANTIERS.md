@@ -1,8 +1,14 @@
 # Chantiers en cours — Ateliers CD47 NextStep
 
-État au **13/11/2026 (heure de Paris)**, base `main` `c491810`, alignée sur NEWGEN `05e7081` (fériés, communes, vacances scolaires AG-057).
-Dernière livraison : page TS sans filtre « Ouvert à tous », choisi par l'Admin (AG-053, vérification
-de Codex attendue). Avant : tuile « Copie de nuit » (AG-052, clos).
+État au **15/11/2026 (relu par « pull »)**, base `main` `96d512e`. Arrivé depuis
+`c491810` (13/11/2026) : écarts de Codex sur les vacances scolaires (AG-057,
+`1e67088`) ; connexions Admin et Index reconnues par les gestionnaires de mots
+de passe (règle 69 de MD-LIB, `eb5db57`) ; Nouveautés 39 et 40 (`45e9181`) ;
+rendez-vous Outlook envoyés au téléphone par un mail à soi-même (AG-058,
+`1d48d2a`) ; « Choisissez votre mot de passe » imposé aussi à l'Admin, session
+expirée = retour à la connexion (AG-059/AG-060, `c35d692`, `96d512e`,
+vérification de Codex). Alignement sur NEWGEN non revérifié par ce pull.
+Avant : page TS sans filtre « Ouvert à tous » (AG-053), tuile « Copie de nuit » (AG-052, clos).
 
 **Passation Codex — 05/11/2026** : repartir d'une copie propre de `main`, sans
 réappliquer d'anciens brouillons. Aucun bloc AGORA ouvert dans NEWGEN ; les
