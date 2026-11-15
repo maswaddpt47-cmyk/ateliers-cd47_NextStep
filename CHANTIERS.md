@@ -94,6 +94,13 @@ Règle 20 du `CLAUDE.md`. Ne pas reproposer une piste écartée sans fait nouvea
 
 **Proposées, en attente** : tenues dans `CHANTIERS.md` d'ATELIERS_NEWGEN
 (mêmes interfaces, même base).
+- 15/11/2026 — **CI plus rapide, à examiner au prochain « pull »** (proposition
+  de la session PAPPERBOARD ; mise en ligne ~1 min 30 mesurée sur NextStep). Dans
+  `deploy.yml`, `e2e` attend `test` (`needs: test`) alors que `deploy` attend déjà
+  les deux : les lancer en parallèle fait gagner la durée de `test`, sans retirer
+  aucun contrôle. Piste secondaire : ne plus télécharger Chromium à chaque passage
+  (cache). Mesurer la durée de chaque job avant et après. Dans PAPPERBOARD, la
+  mise en parallèle a fait passer les tests de 206 s à 122 s.
 
 **Écartées** (date — piste — raison)
 - 03/10/2026 — lien d'abonnement agenda pour les partenaires — « pour l'instant » (utilisateur).
