@@ -1,9 +1,8 @@
 # Chantiers en cours — Ateliers CD47 NextStep
 
 État au **16/11/2026, 21:00**, base `main` `b14d9f7` (NEWGEN `0a53ef0` ; suite : `CHANTIERS.md` de NEWGEN). Arrivé le 16/11 :
-catégories « Durée vide » et « Planifié, date passée » dans Anomalies (AG-061, écarts de Codex corrigés : durée vide
-validable, jour de Paris) ; bandeau « nouvelle version » (jamais vu en vrai) ; durées vides remplies à 1 h 30 dans la base
-commune (AG-062, 168 sur 339, tous conseillers) ; l'API garde la durée en base quand une page ancienne l'envoie vide.
+catégories « Durée vide » et « Planifié, date passée » dans Anomalies (AG-061, clos) ; bandeau « nouvelle version » (jamais vu en vrai, non annoncé) ; durées vides remplies à 1 h 30 dans la base
+commune (AG-062, 168 sur 339, tous conseillers, clos) ; l'API garde la durée en base quand une page ancienne l'envoie vide.
 `scripts/check-chantiers.sh` alerte aussi au-delà de 30 Ko (MD-LIB 8ter). Parité vérifiée (5 écarts voulus).
 Avant (15/11) : CI en parallèle ; (13/11) vacances scolaires (AG-057), connexions reconnues par les gestionnaires de mots
 de passe (règle 69), Nouveautés 39 et 40, rendez-vous Outlook au téléphone (AG-058), mot de passe imposé aussi à l'Admin (AG-059/060).
