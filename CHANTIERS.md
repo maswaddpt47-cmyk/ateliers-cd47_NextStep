@@ -1,6 +1,6 @@
 # Chantiers en cours — Ateliers CD47 NextStep
 
-État au **16/11/2026, 21:00**, base `main` `b14d9f7` (NEWGEN `0a53ef0` ; suite : `CHANTIERS.md` de NEWGEN). Arrivé le 16/11 :
+État au **16/11/2026 — passation Codex**, base `main` `bc5b0ef` (NEWGEN `22033c8` ; consignes communes MD-LIB `aa64abc`). Arrivé le 16/11 :
 catégories « Durée vide » et « Planifié, date passée » dans Anomalies (AG-061, clos) ; bandeau « nouvelle version » (jamais vu en vrai, non annoncé) ; durées vides remplies à 1 h 30 dans la base
 commune (AG-062, 168 sur 339, tous conseillers, clos) ; l'API garde la durée en base quand une page ancienne l'envoie vide.
 `scripts/check-chantiers.sh` alerte aussi au-delà de 30 Ko (MD-LIB 8ter). Parité vérifiée (5 écarts voulus).
@@ -8,11 +8,13 @@ Avant (15/11) : CI en parallèle ; (13/11) vacances scolaires (AG-057), connexio
 de passe (règle 69), Nouveautés 39 et 40, rendez-vous Outlook au téléphone (AG-058), mot de passe imposé aussi à l'Admin (AG-059/060).
 Avant : page TS sans filtre « Ouvert à tous » (AG-053), tuile « Copie de nuit » (AG-052, clos).
 
-**Passation Codex — 05/11/2026** : repartir d'une copie propre de `main`, sans
-réappliquer d'anciens brouillons. Aucun bloc AGORA ouvert dans NEWGEN ; les
-blocs AG-047 à AG-051 sont clos, pas de nouvelle revue automatique.
-Statut groupé et volet Détail livrés ; validation du volet par l'utilisateur
-consignée dans NEWGEN. Ces derniers ajouts n'ont pas été réaudités par Codex.
+**Passation Codex — 16/11/2026** : repartir d'un `main` propre, actualisé par
+`fetch` puis `merge --ff-only`, sans réappliquer d'anciens brouillons. Relire
+`AGENTS.md`, les consignes communes et le `CHANTIERS.md` de NEWGEN.
+AG-061 et AG-062 sont clos ; leurs correctifs postérieurs aux réponses de Codex
+n'ont pas été réaudités, sans nouveau tour automatique (règle 58).
+Aucune nouvelle consigne à ajouter : concision, contrôles proportionnés et fin
+**✅ TÂCHE TERMINÉE** sont déjà inscrits. La suite du bilan mensuel reste dans NEWGEN.
 
 **Consignes communes** : lire `MD-LIB/collaboration.md` et les consignes locales.
 L'annonce **✅ TÂCHE TERMINÉE** est déjà dans cet `AGENTS.md` et dans MD-LIB
