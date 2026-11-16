@@ -423,6 +423,24 @@ function presentsSuperieursInscrits(e) {
   return parseInt(txt(e.presents), 10) > parseInt(txt(e.inscrits), 10);
 }
 
+// ── Anomalies de bilan (AG-061, 16/11/2026) ─────────────────────────────────
+// Durée vide : atelier Planifié ou Réalisé sans durée entière positive. Elle est
+// comptée 1 h 30 partout (AG-032) : l'anomalie montre ce qui est compté par
+// défaut, elle ne change aucun calcul. Les autres statuts ne comptent pas d'heures.
+function dureeVide(e) {
+  if (!e || (e.statut !== 'Planifié' && e.statut !== 'Réalisé')) return false;
+  const txt = String(e.duree == null ? '' : e.duree).trim();
+  return !/^\d+$/.test(txt) || parseInt(txt, 10) <= 0;
+}
+// « Planifié » à date passée : la règle des rappels du matin (api/lib/rappels.php,
+// statut Planifié et date strictement avant aujourd'hui). today = 'AAAA-MM-JJ'
+// (todayLocal() à défaut) ; date absente ou illisible = champ manquant, pas un retard.
+function planifiePasse(e, today) {
+  if (!e || e.statut !== 'Planifié') return false;
+  const d = normalizeDate(e.date);
+  return !!d && d < (today || todayLocal());
+}
+
 // Ordre de l'Historique : date (sens choisi par l'utilisateur), puis, pour
 // une même date, ordre chronologique (horaire), puis orienteur pour
 // départager deux ateliers à la même heure — toujours croissants. Sans ça,
@@ -1120,6 +1138,6 @@ if (typeof module !== 'undefined') {
   debutApres1530, ferieDe, atelierUnJourFerie, cleCommune,
   vacancesDe, atelierCollege, atelierEnVacancesCollege, atelierCollegeHorsCalendrier,
   encoderOlk, decoderOlk, OLK_MAX,
-    presentsSuperieursInscrits,
+    presentsSuperieursInscrits, dureeVide, planifiePasse,
   };
 }

@@ -1035,3 +1035,27 @@ describe('Rendez-vous Outlook envoyés au téléphone (AG-058)', () => {
     assert.equal(decoderOlk('1~2026-11-12~0~2026-11-13~2026-11-20~zz9a'), null, 'occupation hors couverture');
   });
 });
+
+// Anomalies de bilan (AG-061, 16/11/2026) : durée vide et « Planifié » à date passée.
+describe('dureeVide et planifiePasse (AG-061)', () => {
+  const { dureeVide, planifiePasse } = require('./utils.js');
+  it('durée vide : seulement Planifié et Réalisé, sans entier positif', () => {
+    assert.equal(dureeVide({ statut: 'Réalisé', duree: '' }), true);
+    assert.equal(dureeVide({ statut: 'Planifié' }), true);
+    assert.equal(dureeVide({ statut: 'Réalisé', duree: '0' }), true);
+    assert.equal(dureeVide({ statut: 'Réalisé', duree: 90 }), false);
+    assert.equal(dureeVide({ statut: 'Réalisé', duree: '120' }), false);
+    assert.equal(dureeVide({ statut: 'Annulé', duree: '' }), false);
+    assert.equal(dureeVide({ statut: 'Reporté' }), false);
+    assert.equal(dureeVide(null), false);
+  });
+  it('Planifié à date passée : strictement avant aujourd\'hui, comme les rappels du matin', () => {
+    assert.equal(planifiePasse({ statut: 'Planifié', date: '2026-11-15' }, '2026-11-16'), true);
+    assert.equal(planifiePasse({ statut: 'Planifié', date: '2026-11-16' }, '2026-11-16'), false);
+    assert.equal(planifiePasse({ statut: 'Planifié', date: '2026-11-17' }, '2026-11-16'), false);
+    assert.equal(planifiePasse({ statut: 'Réalisé', date: '2026-11-15' }, '2026-11-16'), false);
+    assert.equal(planifiePasse({ statut: 'Planifié', date: '' }, '2026-11-16'), false, 'date absente = champ manquant');
+    assert.equal(planifiePasse({ statut: 'Planifié', date: '15/11/2026' }, '2026-11-16'), true, 'date au format français normalisée');
+    assert.equal(planifiePasse({ statut: 'Planifié', date: '20/11/2026' }, '2026-11-16'), false, 'date française à venir : comparée une fois normalisée, pas en texte');
+  });
+});

@@ -4550,6 +4550,7 @@ function VueAnomalies({entries,onEdit,communes:communesProp,apiFetch,showToast,a
   const anomaliesBrutes=React.useMemo(()=>{
     if(!entries||!Array.isArray(entries))return[];
     const nomsCommunesOff=new Set(communes.map(c=>cleCommune(c.nom)));
+    const today=todayLocal();
     return entries.map(e=>{
       const champsVides=[
         ...CHAMPS_OBL.filter(k=>!e[k]||!String(e[k]).trim()),
@@ -4575,15 +4576,18 @@ function VueAnomalies({entries,onEdit,communes:communesProp,apiFetch,showToast,a
       const ferie=typeof atelierUnJourFerie==='function'&&atelierUnJourFerie(e)?ferieDe(normalizeDate(e.date)):'';
       // Vacances scolaires, atelier de collège (AG-057) : libellé de la période, '' sinon.
       const vacances=vacCal&&atelierEnVacancesCollege(e,vacCal)?vacancesDe(normalizeDate(e.date),vacCal):'';
-      if(champsVides.length===0&&!communeInvalide&&!chiffres&&!ordiSansMobile&&!tard&&!ferie&&!vacances)return null;
-      return{e,champsVides,communeInvalide,communeSugg,chiffres,ordiSansMobile,tard,ferie,vacances};
+      // Durée vide et « Planifié » à date passée (AG-061) : ce que le bilan compte par défaut et ce que le mail du matin rappelle.
+      const duree=typeof dureeVide==='function'&&dureeVide(e);
+      const retard=typeof planifiePasse==='function'&&planifiePasse(e,today);
+      if(champsVides.length===0&&!communeInvalide&&!chiffres&&!ordiSansMobile&&!tard&&!ferie&&!vacances&&!duree&&!retard)return null;
+      return{e,champsVides,communeInvalide,communeSugg,chiffres,ordiSansMobile,tard,ferie,vacances,duree,retard};
     }).filter(Boolean);
   },[entries,communes]);
   // Validation d'une anomalie vérifiée (AG-044, 04/11/2026) : un couple (atelier, catégorie) validé sort
   // de la liste et des compteurs tant que la valeur concernée (empreinte) ne change pas. Aucun autre
   // calcul n'en tient compte (stock, conflits, indicateurs, bilans, exports).
-  const CATS_ANO=['manquants','communes','chiffres','ordi','tard','ferie','vacances'];
-  const LIB_CAT_ANO={manquants:'Champs manquants',communes:'Commune invalide',chiffres:'Présents > inscrits',ordi:'Ordinateurs sans Classe mobile',tard:'Début après 15h30',ferie:'Jour férié',vacances:'Vacances scolaires (collège)'};
+  const CATS_ANO=['manquants','communes','chiffres','ordi','tard','ferie','vacances','duree','retard'];
+  const LIB_CAT_ANO={manquants:'Champs manquants',communes:'Commune invalide',chiffres:'Présents > inscrits',ordi:'Ordinateurs sans Classe mobile',tard:'Début après 15h30',ferie:'Jour férié',vacances:'Vacances scolaires (collège)',duree:'Durée vide',retard:'Planifié, date passée'};
   const[validees,setValidees]=React.useState({});
   const[voirValidees,setVoirValidees]=React.useState(false);
   const[valEnCours,setValEnCours]=React.useState('');
@@ -4603,8 +4607,8 @@ function VueAnomalies({entries,onEdit,communes:communesProp,apiFetch,showToast,a
     }).catch(()=>setEtatLecture('erreur'));
   },[]);
   React.useEffect(()=>{lireValidees();},[]);
-  const empreinteAno=(a,c)=>c==='manquants'?a.champsVides.join(','):c==='communes'?String(a.e.commune||''):c==='chiffres'?(a.e.presents+'/'+a.e.inscrits):c==='ordi'?String(a.e.nb_ordinateurs):(c==='ferie'||c==='vacances')?normalizeDate(a.e.date):String(a.e.horaire||'');
-  const catActive=(a,c)=>c==='manquants'?a.champsVides.length>0:c==='communes'?!!a.communeInvalide:c==='chiffres'?!!a.chiffres:c==='ordi'?!!a.ordiSansMobile:c==='ferie'?!!a.ferie:c==='vacances'?!!a.vacances:!!a.tard;
+  const empreinteAno=(a,c)=>c==='duree'?String(a.e.duree==null?'':a.e.duree):c==='retard'?normalizeDate(a.e.date):c==='manquants'?a.champsVides.join(','):c==='communes'?String(a.e.commune||''):c==='chiffres'?(a.e.presents+'/'+a.e.inscrits):c==='ordi'?String(a.e.nb_ordinateurs):(c==='ferie'||c==='vacances')?normalizeDate(a.e.date):String(a.e.horaire||'');
+  const catActive=(a,c)=>c==='duree'?!!a.duree:c==='retard'?!!a.retard:c==='manquants'?a.champsVides.length>0:c==='communes'?!!a.communeInvalide:c==='chiffres'?!!a.chiffres:c==='ordi'?!!a.ordiSansMobile:c==='ferie'?!!a.ferie:c==='vacances'?!!a.vacances:!!a.tard;
   const estValidee=(a,c)=>{const v=validees[a.e._id+'|'+c];return!!v&&v.empreinte===empreinteAno(a,c);};
   const anomalies=React.useMemo(()=>anomaliesBrutes.map(a=>{
     const m={...a};
@@ -4615,8 +4619,10 @@ function VueAnomalies({entries,onEdit,communes:communesProp,apiFetch,showToast,a
     if(estValidee(a,'tard'))m.tard=false;
     if(estValidee(a,'ferie'))m.ferie='';
     if(estValidee(a,'vacances'))m.vacances='';
+    if(estValidee(a,'duree'))m.duree=false;
+    if(estValidee(a,'retard'))m.retard=false;
     return m;
-  }).filter(m=>m.champsVides.length>0||m.communeInvalide||m.chiffres||m.ordiSansMobile||m.tard||m.ferie||m.vacances),[anomaliesBrutes,validees]);
+  }).filter(m=>m.champsVides.length>0||m.communeInvalide||m.chiffres||m.ordiSansMobile||m.tard||m.ferie||m.vacances||m.duree||m.retard),[anomaliesBrutes,validees]);
   async function validerAno(a,c){
     if(!apiFetch)return;
     if(!window.confirm('Valider cette anomalie ('+LIB_CAT_ANO[c]+') ? Elle sort de la liste tant que la valeur concernée ne change pas.'))return;
@@ -4642,7 +4648,7 @@ function VueAnomalies({entries,onEdit,communes:communesProp,apiFetch,showToast,a
   }
   const boutonValider=(a,c)=>apiFetch&&CE('button',{disabled:valEnCours===a.e._id+'|'+c,onClick:()=>validerAno(a,c),title:'Anomalie vérifiée : la sortir de la liste',style:{fontSize:11,padding:'2px 8px',borderRadius:4,border:'1px solid #16a34a',background:'#f0fdf4',color:'#15803d',cursor:'pointer',marginLeft:8}},'✅ Valider');
   const anomaliesFiltrees=filtreConum==='Tous'?anomalies:anomalies.filter(a=>a.e.conseiller===filtreConum||a.e.co_animateur===filtreConum);
-  const filtered=filter==='manquants'?anomaliesFiltrees.filter(a=>a.champsVides.length>0):filter==='communes'?anomaliesFiltrees.filter(a=>a.communeInvalide):filter==='chiffres'?anomaliesFiltrees.filter(a=>a.chiffres):filter==='ordi'?anomaliesFiltrees.filter(a=>a.ordiSansMobile):filter==='tard'?anomaliesFiltrees.filter(a=>a.tard):filter==='ferie'?anomaliesFiltrees.filter(a=>a.ferie):filter==='vacances'?anomaliesFiltrees.filter(a=>a.vacances):anomaliesFiltrees;
+  const filtered=filter==='duree'?anomaliesFiltrees.filter(a=>a.duree):filter==='retard'?anomaliesFiltrees.filter(a=>a.retard):filter==='manquants'?anomaliesFiltrees.filter(a=>a.champsVides.length>0):filter==='communes'?anomaliesFiltrees.filter(a=>a.communeInvalide):filter==='chiffres'?anomaliesFiltrees.filter(a=>a.chiffres):filter==='ordi'?anomaliesFiltrees.filter(a=>a.ordiSansMobile):filter==='tard'?anomaliesFiltrees.filter(a=>a.tard):filter==='ferie'?anomaliesFiltrees.filter(a=>a.ferie):filter==='vacances'?anomaliesFiltrees.filter(a=>a.vacances):anomaliesFiltrees;
   async function handleSaveCommune(entry,valeur){
     if(!valeur||!valeur.trim())return;
     setSaving(entry._id);
@@ -4654,7 +4660,7 @@ function VueAnomalies({entries,onEdit,communes:communesProp,apiFetch,showToast,a
     }catch(err){if(showToast)showToast('⚠️ Erreur : '+err.message);}
     setSaving(null);
   }
-  const nbTotal=anomaliesFiltrees.length,nbManquants=anomaliesFiltrees.filter(a=>a.champsVides.length>0).length,nbCommunes=anomaliesFiltrees.filter(a=>a.communeInvalide).length,nbChiffres=anomaliesFiltrees.filter(a=>a.chiffres).length,nbOrdi=anomaliesFiltrees.filter(a=>a.ordiSansMobile).length,nbTard=anomaliesFiltrees.filter(a=>a.tard).length,nbFerie=anomaliesFiltrees.filter(a=>a.ferie).length,nbVacances=anomaliesFiltrees.filter(a=>a.vacances).length;
+  const nbTotal=anomaliesFiltrees.length,nbManquants=anomaliesFiltrees.filter(a=>a.champsVides.length>0).length,nbCommunes=anomaliesFiltrees.filter(a=>a.communeInvalide).length,nbChiffres=anomaliesFiltrees.filter(a=>a.chiffres).length,nbOrdi=anomaliesFiltrees.filter(a=>a.ordiSansMobile).length,nbTard=anomaliesFiltrees.filter(a=>a.tard).length,nbFerie=anomaliesFiltrees.filter(a=>a.ferie).length,nbVacances=anomaliesFiltrees.filter(a=>a.vacances).length,nbDuree=anomaliesFiltrees.filter(a=>a.duree).length,nbRetard=anomaliesFiltrees.filter(a=>a.retard).length;
   const listeValidees=anomaliesBrutes.filter(a=>filtreConum==='Tous'||a.e.conseiller===filtreConum||a.e.co_animateur===filtreConum).flatMap(a=>CATS_ANO.filter(c=>catActive(a,c)&&estValidee(a,c)).map(c=>({a,c})));
   const dateCourte=d=>{const m=String(d||'').match(/^(\d{4})-(\d{2})-(\d{2})/);return m?m[3]+'/'+m[2]+'/'+m[1]:'';};
   // Puces construites sur TOUTES les anomalies, validées ou non : un conseiller dont tout est validé reste choisissable (Codex, AG-044).
@@ -4699,6 +4705,14 @@ function VueAnomalies({entries,onEdit,communes:communesProp,apiFetch,showToast,a
       CE('div',{style:{background:'#ecfdf5',borderRadius:8,padding:'8px 14px',flex:'1',minWidth:120,cursor:'pointer',border:filter==='vacances'?'2px solid #047857':'2px solid transparent'},onClick:()=>setFilter('vacances')},
         CE('div',{style:{fontSize:20,fontWeight:700,color:'#047857'}},vacCal?nbVacances:'—'),
         CE('div',{style:{fontSize:11,color:'#064e3b'}},vacCal?'Vacances scolaires (collège)'+(nbHorsCal?' · '+nbHorsCal+' non vérifiable(s) : calendrier publié jusqu\'au '+fmtDate(vacCal.au):''):'Vacances scolaires : calendrier indisponible, contrôle suspendu')
+      ),
+      CE('div',{style:{background:'#fef3c7',borderRadius:8,padding:'8px 14px',flex:'1',minWidth:120,cursor:'pointer',border:filter==='duree'?'2px solid #b45309':'2px solid transparent'},onClick:()=>setFilter('duree')},
+        CE('div',{style:{fontSize:20,fontWeight:700,color:'#b45309'}},nbDuree),
+        CE('div',{style:{fontSize:11,color:'#78350f'}},'Durée vide (comptée 1 h 30)')
+      ),
+      CE('div',{style:{background:'#dbeafe',borderRadius:8,padding:'8px 14px',flex:'1',minWidth:120,cursor:'pointer',border:filter==='retard'?'2px solid #1d4ed8':'2px solid transparent'},onClick:()=>setFilter('retard')},
+        CE('div',{style:{fontSize:20,fontWeight:700,color:'#1d4ed8'}},nbRetard),
+        CE('div',{style:{fontSize:11,color:'#1e3a8a'}},'Planifié, date passée')
       )
     ),
     CE('div',{className:'chip-bar',style:{marginBottom:12}},
@@ -4737,7 +4751,7 @@ function VueAnomalies({entries,onEdit,communes:communesProp,apiFetch,showToast,a
         ))
       :CE('div',{style:{display:'flex',flexDirection:'column',gap:8}},
           filtered.map(a=>{
-            const{e,champsVides,communeInvalide,communeSugg,chiffres,ordiSansMobile,tard,ferie,vacances}=a;
+            const{e,champsVides,communeInvalide,communeSugg,chiffres,ordiSansMobile,tard,ferie,vacances,duree,retard}=a;
             const corrVal=corrections[e._id]?.commune!==undefined?corrections[e._id].commune:(communeSugg||e.commune||'');
             const estCorrige=saved[e._id];
             return CE('div',{key:e._id,style:{background:estCorrige?'#f0fdf4':'#fff',border:'1px solid '+(estCorrige?'#86efac':'#e5e7eb'),borderRadius:8,padding:'10px 14px'}},
@@ -4746,6 +4760,10 @@ function VueAnomalies({entries,onEdit,communes:communesProp,apiFetch,showToast,a
                 estCorrige&&CE('span',{style:{fontSize:11,color:'#16a34a',fontWeight:600}},'✅ Corrigé'),
                 onEdit&&CE('button',{onClick:()=>onEdit(e._id),style:{fontSize:11,padding:'2px 8px',borderRadius:4,border:'1px solid #3b82f6',background:'#eff6ff',color:'#1d4ed8',cursor:'pointer'}},'✏️ Ouvrir')
               ),
+              retard&&CE('div',{style:{fontSize:11,color:'#1d4ed8',fontWeight:600,marginBottom:6}},
+                '⏳ Encore « Planifié » le '+fmtDate(e.date)+', date passée — statut à mettre à jour via ✏️ Ouvrir, ou en statut groupé dans l\'Historique',boutonValider(a,'retard')),
+              duree&&CE('div',{style:{fontSize:11,color:'#b45309',fontWeight:600,marginBottom:6}},
+                '⏱ Durée vide : comptée 1 h 30 dans le planning et les bilans — à renseigner via ✏️ Ouvrir',boutonValider(a,'duree')),
               tard&&CE('div',{style:{fontSize:11,color:'#be185d',fontWeight:600,marginBottom:6}},
                 '🕓 Commence à '+e.horaire+', après 15h30 — à vérifier via ✏️ Ouvrir',boutonValider(a,'tard')),
               ferie&&CE('div',{style:{fontSize:11,color:'#b91c1c',fontWeight:600,marginBottom:6}},
