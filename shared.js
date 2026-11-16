@@ -4550,7 +4550,7 @@ function VueAnomalies({entries,onEdit,communes:communesProp,apiFetch,showToast,a
   const anomaliesBrutes=React.useMemo(()=>{
     if(!entries||!Array.isArray(entries))return[];
     const nomsCommunesOff=new Set(communes.map(c=>cleCommune(c.nom)));
-    const today=todayLocal();
+    const today=jourParis();   // jour de Paris, pas celui de l'appareil (AG-061, Codex)
     return entries.map(e=>{
       const champsVides=[
         ...CHAMPS_OBL.filter(k=>!e[k]||!String(e[k]).trim()),
@@ -4607,7 +4607,7 @@ function VueAnomalies({entries,onEdit,communes:communesProp,apiFetch,showToast,a
     }).catch(()=>setEtatLecture('erreur'));
   },[]);
   React.useEffect(()=>{lireValidees();},[]);
-  const empreinteAno=(a,c)=>c==='duree'?String(a.e.duree==null?'':a.e.duree):c==='retard'?normalizeDate(a.e.date):c==='manquants'?a.champsVides.join(','):c==='communes'?String(a.e.commune||''):c==='chiffres'?(a.e.presents+'/'+a.e.inscrits):c==='ordi'?String(a.e.nb_ordinateurs):(c==='ferie'||c==='vacances')?normalizeDate(a.e.date):String(a.e.horaire||'');
+  const empreinteAno=(a,c)=>c==='duree'?(String(a.e.duree==null?'':a.e.duree).trim()||'(vide)'):c==='retard'?normalizeDate(a.e.date):c==='manquants'?a.champsVides.join(','):c==='communes'?String(a.e.commune||''):c==='chiffres'?(a.e.presents+'/'+a.e.inscrits):c==='ordi'?String(a.e.nb_ordinateurs):(c==='ferie'||c==='vacances')?normalizeDate(a.e.date):String(a.e.horaire||'');
   const catActive=(a,c)=>c==='duree'?!!a.duree:c==='retard'?!!a.retard:c==='manquants'?a.champsVides.length>0:c==='communes'?!!a.communeInvalide:c==='chiffres'?!!a.chiffres:c==='ordi'?!!a.ordiSansMobile:c==='ferie'?!!a.ferie:c==='vacances'?!!a.vacances:!!a.tard;
   const estValidee=(a,c)=>{const v=validees[a.e._id+'|'+c];return!!v&&v.empreinte===empreinteAno(a,c);};
   const anomalies=React.useMemo(()=>anomaliesBrutes.map(a=>{
@@ -4670,7 +4670,7 @@ function VueAnomalies({entries,onEdit,communes:communesProp,apiFetch,showToast,a
       CE('span',{style:{fontSize:22}},'⚠️'),
       CE('div',null,
         CE('h2',{style:{margin:0,fontSize:16,fontWeight:700}},'Anomalies BDD'),
-        CE('p',{style:{margin:0,fontSize:12,color:'#6b7280'}},nbTotal+' entrée(s) avec anomalie(s) non validée(s) sur '+entries.length+' au total')
+        CE('p',{style:{margin:0,fontSize:12,color:'#6b7280'}},nbTotal+' entrée(s) avec anomalie(s) non validée(s) sur '+entries.length+' ateliers des années chargées'+(filtreConum!=='Tous'?' (conseiller : '+filtreConum+')':''))
       )
     ),
     CE('div',{style:{display:'flex',gap:10,marginBottom:12,flexWrap:'wrap'}},

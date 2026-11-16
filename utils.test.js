@@ -1038,7 +1038,7 @@ describe('Rendez-vous Outlook envoyés au téléphone (AG-058)', () => {
 
 // Anomalies de bilan (AG-061, 16/11/2026) : durée vide et « Planifié » à date passée.
 describe('dureeVide et planifiePasse (AG-061)', () => {
-  const { dureeVide, planifiePasse } = require('./utils.js');
+  const { dureeVide, planifiePasse, jourParis } = require('./utils.js');
   it('durée vide : seulement Planifié et Réalisé, sans entier positif', () => {
     assert.equal(dureeVide({ statut: 'Réalisé', duree: '' }), true);
     assert.equal(dureeVide({ statut: 'Planifié' }), true);
@@ -1057,6 +1057,11 @@ describe('dureeVide et planifiePasse (AG-061)', () => {
     assert.equal(planifiePasse({ statut: 'Planifié', date: '' }, '2026-11-16'), false, 'date absente = champ manquant');
     assert.equal(planifiePasse({ statut: 'Planifié', date: '15/11/2026' }, '2026-11-16'), true, 'date au format français normalisée');
     assert.equal(planifiePasse({ statut: 'Planifié', date: '20/11/2026' }, '2026-11-16'), false, 'date française à venir : comparée une fois normalisée, pas en texte');
+  });
+  it('jour de référence : celui de Paris, quel que soit le fuseau de l\'appareil (écart 2 de Codex)', () => {
+    assert.equal(jourParis(new Date('2026-11-15T23:30:00Z')), '2026-11-16', 'minuit passé à Paris, pas encore en UTC');
+    assert.equal(jourParis(new Date('2026-07-15T22:30:00Z')), '2026-07-16', 'heure d\'été : +2 h');
+    assert.equal(jourParis(new Date('2026-11-16T10:00:00Z')), '2026-11-16');
   });
 });
 

@@ -447,13 +447,20 @@ function dureeVide(e) {
   const txt = String(e.duree == null ? '' : e.duree).trim();
   return !/^\d+$/.test(txt) || parseInt(txt, 10) <= 0;
 }
+// Jour civil à Paris, 'AAAA-MM-JJ' (AG-061, écart 2 de Codex, 16/11/2026) : « date
+// passée » ne doit pas dépendre du fuseau de l'appareil. d : Date (maintenant à défaut).
+function jourParis(d) {
+  const parts = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(d || new Date());
+  const g = t => parts.find(p => p.type === t).value;
+  return `${g('year')}-${g('month')}-${g('day')}`;
+}
 // « Planifié » à date passée : la règle des rappels du matin (api/lib/rappels.php,
 // statut Planifié et date strictement avant aujourd'hui). today = 'AAAA-MM-JJ'
-// (todayLocal() à défaut) ; date absente ou illisible = champ manquant, pas un retard.
+// (jour de Paris à défaut) ; date absente ou illisible = champ manquant, pas un retard.
 function planifiePasse(e, today) {
   if (!e || e.statut !== 'Planifié') return false;
   const d = normalizeDate(e.date);
-  return !!d && d < (today || todayLocal());
+  return !!d && d < (today || jourParis());
 }
 
 // Ordre de l'Historique : date (sens choisi par l'utilisateur), puis, pour
@@ -1153,6 +1160,6 @@ if (typeof module !== 'undefined') {
   debutApres1530, ferieDe, atelierUnJourFerie, cleCommune,
   vacancesDe, atelierCollege, atelierEnVacancesCollege, atelierCollegeHorsCalendrier,
   encoderOlk, decoderOlk, OLK_MAX,
-    presentsSuperieursInscrits, dureeVide, planifiePasse, pagePerimee,
+    presentsSuperieursInscrits, dureeVide, planifiePasse, jourParis, pagePerimee,
   };
 }
