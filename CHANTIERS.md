@@ -1,13 +1,11 @@
 # Chantiers en cours — Ateliers CD47 NextStep
 
-État au **15/11/2026**, base `main` `65b12a8` (CI en parallèle, 15/11 ; suite : `CHANTIERS.md` de NEWGEN). Arrivé depuis
-`c491810` (13/11/2026) : écarts de Codex sur les vacances scolaires (AG-057,
-`1e67088`) ; connexions Admin et Index reconnues par les gestionnaires de mots
-de passe (règle 69 de MD-LIB, `eb5db57`) ; Nouveautés 39 et 40 (`45e9181`) ;
-rendez-vous Outlook envoyés au téléphone par un mail à soi-même (AG-058,
-`1d48d2a`) ; « Choisissez votre mot de passe » imposé aussi à l'Admin, session
-expirée = retour à la connexion (AG-059/AG-060, `c35d692`, `96d512e`,
-vérification de Codex). Alignement sur NEWGEN non revérifié par ce pull.
+État au **16/11/2026**, base `main` `6cac9a8` (NEWGEN `a27af8f` ; suite : `CHANTIERS.md` de NEWGEN). Arrivé le 16/11 :
+catégories « Durée vide » et « Planifié, date passée » dans Anomalies (AG-061, AGORA de NEWGEN, vérification Codex
+attendue) ; bandeau « nouvelle version » quand la page en cache est périmée (`version.json` écrit par `deploy.yml`,
+jamais vu en vrai : à constater sur un téléphone au déploiement suivant). Parité avec NEWGEN vérifiée (5 écarts voulus).
+Avant (15/11) : CI en parallèle ; (13/11) vacances scolaires (AG-057), connexions reconnues par les gestionnaires de mots
+de passe (règle 69), Nouveautés 39 et 40, rendez-vous Outlook au téléphone (AG-058), mot de passe imposé aussi à l'Admin (AG-059/060).
 Avant : page TS sans filtre « Ouvert à tous » (AG-053), tuile « Copie de nuit » (AG-052, clos).
 
 **Passation Codex — 05/11/2026** : repartir d'une copie propre de `main`, sans
