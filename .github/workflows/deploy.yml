@@ -70,6 +70,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      # Version publiée de chaque page (bandeau « nouvelle version », shared.js
+      # verifierPagePerimee, 16/11/2026) : jamais commité (.gitignore).
+      - run: node scripts/version-json.js > version.json
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

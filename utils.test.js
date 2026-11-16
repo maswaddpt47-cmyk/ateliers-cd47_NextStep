@@ -1059,3 +1059,20 @@ describe('dureeVide et planifiePasse (AG-061)', () => {
     assert.equal(planifiePasse({ statut: 'Planifié', date: '20/11/2026' }, '2026-11-16'), false, 'date française à venir : comparée une fois normalisée, pas en texte');
   });
 });
+
+// Page périmée (16/11/2026) : la page en cache charge d'anciens scripts.
+describe('pagePerimee', () => {
+  const { pagePerimee } = require('./utils.js');
+  const pub = ['utils.js?v=70', 'shared.js?v=330', 'app.js?v=60'];
+  it('vraie dès qu\'un script chargé n\'a pas la version publiée, dans un sens ou l\'autre', () => {
+    assert.equal(pagePerimee(['utils.js?v=70', 'shared.js?v=329', 'app.js?v=60'], pub), true);
+    assert.equal(pagePerimee(['utils.js?v=70', 'shared.js?v=331', 'app.js?v=60'], pub), true, 'retour en arrière publié');
+    assert.equal(pagePerimee(['utils.js?v=70', 'shared.js?v=330', 'app.js?v=60'], pub), false);
+  });
+  it('un script absent de la liste publiée ou une liste vide ne disent rien', () => {
+    assert.equal(pagePerimee(['utils.js?v=70', 'logic.js?v=5'], pub), false);
+    assert.equal(pagePerimee(['utils.js?v=1'], []), false);
+    assert.equal(pagePerimee(['utils.js?v=1'], undefined), false);
+    assert.equal(pagePerimee([], pub), false);
+  });
+});

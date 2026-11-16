@@ -423,6 +423,21 @@ function presentsSuperieursInscrits(e) {
   return parseInt(txt(e.presents), 10) > parseInt(txt(e.inscrits), 10);
 }
 
+// ── Page périmée (16/11/2026) ────────────────────────────────────────────────
+// index.html et admin.html n'ont pas de ?v= : un téléphone qui les garde en cache
+// charge les anciens scripts, et un correctif « n'arrive jamais ». chargees : les
+// src des scripts ?v= de la page ouverte ; publiees : la même liste pour cette
+// page, écrite dans version.json par le déploiement. Vrai si un script chargé n'a
+// pas la version publiée (plus ancienne ou plus récente : la page ne correspond
+// plus). Liste publiée absente ou vide : on ne sait pas, donc faux.
+function pagePerimee(chargees, publiees) {
+  if (!Array.isArray(chargees) || !Array.isArray(publiees) || publiees.length === 0) return false;
+  const lire = s => { const m = String(s || '').match(/^([^?#]+)\?v=(\d+)$/); return m ? { f: m[1], v: m[2] } : null; };
+  const pub = {};
+  publiees.forEach(s => { const x = lire(s); if (x) pub[x.f] = x.v; });
+  return chargees.some(s => { const x = lire(s); return !!x && pub[x.f] !== undefined && pub[x.f] !== x.v; });
+}
+
 // ── Anomalies de bilan (AG-061, 16/11/2026) ─────────────────────────────────
 // Durée vide : atelier Planifié ou Réalisé sans durée entière positive. Elle est
 // comptée 1 h 30 partout (AG-032) : l'anomalie montre ce qui est compté par
@@ -1138,6 +1153,6 @@ if (typeof module !== 'undefined') {
   debutApres1530, ferieDe, atelierUnJourFerie, cleCommune,
   vacancesDe, atelierCollege, atelierEnVacancesCollege, atelierCollegeHorsCalendrier,
   encoderOlk, decoderOlk, OLK_MAX,
-    presentsSuperieursInscrits, dureeVide, planifiePasse,
+    presentsSuperieursInscrits, dureeVide, planifiePasse, pagePerimee,
   };
 }

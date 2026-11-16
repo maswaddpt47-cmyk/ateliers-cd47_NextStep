@@ -1,3 +1,6 @@
 node_modules/
 test-results/
 playwright-report/
+
+# Écrit par le déploiement (scripts/version-json.js), jamais commité
+version.json

@@ -7364,3 +7364,31 @@ function VueNouveautes({onVu}){
     ))
   );
 }
+
+// ── Bandeau « nouvelle version » (16/11/2026) ────────────────────────────────
+// Le déploiement écrit version.json (scripts ?v= de index.html et admin.html) ;
+// la page le lit hors cache et compare avec ce qu'elle a chargé (pagePerimee,
+// utils.js). Pas un appel à l'API : getAll ne connaît pas la version des pages.
+// Fichier absent (serveur de test) ou injoignable : rien à l'écran, la page
+// reste utilisable. Le bandeau ne bloque rien ; « Recharger » refait la demande
+// de la page au serveur, l'avertissement de saisie en cours s'applique.
+function verifierPagePerimee(){
+  try{
+    if(typeof fetch!=='function'||typeof document==='undefined'||typeof pagePerimee!=='function')return;
+    const page=/admin\.html$/.test(location.pathname)?'admin':'index';
+    const chargees=Array.from(document.querySelectorAll('script[src*="?v="]')).map(s=>s.getAttribute('src'));
+    fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(r=>r.ok?r.json():null).then(v=>{
+      if(!v||!pagePerimee(chargees,v[page])||document.getElementById('bandeau-version'))return;
+      const b=document.createElement('div');b.id='bandeau-version';b.setAttribute('role','status');
+      b.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#1e3a8a;color:#fff;padding:10px 14px;font:600 13px/1.4 system-ui,sans-serif;display:flex;gap:10px;align-items:center;justify-content:center;flex-wrap:wrap;box-shadow:0 2px 8px rgba(0,0,0,.25)';
+      b.append('🔄 Une nouvelle version de l\u2019application est disponible.');
+      const btn=document.createElement('button');btn.type='button';btn.textContent='Recharger';
+      btn.style.cssText='background:#fff;color:#1e3a8a;border:none;border-radius:6px;padding:6px 14px;font:700 13px system-ui,sans-serif;cursor:pointer';
+      btn.onclick=()=>location.reload();
+      b.appendChild(btn);document.body.appendChild(b);
+    }).catch(()=>{});
+  }catch(_){}
+}
+if(typeof window!=='undefined'&&typeof document!=='undefined'){
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',verifierPagePerimee);else verifierPagePerimee();
+}
