@@ -138,6 +138,9 @@ plateforme (le signaler une fois, puis continuer le reste).
   les protections existantes et limiter les lectures aux données nécessaires.
 - Sur une mission d’audit ou de contradiction en lecture seule, ne pas modifier
   le code ; fournir les preuves `fichier:ligne`, scénario ou mesure.
+- **Relecteur d'un autre éditeur** (MD-LIB `agora.md` §12, 16/11/2026) : Claude auteur → Codex relecteur ; Codex
+  auteur → Claude relecteur. Un bloc ouvert par Codex nomme « Contradicteur : Claude » et s'annonce en tête du
+  message : `🔴 **⚖️ AGORA : critère N — <sujet>. Bloc AG-00N publié dans maswaddpt47-cmyk/ATELIERS_NEWGEN. → Dis « pull » à Claude.**`
 - Appliquer l’AGORA du projet lorsqu’elle existe ; ne pas répondre à son propre
   bloc. Les constats de sécurité suivent le circuit prévu par le projet.
 - Lire les instructions locales des dépôts de sauvegarde avant tout accès aux

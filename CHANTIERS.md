@@ -1,6 +1,8 @@
 # Chantiers en cours — Ateliers CD47 NextStep
 
-État au **16/11/2026 — passation Codex**, base `main` `bc5b0ef` (NEWGEN `22033c8` ; consignes communes MD-LIB `aa64abc`). Arrivé le 16/11 :
+État au **17/11/2026** (relu par « pull »), base `main` `a73f5c0` (NEWGEN `0aee1b5` ; MD-LIB `58a61ca`). Fait à ce pull :
+annonce AGORA « publiée dans <dépôt> » et relecteur de l'autre éditeur (Claude ↔ Codex) dans `CLAUDE.md` et `AGENTS.md`.
+Arrivé le 16/11 :
 catégories « Durée vide » et « Planifié, date passée » dans Anomalies (AG-061, clos) ; bandeau « nouvelle version » (jamais vu en vrai, non annoncé) ; durées vides remplies à 1 h 30 dans la base
 commune (AG-062, 168 sur 339, tous conseillers, clos) ; l'API garde la durée en base quand une page ancienne l'envoie vide.
 `scripts/check-chantiers.sh` alerte aussi au-delà de 30 Ko (MD-LIB 8ter). Parité vérifiée (5 écarts voulus).
