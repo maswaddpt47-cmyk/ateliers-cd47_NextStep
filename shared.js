@@ -6578,7 +6578,8 @@ function GraphesAvis({ateliers,du,au}){
       tooltip:{...tt,formatter:()=>r.radar.map(x=>`${htmlEsc(LIB[x.q])} : ${x.pct===null?'aucune réponse':x.pct+' % ('+x.fav+'/'+x.rep+')'}`).join('<br/>')},
       radar:{indicator:r.radar.map(x=>({name:COURT[x.q]+'\n'+(x.pct===null?'—':x.pct+' %'),max:100})),radius:'56%',center:['50%','54%'],
         axisName:{color:GRIS,fontSize:10},splitLine:{lineStyle:{color:'rgba(148,163,184,.35)'}},splitArea:{show:false},axisLine:{lineStyle:{color:'rgba(148,163,184,.35)'}}},
-      series:[{type:'radar',symbolSize:5,data:[{value:r.radar.map(x=>x.pct||0),name:'Réponses favorables',areaStyle:{color:'rgba(13,148,136,.25)'},lineStyle:{color:'#0d9488',width:2},itemStyle:{color:'#0d9488'}}]}]};
+      // Axe sans répondant : « - » (point absent), jamais un sommet tracé à 0 (Codex, AG-063).
+      series:[{type:'radar',symbolSize:5,data:[{value:r.radar.map(x=>x.pct===null?'-':x.pct),name:'Réponses favorables',areaStyle:{color:'rgba(13,148,136,.25)'},lineStyle:{color:'#0d9488',width:2},itemStyle:{color:'#0d9488'}}]}]};
     return{radar,attentes:colonnes('attentes'),clarte:colonnes('clarte'),sujet:sujets()};
   },[r]);
   if(r.erreur)return CE('div',{style:{padding:16,color:'#b45309'}},'⚠️ Graphes indisponibles : la page et le serveur ne sont pas à la même version. Rechargez la page dans quelques minutes.');
@@ -6593,7 +6594,11 @@ function GraphesAvis({ateliers,du,au}){
   return CE('div',null,
     CE('div',{style:{fontSize:12,color:'#64748b',marginBottom:8}},`${r.n} avis sur ${r.ateliers} atelier${r.ateliers>1?'s':''}, du ${fmtDate(du)} au ${fmtDate(au)}. Pourcentages sur l'ensemble des avis, « Sans réponse » à part.`,masques),
     CE('div',{style:{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(min(100%,280px),1fr))',gap:10}},
-      carte('Profil des avis',CE(EChart,{option:opts.radar,height:260}),'Part des réponses favorables (4 ou 5 étoiles, rythme adapté, plus à l\'aise « Oui », refaire seul « Oui »), sur les avis qui ont répondu.'),
+      carte('Profil des avis',CE(React.Fragment,null,CE(EChart,{option:opts.radar,height:260}),
+        // Base de chaque axe visible : favorables / répondants, sans-réponse (Codex, AG-063).
+        CE('div',{style:{fontSize:11,color:'#475569',display:'grid',gap:2,marginTop:4}},r.radar.map(x=>CE('div',{key:x.q},
+          CE('b',null,COURT[x.q]+' : '),x.pct===null?'non calculable (aucune réponse)':`${x.fav}/${x.rep} favorables (${x.pct} %)`,x.sans?` · ${x.sans} sans réponse`:'')))),
+        'Part des réponses favorables (4 ou 5 étoiles, rythme adapté, plus à l\'aise « Oui », refaire seul « Oui »), sur les seuls avis qui ont répondu : la base diffère de celle des donuts.'),
       carte(moy('attentes'),CE(EChart,{option:opts.attentes,height:210})),
       carte(moy('clarte'),CE(EChart,{option:opts.clarte,height:210})),
       carte(LIB.rythme,donut('rythme')),

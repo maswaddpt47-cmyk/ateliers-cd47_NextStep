@@ -430,8 +430,11 @@ function presentsSuperieursInscrits(e) {
 // compte à part. Base des % = tous les avis comptés, « Sans réponse » à part
 // (AG-032) ; sujets : chacun une fois par avis, total au-delà de 100 % (AG-035).
 // Radar : part des réponses favorables sur les avis qui ont répondu (définition
-// d'AG-063, à trancher par l'utilisateur). Renvoie {erreur:'format'} si une ligne
-// non masquée n'a pas le détail attendu (page plus récente que l'API).
+// d'AG-063, à trancher par l'utilisateur), avec favorables, répondants et
+// sans-réponse par axe ; aucun répondant = pct null (« non calculable »).
+// Le nombre d'avis d'un atelier est detail.total, lu par l'API dans la même
+// requête que les répartitions (Codex, AG-063). Renvoie {erreur:'format'} si une
+// ligne non masquée n'a pas le détail attendu (page plus récente que l'API).
 const AVIS_GRAPHES_CHOIX = {
   attentes: ['1', '2', '3', '4', '5'], clarte: ['1', '2', '3', '4', '5'],
   rythme: ['Trop lent', 'Adapté', 'Trop rapide'], aise: ['Non', 'Un peu', 'Oui'],
@@ -444,10 +447,10 @@ function resumeAvisAteliers(lignes) {
   const Q = Object.keys(AVIS_GRAPHES_CHOIX);
   Q.forEach(q => { r.questions[q] = {compte: Object.fromEntries(AVIS_GRAPHES_CHOIX[q].map(k => [k, 0])), sans: 0}; });
   for (const l of lignes || []) {
-    const n = parseInt(l && l.n, 10) || 0;
-    if (l && l.masque) { r.masques.ateliers++; r.masques.avis += n; continue; }
+    if (l && l.masque) { r.masques.ateliers++; r.masques.avis += parseInt(l.n, 10) || 0; continue; }
     const d = l && l.detail;
-    if (!d || Q.some(q => !d[q] || typeof d[q] !== 'object') || typeof d.sans_sujet !== 'number') return {erreur: 'format'};
+    if (!d || Q.some(q => !d[q] || typeof d[q] !== 'object') || typeof d.sans_sujet !== 'number' || typeof d.total !== 'number') return {erreur: 'format'};
+    const n = d.total;
     r.n += n; r.ateliers++;
     Q.forEach(q => {
       const c = r.questions[q].compte;
@@ -466,7 +469,7 @@ function resumeAvisAteliers(lignes) {
     const c = r.questions[q].compte;
     const rep = Object.values(c).reduce((a, b) => a + b, 0);
     const fav = AVIS_FAVORABLES[q].reduce((a, k) => a + (c[k] || 0), 0);
-    return {q, fav, rep, pct: rep ? Math.round(fav / rep * 100) : null};
+    return {q, fav, rep, sans: r.questions[q].sans, pct: rep ? Math.round(fav / rep * 100) : null};
   });
   return r;
 }
