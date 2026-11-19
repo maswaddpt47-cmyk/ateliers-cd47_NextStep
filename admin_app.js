@@ -466,7 +466,8 @@ const LOGS_KEY = lsKey('adm_logs');
     if(!entry||!entry._id) return;
     setEntries(prev=>{
       const i=prev.findIndex(e=>e._id===entry._id);
-      if(i===-1) return [...prev, entry];
+      // Mise à jour partielle (liens, AG-065) d'un atelier absent : ne crée jamais d'entrée sans date.
+      if(i===-1) return entry.date?[...prev, entry]:prev;
       const copie=prev.slice();
       copie[i]={...prev[i], ...entry};
       return copie;

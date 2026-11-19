@@ -1979,7 +1979,7 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
       setEditId(null);setIsDup(false);setModeLot(false);setErrors({});
       window.scrollTo(0,0);if(onClearPrefill)onClearPrefill();return;
     }
-    setForm({...empty,...prefillData,_id:'',_n:'',date:'',horaire:'',ampm:'',inscrits:4,presents:'',remarques:'',statut:'Planifié',fiche_bilan:''});
+    setForm({...empty,...prefillData,liens:[],_id:'',_n:'',date:'',horaire:'',ampm:'',inscrits:4,presents:'',remarques:'',statut:'Planifié',fiche_bilan:''});
     setEditId(null);setIsDup(true);setModeLot(false);setErrors({});
     window.scrollTo(0,0);if(onClearPrefill)onClearPrefill();
   },[prefillData]);
@@ -2155,6 +2155,9 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
     }
     setSaving(true);
     const entry={...form,_id:form._id||idNouveauRef.current||(idNouveauRef.current=genId()),inscrits:form.inscrits===''?'':parseInt(form.inscrits)||0,presents:form.presents===''?'':parseInt(form.presents)||0,nb_ordinateurs:form.nb_ordinateurs===''?'':parseInt(form.nb_ordinateurs)||0,duree:parseInt(form.duree)||DUREE_DEFAUT,ampm:ampmDepuisHoraire(form.horaire)||form.ampm,materiel:(form.materiel||[]).join('|')};
+    // Liens (AG-065) : jamais écrits par saveEntry. Une modification garde localement ceux déjà connus ;
+    // une création, doublon compris, n'en a aucun (vérification de Codex, 19/11/2026).
+    delete entry.liens;if(!editId)entry.liens=[];
     const reussir=()=>{
       showToast(editId?'✅ Atelier modifié':'✅ Atelier enregistré');
       // materiel repart en tableau (pas la chaîne '|' envoyée à GAS) : c'est
@@ -2619,21 +2622,25 @@ function PanneauAtelier({panel,onClose,entries,onEntryUpdated,onRefresh,onEdit,o
   const[panelNote,setPanelNote]=React.useState('');
   const[panelLiens,setPanelLiens]=React.useState([]);const[lienTitre,setLienTitre]=React.useState('');const[lienUrl,setLienUrl]=React.useState('');   // AG-065
   const[lienEnvoi,setLienEnvoi]=React.useState(false);
+  const panelIdRef=React.useRef(null);panelIdRef.current=panel?panel._id:null;
   // Liens Partage47 (AG-065, amendement 2 de Codex) : chaque ajout ou retrait part aussitôt par l'action
   // lienAtelier, qui modifie UN lien sur la valeur en base ; « Enregistrer » n'y touche pas.
   async function lienOp(op,l){
     if(!panel||lienEnvoi)return;
+    const id=panel._id;
     setLienEnvoi(true);
     try{
-      const r=await apiFetch('lienAtelier',{_id:panel._id,op,titre:(l.titre||'').trim(),url:(l.url||'').trim()});
+      const r=await apiFetch('lienAtelier',{_id:id,op,titre:(l.titre||'').trim(),url:(l.url||'').trim()});
       if(!r||!r.ok)throw new Error((r&&r.error)||'Erreur');
       const liens=liensAtelier({liens:r.liens});
-      setPanelLiens(liens);
-      if(op==='ajouter'){setLienTitre('');setLienUrl('');}
+      // Vérification de Codex (19/11/2026) : le volet a pu passer à un autre atelier pendant l'attente ;
+      // la réponse ne remplit que le volet de l'atelier demandé (rouvrir le même atelier reste correct).
+      if(panelIdRef.current===id){setPanelLiens(liens);if(op==='ajouter'){setLienTitre('');setLienUrl('');}}
       // Rien de changé : le dire (règle 65).
       showToast(r.deja?(op==='ajouter'?'ℹ️ Ce lien était déjà attaché à l\'atelier':'ℹ️ Ce lien était déjà retiré'):(op==='ajouter'?'✅ Lien ajouté':'✅ Lien retiré de l\'atelier'));
-      const cur=(entries||[]).find(x=>x._id===panel._id)||panel;
-      if(window.__entreeSauvegardee)window.__entreeSauvegardee({...cur,liens});
+      // Seuls les liens changent dans l'état local : recopier l'entrée capturée avant l'attente
+      // rétablissait d'anciennes valeurs des autres champs (vérification de Codex, 19/11/2026).
+      if(window.__entreeSauvegardee)window.__entreeSauvegardee({_id:id,liens});
     }catch(err){showToast('❌ '+err.message,false);}
     finally{setLienEnvoi(false);}
   }
