@@ -641,7 +641,9 @@ const GAS_ACTIONS_ECRITURE = new Set([
   // Avis papier : chaque envoi crée un avis, jamais doublé (AG-021).
   'saisirAvisPapier',
   // Comptes de la page des travailleurs sociaux (AG-042) : jamais doublés.
-  'tsCreerCompte','tsReinitMdp','tsActiver','tsSupprimer'
+  'tsCreerCompte','tsReinitMdp','tsActiver','tsSupprimer',
+  // Liens Partage47 (AG-065) : rejouable côté serveur (déjà présent / déjà retiré), jamais doublé en vol.
+  'lienAtelier'
 ]);
 const GAS_HEDGE_MS            = 7000;   // délai avant de doubler une lecture
 const GAS_TENTATIVES_LECTURE  = 3;
@@ -2611,6 +2613,25 @@ function PanneauAtelier({panel,onClose,entries,onEntryUpdated,onRefresh,onEdit,o
   const[panelRetour,setPanelRetour]=React.useState('');
   const[panelNote,setPanelNote]=React.useState('');
   const[panelLiens,setPanelLiens]=React.useState([]);const[lienTitre,setLienTitre]=React.useState('');const[lienUrl,setLienUrl]=React.useState('');   // AG-065
+  const[lienEnvoi,setLienEnvoi]=React.useState(false);
+  // Liens Partage47 (AG-065, amendement 2 de Codex) : chaque ajout ou retrait part aussitôt par l'action
+  // lienAtelier, qui modifie UN lien sur la valeur en base ; « Enregistrer » n'y touche pas.
+  async function lienOp(op,l){
+    if(!panel||lienEnvoi)return;
+    setLienEnvoi(true);
+    try{
+      const r=await apiFetch('lienAtelier',{_id:panel._id,op,titre:(l.titre||'').trim(),url:(l.url||'').trim()});
+      if(!r||!r.ok)throw new Error((r&&r.error)||'Erreur');
+      const liens=liensAtelier({liens:r.liens});
+      setPanelLiens(liens);
+      if(op==='ajouter'){setLienTitre('');setLienUrl('');}
+      // Rien de changé : le dire (règle 65).
+      showToast(r.deja?(op==='ajouter'?'ℹ️ Ce lien était déjà attaché à l\'atelier':'ℹ️ Ce lien était déjà retiré'):(op==='ajouter'?'✅ Lien ajouté':'✅ Lien retiré de l\'atelier'));
+      const cur=(entries||[]).find(x=>x._id===panel._id)||panel;
+      if(window.__entreeSauvegardee)window.__entreeSauvegardee({...cur,liens});
+    }catch(err){showToast('❌ '+err.message,false);}
+    finally{setLienEnvoi(false);}
+  }
   const[panelBilan,setPanelBilan]=React.useState({});
   const[qrAvis,setQrAvis]=React.useState(null);
   const[saving,setSaving]=React.useState(false);
@@ -2748,19 +2769,19 @@ function PanneauAtelier({panel,onClose,entries,onEntryUpdated,onRefresh,onEdit,o
           CE('div',{className:'sp-field'},CE('label',null,'Remarques'),
             CE('textarea',{value:panelNote,onChange:e=>setPanelNote(e.target.value),rows:3,placeholder:'Ajouter une note…',style:{width:'100%',padding:'8px 10px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:13,resize:'vertical'}})),
           // Liens Partage47 (AG-065, 19/11/2026) : aucun fichier chez nous, seulement l'adresse ; un lien
-          // n'est cliquable qu'après lienPartageValide (pas de « javascript: », pas d'autre site).
+          // n'est cliquable qu'après lienPartageValide (pas de « javascript: », pas d'autre site). Écrits par lienOp.
           CE('div',{className:'sp-field'},CE('label',null,'📎 Liens Partage47'),
             panelLiens.length===0&&CE('div',{style:{fontSize:12,color:'#94a3b8',marginBottom:4}},'Aucun lien.'),
             panelLiens.map((l,i)=>CE('div',{key:i,style:{display:'flex',gap:6,alignItems:'center',marginBottom:4,fontSize:13,minWidth:0}},
               CE('a',{href:lienPartageValide(l.url)?l.url:undefined,target:'_blank',rel:'noopener noreferrer',style:{flex:1,minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',color:'#2563eb'}},'📄 '+(l.titre||'Document')),
-              CE('button',{type:'button',className:'btn btn-secondary btn-sm',onClick:()=>setPanelLiens(p=>p.filter((_,j)=>j!==i)),'aria-label':'Retirer le lien '+(l.titre||'Document')},'✕'))),
+              CE('button',{type:'button',className:'btn btn-secondary btn-sm',disabled:lienEnvoi,onClick:()=>lienOp('retirer',l),'aria-label':'Retirer le lien '+(l.titre||'Document')},'✕'))),
             panelLiens.length<LIENS_MAX&&CE('div',{style:{display:'grid',gap:4}},
               CE('input',{type:'text',value:lienTitre,maxLength:80,onChange:e=>setLienTitre(e.target.value),placeholder:'Titre (ex. Résultats PIX)',style:{padding:'6px 8px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:13}}),
               CE('div',{style:{display:'flex',gap:6}},
                 CE('input',{type:'url',value:lienUrl,onChange:e=>setLienUrl(e.target.value),placeholder:'https://partage.lotetgaronne.fr/…',style:{flex:1,minWidth:0,padding:'6px 8px',border:'1.5px solid '+(lienUrl&&!lienPartageValide(lienUrl)?'#ef4444':'#e2e8f0'),borderRadius:6,fontSize:13}}),
-                CE('button',{type:'button',className:'btn btn-secondary btn-sm',disabled:!lienPartageValide(lienUrl),onClick:()=>{setPanelLiens(p=>[...p,{titre:lienTitre.trim(),url:lienUrl.trim()}]);setLienTitre('');setLienUrl('');}},'+ Ajouter')),
+                CE('button',{type:'button',className:'btn btn-secondary btn-sm',disabled:lienEnvoi||!lienPartageValide(lienUrl),onClick:()=>lienOp('ajouter',{titre:lienTitre,url:lienUrl})},lienEnvoi?'…':'+ Ajouter')),
               lienUrl&&!lienPartageValide(lienUrl)&&CE('div',{style:{fontSize:11,color:'#b91c1c'}},'Seule une adresse https de partage.lotetgaronne.fr est acceptée.'),
-              CE('div',{style:{fontSize:11,color:'#64748b'}},'Fichier nominatif (diagnostic PIX…) : préférez un partage protégé par mot de passe. Les liens sont enregistrés avec « Enregistrer ».'))),
+              CE('div',{style:{fontSize:11,color:'#64748b'}},'Chaque ajout ou retrait est enregistré aussitôt. Retirer un lien l\'enlève de l\'atelier : le partage reste actif dans Partage47, à supprimer là-bas. Fichier nominatif (diagnostic PIX…) : préférez un partage protégé par mot de passe.'))),
           // Fiche bilan (AG-020, 04/10/2026) : une fois l'atelier réalisé.
           panelStatut==='Réalisé'
             ?CE('div',{id:'fiche-bilan-volet'},CE(FicheBilan,{valeur:panelBilan,onChange:setPanelBilan}))
