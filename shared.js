@@ -2775,7 +2775,9 @@ function PanneauAtelier({panel,onClose,entries,onEntryUpdated,onRefresh,onEdit,o
             CE('textarea',{value:panelNote,onChange:e=>setPanelNote(e.target.value),rows:3,placeholder:'Ajouter une note…',style:{width:'100%',padding:'8px 10px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:13,resize:'vertical'}})),
           // Liens Partage47 (AG-065, 19/11/2026) : aucun fichier chez nous, seulement l'adresse ; un lien
           // n'est cliquable qu'après lienPartageValide (pas de « javascript: », pas d'autre site). Écrits par lienOp.
-          CE('div',{className:'sp-field'},CE('label',null,'📎 Liens Partage47'),
+          // Cartouche bleue, distincte de la fiche bilan (verte), demande de l'utilisateur du 19/11/2026.
+          CE('div',{className:'sp-field',style:{border:'1.5px solid #bfdbfe',background:'#eff6ff',borderRadius:10,padding:'10px 12px'}},
+            CE('div',{style:{fontSize:13,fontWeight:700,color:'#1e40af',marginBottom:6}},'📎 Liens Partage47'),
             panelLiens.length===0&&CE('div',{style:{fontSize:12,color:'#94a3b8',marginBottom:4}},'Aucun lien.'),
             panelLiens.map((l,i)=>CE('div',{key:i,style:{display:'flex',gap:6,alignItems:'center',marginBottom:4,fontSize:13,minWidth:0}},
               CE('a',{href:lienPartageValide(l.url)?l.url:undefined,target:'_blank',rel:'noopener noreferrer',style:{flex:1,minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',color:'#2563eb'}},'📄 '+(l.titre||'Document')),
