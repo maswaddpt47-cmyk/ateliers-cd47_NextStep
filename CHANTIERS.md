@@ -1,6 +1,6 @@
 # Chantiers en cours — Ateliers CD47 NextStep
 
-État au **17/11/2026** (relu par « pull »), base `main` `a73f5c0` (NEWGEN `0aee1b5` ; MD-LIB `58a61ca`). Fait à ce pull :
+État au **19/11/2026** (relu par « pull », rien d'arrivé ici), base `main` `975e9a3` (NEWGEN `52189bb` ; MD-LIB `41b7f66`). Le 17/11 :
 annonce AGORA « publiée dans <dépôt> » et relecteur de l'autre éditeur (Claude ↔ Codex) dans `CLAUDE.md` et `AGENTS.md`.
 Arrivé le 16/11 :
 catégories « Durée vide » et « Planifié, date passée » dans Anomalies (AG-061, clos) ; bandeau « nouvelle version » (jamais vu en vrai, non annoncé) ; durées vides remplies à 1 h 30 dans la base
