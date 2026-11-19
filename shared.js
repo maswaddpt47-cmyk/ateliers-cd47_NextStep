@@ -354,13 +354,15 @@ tr:hover td{background:#f7fafc}
 .bp-nonrealise{background:#fee2e2;color:#991b1b}
 .bp-retard{background:#fecaca;color:#991b1b;border:1px solid #f87171;animation:blink-retard 1.4s ease-in-out infinite}
 .bp-public{background:#f1f5f9;color:#475569}
-.side-panel{position:fixed;top:0;right:0;width:340px;max-width:95vw;height:auto;max-height:92vh;background:#fff;box-shadow:-4px 0 24px rgba(0,0,0,.15);z-index:500;display:flex;flex-direction:column;transform:translateX(100%);transition:transform .25s ease;border-radius:0 0 0 16px}
+.side-panel{position:fixed;top:0;right:0;width:340px;max-width:95vw;height:auto;max-height:92vh;max-height:92dvh;background:#fff;box-shadow:-4px 0 24px rgba(0,0,0,.15);z-index:500;display:flex;flex-direction:column;transform:translateX(100%);transition:transform .25s ease;border-radius:0 0 0 16px}
 .side-panel.open{transform:translateX(0)}
 .side-panel-header{padding:16px 20px;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between;background:#f8fafc}
 .side-panel-header h3{font-size:14px;font-weight:700;color:#1a202c;margin:0}
 .side-panel-body{overflow-y:auto;padding:16px 20px}
 .side-panel-footer{padding:12px 20px;border-top:1px solid #e2e8f0;display:flex;gap:6px;flex-wrap:wrap}
 .side-panel-overlay{position:fixed;inset:0;background:rgba(0,0,0,.3);z-index:499}
+/* Téléphone (19/11/2026) : le volet passe au-dessus de la barre du bas de NextStep (z-index 9999), qui cachait le bouton du QR code. */
+@media (max-width:640px){.side-panel{z-index:10001}}
 .sp-info-row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f0f4f8;font-size:13px}
 .sp-info-row span:first-child{color:#718096}
 .sp-info-row span:last-child{font-weight:600;color:#1a202c;text-align:right;max-width:60%}
@@ -559,7 +561,7 @@ if(API_PHP_URL.indexOf('/api-sandbox/')>=0){
     const barre='.sidebar{top:var(--sandbox-banner-height)!important;min-height:calc(100vh - var(--sandbox-banner-height))!important}';
     const s=document.createElement('style');s.textContent='.app-topbar-v2,.app-topbar,nav{top:var(--sandbox-banner-height)!important}'
       +(/admin\.html$/.test(location.pathname)?barre:'@media (min-width:641px){'+barre+'}')
-      +'.side-panel{top:var(--sandbox-banner-height)!important;max-height:calc(92vh - var(--sandbox-banner-height))!important}';document.head.appendChild(s);
+      +'.side-panel{top:var(--sandbox-banner-height)!important;max-height:calc(92vh - var(--sandbox-banner-height))!important;max-height:calc(92dvh - var(--sandbox-banner-height))!important}';document.head.appendChild(s);
     const ajuster=()=>document.documentElement.style.setProperty('--sandbox-banner-height',b.offsetHeight+'px');
     ajuster();new ResizeObserver(ajuster).observe(b);
   };
