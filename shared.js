@@ -2610,11 +2610,12 @@ function PanneauAtelier({panel,onClose,entries,onEntryUpdated,onRefresh,onEdit,o
   const[panelPrelev,setPanelPrelev]=React.useState('');
   const[panelRetour,setPanelRetour]=React.useState('');
   const[panelNote,setPanelNote]=React.useState('');
+  const[panelLiens,setPanelLiens]=React.useState([]);const[lienTitre,setLienTitre]=React.useState('');const[lienUrl,setLienUrl]=React.useState('');   // AG-065
   const[panelBilan,setPanelBilan]=React.useState({});
   const[qrAvis,setQrAvis]=React.useState(null);
   const[saving,setSaving]=React.useState(false);
   // Réinitialise les champs à chaque atelier ouvert (ce que faisait openPanel).
-  React.useEffect(()=>{if(!panel)return;const e=panel;setPanelStatut(e.statut);setPanelInscrits(e.inscrits===undefined||e.inscrits===''?'':String(e.inscrits));setPanelPresents(e.presents===undefined||e.presents===''?'':String(e.presents));setPanelThematique(e.thematique||'');setPanelNote(e.remarques||'');setPanelDate(normalizeDate(e.date)||'');setPanelHoraire(normalizeHoraire(e.horaire)||'');setPanelDuree(parseInt(e.duree)||DUREE_DEFAUT);setPanelBilan(e.fiche_bilan&&typeof e.fiche_bilan==='object'?e.fiche_bilan:{});setPanelNbOrdi(e.nb_ordinateurs===undefined||e.nb_ordinateurs===''||e.nb_ordinateurs===null?'':String(e.nb_ordinateurs));setPanelPublic(e.public||'');setPanelOuvert(e.ouvert_a_tous==='Oui'?'Oui':'Non');setPanelCommune(e.commune||'');setPanelLieu(e.lieu||'');setPanelOrienteur(e.orienteur||'');setPanelConseiller(e.conseiller||'');setPanelCoAnim(e.co_animateur||'');setPanelMobile(matIncludes(e.materiel,'Classe mobile'));setPanelPrelev(normalizeDate(e.date_prelevement_materiel)||'');setPanelRetour(normalizeDate(e.date_retour_materiel)||'');},[panel]);
+  React.useEffect(()=>{if(!panel)return;const e=panel;setPanelStatut(e.statut);setPanelInscrits(e.inscrits===undefined||e.inscrits===''?'':String(e.inscrits));setPanelPresents(e.presents===undefined||e.presents===''?'':String(e.presents));setPanelThematique(e.thematique||'');setPanelNote(e.remarques||'');setPanelLiens(liensAtelier(e));setLienTitre('');setLienUrl('');setPanelDate(normalizeDate(e.date)||'');setPanelHoraire(normalizeHoraire(e.horaire)||'');setPanelDuree(parseInt(e.duree)||DUREE_DEFAUT);setPanelBilan(e.fiche_bilan&&typeof e.fiche_bilan==='object'?e.fiche_bilan:{});setPanelNbOrdi(e.nb_ordinateurs===undefined||e.nb_ordinateurs===''||e.nb_ordinateurs===null?'':String(e.nb_ordinateurs));setPanelPublic(e.public||'');setPanelOuvert(e.ouvert_a_tous==='Oui'?'Oui':'Non');setPanelCommune(e.commune||'');setPanelLieu(e.lieu||'');setPanelOrienteur(e.orienteur||'');setPanelConseiller(e.conseiller||'');setPanelCoAnim(e.co_animateur||'');setPanelMobile(matIncludes(e.materiel,'Classe mobile'));setPanelPrelev(normalizeDate(e.date_prelevement_materiel)||'');setPanelRetour(normalizeDate(e.date_retour_materiel)||'');},[panel]);
   const closePanel=onClose;
   async function savePanel(){
     if(!panel)return;if(!panelDate){showToast('❌ Date requise',false);return;}if(panelMobile&&!(parseInt(panelNbOrdi)>0)){showToast('❌ Ordinateurs prêtés requis avec la Classe mobile',false);return;}
@@ -2633,7 +2634,7 @@ function PanneauAtelier({panel,onClose,entries,onEntryUpdated,onRefresh,onEdit,o
     if(vacVolet===null&&!window.confirm('Vacances scolaires non vérifiables le '+fmtDate(panelDate)+' (calendrier officiel non publié ou indisponible) : atelier avec un collège.\n\nEnregistrer quand même ?'))return;
     setSaving(true);
     try{
-      const updated={...panel,fiche_bilan:panelStatut==='Réalisé'?(Object.keys(panelBilan).length?panelBilan:''):(panel.fiche_bilan||''),statut:panelStatut,inscrits:panelInscrits===''?'':parseInt(panelInscrits)||0,presents:panelPresents===''?'':parseInt(panelPresents)||0,thematique:panelThematique,date:panelDate,horaire:panelHoraire,ampm:ampmDepuisHoraire(panelHoraire)||panel.ampm,duree:parseInt(panelDuree)||DUREE_DEFAUT,commune:panelCommune.trim()||panel.commune,lieu:panelLieu.trim()||panel.lieu,orienteur:panelOrienteur.trim()||panel.orienteur,conseiller:panelConseiller||panel.conseiller,co_animateur:panelCoAnim===panelConseiller?'':panelCoAnim,public:panelPublic,ouvert_a_tous:OUVERT_A_TOUS_CHOIX.includes(panelOuvert)?panelOuvert:(panel.ouvert_a_tous||'Non'),nb_ordinateurs:panelMobile?(panelNbOrdi===''?'':parseInt(panelNbOrdi)||0):'',date_prelevement_materiel:panelMobile?panelPrelev:'',date_retour_materiel:panelMobile?panelRetour:'',remarques:panelNote,materiel:matierePanneau(panel,panelMobile).join('|')};
+      const updated={...panel,liens:panelLiens,fiche_bilan:panelStatut==='Réalisé'?(Object.keys(panelBilan).length?panelBilan:''):(panel.fiche_bilan||''),statut:panelStatut,inscrits:panelInscrits===''?'':parseInt(panelInscrits)||0,presents:panelPresents===''?'':parseInt(panelPresents)||0,thematique:panelThematique,date:panelDate,horaire:panelHoraire,ampm:ampmDepuisHoraire(panelHoraire)||panel.ampm,duree:parseInt(panelDuree)||DUREE_DEFAUT,commune:panelCommune.trim()||panel.commune,lieu:panelLieu.trim()||panel.lieu,orienteur:panelOrienteur.trim()||panel.orienteur,conseiller:panelConseiller||panel.conseiller,co_animateur:panelCoAnim===panelConseiller?'':panelCoAnim,public:panelPublic,ouvert_a_tous:OUVERT_A_TOUS_CHOIX.includes(panelOuvert)?panelOuvert:(panel.ouvert_a_tous||'Non'),nb_ordinateurs:panelMobile?(panelNbOrdi===''?'':parseInt(panelNbOrdi)||0):'',date_prelevement_materiel:panelMobile?panelPrelev:'',date_retour_materiel:panelMobile?panelRetour:'',remarques:panelNote,materiel:matierePanneau(panel,panelMobile).join('|')};
       const res=await apiFetch('saveEntry',{entry:updated});
       if(!res.ok)throw new Error(res.error);
       showToast('✅ Mis à jour');closePanel();
@@ -2746,6 +2747,20 @@ function PanneauAtelier({panel,onClose,entries,onEntryUpdated,onRefresh,onEdit,o
             CE(ComboThematique,{value:panelThematique,onChange:setPanelThematique,entries:entries})),
           CE('div',{className:'sp-field'},CE('label',null,'Remarques'),
             CE('textarea',{value:panelNote,onChange:e=>setPanelNote(e.target.value),rows:3,placeholder:'Ajouter une note…',style:{width:'100%',padding:'8px 10px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:13,resize:'vertical'}})),
+          // Liens Partage47 (AG-065, 19/11/2026) : aucun fichier chez nous, seulement l'adresse ; un lien
+          // n'est cliquable qu'après lienPartageValide (pas de « javascript: », pas d'autre site).
+          CE('div',{className:'sp-field'},CE('label',null,'📎 Liens Partage47'),
+            panelLiens.length===0&&CE('div',{style:{fontSize:12,color:'#94a3b8',marginBottom:4}},'Aucun lien.'),
+            panelLiens.map((l,i)=>CE('div',{key:i,style:{display:'flex',gap:6,alignItems:'center',marginBottom:4,fontSize:13,minWidth:0}},
+              CE('a',{href:lienPartageValide(l.url)?l.url:undefined,target:'_blank',rel:'noopener noreferrer',style:{flex:1,minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',color:'#2563eb'}},'📄 '+(l.titre||'Document')),
+              CE('button',{type:'button',className:'btn btn-secondary btn-sm',onClick:()=>setPanelLiens(p=>p.filter((_,j)=>j!==i)),'aria-label':'Retirer le lien '+(l.titre||'Document')},'✕'))),
+            panelLiens.length<LIENS_MAX&&CE('div',{style:{display:'grid',gap:4}},
+              CE('input',{type:'text',value:lienTitre,maxLength:80,onChange:e=>setLienTitre(e.target.value),placeholder:'Titre (ex. Résultats PIX)',style:{padding:'6px 8px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:13}}),
+              CE('div',{style:{display:'flex',gap:6}},
+                CE('input',{type:'url',value:lienUrl,onChange:e=>setLienUrl(e.target.value),placeholder:'https://partage.lotetgaronne.fr/…',style:{flex:1,minWidth:0,padding:'6px 8px',border:'1.5px solid '+(lienUrl&&!lienPartageValide(lienUrl)?'#ef4444':'#e2e8f0'),borderRadius:6,fontSize:13}}),
+                CE('button',{type:'button',className:'btn btn-secondary btn-sm',disabled:!lienPartageValide(lienUrl),onClick:()=>{setPanelLiens(p=>[...p,{titre:lienTitre.trim(),url:lienUrl.trim()}]);setLienTitre('');setLienUrl('');}},'+ Ajouter')),
+              lienUrl&&!lienPartageValide(lienUrl)&&CE('div',{style:{fontSize:11,color:'#b91c1c'}},'Seule une adresse https de partage.lotetgaronne.fr est acceptée.'),
+              CE('div',{style:{fontSize:11,color:'#64748b'}},'Fichier nominatif (diagnostic PIX…) : préférez un partage protégé par mot de passe. Les liens sont enregistrés avec « Enregistrer ».'))),
           // Fiche bilan (AG-020, 04/10/2026) : une fois l'atelier réalisé.
           panelStatut==='Réalisé'
             ?CE('div',{id:'fiche-bilan-volet'},CE(FicheBilan,{valeur:panelBilan,onChange:setPanelBilan}))

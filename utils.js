@@ -423,6 +423,27 @@ function presentsSuperieursInscrits(e) {
   return parseInt(txt(e.presents), 10) > parseInt(txt(e.inscrits), 10);
 }
 
+// ── Liens Partage47 d'un atelier (AG-065, 19/11/2026) ─────────────────────
+// Mêmes règles que l'API (api_lien_partage_valide) : https, hôte partage.lotetgaronne.fr,
+// sans identifiants ni port, sans espace ni guillemet. Un lien n'est rendu cliquable
+// qu'après ce contrôle : ni « javascript: » ni autre site.
+const LIENS_HOTES=['partage.lotetgaronne.fr'];
+const LIENS_MAX=5;
+function lienPartageValide(url){
+  const s=String(url==null?'':url).trim();
+  if(!s||s.length>500||/[\s\x00-\x1F\x7F"<>\\]/.test(s))return false;
+  try{const u=new URL(s);return u.protocol==='https:'&&LIENS_HOTES.includes(u.hostname.toLowerCase())&&!u.username&&!u.password&&!u.port;}
+  catch(_){return false;}
+}
+// Liens d'un atelier, prêts à afficher : tableau [{titre, url}] des seuls liens valides (5 au plus).
+function liensAtelier(e){
+  let l=e&&e.liens;
+  if(typeof l==='string'){try{l=l?JSON.parse(l):[];}catch(_){l=[];}}
+  if(!Array.isArray(l))return[];
+  return l.filter(x=>x&&typeof x==='object'&&lienPartageValide(x.url)).slice(0,LIENS_MAX)
+    .map(x=>({titre:String(x.titre==null?'':x.titre).trim().slice(0,80),url:String(x.url).trim()}));
+}
+
 // ── Avis par atelier en graphes (AG-063, 19/11/2026) ───────────────────────
 // Agrège les lignes de l'action avisParAtelier (une par atelier, même population
 // que le tableau : ateliers datés de la période, tous statuts). Un atelier masqué
@@ -1211,6 +1232,6 @@ if (typeof module !== 'undefined') {
   debutApres1530, ferieDe, atelierUnJourFerie, cleCommune,
   vacancesDe, atelierCollege, atelierEnVacancesCollege, atelierCollegeHorsCalendrier,
   encoderOlk, decoderOlk, OLK_MAX,
-    presentsSuperieursInscrits, dureeVide, planifiePasse, jourParis, pagePerimee, resumeAvisAteliers, AVIS_GRAPHES_CHOIX,
+    presentsSuperieursInscrits, dureeVide, planifiePasse, jourParis, pagePerimee, resumeAvisAteliers, AVIS_GRAPHES_CHOIX, lienPartageValide, liensAtelier, LIENS_MAX,
   };
 }
