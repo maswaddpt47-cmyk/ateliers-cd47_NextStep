@@ -6578,8 +6578,7 @@ function GraphesAvis({ateliers,du,au}){
       tooltip:{...tt,formatter:()=>r.radar.map(x=>`${htmlEsc(LIB[x.q])} : ${x.pct===null?'aucune réponse':x.pct+' % ('+x.fav+'/'+x.rep+')'}`).join('<br/>')},
       radar:{indicator:r.radar.map(x=>({name:COURT[x.q]+'\n'+(x.pct===null?'—':x.pct+' %'),max:100})),radius:'56%',center:['50%','54%'],
         axisName:{color:GRIS,fontSize:10},splitLine:{lineStyle:{color:'rgba(148,163,184,.35)'}},splitArea:{show:false},axisLine:{lineStyle:{color:'rgba(148,163,184,.35)'}}},
-      // Axe sans répondant : « - » (point absent), jamais un sommet tracé à 0 (Codex, AG-063).
-      series:[{type:'radar',symbolSize:5,data:[{value:r.radar.map(x=>x.pct===null?'-':x.pct),name:'Réponses favorables',areaStyle:{color:'rgba(13,148,136,.25)'},lineStyle:{color:'#0d9488',width:2},itemStyle:{color:'#0d9488'}}]}]};
+      series:[{type:'radar',symbolSize:5,data:[{value:r.radar.map(x=>x.pct),name:'Réponses favorables',areaStyle:{color:'rgba(13,148,136,.25)'},lineStyle:{color:'#0d9488',width:2},itemStyle:{color:'#0d9488'}}]}]};
     return{radar,attentes:colonnes('attentes'),clarte:colonnes('clarte'),sujet:sujets()};
   },[r]);
   if(r.erreur)return CE('div',{style:{padding:16,color:'#b45309'}},'⚠️ Graphes indisponibles : la page et le serveur ne sont pas à la même version. Rechargez la page dans quelques minutes.');
@@ -6594,7 +6593,10 @@ function GraphesAvis({ateliers,du,au}){
   return CE('div',null,
     CE('div',{style:{fontSize:12,color:'#64748b',marginBottom:8}},`${r.n} avis sur ${r.ateliers} atelier${r.ateliers>1?'s':''}, du ${fmtDate(du)} au ${fmtDate(au)}. Pourcentages sur l'ensemble des avis, « Sans réponse » à part.`,masques),
     CE('div',{style:{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(min(100%,280px),1fr))',gap:10}},
-      carte('Profil des avis',CE(React.Fragment,null,CE(EChart,{option:opts.radar,height:260}),
+      // Un axe sans répondant : pas de polygone (ECharts tracerait l'absence au centre, comme un 0 : vérification
+      // de Codex, AG-063). Les valeurs et leurs bases restent en texte.
+      carte('Profil des avis',CE(React.Fragment,null,r.radar.every(x=>x.pct!==null)?CE(EChart,{option:opts.radar,height:260})
+        :CE('div',{style:{fontSize:12,color:'#b45309',margin:'4px 0 6px'}},'Profil non tracé : au moins une question n\'a reçu aucune réponse sur la période.'),
         // Base de chaque axe visible : favorables / répondants, sans-réponse (Codex, AG-063).
         CE('div',{style:{fontSize:11,color:'#475569',display:'grid',gap:2,marginTop:4}},r.radar.map(x=>CE('div',{key:x.q},
           CE('b',null,COURT[x.q]+' : '),x.pct===null?'non calculable (aucune réponse)':`${x.fav}/${x.rep} favorables (${x.pct} %)`,x.sans?` · ${x.sans} sans réponse`:'')))),
