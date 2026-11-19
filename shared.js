@@ -6548,75 +6548,104 @@ function DetailAvisAdmin({atelierId,onSupprime}){
 // le tableau (resumeAvisAteliers), une forme par question : radar « profil »,
 // colonnes pour les étoiles, donuts pour les réponses uniques, barres pour les
 // sujets (plusieurs choix par avis : un camembert serait faux).
-// Par atelier (extension d'AG-063, 19/11/2026) : « Tous les ateliers » ou un seul, choisi dans la
-// liste du tableau (choix) ; même calcul sur la seule ligne. Atelier masqué : visible, non choisissable.
-function GraphesAvis({ateliers,du,au,choix}){
-  const[sel,setSel]=React.useState('');
+// Par atelier (extension d'AG-063) : « Tous les ateliers » ou un seul ; atelier masqué non choisissable.
+// Impression (19/11/2026) : les mêmes options et les mêmes textes servent l'écran et le PDF.
+const AVIS_G_GRIS='#94a3b8';
+const AVIS_G_COUL={rythme:{'Trop lent':'#3b82f6','Adapté':'#22c55e','Trop rapide':'#f97316'},
+  aise:{'Non':'#ef4444','Un peu':'#eab308','Oui':'#22c55e'},autonomie:{'Oui':'#22c55e','Avec de l\'aide':'#eab308','Non':'#ef4444'}};
+const AVIS_G_ETOILES=['#ef4444','#f97316','#eab308','#84cc16','#22c55e'];
+// Libellés courts autour du radar : « Refaire seul(e) » débordait à 390 px.
+const AVIS_G_COURT={attentes:'Attentes',clarte:'Clarté',rythme:'Rythme',aise:'À l\'aise',autonomie:'Refaire seul'};
+const libAvisQ=q=>{const t=AVIS_QUESTIONS.find(x=>x[0]===q);return t?t[1].replace(' (étoiles)',''):q;};
+// Textes communs à l'écran et à l'impression. libSel : libellé de l'atelier choisi, '' pour la période.
+function textesGraphesAvis(r,libSel,du,au){
+  const virg=v=>String(v).replace('.',',');
+  return{
+    entete:libSel?`${r.n} avis — ${libSel}. Pourcentages sur l'ensemble des avis de l'atelier, « Sans réponse » à part.`
+      :`${r.n} avis sur ${r.ateliers} atelier${r.ateliers>1?'s':''}, du ${fmtDate(du)} au ${fmtDate(au)}. Pourcentages sur l'ensemble des avis, « Sans réponse » à part.`,
+    masques:!libSel&&r.masques.avis>0?`${r.masques.avis} avis de ${r.masques.ateliers} atelier${r.masques.ateliers>1?'s':''} à moins de 3 avis ne sont pas comptés, pour que personne ne soit reconnu.`:'',
+    titre:q=>{const m=r.questions[q]&&r.questions[q].moyenne;return libAvisQ(q)+(m===null||m===undefined?'':' — moyenne '+virg(m)+'/5');},
+    // Un axe sans répondant : pas de polygone (ECharts tracerait l'absence au centre, comme un 0 : Codex, AG-063).
+    radarTrace:r.radar.every(x=>x.pct!==null),
+    radarNonTrace:'Profil non tracé : au moins une question n\'a reçu aucune réponse sur la période.',
+    radarLignes:r.radar.map(x=>({q:x.q,lib:AVIS_G_COURT[x.q],txt:(x.pct===null?'non calculable (aucune réponse)':`${x.fav}/${x.rep} favorables (${x.pct} %)`)+(x.sans?` · ${x.sans} sans réponse`:'')})),
+    noteRadar:'Part des réponses favorables (4 ou 5 étoiles, rythme adapté, plus à l\'aise « Oui », refaire seul « Oui »), sur les seuls avis qui ont répondu : la base diffère de celle des donuts.',
+    noteSujet:'Plusieurs choix possibles par avis : le total peut dépasser 100 %.'};
+}
+// Options ECharts des sept graphes. impression : sans infobulle, texte plus foncé, bordures blanches.
+function optionsGraphesAvis(r,impression){
+  const TXT=impression?'#334155':AVIS_G_GRIS,GRIS=AVIS_G_GRIS;
+  const pc=c=>r.n?Math.round(c/r.n*100)+' %':'—';
+  const axe={axisLine:{show:false},axisTick:{show:false},axisLabel:{color:TXT,fontSize:10}};
+  const tt=impression?{show:false}:{trigger:'item',...EC_TT};
+  const colonnes=q=>{const c=r.questions[q].compte,s=r.questions[q].sans;
+    const cats=['1','2','3','4','5'].map(k=>k+' ★').concat(s?['Sans rép.']:[]);
+    const vals=['1','2','3','4','5'].map((k,i)=>({value:c[k],itemStyle:{color:AVIS_G_ETOILES[i],borderRadius:[4,4,0,0]}})).concat(s?[{value:s,itemStyle:{color:GRIS,borderRadius:[4,4,0,0]}}]:[]);
+    return{backgroundColor:'transparent',grid:{top:22,right:4,bottom:4,left:0,containLabel:true},tooltip:{...tt,formatter:p=>`${htmlEsc(p.name)} : ${p.value} avis (${pc(p.value)})`},
+      xAxis:{type:'category',data:cats,...axe,axisLabel:{...axe.axisLabel,interval:0}},yAxis:{type:'value',minInterval:1,splitLine:{lineStyle:{color:'rgba(148,163,184,.25)',type:'dashed'}},axisLabel:{color:TXT,fontSize:9}},
+      series:[{type:'bar',barMaxWidth:34,data:vals,label:{show:true,position:'top',color:TXT,fontSize:9,formatter:p=>p.value?p.value+' · '+pc(p.value):''}}]};};
+  const sujets=()=>{const c=r.questions.sujet.compte,s=r.questions.sujet.sans;
+    const l=AVIS_GRAPHES_CHOIX.sujet.map(k=>({k,v:c[k],col:'#6366f1'})).concat(s?[{k:'Sans sujet',v:s,col:GRIS}]:[]).reverse();
+    return{backgroundColor:'transparent',grid:{top:4,right:56,bottom:4,left:0,containLabel:true},tooltip:{...tt,formatter:p=>`${htmlEsc(p.name)} : ${p.value} avis (${pc(p.value)})`},
+      xAxis:{type:'value',show:false},yAxis:{type:'category',data:l.map(x=>x.k),...axe},
+      series:[{type:'bar',barMaxWidth:16,data:l.map(x=>({value:x.v,itemStyle:{color:x.col,borderRadius:[0,4,4,0]}})),label:{show:true,position:'right',color:TXT,fontSize:9,formatter:p=>p.value+' · '+pc(p.value)}}]};};
+  // Donut : même dessin que DonutChart (Bilans), construit ici pour servir aussi l'impression.
+  const donut=q=>{const c=r.questions[q].compte,s=r.questions[q].sans;
+    const data=AVIS_GRAPHES_CHOIX[q].filter(k=>c[k]>0).map(k=>({name:k,value:c[k],itemStyle:{color:AVIS_G_COUL[q][k]}})).concat(s?[{name:'Sans réponse',value:s,itemStyle:{color:GRIS}}]:[]);
+    return{backgroundColor:'transparent',tooltip:{...tt,formatter:p=>`${htmlEsc(p.name)} : ${p.value} avis (${pc(p.value)})`},
+      legend:{orient:'horizontal',bottom:0,textStyle:{color:TXT,fontSize:11},icon:'circle',itemWidth:8,itemHeight:8,formatter:name=>{const d=data.find(x=>x.name===name);return d?name+' · '+pc(d.value):name;}},
+      series:[{type:'pie',radius:['38%','65%'],center:['50%','44%'],itemStyle:{borderRadius:5,borderColor:impression?'#fff':'#1a1d27',borderWidth:3},
+        label:{show:true,position:'inside',color:'#fff',fontSize:10,fontWeight:'bold',formatter:p=>p.percent>6?pc(p.value):''},data,emphasis:{scale:!impression,scaleSize:5}}]};};
+  const radar={backgroundColor:'transparent',
+    tooltip:{...tt,formatter:()=>r.radar.map(x=>`${htmlEsc(libAvisQ(x.q))} : ${x.pct===null?'aucune réponse':x.pct+' % ('+x.fav+'/'+x.rep+')'}`).join('<br/>')},
+    radar:{indicator:r.radar.map(x=>({name:AVIS_G_COURT[x.q]+'\n'+(x.pct===null?'—':x.pct+' %'),max:100})),radius:'56%',center:['50%','54%'],
+      axisName:{color:TXT,fontSize:10},splitLine:{lineStyle:{color:'rgba(148,163,184,.35)'}},splitArea:{show:false},axisLine:{lineStyle:{color:'rgba(148,163,184,.35)'}}},
+    series:[{type:'radar',symbolSize:5,data:[{value:r.radar.map(x=>x.pct),name:'Réponses favorables',areaStyle:{color:'rgba(13,148,136,.25)'},lineStyle:{color:'#0d9488',width:2},itemStyle:{color:'#0d9488'}}]}]};
+  return{radar,attentes:colonnes('attentes'),clarte:colonnes('clarte'),rythme:donut('rythme'),aise:donut('aise'),autonomie:donut('autonomie'),sujet:sujets()};
+}
+// Impression / PDF des graphes affichés : SVG rendu par ECharts dans la page (vectoriel, sans réseau).
+function imprimerGraphesAvis(r,libSel,du,au){
+  if(!r||r.erreur||!r.n||!window.echarts){showToast('Aucun graphe à imprimer',false);return;}
+  const w=window.open('','_blank');if(!w){showToast('Autorisez les fenêtres pour ce site',false);return;}
+  const e=htmlEsc,t=textesGraphesAvis(r,libSel,du,au),o=optionsGraphesAvis(r,true);
+  const svg=(opt,h)=>{const c=window.echarts.init(null,null,{renderer:'svg',ssr:true,width:340,height:h});c.setOption({...opt,animation:false});const s=c.renderToSVGString();c.dispose();return s;};
+  const carte=(titre,corps,note)=>`<div class="carte"><h3>${e(titre)}</h3>${corps}${note?`<div class="note">${e(note)}</div>`:''}</div>`;
+  const radar=(t.radarTrace?svg(o.radar,260):`<div class="alerte">${e(t.radarNonTrace)}</div>`)+`<div class="lignes">${t.radarLignes.map(l=>`<div><b>${e(l.lib)} :</b> ${e(l.txt)}</div>`).join('')}</div>`;
+  const corps=carte('Profil des avis',radar,t.noteRadar)+carte(t.titre('attentes'),svg(o.attentes,210))+carte(t.titre('clarte'),svg(o.clarte,210))
+    +carte(libAvisQ('rythme'),svg(o.rythme,220))+carte(libAvisQ('aise'),svg(o.aise,220))+carte(libAvisQ('autonomie'),svg(o.autonomie,220))
+    +carte(libAvisQ('sujet'),svg(o.sujet,Math.max(170,(AVIS_GRAPHES_CHOIX.sujet.length+1)*26)),t.noteSujet);
+  w.document.write(`<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><title>Avis des stagiaires — graphes</title><style>body{font-family:Arial,sans-serif;margin:20px;color:#0f172a}h1{font-size:18px;color:#0f766e;margin:0 0 6px}.sous{font-size:12px;color:#475569;margin-bottom:10px}.grille{display:grid;grid-template-columns:1fr 1fr;gap:10px}.carte{border:1px solid #e2e8f0;border-radius:8px;padding:8px;break-inside:avoid;page-break-inside:avoid}h3{font-size:13px;margin:0 0 4px}svg{max-width:100%;height:auto;display:block;margin:0 auto}.note,.lignes{font-size:10.5px;color:#475569;margin-top:4px}.alerte{font-size:12px;color:#b45309;margin:6px 0}@page{margin:12mm}</style></head><body><h1>Avis des stagiaires — graphes</h1><div class="sous">${e(t.entete)}${t.masques?'<br>'+e(t.masques):''}</div><div class="grille">${corps}</div><p class="note">Avis anonymes. Édité le ${fmtDate(todayLocal())}.</p><script>window.print();<\/script></body></html>`);
+  w.document.close();
+}
+function GraphesAvis({ateliers,du,au,choix,sel,setSel}){
   const ligneSel=sel?(ateliers||[]).find(a=>a.atelier_id===sel&&!a.masque):null;   // période changée : retour à « Tous »
   const r=React.useMemo(()=>resumeAvisAteliers(ligneSel?[ligneSel]:ateliers),[ateliers,ligneSel]);
-  const libSel=ligneSel&&((choix||[]).find(c=>c.id===ligneSel.atelier_id)||{}).lib;
+  const libSel=ligneSel?(((choix||[]).find(c=>c.id===ligneSel.atelier_id)||{}).lib||'atelier choisi'):'';
   const selecteur=(choix||[]).length>1&&CE('label',{style:{display:'flex',gap:6,alignItems:'center',flexWrap:'wrap',fontSize:13,marginBottom:8}},'Atelier :',
     CE('select',{value:ligneSel?sel:'',onChange:e=>setSel(e.target.value),style:{padding:'6px 8px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:13,maxWidth:'100%',flex:'1 1 220px',minWidth:0}},
       CE('option',{value:''},'Tous les ateliers de la période'),
       choix.map(c=>CE('option',{key:c.id,value:c.id,disabled:c.masque},c.lib+(c.masque?' (moins de 3 avis)':' — '+c.n+' avis')))));
-  const GRIS='#94a3b8';
-  const COUL={rythme:{'Trop lent':'#3b82f6','Adapté':'#22c55e','Trop rapide':'#f97316'},
-    aise:{'Non':'#ef4444','Un peu':'#eab308','Oui':'#22c55e'},autonomie:{'Oui':'#22c55e','Avec de l\'aide':'#eab308','Non':'#ef4444'}};
-  const ETOILES=['#ef4444','#f97316','#eab308','#84cc16','#22c55e'];
-  const LIB=Object.fromEntries(AVIS_QUESTIONS.map(([k,lib])=>[k,lib.replace(' (étoiles)','')]));
-  // Libellés courts autour du radar : « Refaire seul(e) » débordait à 390 px.
-  const COURT={attentes:'Attentes',clarte:'Clarté',rythme:'Rythme',aise:'À l\'aise',autonomie:'Refaire seul'};
-  const pc=c=>r.n?Math.round(c/r.n*100)+' %':'—';
-  const virg=v=>String(v).replace('.',',');
-  const opts=React.useMemo(()=>{
-    if(!r||r.erreur||!r.n)return null;
-    const axe={axisLine:{show:false},axisTick:{show:false},axisLabel:{color:GRIS,fontSize:10}};
-    const tt={trigger:'item',...EC_TT};
-    const colonnes=q=>{const c=r.questions[q].compte,s=r.questions[q].sans;
-      const cats=['1','2','3','4','5'].map(k=>k+' ★').concat(s?['Sans rép.']:[]);
-      const vals=['1','2','3','4','5'].map((k,i)=>({value:c[k],itemStyle:{color:ETOILES[i],borderRadius:[4,4,0,0]}})).concat(s?[{value:s,itemStyle:{color:GRIS,borderRadius:[4,4,0,0]}}]:[]);
-      return{backgroundColor:'transparent',grid:{top:22,right:4,bottom:4,left:0,containLabel:true},tooltip:{...tt,formatter:p=>`${htmlEsc(p.name)} : ${p.value} avis (${pc(p.value)})`},
-        xAxis:{type:'category',data:cats,...axe,axisLabel:{...axe.axisLabel,interval:0}},yAxis:{type:'value',minInterval:1,splitLine:{lineStyle:{color:'rgba(148,163,184,.25)',type:'dashed'}},axisLabel:{color:GRIS,fontSize:9}},
-        series:[{type:'bar',barMaxWidth:34,data:vals,label:{show:true,position:'top',color:GRIS,fontSize:9,formatter:p=>p.value?p.value+' · '+pc(p.value):''}}]};};
-    const sujets=()=>{const c=r.questions.sujet.compte,s=r.questions.sujet.sans;
-      const l=AVIS_GRAPHES_CHOIX.sujet.map(k=>({k,v:c[k],col:'#6366f1'})).concat(s?[{k:'Sans sujet',v:s,col:GRIS}]:[]).reverse();
-      return{backgroundColor:'transparent',grid:{top:4,right:56,bottom:4,left:0,containLabel:true},tooltip:{...tt,formatter:p=>`${htmlEsc(p.name)} : ${p.value} avis (${pc(p.value)})`},
-        xAxis:{type:'value',show:false},yAxis:{type:'category',data:l.map(x=>x.k),...axe},
-        series:[{type:'bar',barMaxWidth:16,data:l.map(x=>({value:x.v,itemStyle:{color:x.col,borderRadius:[0,4,4,0]}})),label:{show:true,position:'right',color:GRIS,fontSize:9,formatter:p=>p.value+' · '+pc(p.value)}}]};};
-    const radar={backgroundColor:'transparent',
-      tooltip:{...tt,formatter:()=>r.radar.map(x=>`${htmlEsc(LIB[x.q])} : ${x.pct===null?'aucune réponse':x.pct+' % ('+x.fav+'/'+x.rep+')'}`).join('<br/>')},
-      radar:{indicator:r.radar.map(x=>({name:COURT[x.q]+'\n'+(x.pct===null?'—':x.pct+' %'),max:100})),radius:'56%',center:['50%','54%'],
-        axisName:{color:GRIS,fontSize:10},splitLine:{lineStyle:{color:'rgba(148,163,184,.35)'}},splitArea:{show:false},axisLine:{lineStyle:{color:'rgba(148,163,184,.35)'}}},
-      series:[{type:'radar',symbolSize:5,data:[{value:r.radar.map(x=>x.pct),name:'Réponses favorables',areaStyle:{color:'rgba(13,148,136,.25)'},lineStyle:{color:'#0d9488',width:2},itemStyle:{color:'#0d9488'}}]}]};
-    return{radar,attentes:colonnes('attentes'),clarte:colonnes('clarte'),sujet:sujets()};
-  },[r]);
+  const opts=React.useMemo(()=>r&&!r.erreur&&r.n?optionsGraphesAvis(r,false):null,[r]);
   if(r.erreur)return CE('div',null,selecteur,CE('div',{style:{padding:16,color:'#b45309'}},'⚠️ Graphes indisponibles : la page et le serveur ne sont pas à la même version. Rechargez la page dans quelques minutes.'));
-  const masques=!ligneSel&&r.masques.avis>0&&CE('div',{style:{fontSize:12,color:'#64748b',marginTop:4}},`${r.masques.avis} avis de ${r.masques.ateliers} atelier${r.masques.ateliers>1?'s':''} à moins de 3 avis ne sont pas comptés, pour que personne ne soit reconnu.`);
+  const t=textesGraphesAvis(r,libSel,du,au);
+  const masques=t.masques&&CE('div',{style:{fontSize:12,color:'#64748b',marginTop:4}},t.masques);
   if(!r.n)return CE('div',null,selecteur,CE('div',{style:{padding:30,color:'#64748b',textAlign:'center'}},'Aucun avis à représenter sur cette période.',masques));
   const carte=(titre,contenu,note)=>CE('div',{style:{border:'1px solid var(--border,#e2e8f0)',borderRadius:10,padding:10,minWidth:0}},
     CE('div',{style:{fontSize:13,fontWeight:700,marginBottom:4}},titre),contenu,note&&CE('div',{style:{fontSize:11,color:'#64748b',marginTop:4}},note));
-  const donut=q=>{const c=r.questions[q].compte,s=r.questions[q].sans;
-    const data=AVIS_GRAPHES_CHOIX[q].filter(k=>c[k]>0).map(k=>({label:k,value:c[k],percentageText:pc(c[k])})).concat(s?[{label:'Sans réponse',value:s,percentageText:pc(s)}]:[]);
-    return CE(DonutChart,{data,colors:AVIS_GRAPHES_CHOIX[q].filter(k=>c[k]>0).map(k=>COUL[q][k]).concat(s?[GRIS]:[]),height:210});};
-  const moy=q=>{const m=r.questions[q].moyenne;return LIB[q]+(m===null?'':' — moyenne '+virg(m)+'/5');};
   return CE('div',null,selecteur,
-    CE('div',{style:{fontSize:12,color:'#64748b',marginBottom:8}},ligneSel?`${r.n} avis — ${libSel||'atelier choisi'}. Pourcentages sur l'ensemble des avis de l'atelier, « Sans réponse » à part.`
-      :`${r.n} avis sur ${r.ateliers} atelier${r.ateliers>1?'s':''}, du ${fmtDate(du)} au ${fmtDate(au)}. Pourcentages sur l'ensemble des avis, « Sans réponse » à part.`,masques),
+    CE('div',{style:{fontSize:12,color:'#64748b',marginBottom:8}},t.entete,masques),
     CE('div',{style:{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(min(100%,280px),1fr))',gap:10}},
-      // Un axe sans répondant : pas de polygone (ECharts tracerait l'absence au centre, comme un 0 : vérification
-      // de Codex, AG-063). Les valeurs et leurs bases restent en texte.
-      carte('Profil des avis',CE(React.Fragment,null,r.radar.every(x=>x.pct!==null)?CE(EChart,{option:opts.radar,height:260})
-        :CE('div',{style:{fontSize:12,color:'#b45309',margin:'4px 0 6px'}},'Profil non tracé : au moins une question n\'a reçu aucune réponse sur la période.'),
+      carte('Profil des avis',CE(React.Fragment,null,t.radarTrace?CE(EChart,{option:opts.radar,height:260})
+        :CE('div',{style:{fontSize:12,color:'#b45309',margin:'4px 0 6px'}},t.radarNonTrace),
         // Base de chaque axe visible : favorables / répondants, sans-réponse (Codex, AG-063).
-        CE('div',{style:{fontSize:11,color:'#475569',display:'grid',gap:2,marginTop:4}},r.radar.map(x=>CE('div',{key:x.q},
-          CE('b',null,COURT[x.q]+' : '),x.pct===null?'non calculable (aucune réponse)':`${x.fav}/${x.rep} favorables (${x.pct} %)`,x.sans?` · ${x.sans} sans réponse`:'')))),
-        'Part des réponses favorables (4 ou 5 étoiles, rythme adapté, plus à l\'aise « Oui », refaire seul « Oui »), sur les seuls avis qui ont répondu : la base diffère de celle des donuts.'),
-      carte(moy('attentes'),CE(EChart,{option:opts.attentes,height:210})),
-      carte(moy('clarte'),CE(EChart,{option:opts.clarte,height:210})),
-      carte(LIB.rythme,donut('rythme')),
-      carte(LIB.aise,donut('aise')),
-      carte(LIB.autonomie,donut('autonomie')),
-      carte(LIB.sujet,CE(EChart,{option:opts.sujet,height:Math.max(170,(AVIS_GRAPHES_CHOIX.sujet.length+1)*26)}),'Plusieurs choix possibles par avis : le total peut dépasser 100 %.')));
+        CE('div',{style:{fontSize:11,color:'#475569',display:'grid',gap:2,marginTop:4}},t.radarLignes.map(l=>CE('div',{key:l.q},CE('b',null,l.lib+' : '),l.txt)))),
+        t.noteRadar),
+      carte(t.titre('attentes'),CE(EChart,{option:opts.attentes,height:210})),
+      carte(t.titre('clarte'),CE(EChart,{option:opts.clarte,height:210})),
+      carte(libAvisQ('rythme'),CE(EChart,{option:opts.rythme,height:220})),
+      carte(libAvisQ('aise'),CE(EChart,{option:opts.aise,height:220})),
+      carte(libAvisQ('autonomie'),CE(EChart,{option:opts.autonomie,height:220})),
+      carte(libAvisQ('sujet'),CE(EChart,{option:opts.sujet,height:Math.max(170,(AVIS_GRAPHES_CHOIX.sujet.length+1)*26)}),t.noteSujet)));
 }
 
 function VueAvisAteliers({entries,moi}){
@@ -6629,6 +6658,7 @@ function VueAvisAteliers({entries,moi}){
   const[res,setRes]=React.useState(null);
   const[ouvert,setOuvert]=React.useState({});
   const[vue,setVue]=React.useState('tableau');   // 'tableau' | 'graphes' (AG-063)
+  const[selGraphe,setSelGraphe]=React.useState('');   // atelier choisi dans la vue en graphes, '' = tous
   React.useEffect(()=>{let vivant=true;setRes(null);
     if(!du||!au||du>au){setRes({erreur:'Période invalide'});return;}
     (async()=>{try{
@@ -6666,7 +6696,15 @@ function VueAvisAteliers({entries,moi}){
     const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
     a.download=`avis-par-atelier_${du}_${au}.csv`;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
   }
+  // Liste des ateliers de la vue en graphes : date, thématique, commune, orienteur (demande du 19/11/2026).
+  const choixGraphe=lignes.map(l=>({id:l.atelier_id,n:l.n,masque:!!l.masque,lib:[fmtDate(l.e.date),l.e.thematique,l.e.commune,l.e.orienteur].filter(Boolean).join(' — ')||'Atelier'}));
   function imprimer(){
+    // Vue en graphes : imprimer les graphes affichés (période ou atelier choisi), pas le tableau.
+    if(vue==='graphes'&&res&&res.ateliers){
+      const ligneSel=selGraphe?res.ateliers.find(a=>a.atelier_id===selGraphe&&!a.masque):null;
+      const libSel=ligneSel?((choixGraphe.find(c=>c.id===ligneSel.atelier_id)||{}).lib||'atelier choisi'):'';
+      imprimerGraphesAvis(resumeAvisAteliers(ligneSel?[ligneSel]:res.ateliers),libSel,du,au);return;
+    }
     const w=window.open('','_blank');if(!w){showToast('Autorisez les fenêtres pour ce site',false);return;}
     const e=htmlEsc;
     const corps=lignes.map(l=>`<tr>${cellules(l).map(c=>`<td>${e(String(c))}</td>`).join('')}</tr>`+(l.remarques.length?`<tr><td></td><td colspan="${COLS.length-1}" class="rem">${l.remarques.map(r=>'« '+e(r)+' »').join('<br>')}</td></tr>`:'')).join('');
@@ -6685,7 +6723,7 @@ function VueAvisAteliers({entries,moi}){
     !res?CE('div',{style:{padding:30,color:'#64748b',textAlign:'center'}},'Chargement des avis…')
     :res.erreur?CE('div',{style:{color:'#b91c1c',padding:16}},'❌ '+res.erreur)
     :!lignes.length?CE('div',{style:{padding:30,color:'#64748b',textAlign:'center'}},'Aucun avis pour les ateliers de cette période.')
-    :vue==='graphes'?CE(GraphesAvis,{ateliers:res.ateliers,du,au,choix:lignes.map(l=>({id:l.atelier_id,n:l.n,masque:!!l.masque,lib:[fmtDate(l.e.date),l.e.thematique,l.e.commune].filter(Boolean).join(' — ')||'Atelier'}))})
+    :vue==='graphes'?CE(GraphesAvis,{ateliers:res.ateliers,du,au,choix:choixGraphe,sel:selGraphe,setSel:setSelGraphe})
     :CE(React.Fragment,null,
       CE('div',{style:{fontSize:12,color:'#64748b',marginBottom:8}},`${lignes.length} atelier${lignes.length>1?'s':''} avec des avis, ${totalAvis} avis en tout. `+(surAdmin?'Cliquez sur une ligne pour voir ses avis un par un et en supprimer un.':'Cliquez sur une ligne pour lire ses remarques.')),
       CE('div',{style:{overflowX:'auto'}},
