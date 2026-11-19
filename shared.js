@@ -6548,8 +6548,17 @@ function DetailAvisAdmin({atelierId,onSupprime}){
 // le tableau (resumeAvisAteliers), une forme par question : radar « profil »,
 // colonnes pour les étoiles, donuts pour les réponses uniques, barres pour les
 // sujets (plusieurs choix par avis : un camembert serait faux).
-function GraphesAvis({ateliers,du,au}){
-  const r=React.useMemo(()=>resumeAvisAteliers(ateliers),[ateliers]);
+// Par atelier (extension d'AG-063, 19/11/2026) : « Tous les ateliers » ou un seul, choisi dans la
+// liste du tableau (choix) ; même calcul sur la seule ligne. Atelier masqué : visible, non choisissable.
+function GraphesAvis({ateliers,du,au,choix}){
+  const[sel,setSel]=React.useState('');
+  const ligneSel=sel?(ateliers||[]).find(a=>a.atelier_id===sel&&!a.masque):null;   // période changée : retour à « Tous »
+  const r=React.useMemo(()=>resumeAvisAteliers(ligneSel?[ligneSel]:ateliers),[ateliers,ligneSel]);
+  const libSel=ligneSel&&((choix||[]).find(c=>c.id===ligneSel.atelier_id)||{}).lib;
+  const selecteur=(choix||[]).length>1&&CE('label',{style:{display:'flex',gap:6,alignItems:'center',flexWrap:'wrap',fontSize:13,marginBottom:8}},'Atelier :',
+    CE('select',{value:ligneSel?sel:'',onChange:e=>setSel(e.target.value),style:{padding:'6px 8px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:13,maxWidth:'100%',flex:'1 1 220px',minWidth:0}},
+      CE('option',{value:''},'Tous les ateliers de la période'),
+      choix.map(c=>CE('option',{key:c.id,value:c.id,disabled:c.masque},c.lib+(c.masque?' (moins de 3 avis)':' — '+c.n+' avis')))));
   const GRIS='#94a3b8';
   const COUL={rythme:{'Trop lent':'#3b82f6','Adapté':'#22c55e','Trop rapide':'#f97316'},
     aise:{'Non':'#ef4444','Un peu':'#eab308','Oui':'#22c55e'},autonomie:{'Oui':'#22c55e','Avec de l\'aide':'#eab308','Non':'#ef4444'}};
@@ -6581,17 +6590,18 @@ function GraphesAvis({ateliers,du,au}){
       series:[{type:'radar',symbolSize:5,data:[{value:r.radar.map(x=>x.pct),name:'Réponses favorables',areaStyle:{color:'rgba(13,148,136,.25)'},lineStyle:{color:'#0d9488',width:2},itemStyle:{color:'#0d9488'}}]}]};
     return{radar,attentes:colonnes('attentes'),clarte:colonnes('clarte'),sujet:sujets()};
   },[r]);
-  if(r.erreur)return CE('div',{style:{padding:16,color:'#b45309'}},'⚠️ Graphes indisponibles : la page et le serveur ne sont pas à la même version. Rechargez la page dans quelques minutes.');
-  const masques=r.masques.avis>0&&CE('div',{style:{fontSize:12,color:'#64748b',marginTop:4}},`${r.masques.avis} avis de ${r.masques.ateliers} atelier${r.masques.ateliers>1?'s':''} à moins de 3 avis ne sont pas comptés, pour que personne ne soit reconnu.`);
-  if(!r.n)return CE('div',{style:{padding:30,color:'#64748b',textAlign:'center'}},'Aucun avis à représenter sur cette période.',masques);
+  if(r.erreur)return CE('div',null,selecteur,CE('div',{style:{padding:16,color:'#b45309'}},'⚠️ Graphes indisponibles : la page et le serveur ne sont pas à la même version. Rechargez la page dans quelques minutes.'));
+  const masques=!ligneSel&&r.masques.avis>0&&CE('div',{style:{fontSize:12,color:'#64748b',marginTop:4}},`${r.masques.avis} avis de ${r.masques.ateliers} atelier${r.masques.ateliers>1?'s':''} à moins de 3 avis ne sont pas comptés, pour que personne ne soit reconnu.`);
+  if(!r.n)return CE('div',null,selecteur,CE('div',{style:{padding:30,color:'#64748b',textAlign:'center'}},'Aucun avis à représenter sur cette période.',masques));
   const carte=(titre,contenu,note)=>CE('div',{style:{border:'1px solid var(--border,#e2e8f0)',borderRadius:10,padding:10,minWidth:0}},
     CE('div',{style:{fontSize:13,fontWeight:700,marginBottom:4}},titre),contenu,note&&CE('div',{style:{fontSize:11,color:'#64748b',marginTop:4}},note));
   const donut=q=>{const c=r.questions[q].compte,s=r.questions[q].sans;
     const data=AVIS_GRAPHES_CHOIX[q].filter(k=>c[k]>0).map(k=>({label:k,value:c[k],percentageText:pc(c[k])})).concat(s?[{label:'Sans réponse',value:s,percentageText:pc(s)}]:[]);
     return CE(DonutChart,{data,colors:AVIS_GRAPHES_CHOIX[q].filter(k=>c[k]>0).map(k=>COUL[q][k]).concat(s?[GRIS]:[]),height:210});};
   const moy=q=>{const m=r.questions[q].moyenne;return LIB[q]+(m===null?'':' — moyenne '+virg(m)+'/5');};
-  return CE('div',null,
-    CE('div',{style:{fontSize:12,color:'#64748b',marginBottom:8}},`${r.n} avis sur ${r.ateliers} atelier${r.ateliers>1?'s':''}, du ${fmtDate(du)} au ${fmtDate(au)}. Pourcentages sur l'ensemble des avis, « Sans réponse » à part.`,masques),
+  return CE('div',null,selecteur,
+    CE('div',{style:{fontSize:12,color:'#64748b',marginBottom:8}},ligneSel?`${r.n} avis — ${libSel||'atelier choisi'}. Pourcentages sur l'ensemble des avis de l'atelier, « Sans réponse » à part.`
+      :`${r.n} avis sur ${r.ateliers} atelier${r.ateliers>1?'s':''}, du ${fmtDate(du)} au ${fmtDate(au)}. Pourcentages sur l'ensemble des avis, « Sans réponse » à part.`,masques),
     CE('div',{style:{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(min(100%,280px),1fr))',gap:10}},
       // Un axe sans répondant : pas de polygone (ECharts tracerait l'absence au centre, comme un 0 : vérification
       // de Codex, AG-063). Les valeurs et leurs bases restent en texte.
@@ -6675,7 +6685,7 @@ function VueAvisAteliers({entries,moi}){
     !res?CE('div',{style:{padding:30,color:'#64748b',textAlign:'center'}},'Chargement des avis…')
     :res.erreur?CE('div',{style:{color:'#b91c1c',padding:16}},'❌ '+res.erreur)
     :!lignes.length?CE('div',{style:{padding:30,color:'#64748b',textAlign:'center'}},'Aucun avis pour les ateliers de cette période.')
-    :vue==='graphes'?CE(GraphesAvis,{ateliers:res.ateliers,du,au})
+    :vue==='graphes'?CE(GraphesAvis,{ateliers:res.ateliers,du,au,choix:lignes.map(l=>({id:l.atelier_id,n:l.n,masque:!!l.masque,lib:[fmtDate(l.e.date),l.e.thematique,l.e.commune].filter(Boolean).join(' — ')||'Atelier'}))})
     :CE(React.Fragment,null,
       CE('div',{style:{fontSize:12,color:'#64748b',marginBottom:8}},`${lignes.length} atelier${lignes.length>1?'s':''} avec des avis, ${totalAvis} avis en tout. `+(surAdmin?'Cliquez sur une ligne pour voir ses avis un par un et en supprimer un.':'Cliquez sur une ligne pour lire ses remarques.')),
       CE('div',{style:{overflowX:'auto'}},
