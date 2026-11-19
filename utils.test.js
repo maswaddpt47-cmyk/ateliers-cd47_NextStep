@@ -1081,3 +1081,47 @@ describe('pagePerimee', () => {
     assert.equal(pagePerimee([], pub), false);
   });
 });
+
+// Avis par atelier en graphes (AG-063, 19/11/2026).
+describe('resumeAvisAteliers', () => {
+  const { resumeAvisAteliers } = require('./utils.js');
+  const zero = k => Object.fromEntries(k.map(x => [x, 0]));
+  const det = o => ({attentes: {...zero(['1','2','3','4','5']), ...o.attentes}, clarte: {...zero(['1','2','3','4','5']), ...o.clarte},
+    rythme: {...zero(['Trop lent','Adapté','Trop rapide']), ...o.rythme}, aise: {...zero(['Non','Un peu','Oui']), ...o.aise},
+    autonomie: {...zero(['Oui',"Avec de l'aide",'Non']), ...o.autonomie},
+    sujet: {...zero(['Smartphone','Messagerie','Démarches en ligne','Sécurité','Intelligence artificielle','Autre']), ...o.sujet}, sans_sujet: o.sans_sujet || 0});
+  const a1 = {n: 3, detail: det({attentes: {'5': 2, '3': 1}, clarte: {'4': 2}, rythme: {'Adapté': 2, 'Trop rapide': 1}, aise: {'Oui': 1, 'Un peu': 1}, autonomie: {'Oui': 3}, sujet: {'Smartphone': 2, 'Sécurité': 2}, sans_sujet: 1})};
+  const a2 = {n: 2, detail: det({attentes: {'4': 1}, rythme: {'Trop lent': 2}, aise: {'Non': 2}, autonomie: {'Non': 1}, sans_sujet: 2})};
+  const masque = {n: 2, masque: true, detail: []};
+  it('additionne les ateliers, compte les « Sans réponse » et écarte les ateliers masqués', () => {
+    const r = resumeAvisAteliers([a1, a2, masque]);
+    assert.equal(r.n, 5); assert.equal(r.ateliers, 2);
+    assert.deepEqual(r.masques, {ateliers: 1, avis: 2});
+    assert.deepEqual(r.questions.attentes.compte, {'1': 0, '2': 0, '3': 1, '4': 1, '5': 2});
+    assert.equal(r.questions.attentes.sans, 1, 'a2 : 2 avis, 1 note');
+    assert.equal(r.questions.clarte.sans, 3);
+    assert.equal(r.questions.aise.sans, 1);
+    assert.equal(r.questions.sujet.compte.Sécurité, 2);
+    assert.equal(r.questions.sujet.sans, 3, 'sans sujet : 1 + 2');
+  });
+  it('moyennes sur la répartition, pas sur des moyennes arrondies', () => {
+    const r = resumeAvisAteliers([a1, a2]);
+    assert.equal(r.questions.attentes.moyenne, 4.3, '(3 + 4 + 5 + 5) / 4 = 4,25');
+    assert.equal(r.questions.clarte.moyenne, 4);
+    assert.equal(resumeAvisAteliers([a2]).questions.clarte.moyenne, null, 'aucune note : pas de moyenne');
+  });
+  it('radar : réponses favorables sur les avis qui ont répondu', () => {
+    const p = Object.fromEntries(resumeAvisAteliers([a1, a2]).radar.map(x => [x.q, [x.fav, x.rep, x.pct]]));
+    assert.deepEqual(p.attentes, [3, 4, 75]);
+    assert.deepEqual(p.rythme, [2, 5, 40]);
+    assert.deepEqual(p.aise, [1, 4, 25], '« Un peu » n\'est pas favorable');
+    assert.deepEqual(p.autonomie, [3, 4, 75]);
+    assert.deepEqual(resumeAvisAteliers([a2]).radar.find(x => x.q === 'clarte'), {q: 'clarte', fav: 0, rep: 0, pct: null});
+  });
+  it('détail absent sur un atelier non masqué : erreur de format, pas de faux zéros', () => {
+    assert.deepEqual(resumeAvisAteliers([a1, {n: 1, detail: {rythme: {}}}]), {erreur: 'format'});
+    const sansCle = {...a1.detail}; delete sansCle.sans_sujet;
+    assert.deepEqual(resumeAvisAteliers([{n: 3, detail: sansCle}]), {erreur: 'format'}, 'API d\'avant AG-063 : pas de compte des avis sans sujet');
+    assert.equal(resumeAvisAteliers([]).n, 0);
+  });
+});

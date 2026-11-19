@@ -423,6 +423,54 @@ function presentsSuperieursInscrits(e) {
   return parseInt(txt(e.presents), 10) > parseInt(txt(e.inscrits), 10);
 }
 
+// ── Avis par atelier en graphes (AG-063, 19/11/2026) ───────────────────────
+// Agrège les lignes de l'action avisParAtelier (une par atelier, même population
+// que le tableau : ateliers datés de la période, tous statuts). Un atelier masqué
+// (moins de AVIS_SEUIL avis, vue conseiller) n'entre pas dans les graphes et se
+// compte à part. Base des % = tous les avis comptés, « Sans réponse » à part
+// (AG-032) ; sujets : chacun une fois par avis, total au-delà de 100 % (AG-035).
+// Radar : part des réponses favorables sur les avis qui ont répondu (définition
+// d'AG-063, à trancher par l'utilisateur). Renvoie {erreur:'format'} si une ligne
+// non masquée n'a pas le détail attendu (page plus récente que l'API).
+const AVIS_GRAPHES_CHOIX = {
+  attentes: ['1', '2', '3', '4', '5'], clarte: ['1', '2', '3', '4', '5'],
+  rythme: ['Trop lent', 'Adapté', 'Trop rapide'], aise: ['Non', 'Un peu', 'Oui'],
+  autonomie: ['Oui', 'Avec de l\'aide', 'Non'],
+  sujet: ['Smartphone', 'Messagerie', 'Démarches en ligne', 'Sécurité', 'Intelligence artificielle', 'Autre'],
+};
+const AVIS_FAVORABLES = {attentes: ['4', '5'], clarte: ['4', '5'], rythme: ['Adapté'], aise: ['Oui'], autonomie: ['Oui']};
+function resumeAvisAteliers(lignes) {
+  const r = {n: 0, ateliers: 0, masques: {ateliers: 0, avis: 0}, questions: {}};
+  const Q = Object.keys(AVIS_GRAPHES_CHOIX);
+  Q.forEach(q => { r.questions[q] = {compte: Object.fromEntries(AVIS_GRAPHES_CHOIX[q].map(k => [k, 0])), sans: 0}; });
+  for (const l of lignes || []) {
+    const n = parseInt(l && l.n, 10) || 0;
+    if (l && l.masque) { r.masques.ateliers++; r.masques.avis += n; continue; }
+    const d = l && l.detail;
+    if (!d || Q.some(q => !d[q] || typeof d[q] !== 'object') || typeof d.sans_sujet !== 'number') return {erreur: 'format'};
+    r.n += n; r.ateliers++;
+    Q.forEach(q => {
+      const c = r.questions[q].compte;
+      let rep = 0;
+      AVIS_GRAPHES_CHOIX[q].forEach(k => { const v = parseInt(d[q][k], 10) || 0; c[k] += v; rep += v; });
+      if (q !== 'sujet') r.questions[q].sans += Math.max(0, n - rep);
+    });
+    r.questions.sujet.sans += d.sans_sujet;
+  }
+  ['attentes', 'clarte'].forEach(q => {
+    const c = r.questions[q].compte;
+    const rep = Object.values(c).reduce((a, b) => a + b, 0);
+    r.questions[q].moyenne = rep ? Math.round(Object.keys(c).reduce((a, k) => a + k * c[k], 0) / rep * 10) / 10 : null;
+  });
+  r.radar = Object.keys(AVIS_FAVORABLES).map(q => {
+    const c = r.questions[q].compte;
+    const rep = Object.values(c).reduce((a, b) => a + b, 0);
+    const fav = AVIS_FAVORABLES[q].reduce((a, k) => a + (c[k] || 0), 0);
+    return {q, fav, rep, pct: rep ? Math.round(fav / rep * 100) : null};
+  });
+  return r;
+}
+
 // ── Page périmée (16/11/2026) ────────────────────────────────────────────────
 // index.html et admin.html n'ont pas de ?v= : un téléphone qui les garde en cache
 // charge les anciens scripts, et un correctif « n'arrive jamais ». chargees : les
@@ -1160,6 +1208,6 @@ if (typeof module !== 'undefined') {
   debutApres1530, ferieDe, atelierUnJourFerie, cleCommune,
   vacancesDe, atelierCollege, atelierEnVacancesCollege, atelierCollegeHorsCalendrier,
   encoderOlk, decoderOlk, OLK_MAX,
-    presentsSuperieursInscrits, dureeVide, planifiePasse, jourParis, pagePerimee,
+    presentsSuperieursInscrits, dureeVide, planifiePasse, jourParis, pagePerimee, resumeAvisAteliers, AVIS_GRAPHES_CHOIX,
   };
 }

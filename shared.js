@@ -6544,6 +6544,64 @@ function DetailAvisAdmin({atelierId,onSupprime}){
     CE('button',{type:'button',className:'btn btn-danger btn-sm',disabled:envoi===a.id,onClick:e=>{e.stopPropagation();supprimer(a);}},envoi===a.id?'…':'🗑️ Supprimer'))));
 }
 
+// Vue en graphes (AG-063, 19/11/2026, demande de l'utilisateur) : mêmes avis que
+// le tableau (resumeAvisAteliers), une forme par question : radar « profil »,
+// colonnes pour les étoiles, donuts pour les réponses uniques, barres pour les
+// sujets (plusieurs choix par avis : un camembert serait faux).
+function GraphesAvis({ateliers,du,au}){
+  const r=React.useMemo(()=>resumeAvisAteliers(ateliers),[ateliers]);
+  const GRIS='#94a3b8';
+  const COUL={rythme:{'Trop lent':'#3b82f6','Adapté':'#22c55e','Trop rapide':'#f97316'},
+    aise:{'Non':'#ef4444','Un peu':'#eab308','Oui':'#22c55e'},autonomie:{'Oui':'#22c55e','Avec de l\'aide':'#eab308','Non':'#ef4444'}};
+  const ETOILES=['#ef4444','#f97316','#eab308','#84cc16','#22c55e'];
+  const LIB=Object.fromEntries(AVIS_QUESTIONS.map(([k,lib])=>[k,lib.replace(' (étoiles)','')]));
+  // Libellés courts autour du radar : « Refaire seul(e) » débordait à 390 px.
+  const COURT={attentes:'Attentes',clarte:'Clarté',rythme:'Rythme',aise:'À l\'aise',autonomie:'Refaire seul'};
+  const pc=c=>r.n?Math.round(c/r.n*100)+' %':'—';
+  const virg=v=>String(v).replace('.',',');
+  const opts=React.useMemo(()=>{
+    if(!r||r.erreur||!r.n)return null;
+    const axe={axisLine:{show:false},axisTick:{show:false},axisLabel:{color:GRIS,fontSize:10}};
+    const tt={trigger:'item',...EC_TT};
+    const colonnes=q=>{const c=r.questions[q].compte,s=r.questions[q].sans;
+      const cats=['1','2','3','4','5'].map(k=>k+' ★').concat(s?['Sans rép.']:[]);
+      const vals=['1','2','3','4','5'].map((k,i)=>({value:c[k],itemStyle:{color:ETOILES[i],borderRadius:[4,4,0,0]}})).concat(s?[{value:s,itemStyle:{color:GRIS,borderRadius:[4,4,0,0]}}]:[]);
+      return{backgroundColor:'transparent',grid:{top:22,right:4,bottom:4,left:0,containLabel:true},tooltip:{...tt,formatter:p=>`${htmlEsc(p.name)} : ${p.value} avis (${pc(p.value)})`},
+        xAxis:{type:'category',data:cats,...axe,axisLabel:{...axe.axisLabel,interval:0}},yAxis:{type:'value',minInterval:1,splitLine:{lineStyle:{color:'rgba(148,163,184,.25)',type:'dashed'}},axisLabel:{color:GRIS,fontSize:9}},
+        series:[{type:'bar',barMaxWidth:34,data:vals,label:{show:true,position:'top',color:GRIS,fontSize:9,formatter:p=>p.value?p.value+' · '+pc(p.value):''}}]};};
+    const sujets=()=>{const c=r.questions.sujet.compte,s=r.questions.sujet.sans;
+      const l=AVIS_GRAPHES_CHOIX.sujet.map(k=>({k,v:c[k],col:'#6366f1'})).concat(s?[{k:'Sans sujet',v:s,col:GRIS}]:[]).reverse();
+      return{backgroundColor:'transparent',grid:{top:4,right:56,bottom:4,left:0,containLabel:true},tooltip:{...tt,formatter:p=>`${htmlEsc(p.name)} : ${p.value} avis (${pc(p.value)})`},
+        xAxis:{type:'value',show:false},yAxis:{type:'category',data:l.map(x=>x.k),...axe},
+        series:[{type:'bar',barMaxWidth:16,data:l.map(x=>({value:x.v,itemStyle:{color:x.col,borderRadius:[0,4,4,0]}})),label:{show:true,position:'right',color:GRIS,fontSize:9,formatter:p=>p.value+' · '+pc(p.value)}}]};};
+    const radar={backgroundColor:'transparent',
+      tooltip:{...tt,formatter:()=>r.radar.map(x=>`${htmlEsc(LIB[x.q])} : ${x.pct===null?'aucune réponse':x.pct+' % ('+x.fav+'/'+x.rep+')'}`).join('<br/>')},
+      radar:{indicator:r.radar.map(x=>({name:COURT[x.q]+'\n'+(x.pct===null?'—':x.pct+' %'),max:100})),radius:'56%',center:['50%','54%'],
+        axisName:{color:GRIS,fontSize:10},splitLine:{lineStyle:{color:'rgba(148,163,184,.35)'}},splitArea:{show:false},axisLine:{lineStyle:{color:'rgba(148,163,184,.35)'}}},
+      series:[{type:'radar',symbolSize:5,data:[{value:r.radar.map(x=>x.pct||0),name:'Réponses favorables',areaStyle:{color:'rgba(13,148,136,.25)'},lineStyle:{color:'#0d9488',width:2},itemStyle:{color:'#0d9488'}}]}]};
+    return{radar,attentes:colonnes('attentes'),clarte:colonnes('clarte'),sujet:sujets()};
+  },[r]);
+  if(r.erreur)return CE('div',{style:{padding:16,color:'#b45309'}},'⚠️ Graphes indisponibles : la page et le serveur ne sont pas à la même version. Rechargez la page dans quelques minutes.');
+  const masques=r.masques.avis>0&&CE('div',{style:{fontSize:12,color:'#64748b',marginTop:4}},`${r.masques.avis} avis de ${r.masques.ateliers} atelier${r.masques.ateliers>1?'s':''} à moins de 3 avis ne sont pas comptés, pour que personne ne soit reconnu.`);
+  if(!r.n)return CE('div',{style:{padding:30,color:'#64748b',textAlign:'center'}},'Aucun avis à représenter sur cette période.',masques);
+  const carte=(titre,contenu,note)=>CE('div',{style:{border:'1px solid var(--border,#e2e8f0)',borderRadius:10,padding:10,minWidth:0}},
+    CE('div',{style:{fontSize:13,fontWeight:700,marginBottom:4}},titre),contenu,note&&CE('div',{style:{fontSize:11,color:'#64748b',marginTop:4}},note));
+  const donut=q=>{const c=r.questions[q].compte,s=r.questions[q].sans;
+    const data=AVIS_GRAPHES_CHOIX[q].filter(k=>c[k]>0).map(k=>({label:k,value:c[k],percentageText:pc(c[k])})).concat(s?[{label:'Sans réponse',value:s,percentageText:pc(s)}]:[]);
+    return CE(DonutChart,{data,colors:AVIS_GRAPHES_CHOIX[q].filter(k=>c[k]>0).map(k=>COUL[q][k]).concat(s?[GRIS]:[]),height:210});};
+  const moy=q=>{const m=r.questions[q].moyenne;return LIB[q]+(m===null?'':' — moyenne '+virg(m)+'/5');};
+  return CE('div',null,
+    CE('div',{style:{fontSize:12,color:'#64748b',marginBottom:8}},`${r.n} avis sur ${r.ateliers} atelier${r.ateliers>1?'s':''}, du ${fmtDate(du)} au ${fmtDate(au)}. Pourcentages sur l'ensemble des avis, « Sans réponse » à part.`,masques),
+    CE('div',{style:{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(min(100%,280px),1fr))',gap:10}},
+      carte('Profil des avis',CE(EChart,{option:opts.radar,height:260}),'Part des réponses favorables (4 ou 5 étoiles, rythme adapté, plus à l\'aise « Oui », refaire seul « Oui »), sur les avis qui ont répondu.'),
+      carte(moy('attentes'),CE(EChart,{option:opts.attentes,height:210})),
+      carte(moy('clarte'),CE(EChart,{option:opts.clarte,height:210})),
+      carte(LIB.rythme,donut('rythme')),
+      carte(LIB.aise,donut('aise')),
+      carte(LIB.autonomie,donut('autonomie')),
+      carte(LIB.sujet,CE(EChart,{option:opts.sujet,height:Math.max(170,(AVIS_GRAPHES_CHOIX.sujet.length+1)*26)}),'Plusieurs choix possibles par avis : le total peut dépasser 100 %.')));
+}
+
 function VueAvisAteliers({entries,moi}){
   // Suppression d'un avis : page Admin seulement (demande du 04/10/2026).
   const surAdmin=!moi&&window.location.pathname.indexOf('admin.html')>-1;
@@ -6553,6 +6611,7 @@ function VueAvisAteliers({entries,moi}){
   const[au,setAu]=React.useState(auj);
   const[res,setRes]=React.useState(null);
   const[ouvert,setOuvert]=React.useState({});
+  const[vue,setVue]=React.useState('tableau');   // 'tableau' | 'graphes' (AG-063)
   React.useEffect(()=>{let vivant=true;setRes(null);
     if(!du||!au||du>au){setRes({erreur:'Période invalide'});return;}
     (async()=>{try{
@@ -6604,10 +6663,12 @@ function VueAvisAteliers({entries,moi}){
       CE('label',{style:{fontSize:13}},'Du ',CE('input',{type:'date',value:du,onChange:e=>setDu(e.target.value),style:champ})),
       CE('label',{style:{fontSize:13}},'Au ',CE('input',{type:'date',value:au,onChange:e=>setAu(e.target.value),style:champ})),
       CE('button',{type:'button',className:'btn btn-primary btn-sm',disabled:!lignes.length,onClick:imprimer},'🖨️ Imprimer / PDF'),
-      CE('button',{type:'button',className:'btn btn-secondary btn-sm',disabled:!lignes.length,onClick:exporterCsv},'⬇️ Export CSV')),
+      CE('button',{type:'button',className:'btn btn-secondary btn-sm',disabled:!lignes.length,onClick:exporterCsv},'⬇️ Export CSV'),
+      CE('button',{type:'button',className:'btn btn-secondary btn-sm',disabled:!lignes.length,'aria-pressed':vue==='graphes',onClick:()=>setVue(v=>v==='graphes'?'tableau':'graphes')},vue==='graphes'?'📋 Tableau':'📊 Graphes')),
     !res?CE('div',{style:{padding:30,color:'#64748b',textAlign:'center'}},'Chargement des avis…')
     :res.erreur?CE('div',{style:{color:'#b91c1c',padding:16}},'❌ '+res.erreur)
     :!lignes.length?CE('div',{style:{padding:30,color:'#64748b',textAlign:'center'}},'Aucun avis pour les ateliers de cette période.')
+    :vue==='graphes'?CE(GraphesAvis,{ateliers:res.ateliers,du,au})
     :CE(React.Fragment,null,
       CE('div',{style:{fontSize:12,color:'#64748b',marginBottom:8}},`${lignes.length} atelier${lignes.length>1?'s':''} avec des avis, ${totalAvis} avis en tout. `+(surAdmin?'Cliquez sur une ligne pour voir ses avis un par un et en supprimer un.':'Cliquez sur une ligne pour lire ses remarques.')),
       CE('div',{style:{overflowX:'auto'}},
