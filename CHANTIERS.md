@@ -11,6 +11,9 @@ Avant (15/11) : CI en parallèle ; (13/11) vacances scolaires (AG-057), connexio
 de passe (règle 69), Nouveautés 39 et 40, rendez-vous Outlook au téléphone (AG-058), mot de passe imposé aussi à l'Admin (AG-059/060).
 Avant : page TS sans filtre « Ouvert à tous » (AG-053), tuile « Copie de nuit » (AG-052, clos).
 
+**⏸ EN PAUSE — AG-065 (19/11)** : liens Partage47 dans le bac à sable seulement (`sandbox` `49a7952`) ; ne pas publier
+sur `main` avant l'essai de l'utilisateur ; suivi dans le `CHANTIERS.md` de NEWGEN.
+
 **Passation Codex — 16/11/2026** : repartir d'un `main` propre, actualisé par
 `fetch` puis `merge --ff-only`, sans réappliquer d'anciens brouillons. Relire
 `AGENTS.md`, les consignes communes et le `CHANTIERS.md` de NEWGEN.
