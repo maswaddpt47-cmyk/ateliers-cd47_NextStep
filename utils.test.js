@@ -1134,6 +1134,17 @@ describe('resumeAvisAteliers', () => {
 });
 
 // Liens Partage47 (AG-065, 19/11/2026).
+describe('pastille des nouveaux ateliers (maxNAteliers, nouveauxDepuis)', () => {
+  const { maxNAteliers, nouveauxDepuis } = require('./utils.js');
+  const E = [{ _id: 'a', _n: 3, conseiller: 'Eva' }, { _id: 'b', _n: '7', conseiller: 'Moi' }, { _id: 'c', _n: 9, conseiller: 'Cynthia' }, { _id: 'd', _n: '', conseiller: 'Eva' }];
+  it('plus grand numéro, numéros vides ignorés', () => { assert.equal(maxNAteliers(E), 9); assert.equal(maxNAteliers([]), 0); });
+  it('créés après le numéro vu, sauf les siens', () => {
+    assert.deepEqual(nouveauxDepuis(E, 3, 'Moi').map(e => e._id), ['c']);
+    assert.deepEqual(nouveauxDepuis(E, 2, '').map(e => e._id), ['a', 'b', 'c']);
+    assert.deepEqual(nouveauxDepuis(E, 9, 'Moi'), []);
+    assert.deepEqual(nouveauxDepuis(E, null, 'Moi'), [], 'pas de numéro retenu : rien de nouveau');
+  });
+});
 describe('lienPartageValide et liensAtelier', () => {
   const { lienPartageValide, liensAtelier } = require('./utils.js');
   it('accepte les trois formes Partage47, refuse tout le reste', () => {

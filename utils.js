@@ -442,6 +442,14 @@ function lienPartageRaison(url){
   return /^\/public\.php(\/|$)/i.test(chemin)?LIEN_REFUS_PUBLIC:'';
 }
 function lienPartageValide(url){return lienPartageRaison(url)==='';}
+// Pastille « nouveaux ateliers » retenue d'une visite à l'autre (20/11/2026). _n est attribué en
+// ordre croissant à la création (ecriture.php) ; une restauration de la corbeille garde son numéro.
+function maxNAteliers(entries){return (entries||[]).reduce((m,e)=>Math.max(m,parseInt(e&&e._n,10)||0),0);}
+// Ateliers créés après le numéro déjà vu, sauf ceux de la personne connectée.
+function nouveauxDepuis(entries,dernierN,moi){
+  if(typeof dernierN!=='number'||!(dernierN>=0))return [];   // null >= 0 vaut vrai en JS
+  return (entries||[]).filter(e=>e&&(parseInt(e._n,10)||0)>dernierN&&(!moi||e.conseiller!==moi));
+}
 // Liens d'un atelier, prêts à afficher : tableau [{titre, url}] des seuls liens valides (5 au plus).
 function liensAtelier(e){
   let l=e&&e.liens;
@@ -1239,6 +1247,6 @@ if (typeof module !== 'undefined') {
   debutApres1530, ferieDe, atelierUnJourFerie, cleCommune,
   vacancesDe, atelierCollege, atelierEnVacancesCollege, atelierCollegeHorsCalendrier,
   encoderOlk, decoderOlk, OLK_MAX,
-    presentsSuperieursInscrits, dureeVide, planifiePasse, jourParis, pagePerimee, resumeAvisAteliers, AVIS_GRAPHES_CHOIX, lienPartageValide, lienPartageRaison, liensAtelier, LIENS_MAX,
+    presentsSuperieursInscrits, dureeVide, planifiePasse, jourParis, pagePerimee, resumeAvisAteliers, AVIS_GRAPHES_CHOIX, lienPartageValide, lienPartageRaison, liensAtelier, LIENS_MAX, maxNAteliers, nouveauxDepuis,
   };
 }

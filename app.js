@@ -472,7 +472,7 @@ function App(){
       if(data.stockOrdinateurs)STOCK_ORDINATEURS=parseInt(data.stockOrdinateurs)||STOCK_ORDINATEURS;
       setLastSync(new Date());
       setSeenIds(prev=>{
-        if(prev.size===0)return new Set(incoming.map(e=>e._id));
+        if(prev.size===0){const nv=nouveauxAuChargement(incoming);setNewEntries(nv);return new Set(incoming.map(e=>e._id));}
         const nouvs=incoming.filter(e=>!prev.has(e._id));
         if(nouvs.length>0)setNewEntries(n=>[...nouvs,...n]);
         return new Set(incoming.map(e=>e._id));
@@ -810,7 +810,7 @@ function App(){
         newEntries.length>0&&CE('button',{
           className:'sidebar-notif-btn',
           title:`${newEntries.length} nouveaux ateliers`,
-          onClick:()=>{setView('historique');window._filterNewEntries&&window._filterNewEntries(newEntries.map(e=>e._id));setNewEntries([]);}
+          onClick:()=>{setView('historique');window._filterNewEntries&&window._filterNewEntries(newEntries.map(e=>e._id));setNewEntries([]);noterDernierNVu(entries);}
         }, CE('span',null,'🔔'), CE('span',null,newEntries.length)),
         CE('button',{
           className:'sidebar-accueil-btn', title:'Retour accueil',

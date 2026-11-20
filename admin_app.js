@@ -408,7 +408,7 @@ const LOGS_KEY = lsKey('adm_logs');
       if(data.stockOrdinateurs){STOCK_ORDINATEURS=parseInt(data.stockOrdinateurs)||STOCK_ORDINATEURS;}
       addLog(`${incoming.length} ateliers chargés (${annee})`,'ok');
       setLastSync(new Date());
-      setSeenIds(prev=>{if(prev.size===0)return new Set(incoming.map(e=>e._id));const nouvs=incoming.filter(e=>!prev.has(e._id));if(nouvs.length>0)setNewEntries(n=>[...nouvs,...n]);return new Set(incoming.map(e=>e._id));});
+      setSeenIds(prev=>{if(prev.size===0){const nv=nouveauxAuChargement(incoming);setNewEntries(nv);return new Set(incoming.map(e=>e._id));}const nouvs=incoming.filter(e=>!prev.has(e._id));if(nouvs.length>0)setNewEntries(n=>[...nouvs,...n]);return new Set(incoming.map(e=>e._id));});
       setLoading(false);setSyncing(false);
     }catch(err){
       // fetchAll a déjà épuisé ses tentatives : on affiche, sans relancer.
@@ -661,7 +661,7 @@ const LOGS_KEY = lsKey('adm_logs');
         newEntries.length>0&&CE('button',{
           className:'sidebar-notif-btn',
           title:`${newEntries.length} nouveaux ateliers`,
-          onClick:()=>{setView('historique');window._filterNewEntries&&window._filterNewEntries(newEntries.map(e=>e._id));setNewEntries([]);}
+          onClick:()=>{setView('historique');window._filterNewEntries&&window._filterNewEntries(newEntries.map(e=>e._id));setNewEntries([]);noterDernierNVu(entries);}
         },
           CE('span',null,'🔔'),
           CE('span',null,newEntries.length)

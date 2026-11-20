@@ -575,6 +575,18 @@ if(API_PHP_URL.indexOf('/api-sandbox/')>=0){
   };
   if(document.body)poser();else document.addEventListener('DOMContentLoaded',poser);
 }
+// Pastille « nouveaux ateliers » (20/11/2026) : le navigateur retient, par page et par personne, le plus grand
+// numéro d'atelier déjà signalé — un nombre, aucune donnée d'atelier. Sans stockage possible : comportement
+// d'avant (la pastille ne voit que les ajouts faits page ouverte).
+function cleNouveauxVus(){return 'ateliers_dernier_n:'+location.pathname.replace(/index\.html$/,'')+':'+((window.authToken&&window.authToken.getMoi&&window.authToken.getMoi())||'');}
+function lireDernierNVu(){try{const v=localStorage.getItem(cleNouveauxVus());return v===null?null:(parseInt(v,10)||0);}catch(_){return null;}}
+function noterDernierNVu(entries){try{const d=lireDernierNVu()||0;localStorage.setItem(cleNouveauxVus(),String(Math.max(d,maxNAteliers(entries))));}catch(_){}}
+// Premier chargement de la page : ateliers créés par d'autres depuis la dernière visite. Première visite : point de départ.
+function nouveauxAuChargement(entries){
+  const d=lireDernierNVu();
+  if(d===null){noterDernierNVu(entries);return [];}
+  return nouveauxDepuis(entries,d,(window.authToken&&window.authToken.getMoi&&window.authToken.getMoi())||'');
+}
 // Un onglet resté sur ?backend=gas l'avait mémorisé : on l'efface.
 try{ sessionStorage.removeItem('ateliers_backend'); }catch(_){}
 // Adresse et corps d'un appel : POST vers l'API (action dans l'URL pour lire
