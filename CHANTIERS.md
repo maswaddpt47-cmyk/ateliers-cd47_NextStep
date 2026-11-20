@@ -1,6 +1,6 @@
 # Chantiers en cours — Ateliers CD47 NextStep
 
-État au **19/11/2026**, base `main` `c87f5b2` (NEWGEN `05f6184` ; MD-LIB `fc1c76d`). **AG-063 clos le 19/11** : « Avis par
+État au **21/11/2026**, base `main` `e11d6c1` (NEWGEN `ad75f37` ; MD-LIB `0a71bc1`). **20/11, en production** : liens Partage47 (AG-065, clos), volet en onglets Détail / Reporting, QR visible sur téléphone, liens `/public.php` refusés, liste « Validées » des Anomalies retirée, pastille des nouveaux ateliers retenue d'une visite à l'autre ; même code que NEWGEN, suivi détaillé dans son `CHANTIERS.md`. Avant : **AG-063 clos le 19/11** : « Avis par
 atelier » en graphes (période ou atelier), même code que NEWGEN ; règles dans le `CHANTIERS.md` de NEWGEN.
 **AG-065 (19/11)** : liens Partage47 dans le volet Détail, même code que NEWGEN (suivi là-bas). Le 17/11 :
 annonce AGORA « publiée dans <dépôt> » et relecteur de l'autre éditeur (Claude ↔ Codex) dans `CLAUDE.md` et `AGENTS.md`.
