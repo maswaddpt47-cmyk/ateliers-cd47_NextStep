@@ -361,8 +361,9 @@ tr:hover td{background:#f7fafc}
 .side-panel-body{overflow-y:auto;padding:16px 20px}
 .side-panel-footer{padding:12px 20px;border-top:1px solid #e2e8f0;display:flex;gap:6px;flex-wrap:wrap}
 .side-panel-overlay{position:fixed;inset:0;background:rgba(0,0,0,.3);z-index:499}
-/* Téléphone (19/11/2026) : le volet passe au-dessus de la barre du bas de NextStep (z-index 9999), qui cachait le bouton du QR code. */
-@media (max-width:640px){.side-panel{z-index:10001}}
+/* Téléphone : tant qu'un volet est ouvert, la barre du bas de NextStep (z-index 9999) passe sous lui (19/11/2026, elle cachait
+   le bouton du QR code). Le volet garde son niveau (500) : fenêtre du QR et messages restent au-dessus (20/11/2026). */
+@media (max-width:640px){body:has(.side-panel.open) .sidebar{z-index:400}}
 /* Onglets du volet (20/11/2026) : Détail / Reporting (liens, fiche bilan, QR code). */
 .sp-onglets{display:flex;gap:4px;padding:6px 20px 0;border-bottom:1px solid #e2e8f0;background:#f8fafc}
 .sp-onglet{flex:1;border:none;background:none;padding:8px 6px;font-size:13px;font-weight:700;color:#64748b;border-bottom:3px solid transparent;cursor:pointer}
@@ -2800,12 +2801,13 @@ function PanneauAtelier({panel,onClose,entries,onEntryUpdated,onRefresh,onEdit,o
           ongletVolet==='reporting'&&CE(React.Fragment,null,
           // Avis des stagiaires (AG-021, 04/10/2026) : QR code de l'atelier, en tête de l'onglet et quel que soit
           // le statut : il sert pendant l'atelier, le statut est souvent changé le lendemain ou plus tard (20/11/2026).
-          CE('button',{className:'btn btn-secondary btn-sm',style:{width:'100%',marginBottom:12,padding:'10px',fontSize:14,background:'#f0fdfa',color:'#0f766e',border:'1px solid #99f6e4'},onClick:()=>setQrAvis(panel)},'📱 QR code des avis stagiaires'),
+          CE('button',{className:'btn btn-secondary btn-sm',style:{width:'100%',marginBottom:12,padding:'10px',fontSize:14,fontWeight:700,background:'#f5f3ff',color:'#6d28d9',border:'1.5px solid #c4b5fd',borderRadius:10},onClick:()=>setQrAvis(panel)},'📱 QR code des avis stagiaires'),
           // Liens Partage47 (AG-065, 19/11/2026) : aucun fichier chez nous, seulement l'adresse ; un lien
           // n'est cliquable qu'après lienPartageValide (pas de « javascript: », pas d'autre site). Écrits par lienOp.
           // Cartouche bleue, distincte de la fiche bilan (verte), demande de l'utilisateur du 19/11/2026.
           CE('div',{className:'sp-field',style:{border:'1.5px solid #bfdbfe',background:'#eff6ff',borderRadius:10,padding:'10px 12px'}},
-            CE('div',{style:{fontSize:13,fontWeight:700,color:'#1e40af',marginBottom:6}},'📎 Liens Partage47'),
+            CE('div',{style:{fontSize:13,fontWeight:700,color:'#1e40af',marginBottom:6}},'📎 Liens Partage47',
+              CE('span',{style:{fontWeight:400,color:'#3b5ba9'}},' (feuille de présence, résultats de quiz, etc.)')),
             panelLiens.length===0&&CE('div',{style:{fontSize:12,color:'#94a3b8',marginBottom:4}},'Aucun lien.'),
             panelLiens.map((l,i)=>CE('div',{key:i,style:{display:'flex',gap:6,alignItems:'center',marginBottom:4,fontSize:13,minWidth:0}},
               CE('a',{href:lienPartageValide(l.url)?l.url:undefined,target:'_blank',rel:'noopener noreferrer',style:{flex:1,minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',color:'#2563eb'}},'📄 '+(l.titre||'Document')),
