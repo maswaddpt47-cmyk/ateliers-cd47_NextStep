@@ -3205,6 +3205,8 @@ function VueHistorique({onOuvrirGestionOrdi,entries,onEdit,onDelete,onRefresh,on
       CE('div',{style:{fontSize:11,color:'#718096',marginTop:8}},`${filtered.length} atelier(s) affiché(s) sur ${entries.length}`)
     ),
     // Liste des ateliers
+    // Section « Validées » retirée le 20/11/2026 (demande de l'utilisateur) : une anomalie validée n'est plus affichée,
+    // ni annulable depuis l'écran (l'action d'API reste en place).
     filtered.length===0&&CE('div',{style:{textAlign:'center',padding:'40px 0',color:'#94a3b8',fontSize:14}},
       CE('div',{style:{fontSize:32,marginBottom:8}},'📭'),
       entries.length===0?'Aucun atelier enregistré pour cette année.':'Aucun atelier ne correspond aux filtres sélectionnés.'
@@ -4664,7 +4666,6 @@ function VueAnomalies({entries,onEdit,communes:communesProp,apiFetch,showToast,a
   const CATS_ANO=['manquants','communes','chiffres','ordi','tard','ferie','vacances','duree','retard'];
   const LIB_CAT_ANO={manquants:'Champs manquants',communes:'Commune invalide',chiffres:'Présents > inscrits',ordi:'Ordinateurs sans Classe mobile',tard:'Début après 15h30',ferie:'Jour férié',vacances:'Vacances scolaires (collège)',duree:'Durée vide',retard:'Planifié, date passée'};
   const[validees,setValidees]=React.useState({});
-  const[voirValidees,setVoirValidees]=React.useState(false);
   const[valEnCours,setValEnCours]=React.useState('');
   // Lecture des validations : « pas encore lue » ou « échec de lecture » n'est pas « aucune validation »
   // (Codex, AG-044) : les compteurs ne sont donnés pour établis qu'après une lecture réussie.
@@ -4710,17 +4711,6 @@ function VueAnomalies({entries,onEdit,communes:communesProp,apiFetch,showToast,a
     }catch(err){if(showToast)showToast('⚠️ Erreur : '+err.message);}
     setValEnCours('');
   }
-  async function annulerAno(a,c){
-    if(!apiFetch)return;
-    const cle=a.e._id+'|'+c;
-    setValEnCours(cle);
-    try{
-      const r=await apiFetch('annulerAnomalie',{_id:a.e._id,categorie:c});
-      if(r&&r.ok){mutations.current[cle]={t:'del'};setValidees(m=>{const n={...m};delete n[cle];return n;});if(showToast)showToast('↩ Validation annulée');}
-      else if(showToast)showToast('⚠️ '+((r&&r.error)||'Erreur serveur'));
-    }catch(err){if(showToast)showToast('⚠️ Erreur : '+err.message);}
-    setValEnCours('');
-  }
   const boutonValider=(a,c)=>apiFetch&&CE('button',{disabled:valEnCours===a.e._id+'|'+c,onClick:()=>validerAno(a,c),title:'Anomalie vérifiée : la sortir de la liste',style:{fontSize:11,padding:'2px 8px',borderRadius:4,border:'1px solid #16a34a',background:'#f0fdf4',color:'#15803d',cursor:'pointer',marginLeft:8}},'✅ Valider');
   const anomaliesFiltrees=filtreConum==='Tous'?anomalies:anomalies.filter(a=>a.e.conseiller===filtreConum||a.e.co_animateur===filtreConum);
   const filtered=filter==='duree'?anomaliesFiltrees.filter(a=>a.duree):filter==='retard'?anomaliesFiltrees.filter(a=>a.retard):filter==='manquants'?anomaliesFiltrees.filter(a=>a.champsVides.length>0):filter==='communes'?anomaliesFiltrees.filter(a=>a.communeInvalide):filter==='chiffres'?anomaliesFiltrees.filter(a=>a.chiffres):filter==='ordi'?anomaliesFiltrees.filter(a=>a.ordiSansMobile):filter==='tard'?anomaliesFiltrees.filter(a=>a.tard):filter==='ferie'?anomaliesFiltrees.filter(a=>a.ferie):filter==='vacances'?anomaliesFiltrees.filter(a=>a.vacances):anomaliesFiltrees;
@@ -4736,8 +4726,6 @@ function VueAnomalies({entries,onEdit,communes:communesProp,apiFetch,showToast,a
     setSaving(null);
   }
   const nbTotal=anomaliesFiltrees.length,nbManquants=anomaliesFiltrees.filter(a=>a.champsVides.length>0).length,nbCommunes=anomaliesFiltrees.filter(a=>a.communeInvalide).length,nbChiffres=anomaliesFiltrees.filter(a=>a.chiffres).length,nbOrdi=anomaliesFiltrees.filter(a=>a.ordiSansMobile).length,nbTard=anomaliesFiltrees.filter(a=>a.tard).length,nbFerie=anomaliesFiltrees.filter(a=>a.ferie).length,nbVacances=anomaliesFiltrees.filter(a=>a.vacances).length,nbDuree=anomaliesFiltrees.filter(a=>a.duree).length,nbRetard=anomaliesFiltrees.filter(a=>a.retard).length;
-  const listeValidees=anomaliesBrutes.filter(a=>filtreConum==='Tous'||a.e.conseiller===filtreConum||a.e.co_animateur===filtreConum).flatMap(a=>CATS_ANO.filter(c=>catActive(a,c)&&estValidee(a,c)).map(c=>({a,c})));
-  const dateCourte=d=>{const m=String(d||'').match(/^(\d{4})-(\d{2})-(\d{2})/);return m?m[3]+'/'+m[2]+'/'+m[1]:'';};
   // Puces construites sur TOUTES les anomalies, validées ou non : un conseiller dont tout est validé reste choisissable (Codex, AG-044).
   const conumsList=['Tous',...Array.from(new Set([...anomaliesBrutes.map(a=>a.e.conseiller),...(filtreConum!=='Tous'?[filtreConum]:[])].filter(Boolean))).sort()];
   return CE('div',{className:'card',style:{maxWidth:900,margin:'0 auto'}},
@@ -4798,17 +4786,6 @@ function VueAnomalies({entries,onEdit,communes:communesProp,apiFetch,showToast,a
     apiFetch&&etatLecture==='erreur'&&CE('div',{role:'alert',style:{marginBottom:10,padding:'8px 10px',borderRadius:6,background:'#fef2f2',border:'1px solid #fecaca',fontSize:12,color:'#991b1b',display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}},
       '⚠️ Les validations n\'ont pas pu être lues : cette liste peut contenir des anomalies déjà validées.',
       CE('button',{onClick:lireValidees,style:{fontSize:11,padding:'2px 8px',borderRadius:4,border:'1px solid #dc2626',background:'#fff',color:'#991b1b',cursor:'pointer'}},'↻ Réessayer')),
-    apiFetch&&listeValidees.length>0&&CE('div',{style:{marginBottom:12}},
-      CE('button',{onClick:()=>setVoirValidees(v=>!v),style:{fontSize:12,padding:'4px 10px',borderRadius:6,border:'1px solid #16a34a',background:voirValidees?'#dcfce7':'#f0fdf4',color:'#15803d',cursor:'pointer',fontWeight:600}},'✅ Validées ('+listeValidees.length+')'+(voirValidees?' ▲':' ▼')),
-      voirValidees&&CE('div',{style:{display:'flex',flexDirection:'column',gap:6,marginTop:8}},
-        CE('div',{style:{fontSize:11,color:'#6b7280'}},'Une ligne par anomalie validée (atelier et catégorie) : un atelier peut en compter plusieurs, alors que le total ci-dessus compte des ateliers.'),
-        listeValidees.map(({a,c})=>{const v=validees[a.e._id+'|'+c];return CE('div',{key:a.e._id+'|'+c,style:{background:'#f0fdf4',border:'1px solid #bbf7d0',borderRadius:8,padding:'8px 12px',display:'flex',alignItems:'center',gap:8,flexWrap:'wrap',fontSize:12}},
-          CE('span',{style:{fontWeight:700,color:'#374151',flex:'1 1 240px'}},[a.e.thematique,a.e.commune,fmtDate(a.e.date)].filter(Boolean).join(' — ')||a.e._id),
-          CE('span',{style:{color:'#15803d'}},LIB_CAT_ANO[c]+' — validée'+(v&&v.valide_le?' le '+dateCourte(v.valide_le):'')+(v&&v.par?' par '+v.par:'')),
-          onEdit&&CE('button',{onClick:()=>onEdit(a.e._id),style:{fontSize:11,padding:'2px 8px',borderRadius:4,border:'1px solid #3b82f6',background:'#eff6ff',color:'#1d4ed8',cursor:'pointer'}},'✏️ Ouvrir'),
-          CE('button',{disabled:valEnCours===a.e._id+'|'+c,onClick:()=>annulerAno(a,c),style:{fontSize:11,padding:'2px 8px',borderRadius:4,border:'1px solid #9ca3af',background:'#fff',color:'#374151',cursor:'pointer'}},'↩ Annuler la validation'));})
-      )
-    ),
     filtered.length===0
       // Contrôle des communes suspendu : pas de « ✅ aucune anomalie », le contrôle n'a pas eu lieu (AG-056, Codex).
       ?(filter==='vacances'&&(!vacCal||nbHorsCal>0)
