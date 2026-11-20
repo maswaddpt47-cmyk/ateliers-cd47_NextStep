@@ -2722,7 +2722,7 @@ function PanneauAtelier({panel,onClose,entries,onEntryUpdated,onRefresh,onEdit,o
                 return CE('button',{key:p.statut,className:'cloture-btn','aria-pressed':choisi,style:{background:p.bg,color:p.color,opacity:choisi||!unChoisi?1:.4,outline:choisi?'3px solid #1e3a8a':'none',outlineOffset:choisi?2:0,boxShadow:choisi?'0 2px 8px rgba(30,58,138,.35)':'none'},onClick:()=>setPanelStatut(p.statut)},(choisi?'✓ ':'')+p.label);})
             ),
             CE('div',{style:{fontSize:12,color:'#334155',marginTop:8}},'Statut actuel : ',CE('strong',null,panelStatut||'—'),
-              panelStatut!==panel.statut&&CE('span',{style:{color:'#b45309',fontWeight:600}},' (pas encore enregistré — avant : '+(panel.statut||'—')+')'))
+              panelStatut!==panel.statut&&CE('span',{style:{color:'#b45309',fontWeight:600}},' (pas encore enregistré)'))
           ),
           CE('div',{style:{fontSize:13,fontWeight:700,color:'#1a202c',marginBottom:8}},panel.thematique),
           CE('div',{className:'sp-field'},CE('label',null,'Commune'),CE(ComboCommune,{value:panelCommune,onChange:setPanelCommune,hasError:false})),
