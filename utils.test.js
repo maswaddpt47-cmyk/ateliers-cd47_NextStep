@@ -1143,6 +1143,17 @@ describe('lienPartageValide et liensAtelier', () => {
       'https://u:p@partage.lotetgaronne.fr/s/a', 'https://partage.lotetgaronne.fr:8443/s/a', 'https://partage.lotetgaronne.fr/a b', '', null])
       assert.equal(lienPartageValide(u), false, String(u));
   });
+  it('refuse les liens /public.php (téléchargement interne qui ne s\'ouvre pas) avec la raison dite', () => {
+    const { lienPartageRaison } = require('./utils.js');
+    for (const u of ['https://partage.lotetgaronne.fr/public.php/dav/files/cTwN2xSwJywsDH4/?accept=zip&files=Catalogue.pdf',
+      'https://partage.lotetgaronne.fr/PUBLIC.PHP/dav/files/a', 'https://partage.lotetgaronne.fr/%70ublic.php/dav/files/a', 'https://partage.lotetgaronne.fr/public.php']) {
+      assert.equal(lienPartageValide(u), false, u);
+      assert.match(lienPartageRaison(u), /lien interne du fichier/, u);
+    }
+    assert.equal(lienPartageRaison('https://partage.lotetgaronne.fr/index.php/apps/files/files/533140?dir=/ATELIERS/TSSI&openfile=true'), '', 'lien interne accepté');
+    assert.equal(lienPartageRaison('https://partage.lotetgaronne.fr/index.php/s/public.php'), '', 'public.php ailleurs que en tête du chemin : accepté');
+    assert.match(lienPartageRaison('https://evil.com/s/a'), /Seule une adresse https/);
+  });
   it('ne rend que les liens valides, en tableau, 5 au plus', () => {
     const ok = { titre: ' PIX ', url: 'https://partage.lotetgaronne.fr/index.php/s/a' };
     assert.deepEqual(liensAtelier({ liens: [ok, { titre: 'x', url: 'javascript:alert(1)' }] }), [{ titre: 'PIX', url: ok.url }]);

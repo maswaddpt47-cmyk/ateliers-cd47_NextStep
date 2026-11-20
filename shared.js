@@ -2820,7 +2820,7 @@ function PanneauAtelier({panel,onClose,entries,onEntryUpdated,onRefresh,onEdit,o
               CE('div',{style:{display:'flex',gap:6}},
                 CE('input',{type:'url',value:lienUrl,onChange:e=>setLienUrl(e.target.value),placeholder:'https://partage.lotetgaronne.fr/…',style:{flex:1,minWidth:0,padding:'6px 8px',border:'1.5px solid '+(lienUrl&&!lienPartageValide(lienUrl)?'#ef4444':'#e2e8f0'),borderRadius:6,fontSize:13}}),
                 CE('button',{type:'button',className:'btn btn-secondary btn-sm',disabled:lienEnvoi||!lienPartageValide(lienUrl),onClick:()=>lienOp('ajouter',{titre:lienTitre,url:lienUrl})},lienEnvoi?'…':'+ Ajouter')),
-              lienUrl&&!lienPartageValide(lienUrl)&&CE('div',{style:{fontSize:11,color:'#b91c1c'}},'Seule une adresse https de partage.lotetgaronne.fr est acceptée.'),
+              lienUrl&&!lienPartageValide(lienUrl)&&CE('div',{style:{fontSize:11,color:'#b91c1c'}},lienPartageRaison(lienUrl)),
               CE('div',{style:{fontSize:11,color:'#64748b'}},'Chaque ajout ou retrait est enregistré aussitôt. Retirer un lien l\'enlève de l\'atelier : le partage reste actif dans Partage47, à supprimer là-bas. Fichier nominatif (diagnostic PIX…) : préférez un partage protégé par mot de passe.'))),
           // Fiche bilan (AG-020, 04/10/2026) : remplissable dès l'ouverture, quel que soit le statut (20/11/2026 :
           // passé en « Réalisé », l'atelier quitte souvent l'Historique filtré). Bilan mensuel et rappels ne

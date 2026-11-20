@@ -429,12 +429,19 @@ function presentsSuperieursInscrits(e) {
 // qu'après ce contrôle : ni « javascript: » ni autre site.
 const LIENS_HOTES=['partage.lotetgaronne.fr'];
 const LIENS_MAX=5;
-function lienPartageValide(url){
+// Raison du refus d'une adresse ('' si acceptée), même règle que l'API (api_lien_partage_raison).
+// /public.php (lien de téléchargement interne de Partage47) ne s'ouvre pas, même connecté (20/11/2026).
+const LIEN_REFUS_SITE='Seule une adresse https de partage.lotetgaronne.fr est acceptée.';
+const LIEN_REFUS_PUBLIC='Ce lien Partage47 ne s\'ouvre pas : copiez le lien interne du fichier (barre d\'adresse du fichier ouvert) ou son lien de partage.';
+function lienPartageRaison(url){
   const s=String(url==null?'':url).trim();
-  if(!s||s.length>500||/[\s\x00-\x1F\x7F"<>\\]/.test(s))return false;
-  try{const u=new URL(s);return u.protocol==='https:'&&LIENS_HOTES.includes(u.hostname.toLowerCase())&&!u.username&&!u.password&&!u.port;}
-  catch(_){return false;}
+  if(!s||s.length>500||/[\s\x00-\x1F\x7F"<>\\]/.test(s))return LIEN_REFUS_SITE;
+  let u;try{u=new URL(s);}catch(_){return LIEN_REFUS_SITE;}
+  if(!(u.protocol==='https:'&&LIENS_HOTES.includes(u.hostname.toLowerCase())&&!u.username&&!u.password&&!u.port))return LIEN_REFUS_SITE;
+  let chemin=u.pathname;try{chemin=decodeURIComponent(chemin);}catch(_){}
+  return /^\/public\.php(\/|$)/i.test(chemin)?LIEN_REFUS_PUBLIC:'';
 }
+function lienPartageValide(url){return lienPartageRaison(url)==='';}
 // Liens d'un atelier, prêts à afficher : tableau [{titre, url}] des seuls liens valides (5 au plus).
 function liensAtelier(e){
   let l=e&&e.liens;
@@ -1232,6 +1239,6 @@ if (typeof module !== 'undefined') {
   debutApres1530, ferieDe, atelierUnJourFerie, cleCommune,
   vacancesDe, atelierCollege, atelierEnVacancesCollege, atelierCollegeHorsCalendrier,
   encoderOlk, decoderOlk, OLK_MAX,
-    presentsSuperieursInscrits, dureeVide, planifiePasse, jourParis, pagePerimee, resumeAvisAteliers, AVIS_GRAPHES_CHOIX, lienPartageValide, liensAtelier, LIENS_MAX,
+    presentsSuperieursInscrits, dureeVide, planifiePasse, jourParis, pagePerimee, resumeAvisAteliers, AVIS_GRAPHES_CHOIX, lienPartageValide, lienPartageRaison, liensAtelier, LIENS_MAX,
   };
 }
