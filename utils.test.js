@@ -1132,3 +1132,22 @@ describe('resumeAvisAteliers', () => {
     assert.equal(resumeAvisAteliers([]).n, 0);
   });
 });
+
+// Liens Partage47 (AG-065, 19/11/2026).
+describe('lienPartageValide et liensAtelier', () => {
+  const { lienPartageValide, liensAtelier } = require('./utils.js');
+  it('accepte les trois formes Partage47, refuse tout le reste', () => {
+    for (const u of ['https://partage.lotetgaronne.fr/index.php/s/cTwN2xSwJywsDH4', 'https://partage.lotetgaronne.fr/index.php/s/abc/download?path=/&files=pix.csv', 'https://partage.lotetgaronne.fr/index.php/f/123'])
+      assert.equal(lienPartageValide(u), true, u);
+    for (const u of ['javascript:alert(1)', 'http://partage.lotetgaronne.fr/s/a', 'https://partage.lotetgaronne.fr.evil.com/s/a', 'https://evil.com/partage.lotetgaronne.fr',
+      'https://u:p@partage.lotetgaronne.fr/s/a', 'https://partage.lotetgaronne.fr:8443/s/a', 'https://partage.lotetgaronne.fr/a b', '', null])
+      assert.equal(lienPartageValide(u), false, String(u));
+  });
+  it('ne rend que les liens valides, en tableau, 5 au plus', () => {
+    const ok = { titre: ' PIX ', url: 'https://partage.lotetgaronne.fr/index.php/s/a' };
+    assert.deepEqual(liensAtelier({ liens: [ok, { titre: 'x', url: 'javascript:alert(1)' }] }), [{ titre: 'PIX', url: ok.url }]);
+    assert.deepEqual(liensAtelier({ liens: JSON.stringify([ok]) }), [{ titre: 'PIX', url: ok.url }], 'JSON texte accepté');
+    assert.equal(liensAtelier({ liens: Array(7).fill(ok) }).length, 5);
+    assert.deepEqual(liensAtelier({}), []); assert.deepEqual(liensAtelier({ liens: '{oups' }), []);
+  });
+});

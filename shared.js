@@ -354,13 +354,23 @@ tr:hover td{background:#f7fafc}
 .bp-nonrealise{background:#fee2e2;color:#991b1b}
 .bp-retard{background:#fecaca;color:#991b1b;border:1px solid #f87171;animation:blink-retard 1.4s ease-in-out infinite}
 .bp-public{background:#f1f5f9;color:#475569}
-.side-panel{position:fixed;top:0;right:0;width:340px;max-width:95vw;height:auto;max-height:92vh;background:#fff;box-shadow:-4px 0 24px rgba(0,0,0,.15);z-index:500;display:flex;flex-direction:column;transform:translateX(100%);transition:transform .25s ease;border-radius:0 0 0 16px}
+.side-panel{position:fixed;top:0;right:0;width:340px;max-width:95vw;height:auto;max-height:92vh;max-height:92dvh;background:#fff;box-shadow:-4px 0 24px rgba(0,0,0,.15);z-index:500;display:flex;flex-direction:column;transform:translateX(100%);transition:transform .25s ease;border-radius:0 0 0 16px}
 .side-panel.open{transform:translateX(0)}
 .side-panel-header{padding:16px 20px;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between;background:#f8fafc}
 .side-panel-header h3{font-size:14px;font-weight:700;color:#1a202c;margin:0}
 .side-panel-body{overflow-y:auto;padding:16px 20px}
 .side-panel-footer{padding:12px 20px;border-top:1px solid #e2e8f0;display:flex;gap:6px;flex-wrap:wrap}
 .side-panel-overlay{position:fixed;inset:0;background:rgba(0,0,0,.3);z-index:499}
+/* Téléphone : tant qu'un volet est ouvert, la barre du bas de NextStep (z-index 9999) passe sous lui (19/11/2026, elle cachait
+   le bouton du QR code). Le volet garde son niveau (500) : fenêtre du QR et messages restent au-dessus (20/11/2026). */
+@media (max-width:640px){body:has(.side-panel.open) .sidebar{z-index:400}}
+/* Onglets du volet (20/11/2026) : Détail / Reporting (liens, fiche bilan, QR code). */
+.sp-onglets{display:flex;gap:4px;padding:6px 20px 0;border-bottom:1px solid #e2e8f0;background:#f8fafc}
+.sp-onglet{flex:1;border:none;background:none;padding:8px 6px;font-size:13px;font-weight:700;color:#64748b;border-bottom:3px solid transparent;cursor:pointer}
+.sp-onglet.actif{color:#1d4ed8;border-bottom-color:#2563eb}
+[data-theme="dark"] .sp-onglets{background:var(--bg3,#1e293b);border-color:var(--border,#334155)}
+[data-theme="dark"] .sp-onglet{color:var(--text2,#94a3b8)}
+[data-theme="dark"] .sp-onglet.actif{color:#93c5fd;border-bottom-color:#60a5fa}
 .sp-info-row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f0f4f8;font-size:13px}
 .sp-info-row span:first-child{color:#718096}
 .sp-info-row span:last-child{font-weight:600;color:#1a202c;text-align:right;max-width:60%}
@@ -554,7 +564,12 @@ if(API_PHP_URL.indexOf('/api-sandbox/')>=0){
       b.appendChild(a);
     });
     document.body.prepend(b);document.title='[BAC À SABLE] '+document.title;
-    const s=document.createElement('style');s.textContent='.app-topbar-v2,.app-topbar,nav{top:var(--sandbox-banner-height)!important}.sidebar{top:var(--sandbox-banner-height)!important;min-height:calc(100vh - var(--sandbox-banner-height))!important}';document.head.appendChild(s);
+    // Barre latérale décalée sous le bandeau, sauf quand elle devient la barre du bas (page Conseillers
+    // de NextStep sous 641 px) : étirée sur tout l'écran, elle recouvrait la page (19/11/2026).
+    const barre='.sidebar{top:var(--sandbox-banner-height)!important;min-height:calc(100vh - var(--sandbox-banner-height))!important}';
+    const s=document.createElement('style');s.textContent='.app-topbar-v2,.app-topbar,nav{top:var(--sandbox-banner-height)!important}'
+      +(/admin\.html$/.test(location.pathname)?barre:'@media (min-width:641px){'+barre+'}')
+      +'.side-panel{top:var(--sandbox-banner-height)!important;max-height:calc(92vh - var(--sandbox-banner-height))!important;max-height:calc(92dvh - var(--sandbox-banner-height))!important}';document.head.appendChild(s);
     const ajuster=()=>document.documentElement.style.setProperty('--sandbox-banner-height',b.offsetHeight+'px');
     ajuster();new ResizeObserver(ajuster).observe(b);
   };
@@ -641,7 +656,9 @@ const GAS_ACTIONS_ECRITURE = new Set([
   // Avis papier : chaque envoi crée un avis, jamais doublé (AG-021).
   'saisirAvisPapier',
   // Comptes de la page des travailleurs sociaux (AG-042) : jamais doublés.
-  'tsCreerCompte','tsReinitMdp','tsActiver','tsSupprimer'
+  'tsCreerCompte','tsReinitMdp','tsActiver','tsSupprimer',
+  // Liens Partage47 (AG-065) : rejouable côté serveur (déjà présent / déjà retiré), jamais doublé en vol.
+  'lienAtelier'
 ]);
 const GAS_HEDGE_MS            = 7000;   // délai avant de doubler une lecture
 const GAS_TENTATIVES_LECTURE  = 3;
@@ -1972,7 +1989,7 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
       setEditId(null);setIsDup(false);setModeLot(false);setErrors({});
       window.scrollTo(0,0);if(onClearPrefill)onClearPrefill();return;
     }
-    setForm({...empty,...prefillData,_id:'',_n:'',date:'',horaire:'',ampm:'',inscrits:4,presents:'',remarques:'',statut:'Planifié',fiche_bilan:''});
+    setForm({...empty,...prefillData,liens:[],_id:'',_n:'',date:'',horaire:'',ampm:'',inscrits:4,presents:'',remarques:'',statut:'Planifié',fiche_bilan:''});
     setEditId(null);setIsDup(true);setModeLot(false);setErrors({});
     window.scrollTo(0,0);if(onClearPrefill)onClearPrefill();
   },[prefillData]);
@@ -2148,6 +2165,9 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
     }
     setSaving(true);
     const entry={...form,_id:form._id||idNouveauRef.current||(idNouveauRef.current=genId()),inscrits:form.inscrits===''?'':parseInt(form.inscrits)||0,presents:form.presents===''?'':parseInt(form.presents)||0,nb_ordinateurs:form.nb_ordinateurs===''?'':parseInt(form.nb_ordinateurs)||0,duree:parseInt(form.duree)||DUREE_DEFAUT,ampm:ampmDepuisHoraire(form.horaire)||form.ampm,materiel:(form.materiel||[]).join('|')};
+    // Liens (AG-065) : jamais écrits par saveEntry. Une modification garde localement ceux déjà connus ;
+    // une création, doublon compris, n'en a aucun (vérification de Codex, 19/11/2026).
+    delete entry.liens;if(!editId)entry.liens=[];
     const reussir=()=>{
       showToast(editId?'✅ Atelier modifié':'✅ Atelier enregistré');
       // materiel repart en tableau (pas la chaîne '|' envoyée à GAS) : c'est
@@ -2551,7 +2571,7 @@ function demanderFicheBilan(e){
     const prevu=typeof rappelFichePrevu==='function'&&rappelFichePrevu(e,window.__rappelsFiches);
     const suite=prevu
       ?'Si vous la remplissez plus tard, un mail de rappel '+(e.conseiller===moi?'vous sera envoyé':'sera envoyé à '+e.conseiller)+' au prochain rappel du matin (8 h).'
-      :'Si vous la remplissez plus tard, elle restera à remplir dans le volet de l\'atelier.';
+      :'Si vous la remplissez plus tard, elle restera à remplir dans l\'onglet « Reporting » du volet de l\'atelier.';
     const fond=document.createElement('div');
     fond.style.cssText='position:fixed;inset:0;z-index:100000;background:rgba(15,23,42,.45);display:flex;align-items:center;justify-content:center;padding:16px';
     const boite=document.createElement('div');
@@ -2610,16 +2630,43 @@ function PanneauAtelier({panel,onClose,entries,onEntryUpdated,onRefresh,onEdit,o
   const[panelPrelev,setPanelPrelev]=React.useState('');
   const[panelRetour,setPanelRetour]=React.useState('');
   const[panelNote,setPanelNote]=React.useState('');
+  const[panelLiens,setPanelLiens]=React.useState([]);const[lienTitre,setLienTitre]=React.useState('');const[lienUrl,setLienUrl]=React.useState('');   // AG-065
+  const[lienEnvoi,setLienEnvoi]=React.useState(false);
+  const panelIdRef=React.useRef(null);panelIdRef.current=panel?panel._id:null;
+  // Onglet du volet (20/11/2026) : « Détail » à chaque atelier ouvert, « Reporting » pour liens, bilan et QR.
+  const[ongletVolet,setOngletVolet]=React.useState('detail');
+  React.useEffect(()=>{setOngletVolet('detail');},[panel&&panel._id]);
+  // Liens Partage47 (AG-065, amendement 2 de Codex) : chaque ajout ou retrait part aussitôt par l'action
+  // lienAtelier, qui modifie UN lien sur la valeur en base ; « Enregistrer » n'y touche pas.
+  async function lienOp(op,l){
+    if(!panel||lienEnvoi)return;
+    const id=panel._id;
+    setLienEnvoi(true);
+    try{
+      const r=await apiFetch('lienAtelier',{_id:id,op,titre:(l.titre||'').trim(),url:(l.url||'').trim()});
+      if(!r||!r.ok)throw new Error((r&&r.error)||'Erreur');
+      const liens=liensAtelier({liens:r.liens});
+      // Vérification de Codex (19/11/2026) : le volet a pu passer à un autre atelier pendant l'attente ;
+      // la réponse ne remplit que le volet de l'atelier demandé (rouvrir le même atelier reste correct).
+      if(panelIdRef.current===id){setPanelLiens(liens);if(op==='ajouter'){setLienTitre('');setLienUrl('');}}
+      // Rien de changé : le dire (règle 65).
+      showToast(r.deja?(op==='ajouter'?'ℹ️ Ce lien était déjà attaché à l\'atelier':'ℹ️ Ce lien était déjà retiré'):(op==='ajouter'?'✅ Lien ajouté':'✅ Lien retiré de l\'atelier'));
+      // Seuls les liens changent dans l'état local : recopier l'entrée capturée avant l'attente
+      // rétablissait d'anciennes valeurs des autres champs (vérification de Codex, 19/11/2026).
+      if(window.__entreeSauvegardee)window.__entreeSauvegardee({_id:id,liens});
+    }catch(err){showToast('❌ '+err.message,false);}
+    finally{setLienEnvoi(false);}
+  }
   const[panelBilan,setPanelBilan]=React.useState({});
   const[qrAvis,setQrAvis]=React.useState(null);
   const[saving,setSaving]=React.useState(false);
   // Réinitialise les champs à chaque atelier ouvert (ce que faisait openPanel).
-  React.useEffect(()=>{if(!panel)return;const e=panel;setPanelStatut(e.statut);setPanelInscrits(e.inscrits===undefined||e.inscrits===''?'':String(e.inscrits));setPanelPresents(e.presents===undefined||e.presents===''?'':String(e.presents));setPanelThematique(e.thematique||'');setPanelNote(e.remarques||'');setPanelDate(normalizeDate(e.date)||'');setPanelHoraire(normalizeHoraire(e.horaire)||'');setPanelDuree(parseInt(e.duree)||DUREE_DEFAUT);setPanelBilan(e.fiche_bilan&&typeof e.fiche_bilan==='object'?e.fiche_bilan:{});setPanelNbOrdi(e.nb_ordinateurs===undefined||e.nb_ordinateurs===''||e.nb_ordinateurs===null?'':String(e.nb_ordinateurs));setPanelPublic(e.public||'');setPanelOuvert(e.ouvert_a_tous==='Oui'?'Oui':'Non');setPanelCommune(e.commune||'');setPanelLieu(e.lieu||'');setPanelOrienteur(e.orienteur||'');setPanelConseiller(e.conseiller||'');setPanelCoAnim(e.co_animateur||'');setPanelMobile(matIncludes(e.materiel,'Classe mobile'));setPanelPrelev(normalizeDate(e.date_prelevement_materiel)||'');setPanelRetour(normalizeDate(e.date_retour_materiel)||'');},[panel]);
+  React.useEffect(()=>{if(!panel)return;const e=panel;setPanelStatut(e.statut);setPanelInscrits(e.inscrits===undefined||e.inscrits===''?'':String(e.inscrits));setPanelPresents(e.presents===undefined||e.presents===''?'':String(e.presents));setPanelThematique(e.thematique||'');setPanelNote(e.remarques||'');setPanelLiens(liensAtelier(e));setLienTitre('');setLienUrl('');setPanelDate(normalizeDate(e.date)||'');setPanelHoraire(normalizeHoraire(e.horaire)||'');setPanelDuree(parseInt(e.duree)||DUREE_DEFAUT);setPanelBilan(e.fiche_bilan&&typeof e.fiche_bilan==='object'?e.fiche_bilan:{});setPanelNbOrdi(e.nb_ordinateurs===undefined||e.nb_ordinateurs===''||e.nb_ordinateurs===null?'':String(e.nb_ordinateurs));setPanelPublic(e.public||'');setPanelOuvert(e.ouvert_a_tous==='Oui'?'Oui':'Non');setPanelCommune(e.commune||'');setPanelLieu(e.lieu||'');setPanelOrienteur(e.orienteur||'');setPanelConseiller(e.conseiller||'');setPanelCoAnim(e.co_animateur||'');setPanelMobile(matIncludes(e.materiel,'Classe mobile'));setPanelPrelev(normalizeDate(e.date_prelevement_materiel)||'');setPanelRetour(normalizeDate(e.date_retour_materiel)||'');},[panel]);
   const closePanel=onClose;
   async function savePanel(){
     if(!panel)return;if(!panelDate){showToast('❌ Date requise',false);return;}if(panelMobile&&!(parseInt(panelNbOrdi)>0)){showToast('❌ Ordinateurs prêtés requis avec la Classe mobile',false);return;}
     if(panelStatut==='Réalisé'&&panel.statut!=='Réalisé'&&ficheBilanVide(panelBilan)&&await demanderFicheBilan({...panel,date:panelDate})==='remplir'){
-      const f=document.getElementById('fiche-bilan-volet');if(f)f.scrollIntoView({behavior:'smooth',block:'start'});return;
+      setOngletVolet('reporting');setTimeout(()=>{const f=document.getElementById('fiche-bilan-volet');if(f)f.scrollIntoView({behavior:'smooth',block:'start'});},60);return;
     }
     // Date déplacée sur un jour férié (AG-054) : confirmation, comme à la saisie.
     const ferieVolet=panelStatut!=='Annulé'&&panelDate!==panel.date?ferieDe(panelDate):'';
@@ -2633,7 +2680,7 @@ function PanneauAtelier({panel,onClose,entries,onEntryUpdated,onRefresh,onEdit,o
     if(vacVolet===null&&!window.confirm('Vacances scolaires non vérifiables le '+fmtDate(panelDate)+' (calendrier officiel non publié ou indisponible) : atelier avec un collège.\n\nEnregistrer quand même ?'))return;
     setSaving(true);
     try{
-      const updated={...panel,fiche_bilan:panelStatut==='Réalisé'?(Object.keys(panelBilan).length?panelBilan:''):(panel.fiche_bilan||''),statut:panelStatut,inscrits:panelInscrits===''?'':parseInt(panelInscrits)||0,presents:panelPresents===''?'':parseInt(panelPresents)||0,thematique:panelThematique,date:panelDate,horaire:panelHoraire,ampm:ampmDepuisHoraire(panelHoraire)||panel.ampm,duree:parseInt(panelDuree)||DUREE_DEFAUT,commune:panelCommune.trim()||panel.commune,lieu:panelLieu.trim()||panel.lieu,orienteur:panelOrienteur.trim()||panel.orienteur,conseiller:panelConseiller||panel.conseiller,co_animateur:panelCoAnim===panelConseiller?'':panelCoAnim,public:panelPublic,ouvert_a_tous:OUVERT_A_TOUS_CHOIX.includes(panelOuvert)?panelOuvert:(panel.ouvert_a_tous||'Non'),nb_ordinateurs:panelMobile?(panelNbOrdi===''?'':parseInt(panelNbOrdi)||0):'',date_prelevement_materiel:panelMobile?panelPrelev:'',date_retour_materiel:panelMobile?panelRetour:'',remarques:panelNote,materiel:matierePanneau(panel,panelMobile).join('|')};
+      const updated={...panel,liens:panelLiens,fiche_bilan:Object.keys(panelBilan||{}).length?panelBilan:'',statut:panelStatut,inscrits:panelInscrits===''?'':parseInt(panelInscrits)||0,presents:panelPresents===''?'':parseInt(panelPresents)||0,thematique:panelThematique,date:panelDate,horaire:panelHoraire,ampm:ampmDepuisHoraire(panelHoraire)||panel.ampm,duree:parseInt(panelDuree)||DUREE_DEFAUT,commune:panelCommune.trim()||panel.commune,lieu:panelLieu.trim()||panel.lieu,orienteur:panelOrienteur.trim()||panel.orienteur,conseiller:panelConseiller||panel.conseiller,co_animateur:panelCoAnim===panelConseiller?'':panelCoAnim,public:panelPublic,ouvert_a_tous:OUVERT_A_TOUS_CHOIX.includes(panelOuvert)?panelOuvert:(panel.ouvert_a_tous||'Non'),nb_ordinateurs:panelMobile?(panelNbOrdi===''?'':parseInt(panelNbOrdi)||0):'',date_prelevement_materiel:panelMobile?panelPrelev:'',date_retour_materiel:panelMobile?panelRetour:'',remarques:panelNote,materiel:matierePanneau(panel,panelMobile).join('|')};
       const res=await apiFetch('saveEntry',{entry:updated});
       if(!res.ok)throw new Error(res.error);
       showToast('✅ Mis à jour');closePanel();
@@ -2661,7 +2708,10 @@ function PanneauAtelier({panel,onClose,entries,onEntryUpdated,onRefresh,onEdit,o
           CE('h3',null,'Détail / Mise à jour'),
           CE('button',{onClick:closePanel,style:{background:'none',border:'none',fontSize:18,cursor:'pointer',color:'#718096'}},'✕')
         ),
+        CE('div',{className:'sp-onglets',role:'tablist'},
+          [['detail','📋 Détail'],['reporting','📊 Reporting']].map(([cle,lib])=>CE('button',{key:cle,type:'button',role:'tab','aria-selected':ongletVolet===cle,className:'sp-onglet'+(ongletVolet===cle?' actif':''),onClick:()=>setOngletVolet(cle)},lib))),
         CE('div',{className:'side-panel-body'},
+          ongletVolet==='detail'&&CE(React.Fragment,null,
           // v9.0 : Flux de clôture rapide — toujours visible
           CE('div',{className:'cloture-banner',style:{background:isRetard(panel)?'#fffbeb':'#f0f4ff',borderColor:isRetard(panel)?'#fcd34d':'#bfdbfe'}},
             CE('div',{className:'cloture-title',style:{color:isRetard(panel)?'#92400e':'#1e3a8a'}},isRetard(panel)?'⚠️ Atelier passé — à clôturer':'⚡ Changement rapide de statut'),
@@ -2746,10 +2796,37 @@ function PanneauAtelier({panel,onClose,entries,onEntryUpdated,onRefresh,onEdit,o
             CE(ComboThematique,{value:panelThematique,onChange:setPanelThematique,entries:entries})),
           CE('div',{className:'sp-field'},CE('label',null,'Remarques'),
             CE('textarea',{value:panelNote,onChange:e=>setPanelNote(e.target.value),rows:3,placeholder:'Ajouter une note…',style:{width:'100%',padding:'8px 10px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:13,resize:'vertical'}})),
-          // Fiche bilan (AG-020, 04/10/2026) : une fois l'atelier réalisé.
-          panelStatut==='Réalisé'
-            ?CE('div',{id:'fiche-bilan-volet'},CE(FicheBilan,{valeur:panelBilan,onChange:setPanelBilan}))
-            :CE('div',{style:{fontSize:12,color:'#94a3b8',padding:'4px 0'}},'📝 La fiche bilan se remplit quand l\'atelier passe en « Réalisé ».'),
+          ),
+          // Onglet Reporting (20/11/2026) : liens Partage47, fiche bilan, QR code des avis.
+          ongletVolet==='reporting'&&CE(React.Fragment,null,
+          // Avis des stagiaires (AG-021, 04/10/2026) : QR code de l'atelier, en tête de l'onglet et quel que soit
+          // le statut : il sert pendant l'atelier, le statut est souvent changé le lendemain ou plus tard (20/11/2026).
+          CE('button',{className:'btn btn-secondary btn-sm',style:{width:'100%',marginBottom:12,padding:'10px',fontSize:14,fontWeight:700,background:'#f5f3ff',color:'#6d28d9',border:'1.5px solid #c4b5fd',borderRadius:10},onClick:()=>setQrAvis(panel)},'📱 QR code des avis stagiaires'),
+          // Liens Partage47 (AG-065, 19/11/2026) : aucun fichier chez nous, seulement l'adresse ; un lien
+          // n'est cliquable qu'après lienPartageValide (pas de « javascript: », pas d'autre site). Écrits par lienOp.
+          // Cartouche bleue, distincte de la fiche bilan (verte), demande de l'utilisateur du 19/11/2026.
+          CE('div',{className:'sp-field',style:{border:'1.5px solid #bfdbfe',background:'#eff6ff',borderRadius:10,padding:'10px 12px'}},
+            CE('div',{style:{fontSize:13,fontWeight:700,color:'#1e40af',marginBottom:6}},'📎 Liens Partage47',
+              CE('span',{style:{fontWeight:400,color:'#3b5ba9'}},' (feuille de présence, résultats de quiz, etc.)')),
+            // Limite affichée (demande de l'utilisateur, 20/11/2026) : LIENS_MAX, la même que l'API (API_LIENS_MAX).
+            CE('div',{style:{fontSize:11,color:'#64748b',marginBottom:4}},panelLiens.length+' lien'+(panelLiens.length>1?'s':'')+' sur '+LIENS_MAX+' maximum par atelier'),
+            panelLiens.length===0&&CE('div',{style:{fontSize:12,color:'#94a3b8',marginBottom:4}},'Aucun lien.'),
+            panelLiens.map((l,i)=>CE('div',{key:i,style:{display:'flex',gap:6,alignItems:'center',marginBottom:4,fontSize:13,minWidth:0}},
+              CE('a',{href:lienPartageValide(l.url)?l.url:undefined,target:'_blank',rel:'noopener noreferrer',style:{flex:1,minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',color:'#2563eb'}},'📄 '+(l.titre||'Document')),
+              CE('button',{type:'button',className:'btn btn-secondary btn-sm',disabled:lienEnvoi,onClick:()=>lienOp('retirer',l),'aria-label':'Retirer le lien '+(l.titre||'Document')},'✕'))),
+            panelLiens.length>=LIENS_MAX&&CE('div',{style:{fontSize:12,color:'#b45309',marginTop:4}},'Maximum atteint ('+LIENS_MAX+' liens) : retirez-en un pour en ajouter un autre.'),
+            panelLiens.length<LIENS_MAX&&CE('div',{style:{display:'grid',gap:4}},
+              CE('input',{type:'text',value:lienTitre,maxLength:80,onChange:e=>setLienTitre(e.target.value),placeholder:'Titre (ex. Résultats PIX)',style:{padding:'6px 8px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:13}}),
+              CE('div',{style:{display:'flex',gap:6}},
+                CE('input',{type:'url',value:lienUrl,onChange:e=>setLienUrl(e.target.value),placeholder:'https://partage.lotetgaronne.fr/…',style:{flex:1,minWidth:0,padding:'6px 8px',border:'1.5px solid '+(lienUrl&&!lienPartageValide(lienUrl)?'#ef4444':'#e2e8f0'),borderRadius:6,fontSize:13}}),
+                CE('button',{type:'button',className:'btn btn-secondary btn-sm',disabled:lienEnvoi||!lienPartageValide(lienUrl),onClick:()=>lienOp('ajouter',{titre:lienTitre,url:lienUrl})},lienEnvoi?'…':'+ Ajouter')),
+              lienUrl&&!lienPartageValide(lienUrl)&&CE('div',{style:{fontSize:11,color:'#b91c1c'}},'Seule une adresse https de partage.lotetgaronne.fr est acceptée.'),
+              CE('div',{style:{fontSize:11,color:'#64748b'}},'Chaque ajout ou retrait est enregistré aussitôt. Retirer un lien l\'enlève de l\'atelier : le partage reste actif dans Partage47, à supprimer là-bas. Fichier nominatif (diagnostic PIX…) : préférez un partage protégé par mot de passe.'))),
+          // Fiche bilan (AG-020, 04/10/2026) : remplissable dès l'ouverture, quel que soit le statut (20/11/2026 :
+          // passé en « Réalisé », l'atelier quitte souvent l'Historique filtré). Bilan mensuel et rappels ne
+          // comptent toujours que les ateliers « Réalisé » (bilan.php, rappels.php, logic.js).
+          CE('div',{id:'fiche-bilan-volet'},CE(FicheBilan,{valeur:panelBilan,onChange:setPanelBilan})),
+          )
         ),
         CE('div',{className:'side-panel-footer',style:{flexDirection:'column',gap:8}},
           CE('button',{className:'btn btn-primary',style:{width:'100%',padding:'12px',fontSize:15,fontWeight:700,background:'#16a34a',borderColor:'#16a34a'},onClick:savePanel,disabled:saving},saving?'…':'💾 Enregistrer'),
@@ -2757,9 +2834,7 @@ function PanneauAtelier({panel,onClose,entries,onEntryUpdated,onRefresh,onEdit,o
             canDelete&&onAskDelete&&CE('button',{className:'btn btn-danger btn-sm',onClick:()=>{onAskDelete(panel);closePanel();}},'Supprimer'),
             onDuplicate&&CE('button',{className:'btn btn-secondary btn-sm',style:{background:'#eff6ff',color:'#1d4ed8',border:'1px solid #bfdbfe'},onClick:()=>{onDuplicate(panel);closePanel();}},'📋 Dupliquer'),
             CE('button',{className:'btn btn-secondary btn-sm',style:{flex:1},onClick:()=>{onEdit(panel._id);closePanel();}},'Éditer complet')
-          ),
-          // Avis des stagiaires (AG-021, 04/10/2026) : QR code de l'atelier.
-          CE('button',{className:'btn btn-secondary btn-sm',style:{background:'#f0fdfa',color:'#0f766e',border:'1px solid #99f6e4'},onClick:()=>setQrAvis(panel)},'📱 QR code des avis stagiaires')
+          )
         )
       )
     ),
