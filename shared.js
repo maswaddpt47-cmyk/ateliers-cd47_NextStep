@@ -2808,10 +2808,13 @@ function PanneauAtelier({panel,onClose,entries,onEntryUpdated,onRefresh,onEdit,o
           CE('div',{className:'sp-field',style:{border:'1.5px solid #bfdbfe',background:'#eff6ff',borderRadius:10,padding:'10px 12px'}},
             CE('div',{style:{fontSize:13,fontWeight:700,color:'#1e40af',marginBottom:6}},'📎 Liens Partage47',
               CE('span',{style:{fontWeight:400,color:'#3b5ba9'}},' (feuille de présence, résultats de quiz, etc.)')),
+            // Limite affichée (demande de l'utilisateur, 20/11/2026) : LIENS_MAX, la même que l'API (API_LIENS_MAX).
+            CE('div',{style:{fontSize:11,color:'#64748b',marginBottom:4}},panelLiens.length+' lien'+(panelLiens.length>1?'s':'')+' sur '+LIENS_MAX+' maximum par atelier'),
             panelLiens.length===0&&CE('div',{style:{fontSize:12,color:'#94a3b8',marginBottom:4}},'Aucun lien.'),
             panelLiens.map((l,i)=>CE('div',{key:i,style:{display:'flex',gap:6,alignItems:'center',marginBottom:4,fontSize:13,minWidth:0}},
               CE('a',{href:lienPartageValide(l.url)?l.url:undefined,target:'_blank',rel:'noopener noreferrer',style:{flex:1,minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',color:'#2563eb'}},'📄 '+(l.titre||'Document')),
               CE('button',{type:'button',className:'btn btn-secondary btn-sm',disabled:lienEnvoi,onClick:()=>lienOp('retirer',l),'aria-label':'Retirer le lien '+(l.titre||'Document')},'✕'))),
+            panelLiens.length>=LIENS_MAX&&CE('div',{style:{fontSize:12,color:'#b45309',marginTop:4}},'Maximum atteint ('+LIENS_MAX+' liens) : retirez-en un pour en ajouter un autre.'),
             panelLiens.length<LIENS_MAX&&CE('div',{style:{display:'grid',gap:4}},
               CE('input',{type:'text',value:lienTitre,maxLength:80,onChange:e=>setLienTitre(e.target.value),placeholder:'Titre (ex. Résultats PIX)',style:{padding:'6px 8px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:13}}),
               CE('div',{style:{display:'flex',gap:6}},
