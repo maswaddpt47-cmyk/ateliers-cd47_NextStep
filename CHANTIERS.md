@@ -1,6 +1,6 @@
 # Chantiers en cours — Ateliers CD47 NextStep
 
-État au **21/11/2026**, base `main` `e11d6c1` (NEWGEN `ad75f37` ; MD-LIB `0a71bc1`). **20/11, en production** : liens Partage47 (AG-065, clos), volet en onglets Détail / Reporting, QR visible sur téléphone, liens `/public.php` refusés, liste « Validées » des Anomalies retirée, pastille des nouveaux ateliers retenue d'une visite à l'autre ; même code que NEWGEN, suivi détaillé dans son `CHANTIERS.md`. Avant : **AG-063 clos le 19/11** : « Avis par
+État au **21/11/2026 à 10:10** (Paris), base relue `main` `8164798` (NEWGEN `e67bd20` ; MD-LIB `0a71bc1`). **20/11, en production** : liens Partage47 (AG-065, clos), volet en onglets Détail / Reporting, QR visible sur téléphone, liens `/public.php` refusés, liste « Validées » des Anomalies retirée, pastille des nouveaux ateliers retenue d'une visite à l'autre ; suivi détaillé dans le `CHANTIERS.md` de NEWGEN. Avant : **AG-063 clos le 19/11** : « Avis par
 atelier » en graphes (période ou atelier), même code que NEWGEN ; règles dans le `CHANTIERS.md` de NEWGEN.
 **AG-065 (19/11)** : liens Partage47 dans le volet Détail, même code que NEWGEN (suivi là-bas). Le 17/11 :
 annonce AGORA « publiée dans <dépôt> » et relecteur de l'autre éditeur (Claude ↔ Codex) dans `CLAUDE.md` et `AGENTS.md`.
@@ -12,16 +12,19 @@ Avant (15/11) : CI en parallèle ; (13/11) vacances scolaires (AG-057), connexio
 de passe (règle 69), Nouveautés 39 et 40, rendez-vous Outlook au téléphone (AG-058), mot de passe imposé aussi à l'Admin (AG-059/060).
 Avant : page TS sans filtre « Ouvert à tous » (AG-053), tuile « Copie de nuit » (AG-052, clos).
 
-**⏸ EN PAUSE — AG-065 (19/11)** : liens Partage47 dans le bac à sable seulement (`sandbox` `1f661b8`) ; ne pas publier
-sur `main` avant l'essai de l'utilisateur ; suivi dans le `CHANTIERS.md` de NEWGEN.
-
-**Passation Codex — 16/11/2026** : repartir d'un `main` propre, actualisé par
+**Clôture Codex — 21/11/2026** : repartir d'un `main` propre, actualisé par
 `fetch` puis `merge --ff-only`, sans réappliquer d'anciens brouillons. Relire
 `AGENTS.md`, les consignes communes et le `CHANTIERS.md` de NEWGEN.
-AG-061 et AG-062 sont clos ; leurs correctifs postérieurs aux réponses de Codex
-n'ont pas été réaudités, sans nouveau tour automatique (règle 58).
-Aucune nouvelle consigne à ajouter : concision, contrôles proportionnés et fin
-**✅ TÂCHE TERMINÉE** sont déjà inscrits. La suite du bilan mensuel reste dans NEWGEN.
+AG-061/062/063/065 sont clos, sans nouveau réaudit. **AG-066** : réponse amendée
+dans `ATELIERS_NEWGEN/AGORA.md` (21/11) après examen de la livraison NEWGEN
+`7ba83ef` : secours local par compte, acquittement après chargement des tickets,
+validation des dates à corriger. Au contrôle de `8164798`, le nouveau client
+AG-066 n'est pas encore sur ce `main` : portage puis parité à vérifier.
+Suite : l'auteur corrige les écarts et livre le portage, sans nouveau tour
+automatique de revue (règle 58). Aucun code modifié ni test produit NextStep
+relancé par cette clôture ; contrôles NEWGEN et limites dans AGORA.
+Aucune nouvelle règle convenue non écrite (règle 32) ; règles 73 à 75 de MD-LIB
+relues, déjà inscrites. La suite du bilan mensuel reste dans NEWGEN.
 
 **Consignes communes** : lire `MD-LIB/collaboration.md` et les consignes locales.
 L'annonce **✅ TÂCHE TERMINÉE** est déjà dans cet `AGENTS.md` et dans MD-LIB
@@ -38,9 +41,8 @@ sécurité, import Outlook à valider, rubrique Nouveautés) et les
 décisions partagées (AG-002 sur le prêt multi-jours, interrupteur « login »,
 déconnexion à 30 min) **sont tenus dans `ATELIERS_NEWGEN/CHANTIERS.md`**.
 Ici, seulement ce qui est propre à NextStep.
-Fichier transitoire : à mettre à jour à chaque avancée, à supprimer quand tout
-est soldé. Ce n'est pas de la documentation permanente (cf.
-`MD-LIB/hygiene-instructions.md`).
+Passation à tenir à jour : retirer les tâches terminées en conservant les
+invariants ; garder le fichier (`MD-LIB/collaboration.md`, règle 8ter).
 
 **Ménages des 26/09, 16/10 et 26/10/2026** : époque GAS (banc, doublage,
 relevés de pertes, AG-003 à AG-008, bascule), récit des livraisons et doublons
