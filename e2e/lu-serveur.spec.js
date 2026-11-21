@@ -7,10 +7,12 @@ const { test, expect } = require('@playwright/test');
 
 const ENTREE = { _id: 'e1', _n: 1, statut: 'Planifié', date: '2026-12-01', horaire: '09:00', ampm: 'AM', orienteur: 'CCAS', commune: 'AGEN (47000)', lieu: 'Mairie', thematique: 'Démarches en ligne', inscrits: 8, presents: 0, public: 'Séniors', conseiller: 'Alice Martin', co_animateur: '', residence: '', remarques: '', materiel: [], nb_ordinateurs: '' };
 const DERNIERE_REPONSE = '2026-11-20 10:00:00';
-const VIDE = () => ({ nouveautes_index: 0, nouveautes_admin: 0, tickets: '' });
+const VIDE = () => ({ nouveautes_index: 0, nouveautes_admin: 0, tickets: '', ateliers_index: 0, ateliers_admin: 0 });
+// Atelier créé par une collègue (numéro 2) : c'est lui que la pastille « nouveaux ateliers » signale.
+const AUTRE = { ...ENTREE, _id: 'e2', _n: 2, conseiller: 'Eva Fictive', thematique: 'Atelier ajouté par une collègue' };
 
-async function serveur(page, { avecLu = true, ticketsEnEchec = false } = {}) {
-  const etat = { lu: {}, marquages: [], courant: 'Alice Martin' };
+async function serveur(page, { avecLu = true, ticketsEnEchec = false, luInitial = {} } = {}) {
+  const etat = { lu: JSON.parse(JSON.stringify(luInitial)), marquages: [], courant: 'Alice Martin' };
   await page.route('**/ateliers-numeriques.alwaysdata.net/**', async route => {
     const q = new URLSearchParams(route.request().postData() || ''); const url = route.request().url();
     const action = q.get('action') || new URL(url).searchParams.get('action');
@@ -18,7 +20,7 @@ async function serveur(page, { avecLu = true, ticketsEnEchec = false } = {}) {
     if (action === 'checkPassword') { etat.courant = q.get('conseiller') || etat.courant; r = { ok: true, role: 'user', token: 'b'.repeat(64) }; }
     else if (action === 'getComptes') r = { ok: true, comptes: [{ conseiller: 'Alice Martin' }, { conseiller: 'Bruno Durand' }], maintenance: false, maintenance_msg: '' };
     else if (action === 'getAll') {
-      r = { ok: true, years: [2026], entries: [ENTREE], lists: { statuts: ['Planifié', 'Réalisé'], conseillers: ['Alice Martin', 'Bruno Durand'], publics: ['Séniors'], materiels: [] }, visibility: { saisie: true, historique: true, dashboard: true, carte: true, bingo: true, calendrier: true, agenda: true, roadmap: true, gestion_ordi: true }, conseiller_colors: {}, conseillers_inactifs: [], stockOrdinateurs: 10, materielsCaches: [], tickets: { nouveaux: 0, derniere_reponse: DERNIERE_REPONSE } };
+      r = { ok: true, years: [2026], entries: [ENTREE, AUTRE], lists: { statuts: ['Planifié', 'Réalisé'], conseillers: ['Alice Martin', 'Bruno Durand'], publics: ['Séniors'], materiels: [] }, visibility: { saisie: true, historique: true, dashboard: true, carte: true, bingo: true, calendrier: true, agenda: true, roadmap: true, gestion_ordi: true }, conseiller_colors: {}, conseillers_inactifs: [], stockOrdinateurs: 10, materielsCaches: [], tickets: { nouveaux: 0, derniere_reponse: DERNIERE_REPONSE } };
       if (avecLu) r.lu = { ...VIDE(), ...(etat.lu[etat.courant] || {}) };
     } else if (action === 'getTickets') {
       r = ticketsEnEchec ? { ok: false, error: 'Erreur serveur' }
@@ -126,5 +128,45 @@ test('Index — tickets : un chargement en échec n\'acquitte aucune réponse (C
   await expect(page.getByText('Erreur serveur')).toBeVisible();
   expect(etat.marquages.filter(m => m.cle === 'tickets')).toEqual([]);   // rien d'envoyé au serveur
   await expect(pastilleTickets(page)).not.toHaveCount(0);   // et la pastille reste allumée
+  expect(errs).toEqual([]);
+});
+
+// Pastille « nouveaux ateliers » (extension AG-066, 21/11/2026) : sa mémoire passe aussi par le serveur.
+const pastilleAteliers = page => page.locator('button:is(.topbar-notif-btn, .sidebar-notif-btn)');
+
+test('Index — nouveaux ateliers : après un nettoyage des données du site, le serveur se souvient', async ({ page, baseURL }) => {
+  const errs = []; page.on('pageerror', e => errs.push(e.message));
+  const etat = await serveur(page, { luInitial: { 'Alice Martin': { ateliers_index: 1 } } });   // déjà vu : jusqu'au numéro 1
+  await connecter(page, baseURL);
+  await expect(pastilleAteliers(page)).toHaveText(/1/);   // l'atelier n° 2 de la collègue est signalé, sans point de départ
+  await pastilleAteliers(page).dispatchEvent('click');
+  await expect.poll(() => etat.marquages.filter(m => m.cle === 'ateliers_index')).toEqual([{ cle: 'ateliers_index', valeur: '2', par: 'Alice Martin' }]);
+  await page.evaluate(() => { localStorage.clear(); sessionStorage.clear(); });
+  const avant = etat.marquages.length;
+  await connecter(page, baseURL);
+  await expect(page.getByText('Démarches en ligne').first()).toBeVisible();
+  await page.waitForTimeout(500);
+  await expect(pastilleAteliers(page)).toHaveCount(0);   // rien de rallumé après le nettoyage
+  expect(etat.marquages.length).toBe(avant);
+  expect(errs).toEqual([]);
+});
+
+test('Index — nouveaux ateliers : première visite, rien signalé et point de départ noté au serveur', async ({ page, baseURL }) => {
+  const errs = []; page.on('pageerror', e => errs.push(e.message));
+  const etat = await serveur(page);
+  await connecter(page, baseURL);
+  await expect.poll(() => etat.marquages.filter(m => m.cle === 'ateliers_index')).toEqual([{ cle: 'ateliers_index', valeur: '2', par: 'Alice Martin' }]);
+  await expect(pastilleAteliers(page)).toHaveCount(0);
+  expect(errs).toEqual([]);
+});
+
+test('Index — nouveaux ateliers : ancienne API (sans mémoire serveur), rien envoyé, comportement d\'avant', async ({ page, baseURL }) => {
+  const errs = []; page.on('pageerror', e => errs.push(e.message));
+  const etat = await serveur(page, { avecLu: false });
+  await connecter(page, baseURL);
+  await expect(page.getByText('Démarches en ligne').first()).toBeVisible();
+  await page.waitForTimeout(500);
+  await expect(pastilleAteliers(page)).toHaveCount(0);   // première visite : point de départ, dans le navigateur seulement
+  expect(etat.marquages.filter(m => m.cle === 'ateliers_index')).toEqual([]);
   expect(errs).toEqual([]);
 });

@@ -576,11 +576,25 @@ if(API_PHP_URL.indexOf('/api-sandbox/')>=0){
   if(document.body)poser();else document.addEventListener('DOMContentLoaded',poser);
 }
 // Pastille « nouveaux ateliers » (20/11/2026) : le navigateur retient, par page et par personne, le plus grand
-// numéro d'atelier déjà signalé — un nombre, aucune donnée d'atelier. Sans stockage possible : comportement
+// numéro d'atelier déjà signalé — un nombre, aucune donnée d'atelier. Sans stockage ni mémoire serveur : comportement
 // d'avant (la pastille ne voit que les ajouts faits page ouverte).
 function cleNouveauxVus(){return 'ateliers_dernier_n:'+location.pathname.replace(/index\.html$/,'')+':'+((window.authToken&&window.authToken.getMoi&&window.authToken.getMoi())||'');}
-function lireDernierNVu(){try{const v=localStorage.getItem(cleNouveauxVus());return v===null?null:(parseInt(v,10)||0);}catch(_){return null;}}
-function noterDernierNVu(entries){try{const d=lireDernierNVu()||0;localStorage.setItem(cleNouveauxVus(),String(Math.max(d,maxNAteliers(entries))));}catch(_){}}
+// AG-066, extension du 21/11/2026 : la même valeur est aussi gardée au serveur (getAll → window.__lu, table lectures, Index et
+// Admin séparés, partagée entre NEWGEN et NextStep) ; la plus haute des deux fait foi. Vider les données du site ne ramène plus
+// au point de départ. Ni navigateur ni serveur (0 = jamais : un _n réel vaut au moins 1) : première visite.
+function cleLuAteliers(){return window.location.pathname.indexOf('admin.html')>-1?'ateliers_admin':'ateliers_index';}
+function lireDernierNVu(){
+  let local=null;try{const v=localStorage.getItem(cleNouveauxVus());local=v===null?null:(parseInt(v,10)||0);}catch(_){}
+  const serveur=window.__lu?(parseInt(window.__lu[cleLuAteliers()],10)||0):0;
+  if(local===null&&serveur<=0)return null;
+  return Math.max(local||0,serveur);
+}
+function noterDernierNVu(entries){
+  const v=Math.max(lireDernierNVu()||0,maxNAteliers(entries));
+  try{localStorage.setItem(cleNouveauxVus(),String(v));}catch(_){}
+  // Au serveur seulement s'il a livré sa mémoire (ancienne API : rien envoyé) et s'il ne la connaît pas déjà.
+  if(window.__lu)envoyerLu(cleLuAteliers(),v);
+}
 // Premier chargement de la page : ateliers créés par d'autres depuis la dernière visite. Première visite : point de départ.
 function nouveauxAuChargement(entries){
   const d=lireDernierNVu();
