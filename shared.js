@@ -670,7 +670,9 @@ const GAS_ACTIONS_ECRITURE = new Set([
   // Comptes de la page des travailleurs sociaux (AG-042) : jamais doublés.
   'tsCreerCompte','tsReinitMdp','tsActiver','tsSupprimer',
   // Liens Partage47 (AG-065) : rejouable côté serveur (déjà présent / déjà retiré), jamais doublé en vol.
-  'lienAtelier'
+  'lienAtelier',
+  // Mémoire « déjà lu » (AG-066) : rejouable (ne diminue jamais), mais jamais doublée en vol.
+  'marquerLu'
 ]);
 const GAS_HEDGE_MS            = 7000;   // délai avant de doubler une lecture
 const GAS_TENTATIVES_LECTURE  = 3;
@@ -1235,6 +1237,8 @@ window.onLoginSuccess = function(conseiller, res){
     // Personne connectée, que le sélecteur de conseiller ne change pas
     // (gs_conseiller, lui, suit le sélecteur) : onglet « Mes bilans ».
     sessionStorage.setItem('gs_moi', conseiller);
+    // Mémoire « déjà lu » du compte précédent oubliée (AG-066) ; getAll apporte celle du nouveau.
+    window.__lu=null;try{window.dispatchEvent(new Event('ateliers:lu'));}catch(_){}
     // Pas de logLogin : checkPassword journalise déjà la connexion.
   }
 };
@@ -1259,7 +1263,8 @@ window.authToken = {
     sessionStorage.removeItem('gs_token'); sessionStorage.removeItem('gs_role'); sessionStorage.removeItem('gs_conseiller'); sessionStorage.removeItem('gs_moi');
     // Données déjà chargées oubliées aussi : sinon elles restaient lisibles
     // dans l'onglet après la déconnexion (audit Codex du 06/10/2026).
-    try{ window.invalidateFetchAll&&window.invalidateFetchAll(); window.dispatchEvent(new Event('ateliers:deconnexion')); }catch(_){}
+    window.__lu=null;   // mémoire « déjà lu » du compte oubliée avec la session (AG-066)
+    try{ window.invalidateFetchAll&&window.invalidateFetchAll(); window.dispatchEvent(new Event('ateliers:deconnexion')); window.dispatchEvent(new Event('ateliers:lu')); }catch(_){}
   },
   getRole()   { return sessionStorage.getItem('gs_role') || 'user'; },
   setRole(r)  { sessionStorage.setItem('gs_role', r); },
@@ -1336,10 +1341,13 @@ window.authToken = {
     const hit = cache.get(key);
     if(hit && (hit.inflight || (!o.force && Date.now()-hit.ts < TTL_MS))) return hit.promise;
     const entry = {inflight:true, ts:Date.now(), promise:null};
+    const moiDemande = window.authToken ? window.authToken.getMoi() : '';
     entry.promise = rawGetAll(year, o.source)
       .then(data=>{ entry.inflight=false; entry.ts=Date.now();
         // Pastilles des tickets (AG-016) : le résumé voyage dans getAll.
         if(data && data.tickets){ window.__ticketsResume=data.tickets; try{window.dispatchEvent(new Event('ateliers:tickets'));}catch(_){} }
+        // Mémoire « déjà lu » de la personne (AG-066) : voyage dans getAll, survit au nettoyage du navigateur.
+        if(data && data.lu && (!window.authToken || window.authToken.getMoi()===moiDemande)){ window.__lu=data.lu; try{window.dispatchEvent(new Event('ateliers:lu'));}catch(_){} }
         // Qui recevra le mail de rappel d'une fiche vide (fenêtre « fiche bilan », 27/10/2026).
         if(data && 'rappelsFiches' in data) window.__rappelsFiches=data.rappelsFiches;
         return data; })
@@ -7199,18 +7207,41 @@ function PeriodiciteCycle({entries,ac,acLight,onGenerer,onPreparation}){
   );
 }
 
-function lireNouveautesVues(){try{return parseInt(localStorage.getItem(lsKey('nouveautes_vues')))||0;}catch(_){return 0;}}
+// AG-066 (21/11/2026) : le serveur garde la mémoire par personne (getAll → window.__lu), le navigateur reste
+// un secours ; la valeur la plus haute des deux fait foi. Vider les données du site n'efface plus rien.
+function cleLuNouveautes(){return window.location.pathname.indexOf('admin.html')>-1?'nouveautes_admin':'nouveautes_index';}
+// Secours local propre à chaque PERSONNE connectée (Codex, AG-066) : sur un navigateur partagé, ce que A a lu
+// ne masque rien à B. Les anciennes clés sans personne ne sont pas reprises : leur propriétaire est inconnu.
+function cleLocaleLu(rubrique){const moi=window.authToken&&window.authToken.getMoi();return moi?lsKey(rubrique+':'+moi):null;}
+function lireLocalLu(rubrique){const k=cleLocaleLu(rubrique);if(!k)return '';try{return localStorage.getItem(k)||'';}catch(_){return '';}}
+function ecrireLocalLu(rubrique,v){const k=cleLocaleLu(rubrique);if(!k)return;try{localStorage.setItem(k,String(v));}catch(_){}}
+function lireNouveautesVues(){
+  return luFusion(parseInt(lireLocalLu('nouveautes_vues'))||0,window.__lu&&window.__lu[cleLuNouveautes()]);
+}
+// Écrit au serveur seulement ce qu'il ne sait pas déjà ; un échec n'est pas bloquant (le secours local
+// reste), et la prochaine ouverture de la rubrique réessaie puisque la valeur connue n'a pas bougé.
+function envoyerLu(cle,valeur){
+  const connue=window.__lu&&window.__lu[cle];
+  if(!luAEnvoyer(valeur,connue))return;
+  const moi=window.authToken.getMoi();   // la réponse d'une autre session (changement de compte en vol) est ignorée
+  Promise.resolve().then(()=>window.apiFetch('marquerLu',{cle,valeur:String(valeur)})).then(r=>{
+    if(r&&r.ok&&r.lu&&window.authToken.getMoi()===moi){window.__lu=r.lu;try{window.dispatchEvent(new Event('ateliers:lu'));}catch(_){}}
+  }).catch(()=>{});
+}
 // Annonces de la page courante : celles marquées `admin` seulement sur admin.html.
 function nouveautesDeLaPage(){return nouveautesPourPage(NOUVEAUTES,window.location.pathname.indexOf('admin.html')>-1);}
 // [nombre non vues, marquer tout comme vu]
 function useNouveautes(){
   const[vu,setVu]=React.useState(lireNouveautesVues);
+  // getAll arrive après le premier rendu : la mémoire du serveur remet la pastille à jour.
+  React.useEffect(()=>{const f=()=>setVu(lireNouveautesVues());window.addEventListener('ateliers:lu',f);return()=>window.removeEventListener('ateliers:lu',f);},[]);
   const marquer=React.useCallback(()=>{
     // Plus grand numéro de CETTE page : une annonce Admin pas encore ouverte
     // reste « non lue » sur l'Admin même si Index a été consulté avant.
     const max=nouveautesDeLaPage().reduce((m,n)=>Math.max(m,n.id),0);
-    try{localStorage.setItem(lsKey('nouveautes_vues'),String(max));}catch(_){}
-    setVu(max);
+    ecrireLocalLu('nouveautes_vues',Math.max(max,parseInt(lireLocalLu('nouveautes_vues'))||0));
+    setVu(v=>Math.max(v,max));
+    envoyerLu(cleLuNouveautes(),max);
   },[]);
   return[nouveautesNonVues(nouveautesDeLaPage(),vu),marquer];
 }
@@ -7248,13 +7279,20 @@ const ticketClos=t=>t.statut==='Résolu'||t.statut==='Non retenu';
 function useTicketsPastille(admin){
   const lire=()=>window.__ticketsResume||null;
   const[res,setRes]=React.useState(lire);
-  const[lu,setLu]=React.useState(()=>{try{return localStorage.getItem(lsKey('tickets_lu'))||'';}catch(_){return '';}});
+  const lireLu=()=>luFusionDate(lireLocalLu('tickets_lu'),window.__lu&&window.__lu.tickets);
+  const[lu,setLu]=React.useState(lireLu);
   React.useEffect(()=>{const f=()=>setRes(lire());window.addEventListener('ateliers:tickets',f);return()=>window.removeEventListener('ateliers:tickets',f);},[]);
-  const marquer=React.useCallback(()=>{
-    const d=(window.__ticketsResume&&window.__ticketsResume.derniere_reponse)||'';
-    try{localStorage.setItem(lsKey('tickets_lu'),d);}catch(_){}
-    setLu(d);
-  },[]);
+  // AG-066 : même mémoire serveur que les Nouveautés (la plus récente des deux fait foi).
+  React.useEffect(()=>{const f=()=>setLu(lireLu());window.addEventListener('ateliers:lu',f);return()=>window.removeEventListener('ateliers:lu',f);},[]);
+  // Acquittement sur le curseur de ce qui a été LIVRÉ (dernière réponse de la liste chargée), jamais sur le résumé
+  // de getAll : une liste en échec, ou une réponse arrivée depuis, reste non lue (Codex, AG-066).
+  // Les Nouveautés appellent sans curseur ; l'Admin n'a pas de réponses à acquitter (sa pastille vient du serveur).
+  const marquer=React.useCallback((curseur)=>{
+    if(admin||typeof curseur!=='string'||!curseur)return;
+    ecrireLocalLu('tickets_lu',luFusionDate(lireLocalLu('tickets_lu'),curseur));
+    setLu(l=>luFusionDate(l,curseur));
+    envoyerLu('tickets',curseur);
+  },[admin]);
   if(!res)return[0,marquer];
   if(admin)return[res.nouveaux||0,marquer];
   return[res.derniere_reponse&&res.derniere_reponse>lu?1:0,marquer];
@@ -7365,6 +7403,10 @@ function ReponseTicket({t,tickets,onMaj,onSuppr}){
       CE('button',{type:'button',disabled:envoi,onClick:supprimer,style:{marginLeft:'auto',padding:'6px 12px',borderRadius:6,border:'1.5px solid #fca5a5',background:'transparent',color:'#b91c1c',fontWeight:700,fontSize:12,cursor:'pointer'}},'🗑 Supprimer')));
 }
 
+// Dernière réponse reçue sur les tickets de la personne, parmi ceux livrés ('' = aucune).
+function ticketsCurseurReponses(tickets,moi){
+  return (tickets||[]).filter(t=>t&&t.auteur===moi&&t.repondu_le).map(t=>String(t.repondu_le)).sort().pop()||'';
+}
 function VueTickets({admin,onglets,ongletCourant,onVu}){
   const[tickets,setTickets]=React.useState(null);
   const[moi,setMoi]=React.useState('');
@@ -7374,8 +7416,10 @@ function VueTickets({admin,onglets,ongletCourant,onVu}){
   const[ouverts,setOuverts]=React.useState(()=>new Set());
   const[edition,setEdition]=React.useState('');   // id du ticket en cours de modification (AG-041)
   const[mailDem,setMailDem]=React.useState(null);   // interrupteur « prévenir le demandeur par mail » (AG-045), Admin seulement
-  React.useEffect(()=>{if(onVu)onVu();
-    window.apiFetch('getTickets').then(r=>{if(r&&r.ok){setTickets(r.tickets||[]);setMoi(r.moi||'');if(typeof r.mail_demandeur==='boolean')setMailDem(r.mail_demandeur);}else setErr((r&&r.error)||'Erreur');})
+  React.useEffect(()=>{
+    window.apiFetch('getTickets').then(r=>{if(r&&r.ok){setTickets(r.tickets||[]);setMoi(r.moi||'');
+      // Curseur = dernière réponse reçue sur MES tickets, parmi ceux livrés (aucun acquittement si le chargement échoue).
+      if(onVu)onVu(ticketsCurseurReponses(r.tickets,r.moi));if(typeof r.mail_demandeur==='boolean')setMailDem(r.mail_demandeur);}else setErr((r&&r.error)||'Erreur');})
       .catch(e=>setErr(e.message||'Erreur réseau'));},[]);
   const basculer=id=>setOuverts(o=>{const x=new Set(o);x.has(id)?x.delete(id):x.add(id);return x;});
   const remplacer=t=>setTickets(l=>{const a=(l||[]).filter(x=>x.id!==t.id);return [t,...a].sort((x,y)=>String(y.cree_le).localeCompare(String(x.cree_le)));});

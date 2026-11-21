@@ -8,7 +8,7 @@ const {
   escapeICS, foldICSLine, parseHoraireICS, parseDateICS, buildICS,
   resumeLogsTexte,
   suppressionAboutie,
-  nouveautesNonVues,
+  nouveautesNonVues, luFusion, luFusionDate, luAEnvoyer,
   genererDatesCycle, joursFeries,
   evenementsOutlook, idOutlook,
   anneesListe,
@@ -535,6 +535,30 @@ describe('nouveautesNonVues', () => {
   it('valeur stockée absente ou illisible = tout est à lire', () => {
     assert.equal(nouveautesNonVues(l, null), 3);
     assert.equal(nouveautesNonVues(l, 'abc'), 3);
+  });
+});
+
+describe('mémoire « déjà lu » (AG-066)', () => {
+  it('annonces : la valeur la plus haute gagne, jamais de recul', () => {
+    assert.equal(luFusion(0, 41), 41);   // données du site vidées : le serveur se souvient
+    assert.equal(luFusion(41, 0), 41);   // ancien serveur ou getAll pas encore revenu
+    assert.equal(luFusion(30, 41), 41);
+    assert.equal(luFusion(null, undefined), 0);
+    assert.equal(luFusion('abc', '12'), 12);
+  });
+  it('tickets : la date la plus récente gagne', () => {
+    assert.equal(luFusionDate('', '2026-11-20 10:00:00'), '2026-11-20 10:00:00');
+    assert.equal(luFusionDate('2026-11-21 09:00:00', '2026-11-20 10:00:00'), '2026-11-21 09:00:00');
+    assert.equal(luFusionDate(null, undefined), '');
+  });
+  it('écriture au serveur seulement si la valeur dépasse celle qu\'il connaît', () => {
+    assert.equal(luAEnvoyer(41, 41), false);
+    assert.equal(luAEnvoyer(41, 30), true);
+    assert.equal(luAEnvoyer(41, undefined), true);
+    assert.equal(luAEnvoyer(0, 0), false);
+    assert.equal(luAEnvoyer('2026-11-21 09:00:00', '2026-11-21 09:00:00'), false);
+    assert.equal(luAEnvoyer('2026-11-21 09:00:00', '2026-11-20 10:00:00'), true);
+    assert.equal(luAEnvoyer('', ''), false);
   });
 });
 

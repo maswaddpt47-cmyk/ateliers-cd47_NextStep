@@ -902,6 +902,20 @@ function nouveautesNonVues(liste, vu) {
   const v = Number(vu) || 0;
   return (liste || []).filter(n => n && Number(n.id) > v).length;
 }
+// Mémoire « déjà lu » (AG-066, 21/11/2026) : la valeur du serveur et celle de l'appareil
+// se fusionnent, la plus haute gagne (une mémoire ne recule jamais). `vu` = numéro
+// d'annonce, `lu` = date « AAAA-MM-JJ HH:MM:SS » de la dernière réponse de ticket.
+function luFusion(local, serveur) {
+  return Math.max(Number(local) || 0, Number(serveur) || 0);
+}
+function luFusionDate(local, serveur) {
+  const a = String(local || ''), b = String(serveur || '');
+  return a > b ? a : b;
+}
+// Faut-il écrire au serveur ? Seulement si la valeur dépasse ce qu'il connaît déjà.
+function luAEnvoyer(valeur, connue) {
+  return typeof valeur === 'number' ? valeur > 0 && valeur > (Number(connue) || 0) : !!valeur && String(valeur) > String(connue || '');
+}
 // Sélecteur de date des vues à la semaine (05/10/2026) : nombre de semaines
 // entre la semaine du jour et celle de la date choisie (lundi → dimanche).
 function semainesEntre(aujourdhuiIso, dateIso) {
@@ -1223,7 +1237,7 @@ if (typeof module !== 'undefined') {
   module.exports={
     lireICS, evenementsOutlook, idOutlook, rapprocherOutlook, demiJourneesOccupeesICS, periodeExportICS,
     genererDatesCycle, joursFeries,
-    nouveautesNonVues, nouveautesPourPage, semainesEntre,
+    nouveautesNonVues, nouveautesPourPage, semainesEntre, luFusion, luFusionDate, luAEnvoyer,
     visibiliteEffective,
     normalizeMat, matIncludes,
     normCommune,normalizeCommune,stripAccents,htmlEsc,trunc,
