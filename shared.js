@@ -579,27 +579,47 @@ if(API_PHP_URL.indexOf('/api-sandbox/')>=0){
 // numéro d'atelier déjà signalé — un nombre, aucune donnée d'atelier. Sans stockage ni mémoire serveur : comportement
 // d'avant (la pastille ne voit que les ajouts faits page ouverte).
 function cleNouveauxVus(){return 'ateliers_dernier_n:'+location.pathname.replace(/index\.html$/,'')+':'+((window.authToken&&window.authToken.getMoi&&window.authToken.getMoi())||'');}
-// AG-066, extension du 21/11/2026 : la même valeur est aussi gardée au serveur (getAll → window.__lu, table lectures, Index et
-// Admin séparés, partagée entre NEWGEN et NextStep) ; la plus haute des deux fait foi. Vider les données du site ne ramène plus
-// au point de départ. Ni navigateur ni serveur (0 = jamais : un _n réel vaut au moins 1) : première visite.
+// AG-066, extension du 21/11/2026 : la même mémoire est aussi gardée au serveur (getAll → window.__lu, table lectures),
+// partagée entre NEWGEN et NextStep (décision de l'utilisateur), Index et Admin séparés, et UNE PAR ANNÉE : n'acquitter que
+// les années chargées, sinon un clic sur 2027 taisait un atelier de 2026 jamais affiché (Codex). La plus haute des deux
+// valeurs (navigateur, serveur) fait foi ; une année ni dans l'un ni dans l'autre = point de départ pour elle seule.
+// Un acquittement resté dans le navigateur (échec, coupure) est repris au chargement suivant ; une fois confirmé, la
+// valeur du serveur remplace celle du navigateur (elle peut avoir été ramenée au plus grand numéro de l'année).
 function cleLuAteliers(){return window.location.pathname.indexOf('admin.html')>-1?'ateliers_admin':'ateliers_index';}
-function lireDernierNVu(){
-  let local=null;try{const v=localStorage.getItem(cleNouveauxVus());local=v===null?null:(parseInt(v,10)||0);}catch(_){}
-  const serveur=window.__lu?(parseInt(window.__lu[cleLuAteliers()],10)||0):0;
+// Mémoire serveur de la page ({ "2026": n }) ; null = API qui ne la connaît pas (rien n'y est envoyé).
+function luAteliersServeur(){const o=window.__lu&&window.__lu[cleLuAteliers()];return o&&typeof o==='object'?o:null;}
+function ateliersParAnnee(entries){const g={};(entries||[]).forEach(e=>{const a=String(e&&e.date||'').slice(0,4);if(/^\d{4}$/.test(a))(g[a]=g[a]||[]).push(e);});return g;}
+function ecrireDernierNVu(annee,v){try{localStorage.setItem(cleNouveauxVus()+':'+annee,String(v));}catch(_){}}
+function lireDernierNVu(annee){
+  let local=null;try{const v=localStorage.getItem(cleNouveauxVus()+':'+annee);local=v===null?null:(parseInt(v,10)||0);}catch(_){}
+  const srv=luAteliersServeur(),serveur=srv?(parseInt(srv[annee],10)||0):0;
   if(local===null&&serveur<=0)return null;
   return Math.max(local||0,serveur);
 }
-function noterDernierNVu(entries){
-  const v=Math.max(lireDernierNVu()||0,maxNAteliers(entries));
-  try{localStorage.setItem(cleNouveauxVus(),String(v));}catch(_){}
-  // Au serveur seulement s'il a livré sa mémoire (ancienne API : rien envoyé) et s'il ne la connaît pas déjà.
-  if(window.__lu)envoyerLu(cleLuAteliers(),v);
+function envoyerDernierNVu(annee,v){
+  const srv=luAteliersServeur();if(!srv||!(v>(parseInt(srv[annee],10)||0)))return;
+  const moi=window.authToken.getMoi(),cle=cleLuAteliers();
+  Promise.resolve().then(()=>window.apiFetch('marquerLu',{cle:cle+'_'+annee,valeur:String(v)})).then(r=>{
+    if(!(r&&r.ok&&r.lu)||window.authToken.getMoi()!==moi)return;
+    window.__lu=r.lu;try{window.dispatchEvent(new Event('ateliers:lu'));}catch(_){}
+    const conf=parseInt((r.lu[cle]||{})[annee],10)||0;if(conf>0)ecrireDernierNVu(annee,conf);
+  }).catch(()=>{});
 }
-// Premier chargement de la page : ateliers créés par d'autres depuis la dernière visite. Première visite : point de départ.
+function noterDernierNVu(entries){
+  const g=ateliersParAnnee(entries);
+  Object.keys(g).forEach(a=>{const v=Math.max(lireDernierNVu(a)||0,maxNAteliers(g[a]));ecrireDernierNVu(a,v);envoyerDernierNVu(a,v);});
+}
+// Premier chargement de la page : ateliers créés par d'autres depuis la dernière visite, année par année.
 function nouveauxAuChargement(entries){
-  const d=lireDernierNVu();
-  if(d===null){noterDernierNVu(entries);return [];}
-  return nouveauxDepuis(entries,d,(window.authToken&&window.authToken.getMoi&&window.authToken.getMoi())||'');
+  const moi=(window.authToken&&window.authToken.getMoi&&window.authToken.getMoi())||'';
+  const g=ateliersParAnnee(entries);let nv=[];
+  Object.keys(g).forEach(a=>{
+    const d=lireDernierNVu(a);
+    if(d===null){const v=maxNAteliers(g[a]);ecrireDernierNVu(a,v);envoyerDernierNVu(a,v);return;}
+    envoyerDernierNVu(a,d);   // acquittement resté dans le navigateur : repris (rien si le serveur le connaît déjà)
+    nv=nv.concat(nouveauxDepuis(g[a],d,moi));
+  });
+  return nv;
 }
 // Un onglet resté sur ?backend=gas l'avait mémorisé : on l'efface.
 try{ sessionStorage.removeItem('ateliers_backend'); }catch(_){}

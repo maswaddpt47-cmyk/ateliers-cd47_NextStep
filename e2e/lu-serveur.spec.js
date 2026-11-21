@@ -7,12 +7,14 @@ const { test, expect } = require('@playwright/test');
 
 const ENTREE = { _id: 'e1', _n: 1, statut: 'Planifié', date: '2026-12-01', horaire: '09:00', ampm: 'AM', orienteur: 'CCAS', commune: 'AGEN (47000)', lieu: 'Mairie', thematique: 'Démarches en ligne', inscrits: 8, presents: 0, public: 'Séniors', conseiller: 'Alice Martin', co_animateur: '', residence: '', remarques: '', materiel: [], nb_ordinateurs: '' };
 const DERNIERE_REPONSE = '2026-11-20 10:00:00';
-const VIDE = () => ({ nouveautes_index: 0, nouveautes_admin: 0, tickets: '', ateliers_index: 0, ateliers_admin: 0 });
+const VIDE = () => ({ nouveautes_index: 0, nouveautes_admin: 0, tickets: '', ateliers_index: {}, ateliers_admin: {} });
 // Atelier créé par une collègue (numéro 2) : c'est lui que la pastille « nouveaux ateliers » signale.
 const AUTRE = { ...ENTREE, _id: 'e2', _n: 2, conseiller: 'Eva Fictive', thematique: 'Atelier ajouté par une collègue' };
+// Atelier de l'année suivante, créé après (numéro 3) : la mémoire est tenue année par année (Codex, AG-066).
+const AUTRE_2027 = { ...ENTREE, _id: 'e3', _n: 3, date: '2027-01-15', conseiller: 'Eva Fictive', thematique: 'Atelier de janvier' };
 
-async function serveur(page, { avecLu = true, ticketsEnEchec = false, luInitial = {} } = {}) {
-  const etat = { lu: JSON.parse(JSON.stringify(luInitial)), marquages: [], courant: 'Alice Martin' };
+async function serveur(page, { avecLu = true, ticketsEnEchec = false, luInitial = {}, entrees = [ENTREE, AUTRE], luSansAteliers = false, echecsMarquage = 0, plafond = Infinity } = {}) {
+  const etat = { lu: JSON.parse(JSON.stringify(luInitial)), marquages: [], courant: 'Alice Martin', echecsMarquage };
   await page.route('**/ateliers-numeriques.alwaysdata.net/**', async route => {
     const q = new URLSearchParams(route.request().postData() || ''); const url = route.request().url();
     const action = q.get('action') || new URL(url).searchParams.get('action');
@@ -20,8 +22,9 @@ async function serveur(page, { avecLu = true, ticketsEnEchec = false, luInitial 
     if (action === 'checkPassword') { etat.courant = q.get('conseiller') || etat.courant; r = { ok: true, role: 'user', token: 'b'.repeat(64) }; }
     else if (action === 'getComptes') r = { ok: true, comptes: [{ conseiller: 'Alice Martin' }, { conseiller: 'Bruno Durand' }], maintenance: false, maintenance_msg: '' };
     else if (action === 'getAll') {
-      r = { ok: true, years: [2026], entries: [ENTREE, AUTRE], lists: { statuts: ['Planifié', 'Réalisé'], conseillers: ['Alice Martin', 'Bruno Durand'], publics: ['Séniors'], materiels: [] }, visibility: { saisie: true, historique: true, dashboard: true, carte: true, bingo: true, calendrier: true, agenda: true, roadmap: true, gestion_ordi: true }, conseiller_colors: {}, conseillers_inactifs: [], stockOrdinateurs: 10, materielsCaches: [], tickets: { nouveaux: 0, derniere_reponse: DERNIERE_REPONSE } };
-      if (avecLu) r.lu = { ...VIDE(), ...(etat.lu[etat.courant] || {}) };
+      r = { ok: true, years: [2026], entries: entrees, lists: { statuts: ['Planifié', 'Réalisé'], conseillers: ['Alice Martin', 'Bruno Durand'], publics: ['Séniors'], materiels: [] }, visibility: { saisie: true, historique: true, dashboard: true, carte: true, bingo: true, calendrier: true, agenda: true, roadmap: true, gestion_ordi: true }, conseiller_colors: {}, conseillers_inactifs: [], stockOrdinateurs: 10, materielsCaches: [], tickets: { nouveaux: 0, derniere_reponse: DERNIERE_REPONSE } };
+      if (avecLu) r.lu = { ...VIDE(), ...JSON.parse(JSON.stringify(etat.lu[etat.courant] || {})) };
+      if (avecLu && luSansAteliers) { delete r.lu.ateliers_index; delete r.lu.ateliers_admin; }   // API d'avant l'extension
     } else if (action === 'getTickets') {
       r = ticketsEnEchec ? { ok: false, error: 'Erreur serveur' }
         : { ok: true, moi: etat.courant, tickets: [{ id: 'tk1', cree_le: '2026-11-10 09:00:00', auteur: etat.courant, type: 'Question', titre: 'Essai', description: 'x', statut: 'Vu', reponse: 'Fait.', repondu_le: DERNIERE_REPONSE, repondu_par: 'Admin', doublon_de: '' }] };
@@ -29,9 +32,12 @@ async function serveur(page, { avecLu = true, ticketsEnEchec = false, luInitial 
       const cle = q.get('cle'), valeur = q.get('valeur');
       etat.marquages.push({ cle, valeur, par: etat.courant });
       const l = etat.lu[etat.courant] = { ...VIDE(), ...(etat.lu[etat.courant] || {}) };
-      if (cle === 'tickets') { if (valeur > l.tickets) l.tickets = valeur; }
-      else l[cle] = Math.max(l[cle], Number(valeur));
-      r = { ok: true, lu: { ...l } };
+      // plafond : le vrai serveur ramène un numéro trop haut au plus grand n de l'année.
+      const an = /^ateliers_(index|admin)_(\d{4})$/.exec(cle);
+      if (etat.echecsMarquage > 0) { etat.echecsMarquage--; r = { ok: false, error: 'Erreur serveur' }; }
+      else if (an) { const o = l['ateliers_' + an[1]] = { ...(l['ateliers_' + an[1]] || {}) }; o[an[2]] = Math.max(o[an[2]] || 0, Math.min(Number(valeur), plafond)); r = { ok: true, lu: JSON.parse(JSON.stringify(l)) }; }
+      else if (cle === 'tickets') { if (valeur > l.tickets) l.tickets = valeur; r = { ok: true, lu: JSON.parse(JSON.stringify(l)) }; }
+      else { l[cle] = Math.max(l[cle], Number(valeur)); r = { ok: true, lu: JSON.parse(JSON.stringify(l)) }; }
     }
     await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(r) });
   });
@@ -136,11 +142,11 @@ const pastilleAteliers = page => page.locator('button:is(.topbar-notif-btn, .sid
 
 test('Index — nouveaux ateliers : après un nettoyage des données du site, le serveur se souvient', async ({ page, baseURL }) => {
   const errs = []; page.on('pageerror', e => errs.push(e.message));
-  const etat = await serveur(page, { luInitial: { 'Alice Martin': { ateliers_index: 1 } } });   // déjà vu : jusqu'au numéro 1
+  const etat = await serveur(page, { luInitial: { 'Alice Martin': { ateliers_index: { 2026: 1 } } } });   // déjà vu en 2026 : jusqu'au numéro 1
   await connecter(page, baseURL);
   await expect(pastilleAteliers(page)).toHaveText(/1/);   // l'atelier n° 2 de la collègue est signalé, sans point de départ
   await pastilleAteliers(page).dispatchEvent('click');
-  await expect.poll(() => etat.marquages.filter(m => m.cle === 'ateliers_index')).toEqual([{ cle: 'ateliers_index', valeur: '2', par: 'Alice Martin' }]);
+  await expect.poll(() => etat.marquages.filter(m => m.cle === 'ateliers_index_2026')).toEqual([{ cle: 'ateliers_index_2026', valeur: '2', par: 'Alice Martin' }]);
   await page.evaluate(() => { localStorage.clear(); sessionStorage.clear(); });
   const avant = etat.marquages.length;
   await connecter(page, baseURL);
@@ -155,7 +161,7 @@ test('Index — nouveaux ateliers : première visite, rien signalé et point de 
   const errs = []; page.on('pageerror', e => errs.push(e.message));
   const etat = await serveur(page);
   await connecter(page, baseURL);
-  await expect.poll(() => etat.marquages.filter(m => m.cle === 'ateliers_index')).toEqual([{ cle: 'ateliers_index', valeur: '2', par: 'Alice Martin' }]);
+  await expect.poll(() => etat.marquages.filter(m => m.cle === 'ateliers_index_2026')).toEqual([{ cle: 'ateliers_index_2026', valeur: '2', par: 'Alice Martin' }]);
   await expect(pastilleAteliers(page)).toHaveCount(0);
   expect(errs).toEqual([]);
 });
@@ -167,6 +173,57 @@ test('Index — nouveaux ateliers : ancienne API (sans mémoire serveur), rien e
   await expect(page.getByText('Démarches en ligne').first()).toBeVisible();
   await page.waitForTimeout(500);
   await expect(pastilleAteliers(page)).toHaveCount(0);   // première visite : point de départ, dans le navigateur seulement
-  expect(etat.marquages.filter(m => m.cle === 'ateliers_index')).toEqual([]);
+  expect(etat.marquages.filter(m => m.cle.startsWith('ateliers_'))).toEqual([]);
+  expect(errs).toEqual([]);
+});
+
+test('Index — nouveaux ateliers : API sans mémoire par année (version précédente), rien envoyé (Codex, AG-066)', async ({ page, baseURL }) => {
+  const errs = []; page.on('pageerror', e => errs.push(e.message));
+  const etat = await serveur(page, { luSansAteliers: true });
+  await connecter(page, baseURL);
+  await expect(page.getByText('Démarches en ligne').first()).toBeVisible();
+  await page.waitForTimeout(500);
+  expect(etat.marquages.filter(m => m.cle.startsWith('ateliers_'))).toEqual([]);
+  expect(errs).toEqual([]);
+});
+
+test('Index — nouveaux ateliers : un acquittement sur 2027 ne tait pas un atelier de 2026 jamais affiché (Codex, AG-066)', async ({ page, baseURL }) => {
+  const errs = []; page.on('pageerror', e => errs.push(e.message));
+  // Un autre appareil a acquitté 2027 jusqu'au n° 3 ; en 2026, seul le n° 1 a été vu.
+  await serveur(page, { entrees: [ENTREE, AUTRE, AUTRE_2027], luInitial: { 'Alice Martin': { ateliers_index: { 2026: 1, 2027: 3 } } } });
+  await connecter(page, baseURL);
+  await expect(pastilleAteliers(page)).toHaveText(/1/);   // le n° 2 de 2026 reste signalé
+  expect(errs).toEqual([]);
+});
+
+test('Index — nouveaux ateliers : un acquittement en échec est repris au chargement suivant (Codex, AG-066)', async ({ page, baseURL }) => {
+  const errs = []; page.on('pageerror', e => errs.push(e.message));
+  const etat = await serveur(page, { luInitial: { 'Alice Martin': { ateliers_index: { 2026: 1 } } }, echecsMarquage: 1 });
+  await connecter(page, baseURL);
+  await expect(pastilleAteliers(page)).toHaveText(/1/);
+  await pastilleAteliers(page).dispatchEvent('click');
+  await expect.poll(() => etat.marquages.filter(m => m.cle === 'ateliers_index_2026').length).toBe(1);   // refusé par le serveur
+  expect(etat.lu['Alice Martin'].ateliers_index['2026']).toBe(1);
+  await page.evaluate(() => sessionStorage.clear());   // nouvelle visite, navigateur gardé
+  await connecter(page, baseURL);
+  await expect.poll(() => etat.lu['Alice Martin'].ateliers_index['2026']).toBe(2);   // repris, cette fois confirmé
+  await expect(pastilleAteliers(page)).toHaveCount(0);
+  expect(errs).toEqual([]);
+});
+
+test('Index — nouveaux ateliers : valeur ramenée par le serveur, le navigateur la reprend et ne renvoie plus (Codex, AG-066)', async ({ page, baseURL }) => {
+  const errs = []; page.on('pageerror', e => errs.push(e.message));
+  // Le navigateur croit avoir vu jusqu'au n° 9 (atelier depuis passé en corbeille) ; le plus grand de 2026 est le n° 2.
+  await page.addInitScript(() => { try { if (!sessionStorage.getItem('init')) { localStorage.setItem('ateliers_dernier_n:/:Alice Martin:2026', '9'); sessionStorage.setItem('init', '1'); } } catch (_) {} });
+  const etat = await serveur(page, { luInitial: { 'Alice Martin': { ateliers_index: { 2026: 1 } } }, plafond: 2 });
+  await connecter(page, baseURL);
+  await expect.poll(() => etat.lu['Alice Martin'].ateliers_index['2026']).toBe(2);   // reprise : ramenée à 2 par le serveur
+  expect(await page.evaluate(() => localStorage.getItem('ateliers_dernier_n:/:Alice Martin:2026'))).toBe('2');
+  const avant = etat.marquages.length;
+  await page.evaluate(() => sessionStorage.setItem('gs_dummy', '1'));
+  await connecter(page, baseURL);   // rechargement : plus rien à reprendre
+  await expect(page.getByText('Démarches en ligne').first()).toBeVisible();
+  await page.waitForTimeout(500);
+  expect(etat.marquages.length).toBe(avant);
   expect(errs).toEqual([]);
 });
