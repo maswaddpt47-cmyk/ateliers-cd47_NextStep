@@ -99,13 +99,11 @@ du `CLAUDE.md` retirés — `git log -p CHANTIERS.md`.
 
 ## Pistes d'amélioration
 
-Règle 20 du `CLAUDE.md`. Ne pas reproposer une piste écartée sans fait nouveau.
+Règle 22 de `MD-LIB/collaboration.md`. Ne pas reproposer une piste écartée sans fait nouveau.
 
-**Proposées, en attente** : tenues dans `CHANTIERS.md` d'ATELIERS_NEWGEN
-(mêmes interfaces, même base).
-- 15/11/2026 — **CI plus rapide : faite le 15/11/2026** (`e2e` en parallèle de `test`, ici et
-  dans NEWGEN ; mesuré avant : 1 min 51 s, dont `test` 15 s, `e2e` 75 s, `deploy` 20 s ; gain
-  attendu ~15 s, à mesurer au prochain passage). Cache de Chromium non fait : 12 s au mieux.
+**Proposées, en attente** : tenues dans `CHANTIERS.md` d'ATELIERS_NEWGEN (mêmes interfaces, même base).
+CI accélérée **faite le 15/11/2026** (`e2e` en parallèle de `test`, ici et dans NEWGEN ; avant : 1 min 51 s, gain attendu ~15 s,
+non mesuré) ; cache de Chromium non fait (12 s au mieux).
 
 **Écartées** (date — piste — raison)
 - 03/10/2026 — lien d'abonnement agenda pour les partenaires — « pour l'instant » (utilisateur).
