@@ -2667,7 +2667,22 @@ function FicheBilan({valeur,onChange}){
         onChange:e=>onChange({...v,difficultes_autre:e.target.value}),style:{marginTop:6,width:'100%',boxSizing:'border-box',padding:'7px 9px',border:'1.5px solid #d1d5db',borderRadius:8,fontSize:13}}))));
 }
 
-function PanneauAtelier({panel,onClose,entries,onEntryUpdated,onRefresh,onEdit,onDuplicate,canDelete,onAskDelete}){
+// Les mails de rappel désignent un atelier et un volet. Le fragment ne passe pas à l'API.
+function lireLienRappel(){
+  const fragment=location.hash;
+  const params=new URLSearchParams(fragment.slice(1));
+  if(!params.has('atelier'))return null;
+  const id=params.get('atelier');
+  const annee=params.get('annee');
+  const volet=params.get('volet');
+  const idValide=id&&Array.from(id).length<=64&&!/[\x00-\x1f\x7f]/.test(id);
+  if(!idValide||!/^[1-9]\d{3}$/.test(annee)||!['detail','reporting'].includes(volet)){
+    return {fragment};
+  }
+  return {fragment,id,annee,volet};
+}
+
+function PanneauAtelier({panel,onClose,entries,onEntryUpdated,onRefresh,onEdit,onDuplicate,canDelete,onAskDelete,ongletInitial='detail'}){
   const[panelStatut,setPanelStatut]=React.useState('');
   const[panelInscrits,setPanelInscrits]=React.useState('');
   const[panelPresents,setPanelPresents]=React.useState('');
@@ -2687,9 +2702,9 @@ function PanneauAtelier({panel,onClose,entries,onEntryUpdated,onRefresh,onEdit,o
   const[panelLiens,setPanelLiens]=React.useState([]);const[lienTitre,setLienTitre]=React.useState('');const[lienUrl,setLienUrl]=React.useState('');   // AG-065
   const[lienEnvoi,setLienEnvoi]=React.useState(false);
   const panelIdRef=React.useRef(null);panelIdRef.current=panel?panel._id:null;
-  // Onglet du volet (20/11/2026) : « Détail » à chaque atelier ouvert, « Reporting » pour liens, bilan et QR.
-  const[ongletVolet,setOngletVolet]=React.useState('detail');
-  React.useEffect(()=>{setOngletVolet('detail');},[panel&&panel._id]);
+  // « Détail » à l'ouverture ordinaire. Un rappel de fiche ouvre « Reporting ».
+  const[ongletVolet,setOngletVolet]=React.useState(ongletInitial);
+  React.useEffect(()=>{setOngletVolet(ongletInitial);},[panel&&panel._id,ongletInitial]);
   // Liens Partage47 (AG-065, amendement 2 de Codex) : chaque ajout ou retrait part aussitôt par l'action
   // lienAtelier, qui modifie UN lien sur la valeur en base ; « Enregistrer » n'y touche pas.
   async function lienOp(op,l){
@@ -3053,7 +3068,7 @@ function BarreSelection({actif,setActif,sel,setSel,filtered}){
     CE('button',{type:'button',style:bouton,disabled:!!enCours,onClick:()=>{setSel(new Set());setActif(false);}},'Annuler'));
 }
 
-function VueHistorique({onOuvrirGestionOrdi,entries,onEdit,onDelete,onRefresh,onDuplicate,initConseiller,onResetConseiller,canDelete,onChangeConseiller}){
+function VueHistorique({ouvertureRappel,onRappelOuvert,onOuvrirGestionOrdi,entries,onEdit,onDelete,onRefresh,onDuplicate,initConseiller,onResetConseiller,canDelete,onChangeConseiller}){
   const[search,setSearch]=React.useState('');
   // Ateliers pris dans un dépassement du stock d'ordinateurs à venir (comme
   // Gestion ordi ; plus de règle « Classe mobile unique » depuis le 05/10/2026) : « ⚠️ ordi » sur la tuile
@@ -3083,6 +3098,13 @@ function VueHistorique({onOuvrirGestionOrdi,entries,onEdit,onDelete,onRefresh,on
   const[dateFrom,setDateFrom]=React.useState('');
   const[dateTo,setDateTo]=React.useState('');
   const[panel,setPanel]=React.useState(null);
+  const[ongletInitial,setOngletInitial]=React.useState('detail');
+  React.useEffect(()=>{
+    if(!ouvertureRappel)return;
+    setPanel(ouvertureRappel.atelier);
+    setOngletInitial(ouvertureRappel.volet);
+    onRappelOuvert(null);
+  },[ouvertureRappel,onRappelOuvert]);
   
   
   
@@ -3147,7 +3169,7 @@ function VueHistorique({onOuvrirGestionOrdi,entries,onEdit,onDelete,onRefresh,on
   const counts=React.useMemo(()=>{const c={Tous:sansStatut.length};STATUTS.forEach(s=>{c[s]=sansStatut.filter(e=>e.statut===s).length;});return c;},[sansStatut]);
   const nRetard=entries.filter(e=>isRetard(e)&&(filtConseiller==='Tous'||e.conseiller===filtConseiller)).length;
 
-  function openPanel(e){setPanel(e);}
+  function openPanel(e){setOngletInitial('detail');setPanel(e);}
   function closePanel(){setPanel(null);}
 
 
@@ -3295,7 +3317,7 @@ function VueHistorique({onOuvrirGestionOrdi,entries,onEdit,onDelete,onRefresh,on
       ));
     })),
     // Side panel overlay
-    CE(PanneauAtelier,{panel,onClose:closePanel,entries,onRefresh,onEdit,onDuplicate,canDelete,onAskDelete:p=>setConfirmDel(p)}),
+    CE(PanneauAtelier,{panel,ongletInitial,onClose:closePanel,entries,onRefresh,onEdit,onDuplicate,canDelete,onAskDelete:p=>setConfirmDel(p)}),
     // Confirmation suppression
     confirmDel&&CE('div',{style:{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:1000}},
       CE('div',{className:'card',style:{width:360}},

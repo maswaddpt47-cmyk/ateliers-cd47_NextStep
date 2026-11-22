@@ -269,6 +269,9 @@ function App(){
   const[newEntries,setNewEntries]   = React.useState([]);
   const[seenIds,setSeenIds]        = React.useState(new Set());
   const[filtreConseiller,setFiltreConseiller] = React.useState(null);
+  const lienRappel=React.useRef();
+  if(lienRappel.current===undefined)lienRappel.current=lireLienRappel();
+  const[ouvertureRappel,setOuvertureRappel]=React.useState(null);
   const[editingId,setEditingId]    = React.useState(null);
   const[prefillData,setPrefillData] = React.useState(null);
   // Années chargées (13/10/2026) : par défaut l'année en cours et la suivante ;
@@ -282,7 +285,9 @@ function App(){
       else if(!localStorage.getItem(drapeau)){v=ajouterAnnee(v,c+1);localStorage.setItem(lsKey('f_annee'),v);}
       localStorage.setItem(drapeau,'1');
     }catch(_){v=v||anneesParDefaut(c);}
-    return v;});
+    const anneeRappel=lienRappel.current?.annee;
+    // Charger l'année du lien avec getAll, sans changer le choix mémorisé.
+    return anneeRappel&&!anneeIncluse(v,anneeRappel)?anneeRappel:v;});
   const[visibility,setVisibility]   = React.useState(visibiliteEffective({}));
   const[lists,setLists]            = React.useState({
     statuts:[...STATUTS_DEFAULT],conseillers:[...CONSEILLERS_DEFAULT],
@@ -441,6 +446,7 @@ function App(){
     setError(null);
     try{
       // fetchAll porte seul les tentatives (voir GAS_MAX_TENTATIVES).
+      const jetonRappel=lienRappel.current&&window.authToken.get();
       const data=await fetchAll(annee,{force:!useCache});
       // Mode maintenance : le serveur le signale dans cette réponse même,
       // sans payload d'ateliers. MaintenanceScreen prend alors le relais.
@@ -462,7 +468,20 @@ function App(){
         };
         setLists(nl);STATUTS=[...nl.statuts];CONSEILLERS=[...nl.conseillers];PUBLICS=[...nl.publics];MATERIELS=[...nl.materiels];
       }
-      if(data.visibility)setVisibility(visibiliteEffective(data.visibility));
+      const visibilite=data.visibility?visibiliteEffective(data.visibility):visibility;
+      if(data.visibility)setVisibility(visibilite);
+      if(lienRappel.current&&jetonRappel&&jetonRappel===window.authToken.get()){
+        const rappel=lienRappel.current;
+        lienRappel.current=null;
+        if(location.hash===rappel.fragment)history.replaceState(history.state,'',location.pathname+location.search);
+        const atelier=rappel.id&&incoming.find(e=>e._id===rappel.id);
+        if(!rappel.id)showToast('Ce lien de rappel est invalide.',false);
+        else if(!atelier||!visibilite.historique)showToast('Cet atelier est introuvable ou inaccessible.',false);
+        else{
+          setOuvertureRappel({atelier,volet:rappel.volet});
+          setView('historique');
+        }
+      }
       if(data.conseiller_colors)applyColors(data.conseiller_colors);
       // L'API rend la forme NEWGEN (materielsCaches), pas materiels_masques.
       if(Array.isArray(data.materielsCaches)){setMaterielsMasques(data.materielsCaches);MATERIELS_CACHES=data.materielsCaches;}
@@ -889,7 +908,7 @@ function App(){
         visibility.saisie&&CE(SaisiePersistante,{key:'saisie-session',active:!loading&&!error&&view==='saisie'},CE(VueSaisie,{controleSaisie,conseillerDefaut:(()=>{try{return sessionStorage.getItem('gs_conseiller')||'';}catch(_){return '';}})(),entries,onSaved:handleSaved,onNewEntry:e=>{setNewEntries(n=>[e,...n]);setSeenIds(s=>{const ns=new Set(s);ns.add(e._id);return ns;});},lists,editingId,onClearEdit:()=>setEditingId(null),prefillData,onClearPrefill:()=>setPrefillData(null),accentColor:conseillerColor(filtreConseiller||''),materielsMasques})),
         // viewRef sur le wrapper — capte les change events des selects internes
         !loading&&!error&&CE('div',{ref:viewRef,className:'view-anim',key:view+'_'+(filtreConseiller||'all')},
-          view==='historique'&&visibility.historique&&CE(VueHistorique,{onOuvrirGestionOrdi:visibility.gestion_ordi?(d=>{setDateGestionOrdi(d||null);setView('gestion_ordi');}):null,entries,onEdit:handleEdit,onDelete:handleDelete,onRefresh:()=>loadData(),onDuplicate:handleDuplicate,initConseiller:filtreConseiller,onResetConseiller:()=>{},canDelete:true}),
+          view==='historique'&&visibility.historique&&CE(VueHistorique,{ouvertureRappel,onRappelOuvert:setOuvertureRappel,onOuvrirGestionOrdi:visibility.gestion_ordi?(d=>{setDateGestionOrdi(d||null);setView('gestion_ordi');}):null,entries,onEdit:handleEdit,onDelete:handleDelete,onRefresh:()=>loadData(),onDuplicate:handleDuplicate,initConseiller:filtreConseiller,onResetConseiller:()=>{},canDelete:true}),
           view==='agenda'&&visibility.agenda&&CE(VueAgendaSemaine,{onNouveau:visibility.saisie?handleNouveauLe:undefined,entries,onEdit:handleEdit,onDelete:handleDelete,onDuplicate:handleDuplicate,canDelete:true,initConseiller:filtreConseiller,accentColor}),
           view==='planning'&&visibility.planning&&CE(VuePlanning,{annees:annee,onCycle:visibility.saisie?handleCycleCreneaux:undefined,onNouveau:visibility.saisie?handleNouveauLe:undefined,conseillerFixe:(()=>{try{return sessionStorage.getItem('gs_conseiller')||'';}catch(_){return '';}})(),entries,onEdit:handleEdit,onDelete:handleDelete,onDuplicate:handleDuplicate,canDelete:true,accentColor,conseillers:conseillerActifs}),
           view==='calendrier'&&visibility.calendrier&&CE(VueCalendrier,{onNouveau:visibility.saisie?handleNouveauLe:undefined,onImportICS:visibility.saisie?handleImportICS:undefined,entries,onEdit:handleEdit,onDelete:handleDelete,onRefresh:()=>loadData(),onDuplicate:handleDuplicate,initConseiller:filtreConseiller,onResetConseiller:()=>{},canDelete:true}),
