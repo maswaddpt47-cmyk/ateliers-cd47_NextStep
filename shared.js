@@ -3204,7 +3204,17 @@ function VueHistorique({ouvertureRappel,onRappelOuvert,onOuvrirGestionOrdi,entri
   // Compteurs des pastilles de statut sur la même base que les tuiles (13/10/2026) :
   // ils comptaient tous les ateliers, sans le filtre conseiller ni les autres.
   const counts=React.useMemo(()=>{const c={Tous:sansStatut.length};STATUTS.forEach(s=>{c[s]=sansStatut.filter(e=>e.statut===s).length;});return c;},[sansStatut]);
-  const nRetard=entries.filter(e=>isRetard(e)&&(filtConseiller==='Tous'||e.conseiller===filtConseiller)).length;
+  // AG-068 (décision de l'utilisateur, 23/11/2026) : Index = ses seuls ateliers (animés ou co-animés), quel que soit le
+  // filtre ; Admin = filtre conseiller, bandeau cliquable qui n'affiche que ces ateliers.
+  const retardAdmin=/admin\.html$/.test(window.location.pathname);
+  const retardMoi=(window.authToken&&window.authToken.getMoi&&window.authToken.getMoi())||'';
+  const ateliersRetard=React.useMemo(()=>entries.filter(e=>isRetard(e)&&(retardAdmin?(filtConseiller==='Tous'||e.conseiller===filtConseiller):(!!retardMoi&&(e.conseiller===retardMoi||e.co_animateur===retardMoi)))),[entries,filtConseiller,retardAdmin,retardMoi]);
+  const nRetard=ateliersRetard.length;
+  function voirRetards(){
+    const ids=ateliersRetard.map(e=>e._id);if(!ids.length)return;
+    setFiltStatut('Tous');setFiltMois('Tous');setFiltCommune('Toutes');setFiltPublic([]);setFiltOuvert('Tous');setDateFrom('');setDateTo('');setSearch('');setDSearch('');
+    window._newIdsFilter=new Set(ids);setClocheTick(t=>t+1);
+  }
 
   function openPanel(e){setOngletInitial('detail');setPanel(e);}
   function closePanel(){setPanel(null);}
@@ -3249,11 +3259,11 @@ function VueHistorique({ouvertureRappel,onRappelOuvert,onOuvrirGestionOrdi,entri
       CE(FadeItem,{delay:0.3,style:{minWidth:0}},CE('div',{className:'kpi-mini',style:{borderLeft:'3px solid #d97706',background:'#fffbeb'},title:'Présents / inscrits des ateliers réalisés. Taux : ateliers dont les présents sont saisis ('+kpi.presentsTaux+'/'+kpi.inscritsTaux+')'},CE('div',{className:'v',style:{color:'#d97706'}},CE(NombreAnime,{retard:320,valeur:kpi.presents+'/'+kpi.inscrits})),CE('div',{className:'l'},'Présents'),CE('div',{className:'p',style:{color:'#d97706'}},kpi.inscritsTaux?kpi.tx+'%':'-')))
     ),
     // Alerte retards
-    nRetard>0&&CE('div',{style:{background:'#fffbeb',border:'1px solid #fcd34d',borderRadius:10,padding:'10px 14px',marginBottom:10,display:'flex',gap:10,alignItems:'center'}},
+    nRetard>0&&CE('div',{...(retardAdmin?{role:'button',tabIndex:0,title:'Afficher ces ateliers',onClick:voirRetards,onKeyDown:e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();voirRetards();}}}:{}),style:{background:'#fffbeb',border:'1px solid #fcd34d',borderRadius:10,padding:'10px 14px',marginBottom:10,display:'flex',gap:10,alignItems:'center',cursor:retardAdmin?'pointer':'default'}},
       CE('span',{style:{fontSize:20}},'⚠️'),
       CE('div',null,
-        CE('div',{style:{fontWeight:700,color:'#92400e',fontSize:13}},`${nRetard} atelier(s) en attente de mise à jour`),
-        CE('div',{style:{fontSize:12,color:'#b45309'}},'Statut "Planifié" mais date déjà passée — cliquez sur un atelier pour le clôturer rapidement')
+        CE('div',{style:{fontWeight:700,color:'#92400e',fontSize:13}},retardAdmin?`${nRetard} atelier(s) en attente de mise à jour`:`${nRetard} de vos ateliers en attente de mise à jour`),
+        CE('div',{style:{fontSize:12,color:'#b45309'}},retardAdmin?'Statut "Planifié" mais date déjà passée — cliquez ici pour les afficher, puis sur un atelier pour le clôturer':'Statut "Planifié" mais date déjà passée — cliquez sur un atelier pour le clôturer rapidement')
       )
     ),
     // Bandeau « Affichage filtré » retiré le 13/10/2026 : redondant avec
