@@ -829,7 +829,7 @@ function App(){
         newEntries.length>0&&CE('button',{
           className:'sidebar-notif-btn',
           title:`${newEntries.length} nouveaux ateliers`,
-          onClick:()=>{setView('historique');window._filterNewEntries&&window._filterNewEntries(newEntries.map(e=>e._id));setNewEntries([]);noterDernierNVu(entries);}
+          onClick:()=>{if(view!=='historique')window._pendingHighlight=newEntries.map(e=>e._id);setView('historique');window._filterNewEntries&&window._filterNewEntries(newEntries.map(e=>e._id));setNewEntries([]);noterDernierNVu(entries);}
         }, CE('span',null,'🔔'), CE('span',null,newEntries.length)),
         CE('button',{
           className:'sidebar-accueil-btn', title:'Retour accueil',

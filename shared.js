@@ -7471,7 +7471,15 @@ function VueTickets({admin,onglets,ongletCourant,onVu}){
   const[form,setForm]=React.useState(false);
   const[ouverts,setOuverts]=React.useState(()=>new Set());
   const[edition,setEdition]=React.useState('');   // id du ticket en cours de modification (AG-041)
-  const[mailDem,setMailDem]=React.useState(null);   // interrupteur « prévenir le demandeur par mail » (AG-045), Admin seulement
+  const[mailDem,setMailDem]=React.useState(null);
+  // AG-067 : pastille Admin = tickets « Nouveau » de la liste chargée, recalculée à chaque changement de statut
+  // (le nombre de getAll datait du chargement de la page).
+  React.useEffect(()=>{
+    if(!admin||!Array.isArray(tickets))return;
+    const n=tickets.filter(t=>t&&t.statut==='Nouveau').length;const r=window.__ticketsResume||{};
+    if(r.nouveaux===n)return;
+    window.__ticketsResume={...r,nouveaux:n};try{window.dispatchEvent(new Event('ateliers:tickets'));}catch(_){}
+  },[admin,tickets]);   // interrupteur « prévenir le demandeur par mail » (AG-045), Admin seulement
   React.useEffect(()=>{
     window.apiFetch('getTickets').then(r=>{if(r&&r.ok){setTickets(r.tickets||[]);setMoi(r.moi||'');
       // Curseur = dernière réponse reçue sur MES tickets, parmi ceux livrés (aucun acquittement si le chargement échoue).
