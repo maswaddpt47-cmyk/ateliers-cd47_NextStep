@@ -2734,7 +2734,7 @@ function PanneauAtelier({panel,onClose,entries,onEntryUpdated,onRefresh,onEdit,o
       // la réponse ne remplit que le volet de l'atelier demandé (rouvrir le même atelier reste correct).
       if(panelIdRef.current===id){setPanelLiens(liens);if(op==='ajouter'){setLienTitre('');setLienUrl('');}}
       // Rien de changé : le dire (règle 65).
-      showToast(r.deja?(op==='ajouter'?'ℹ️ Ce lien était déjà attaché à l\'atelier':'ℹ️ Ce lien était déjà retiré'):(op==='ajouter'?'✅ Lien ajouté':'✅ Lien retiré de l\'atelier'));
+      showToast(op==='renommer'?(r.deja?'ℹ️ Ce lien portait déjà ce nom':'✅ Lien renommé'):r.deja?(op==='ajouter'?'ℹ️ Ce lien était déjà attaché à l\'atelier':'ℹ️ Ce lien était déjà retiré'):(op==='ajouter'?'✅ Lien ajouté':'✅ Lien retiré de l\'atelier'));
       // Seuls les liens changent dans l'état local : recopier l'entrée capturée avant l'attente
       // rétablissait d'anciennes valeurs des autres champs (vérification de Codex, 19/11/2026).
       if(window.__entreeSauvegardee)window.__entreeSauvegardee({_id:id,liens});
@@ -2897,6 +2897,13 @@ function PanneauAtelier({panel,onClose,entries,onEntryUpdated,onRefresh,onEdit,o
             panelLiens.length===0&&CE('div',{style:{fontSize:12,color:'#94a3b8',marginBottom:4}},'Aucun lien.'),
             panelLiens.map((l,i)=>CE('div',{key:i,style:{display:'flex',gap:6,alignItems:'center',marginBottom:4,fontSize:13,minWidth:0}},
               CE('a',{href:lienPartageValide(l.url)?l.url:undefined,target:'_blank',rel:'noopener noreferrer',style:{flex:1,minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',color:'#2563eb'}},'📄 '+(l.titre||'Document')),
+              // Renommer un lien (23/11/2026, demande de l'utilisateur) : même action dédiée, titre seul modifié.
+              CE('button',{type:'button',className:'btn btn-secondary btn-sm',disabled:lienEnvoi,title:'Renommer le lien','aria-label':'Renommer le lien '+(l.titre||'Document'),onClick:()=>{
+                const nv=window.prompt('Nouveau nom du lien (80 caractères au plus) :',l.titre||'');
+                if(nv===null)return;
+                const t=nv.trim();if(!t){showToast('❌ Le nom ne peut pas être vide',false);return;}
+                lienOp('renommer',{...l,titre:t.slice(0,80)});
+              }},'✏️'),
               CE('button',{type:'button',className:'btn btn-secondary btn-sm',disabled:lienEnvoi,onClick:()=>lienOp('retirer',l),'aria-label':'Retirer le lien '+(l.titre||'Document')},'✕'))),
             panelLiens.length>=LIENS_MAX&&CE('div',{style:{fontSize:12,color:'#b45309',marginTop:4}},'Maximum atteint ('+LIENS_MAX+' liens) : retirez-en un pour en ajouter un autre.'),
             panelLiens.length<LIENS_MAX&&CE('div',{style:{display:'grid',gap:4}},
