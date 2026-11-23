@@ -1320,8 +1320,19 @@ window.authToken = {
       });
     }
     const {url, corps} = window.requeteServeur(params);
-    return window.gasAppel(url, action, corps);
+    return Promise.resolve(window.gasAppel(url, action, corps)).then(r=>{
+      if(r&&r.ok&&typeof r.nouveaux==='number'&&TICKETS_ACTIONS_TOTAL.indexOf(action)>-1)ticketsNouveauxRecus(r.nouveaux);
+      return r;
+    });
   };
+  // AG-067 (revue Codex) : chaque lecture et écriture des Tickets renvoie le nombre global de « Nouveau » ;
+  // il remplace celui de getAll, et un getAll parti avant cette réponse ne peut plus le rétablir.
+  const TICKETS_ACTIONS_TOTAL=['getTickets','creerTicket','modifierTicket','repondreTicket','supprimerTicket'];
+  function ticketsNouveauxRecus(n){
+    window.__ticketsMajTs=Date.now();
+    window.__ticketsResume={...(window.__ticketsResume||{}),nouveaux:n};
+    try{window.dispatchEvent(new Event('ateliers:tickets'));}catch(_){}
+  }
 })();
 
 // ── getAll partagé : un seul appel réseau par année ────────────────────────
@@ -1376,10 +1387,14 @@ window.authToken = {
     if(hit && (hit.inflight || (!o.force && Date.now()-hit.ts < TTL_MS))) return hit.promise;
     const entry = {inflight:true, ts:Date.now(), promise:null};
     const moiDemande = window.authToken ? window.authToken.getMoi() : '';
+    const debut = Date.now();
     entry.promise = rawGetAll(year, o.source)
       .then(data=>{ entry.inflight=false; entry.ts=Date.now();
         // Pastilles des tickets (AG-016) : le résumé voyage dans getAll.
-        if(data && data.tickets){ window.__ticketsResume=data.tickets; try{window.dispatchEvent(new Event('ateliers:tickets'));}catch(_){} }
+        if(data && data.tickets){
+          const t={...data.tickets}, cur=window.__ticketsResume;
+          if(cur && window.__ticketsMajTs && window.__ticketsMajTs>=debut) t.nouveaux=cur.nouveaux;   // AG-067
+          window.__ticketsResume=t; try{window.dispatchEvent(new Event('ateliers:tickets'));}catch(_){} }
         // Mémoire « déjà lu » de la personne (AG-066) : voyage dans getAll, survit au nettoyage du navigateur.
         if(data && data.lu && (!window.authToken || window.authToken.getMoi()===moiDemande)){ window.__lu=data.lu; try{window.dispatchEvent(new Event('ateliers:lu'));}catch(_){} }
         // Qui recevra le mail de rappel d'une fiche vide (fenêtre « fiche bilan », 27/10/2026).
@@ -3080,6 +3095,7 @@ function VueHistorique({ouvertureRappel,onRappelOuvert,onOuvrirGestionOrdi,entri
   },[entries]);
   const alerteOrdi=e=>idsConflitOrdi.has(e._id)&&CE('span',{className:'nouv-blink',title:'Stock d\'ordinateurs dépassé : cliquer pour ouvrir Gestion ordi à cette date',role:onOuvrirGestionOrdi?'button':undefined,onClick:onOuvrirGestionOrdi?(ev=>{ev.stopPropagation();onOuvrirGestionOrdi(normalizeDate(e.date));}):undefined,style:{display:'inline-block',color:'#dc2626',fontWeight:800,fontSize:11,whiteSpace:'nowrap',marginRight:6,cursor:onOuvrirGestionOrdi?'pointer':'default'}},'⚠️ ordi');
   const[dSearch,setDSearch]=React.useState('');
+  const[clocheTick,setClocheTick]=React.useState(0);
   const[filtStatut,setFiltStatut]=React.useState('Planifié');
   const[filtMois,setFiltMois]=React.useState('Tous');
   const[filtCommune,setFiltCommune]=React.useState('Toutes');
@@ -3119,9 +3135,23 @@ function VueHistorique({ouvertureRappel,onRappelOuvert,onOuvrirGestionOrdi,entri
 
   React.useEffect(()=>{if(initConseiller)setFiltConseiller(initConseiller);},[initConseiller]);
   React.useEffect(()=>{const t=setTimeout(()=>setDSearch(search),300);return()=>clearTimeout(t);},[search]);
+  // Cloche « nouveaux ateliers » (AG-067, revue Codex) : la demande est consommée une seule fois, au premier
+  // chargement de l'Historique qui suit le clic ; ateliers disparus depuis = message, jamais un filtre fantôme.
+  const entriesCloche=React.useRef(entries);entriesCloche.current=entries;
+  const consommerCloche=React.useCallback(()=>{
+    const ids=window._clocheIds,es=entriesCloche.current;
+    if(!ids||!es||!es.length)return;
+    window._clocheIds=null;
+    const ok=ids.filter(id=>es.some(e=>e._id===id));
+    if(!ok.length){showToast('Les nouveaux ateliers signalés ne sont plus disponibles.',false);return;}
+    setFiltStatut('Tous');setFiltMois('Tous');setFiltCommune('Toutes');setFiltConseiller('Tous');setFiltPublic([]);setFiltOuvert('Tous');setDateFrom('');setDateTo('');setSearch('');setDSearch('');
+    window._newIdsFilter=new Set(ok);setClocheTick(t=>t+1);
+  },[]);
+  React.useEffect(()=>{consommerCloche();},[entries]);
+  React.useEffect(()=>{const f=()=>consommerCloche();document.addEventListener('ateliers:cloche',f);return()=>document.removeEventListener('ateliers:cloche',f);},[]);
   React.useEffect(()=>{
     window._filterNewEntries=(ids)=>{setFiltStatut('Tous');setFiltMois('Tous');setFiltCommune('Toutes');setFiltConseiller('Tous');setFiltPublic([]);setFiltOuvert('Tous');setDateFrom('');setDateTo('');setSearch('');setDSearch('');window._newIdsFilter=new Set(ids);};
-    return()=>{window._filterNewEntries=null;};
+    return()=>{window._filterNewEntries=null;window._newIdsFilter=null;};   // sélection bornée à la visite (AG-067)
   },[]);
   // Applique le filtre de mise en évidence après rechargement post-sauvegarde
   React.useEffect(()=>{
@@ -3159,7 +3189,7 @@ function VueHistorique({ouvertureRappel,onRappelOuvert,onOuvrirGestionOrdi,entri
       else window._newIdsFilter=null;
     }
     return r;
-  },[entries,filtMois,filtCommune,filtConseiller,filtPublic,filtOuvert,dSearch,dateFrom,dateTo]);
+  },[entries,filtMois,filtCommune,filtConseiller,filtPublic,filtOuvert,dSearch,dateFrom,dateTo,clocheTick]);
   const filtered=React.useMemo(()=>[...(filtStatut!=='Tous'?sansStatut.filter(e=>e.statut===filtStatut):sansStatut)].sort((a,b)=>comparerHistorique(a,b,sortDir)),[sansStatut,filtStatut,sortDir]);
   const nbFiltresActifs=(filtStatut!=='Tous'?1:0)+(search?1:0)+(filtMois!=='Tous'?1:0)+(filtCommune!=='Toutes'?1:0)+(filtConseiller!=='Tous'?1:0)+(filtPublic.length?1:0)+(filtOuvert!=='Tous'?1:0)+(dateFrom||dateTo?1:0);
 
@@ -7472,14 +7502,7 @@ function VueTickets({admin,onglets,ongletCourant,onVu}){
   const[ouverts,setOuverts]=React.useState(()=>new Set());
   const[edition,setEdition]=React.useState('');   // id du ticket en cours de modification (AG-041)
   const[mailDem,setMailDem]=React.useState(null);
-  // AG-067 : pastille Admin = tickets « Nouveau » de la liste chargée, recalculée à chaque changement de statut
-  // (le nombre de getAll datait du chargement de la page).
-  React.useEffect(()=>{
-    if(!admin||!Array.isArray(tickets))return;
-    const n=tickets.filter(t=>t&&t.statut==='Nouveau').length;const r=window.__ticketsResume||{};
-    if(r.nouveaux===n)return;
-    window.__ticketsResume={...r,nouveaux:n};try{window.dispatchEvent(new Event('ateliers:tickets'));}catch(_){}
-  },[admin,tickets]);   // interrupteur « prévenir le demandeur par mail » (AG-045), Admin seulement
+  // interrupteur « prévenir le demandeur par mail » (AG-045), Admin seulement
   React.useEffect(()=>{
     window.apiFetch('getTickets').then(r=>{if(r&&r.ok){setTickets(r.tickets||[]);setMoi(r.moi||'');
       // Curseur = dernière réponse reçue sur MES tickets, parmi ceux livrés (aucun acquittement si le chargement échoue).
