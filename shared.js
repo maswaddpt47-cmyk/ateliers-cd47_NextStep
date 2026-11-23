@@ -3204,7 +3204,7 @@ function VueHistorique({ouvertureRappel,onRappelOuvert,onOuvrirGestionOrdi,entri
   // Compteurs des pastilles de statut sur la même base que les tuiles (13/10/2026) :
   // ils comptaient tous les ateliers, sans le filtre conseiller ni les autres.
   const counts=React.useMemo(()=>{const c={Tous:sansStatut.length};STATUTS.forEach(s=>{c[s]=sansStatut.filter(e=>e.statut===s).length;});return c;},[sansStatut]);
-  // AG-068 (décision de l'utilisateur, 23/11/2026) : Index = ses seuls ateliers (animés ou co-animés), quel que soit le
+  // Décision de l'utilisateur du 23/11/2026 : Index = ses seuls ateliers (animés ou co-animés), quel que soit le
   // filtre ; Admin = filtre conseiller, bandeau cliquable qui n'affiche que ces ateliers.
   const retardAdmin=/admin\.html$/.test(window.location.pathname);
   const retardMoi=(window.authToken&&window.authToken.getMoi&&window.authToken.getMoi())||'';
