@@ -17,6 +17,7 @@ function buildEntry(overrides = {}) {
     thematique:   'Internet',
     conseiller:   'Paul Dupont',
     co_animateur: '',
+    structure_partenaire: '',
     orienteur:    'CAF',
     public:       'Tous publics',
     inscrits:     4,                    // number ou '' — jamais null/undefined

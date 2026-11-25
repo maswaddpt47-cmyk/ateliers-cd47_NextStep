@@ -854,6 +854,22 @@ describe('même population : kpiHistorique et bilanTrimestriel', () => {
 });
 
 // ── Bilan d'une période — fusion mensuel / trimestriel (AG-037, 28/10/2026) ──
+describe('structure partenaire co-animatrice (AG-069) : hors de toute statistique', () => {
+  const L = require('./logic.js');
+  const at = (id, o) => ({_id: id, statut: 'Réalisé', date: '2026-10-15', horaire: '09:00', thematique: 'Courriel', commune: 'Agen', orienteur: 'CCAS', conseiller: 'Bob', co_animateur: '', inscrits: '5', presents: '3', duree: 90, ...o});
+  const sans = [at('a'), at('b', {conseiller: 'Alice'}), at('c', {statut: 'Planifié', date: '2026-10-30'})];
+  const avec = sans.map(e => ({...e, structure_partenaire: 'France Services Santé'}));
+  it('bilanPeriode : mêmes chiffres avec ou sans structure, aucune ligne au nom de la structure', () => {
+    const a = L.bilanPeriode(sans, '2026-10-01', '2026-10-31', [], '2026-10-28'), b = L.bilanPeriode(avec, '2026-10-01', '2026-10-31', [], '2026-10-28');
+    assert.deepEqual(b, a);
+    assert.ok(!JSON.stringify(b).includes('France Services'));
+  });
+  it('conflits d\'horaire : une même structure sur deux ateliers simultanés ne crée aucun conflit', () => {
+    const x = at('x', {structure_partenaire: 'France Services Santé', conseiller: 'Bob'}), y = at('y', {structure_partenaire: 'France Services Santé', conseiller: 'Alice'});
+    assert.deepEqual(L.conflitsConseiller([y], x), []);
+  });
+});
+
 describe('bilanPeriode — choix de l\'utilisateur D1-D5 (AG-037)', () => {
   const {bilanPeriode} = require('./logic.js');
   const at = (id, o) => ({_id: id, statut: 'Réalisé', date: '2026-10-15', thematique: 'Courriel', commune: 'Agen', orienteur: 'CCAS', conseiller: 'Bob', inscrits: '5', presents: '3', duree: 90, ...o});

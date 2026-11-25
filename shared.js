@@ -1137,6 +1137,8 @@ let MATERIELS_CACHES=[];
 
 let STATUTS     = [...STATUTS_DEFAULT];
 let CONSEILLERS = [...CONSEILLERS_DEFAULT];
+// Structures partenaires co-animatrices (AG-069) : hors équipe, sans compte, hors statistiques.
+let STRUCTURES = [];
 let PUBLICS     = [...PUBLICS_DEFAULT];
 let MATERIELS   = [...MATERIELS_DEFAULT];
 let COMMUNES_47_CACHE = null;
@@ -1616,6 +1618,7 @@ function getItemColor(tabKey,name){
   if(tabKey==='conseillers'){const cols=['#7C3AED','#2563EB','#059669','#DB2777','#d97706','#0891b2','#65a30d','#dc2626'];const idx=(name.charCodeAt(0)+(name.charCodeAt(1)||0))%cols.length;return cols[idx];}
   if(tabKey==='publics')return'#6366f1';
   if(tabKey==='materiels')return'#0891b2';
+  if(tabKey==='structures')return'#b45309';
   return'#94a3b8';
 }
 // ── Après une écriture réussie : appliquer en local, ne rien redemander ────
@@ -1631,9 +1634,9 @@ function entreeSauvegardee(entry, onRefresh){
 }
 
 function VueListes({lists,onSave,onClose,emails,onSaveEmails}){
-  const TABS=[{key:'statuts',label:'Statuts'},{key:'conseillers',label:'Conseillers'},{key:'publics',label:'Types de public'},{key:'materiels',label:'Matériels'}];
+  const TABS=[{key:'statuts',label:'Statuts'},{key:'conseillers',label:'Conseillers'},{key:'publics',label:'Types de public'},{key:'materiels',label:'Matériels'},{key:'structures',label:'Structures partenaires'}];
   const[activeTab,setActiveTab]=React.useState('statuts');
-  const[draft,setDraft]=React.useState({statuts:[...lists.statuts],conseillers:[...lists.conseillers],publics:[...lists.publics],materiels:[...lists.materiels]});
+  const[draft,setDraft]=React.useState({statuts:[...lists.statuts],conseillers:[...lists.conseillers],publics:[...lists.publics],materiels:[...lists.materiels],structures:[...(lists.structures||[])]});
   const[newVal,setNewVal]=React.useState('');
   const[editIdx,setEditIdx]=React.useState(null);
   const[editVal,setEditVal]=React.useState('');
@@ -1730,6 +1733,7 @@ function VueListes({lists,onSave,onClose,emails,onSaveEmails}){
       ),
       CE('div',{className:'listes-tabs'},TABS.map(t=>CE('div',{key:t.key,className:'listes-tab'+(activeTab===t.key?' active':''),onClick:()=>setActiveTab(t.key)},t.label,CE('span',{className:'tab-count'},draft[t.key].length)))),
       CE('div',{className:'listes-body'},
+        activeTab==='structures'&&CE('div',{style:{padding:'8px 14px',marginBottom:8,background:'#fffbeb',border:'1.5px solid #fde68a',borderRadius:8,fontSize:12,color:'#92400e',lineHeight:1.5}},'Organismes qui animent un atelier avec nous sur invitation (ex. France Services Santé). Proposés dans « Co-animateur », sans compte ni accès, et jamais comptés dans les statistiques : l\'atelier reste compté pour le conseiller qui l\'anime.'),
         activeTab==='conseillers'&&CE('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'8px 14px',marginBottom:8,background:'#f8fafc',border:'1.5px solid #e2e8f0',borderRadius:8}},
           CE('span',{style:{fontSize:12,fontWeight:700,color:'#4a5568'}},'📧 Rappels email'),
           CE('button',{
@@ -1995,12 +1999,13 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
   const conseillers= lists?.conseillers || CONSEILLERS_DEFAULT;
   const publics    = lists?.publics     || PUBLICS_DEFAULT;
   const materiels  = lists?.materiels   || MATERIELS_DEFAULT;
+  const structures = lists?.structures  || [];
   // Conseiller connecté proposé par défaut (lot 1 UX, 01/10/2026) : fourni par
   // l'interface des conseillers seulement, l'Admin saisit pour les autres.
   const consDef=conseillerDefaut&&conseillers.includes(conseillerDefaut)?conseillerDefaut:'';
   // Planifié coché dès l'ouverture (demande du 04/11/2026) ; une date passée le
   // remplace par Réalisé tant qu'aucun statut n'a été cliqué (statutSelonDate).
-  const empty={_id:'',_n:'',statut:'Planifié',date:'',horaire:'',ampm:'',duree:DUREE_DEFAUT,orienteur:'',commune:'',lieu:'',thematique:'',inscrits:4,presents:'',public:'',conseiller:consDef,co_animateur:'',materiel:[],residence:'',remarques:'',nb_ordinateurs:'',date_prelevement_materiel:'',date_retour_materiel:'',ouvert_a_tous:''};
+  const empty={_id:'',_n:'',statut:'Planifié',date:'',horaire:'',ampm:'',duree:DUREE_DEFAUT,orienteur:'',commune:'',lieu:'',thematique:'',inscrits:4,presents:'',public:'',conseiller:consDef,co_animateur:'',structure_partenaire:'',materiel:[],residence:'',remarques:'',nb_ordinateurs:'',date_prelevement_materiel:'',date_retour_materiel:'',ouvert_a_tous:''};
 
   // ── états mode unique ──
   const[form,setForm]   = React.useState(empty);
@@ -2013,7 +2018,7 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
   const[modeLot,setModeLot]     = React.useState(false);
   const[importOuvert,setImportOuvert]=React.useState(false);
   const[creneauUnique,setCreneauUnique]=React.useState(null);   // {date, demi} venu de Disponibilités
-  const[lotForm,setLotForm]     = React.useState({orienteur:'',commune:'',lieu:'',conseiller:consDef,co_animateur:'',public:'',materiel:[],residence:'',remarques:'',nb_ordinateurs:'',ouvert_a_tous:''});
+  const[lotForm,setLotForm]     = React.useState({orienteur:'',commune:'',lieu:'',conseiller:consDef,co_animateur:'',structure_partenaire:'',public:'',materiel:[],residence:'',remarques:'',nb_ordinateurs:'',ouvert_a_tous:''});
   const[lotRows,setLotRows]     = React.useState([emptyRow(),emptyRow()]);
   const[lotErrors,setLotErrors] = React.useState({});
   const[lotRowErrors,setLotRowErrors]= React.useState({});
@@ -2082,12 +2087,12 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
   // (statutSelonDate, utils.js) ; jamais en modification d'un atelier.
   const statutChoisiRef=React.useRef(false);
   function reset(){origineUniqueRef.current=empty;idNouveauRef.current=null;statutChoisiRef.current=false;setForm(empty);setEditId(null);setIsDup(false);setErrors({});}
-  function resetLot(){idsLotRef.current={};setLotForm({orienteur:'',commune:'',lieu:'',conseiller:consDef,co_animateur:'',public:'',materiel:[],residence:'',remarques:'',nb_ordinateurs:'',ouvert_a_tous:''});setLotRows([emptyRow(),emptyRow()]);setLotErrors({});setLotRowErrors({});}
+  function resetLot(){idsLotRef.current={};setLotForm({orienteur:'',commune:'',lieu:'',conseiller:consDef,co_animateur:'',structure_partenaire:'',public:'',materiel:[],residence:'',remarques:'',nb_ordinateurs:'',ouvert_a_tous:''});setLotRows([emptyRow(),emptyRow()]);setLotErrors({});setLotRowErrors({});}
 
 
   const ligneVideRef=React.useRef(null);
   if(!ligneVideRef.current)ligneVideRef.current=emptyRow();
-  const lotVide={orienteur:'',commune:'',lieu:'',conseiller:consDef,co_animateur:'',public:'',materiel:[],residence:'',remarques:'',nb_ordinateurs:'',ouvert_a_tous:''};
+  const lotVide={orienteur:'',commune:'',lieu:'',conseiller:consDef,co_animateur:'',structure_partenaire:'',public:'',materiel:[],residence:'',remarques:'',nb_ordinateurs:'',ouvert_a_tous:''};
   const modifiee=modeLot
     ?preparatifsCycle||champsSaisieModifies(lotForm,lotVide)||lotRows.length!==2||lotRows.some(r=>champsSaisieModifies(r,ligneVideRef.current,['id']))
     :champsSaisieModifies(form,origineUniqueRef.current);
@@ -2293,7 +2298,7 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
     if(alertesLot.length&&!window.confirm(alertesLot.slice(0,8).join('\n')+(alertesLot.length>8?'\n…':'')+'\n\nEnregistrer quand même ?'))return;
     setSaving(true);
     try{
-      const entries=rowsFilled.map(row=>({_id:idsLotRef.current[row.id]||(idsLotRef.current[row.id]=row.olkId||genId()),_n:'',statut:'Planifié',date:row.date,horaire:row.horaire,ampm:ampmDepuisHoraire(row.horaire)||row.ampm,duree:parseInt(row.duree)||DUREE_DEFAUT,thematique:row.thematique,orienteur:lotForm.orienteur,commune:lotForm.commune,lieu:lotForm.lieu,conseiller:lotForm.conseiller,co_animateur:lotForm.co_animateur||'',public:lotForm.public,ouvert_a_tous:lotForm.ouvert_a_tous,materiel:(lotForm.materiel||[]).join('|'),residence:lotForm.residence,remarques:lotForm.remarques,inscrits:row.inscrits===''?'':parseInt(row.inscrits)||0,presents:row.presents===''?'':parseInt(row.presents)||0,nb_ordinateurs:lotForm.nb_ordinateurs===''?'':parseInt(lotForm.nb_ordinateurs)||0,date_prelevement_materiel:row.date_prelevement_materiel||'',date_retour_materiel:row.date_retour_materiel||''}));
+      const entries=rowsFilled.map(row=>({_id:idsLotRef.current[row.id]||(idsLotRef.current[row.id]=row.olkId||genId()),_n:'',statut:'Planifié',date:row.date,horaire:row.horaire,ampm:ampmDepuisHoraire(row.horaire)||row.ampm,duree:parseInt(row.duree)||DUREE_DEFAUT,thematique:row.thematique,orienteur:lotForm.orienteur,commune:lotForm.commune,lieu:lotForm.lieu,conseiller:lotForm.conseiller,co_animateur:lotForm.co_animateur,structure_partenaire:lotForm.structure_partenaire||''||'',public:lotForm.public,ouvert_a_tous:lotForm.ouvert_a_tous,materiel:(lotForm.materiel||[]).join('|'),residence:lotForm.residence,remarques:lotForm.remarques,inscrits:row.inscrits===''?'':parseInt(row.inscrits)||0,presents:row.presents===''?'':parseInt(row.presents)||0,nb_ordinateurs:lotForm.nb_ordinateurs===''?'':parseInt(lotForm.nb_ordinateurs)||0,date_prelevement_materiel:row.date_prelevement_materiel||'',date_retour_materiel:row.date_retour_materiel||''}));
       // Même conversion materiel string→tableau que le mode unique.
       const appliquer=liste=>{
         liste.forEach(entry=>{const loc={...entry,materiel:lotForm.materiel||[]};if(onNewEntry)onNewEntry(loc);entreeSauvegardee(loc);});
@@ -2398,9 +2403,13 @@ function VueSaisie({entries,onSaved,onNewEntry,lists,editingId,onClearEdit,prefi
         errs.conseiller&&CE('span',{style:{color:'#e53e3e',fontSize:11,fontWeight:600}},errs.conseiller)),
       CE('div',null,
         LblG({t:'Co-animateur'}),
-        CE('select',{style:sStyle(false),value:frm.co_animateur||'',onChange:e=>setFn('co_animateur',e.target.value)},
+        // Un seul co-animateur : un conseiller OU une structure partenaire (AG-069) ; choisir l'un efface l'autre.
+        // Les structures sont préfixées « § » pour ne jamais se confondre avec un nom de conseiller.
+        CE('select',{style:sStyle(false),value:frm.structure_partenaire?'§'+frm.structure_partenaire:(frm.co_animateur||''),onChange:e=>{const v=e.target.value;if(v.charAt(0)==='§'){setFn('co_animateur','');setFn('structure_partenaire',v.slice(1));}else{setFn('co_animateur',v);setFn('structure_partenaire','');}}},
           CE('option',{value:''},'— Aucun —'),
-          conseillers.filter(c=>c!==frm.conseiller).map(c=>CE('option',{key:c,value:c},c)))),
+          conseillers.filter(c=>c!==frm.conseiller).map(c=>CE('option',{key:c,value:c},c)),
+          (structures.length>0||frm.structure_partenaire)&&CE('optgroup',{label:'Structures partenaires'},
+            [...structures,...(frm.structure_partenaire&&!structures.includes(frm.structure_partenaire)?[frm.structure_partenaire]:[])].map(c=>CE('option',{key:'§'+c,value:'§'+c},c))))),
       CE('div',null,
         Lbl({t:'Type de public *',err:!!errs.public}),
         CE('select',{style:sStyle(errs.public),value:frm.public,onChange:e=>setFn('public',e.target.value)},
@@ -2717,7 +2726,7 @@ function PanneauAtelier({panel,onClose,entries,onEntryUpdated,onRefresh,onEdit,o
   const[panelOuvert,setPanelOuvert]=React.useState('');
   // Identité de l'atelier modifiable dans le volet (demande du 05/11/2026).
   const[panelCommune,setPanelCommune]=React.useState('');const[panelLieu,setPanelLieu]=React.useState('');
-  const[panelOrienteur,setPanelOrienteur]=React.useState('');const[panelConseiller,setPanelConseiller]=React.useState('');const[panelCoAnim,setPanelCoAnim]=React.useState('');
+  const[panelOrienteur,setPanelOrienteur]=React.useState('');const[panelConseiller,setPanelConseiller]=React.useState('');const[panelCoAnim,setPanelCoAnim]=React.useState('');const[panelStructure,setPanelStructure]=React.useState('');
   const[panelMobile,setPanelMobile]=React.useState(false);
   const[panelPrelev,setPanelPrelev]=React.useState('');
   const[panelRetour,setPanelRetour]=React.useState('');
@@ -2753,7 +2762,7 @@ function PanneauAtelier({panel,onClose,entries,onEntryUpdated,onRefresh,onEdit,o
   const[qrAvis,setQrAvis]=React.useState(null);
   const[saving,setSaving]=React.useState(false);
   // Réinitialise les champs à chaque atelier ouvert (ce que faisait openPanel).
-  React.useEffect(()=>{if(!panel)return;const e=panel;setPanelStatut(e.statut);setPanelInscrits(e.inscrits===undefined||e.inscrits===''?'':String(e.inscrits));setPanelPresents(e.presents===undefined||e.presents===''?'':String(e.presents));setPanelThematique(e.thematique||'');setPanelNote(e.remarques||'');setPanelLiens(liensAtelier(e));setLienTitre('');setLienUrl('');setPanelDate(normalizeDate(e.date)||'');setPanelHoraire(normalizeHoraire(e.horaire)||'');setPanelDuree(parseInt(e.duree)||DUREE_DEFAUT);setPanelBilan(e.fiche_bilan&&typeof e.fiche_bilan==='object'?e.fiche_bilan:{});setPanelNbOrdi(e.nb_ordinateurs===undefined||e.nb_ordinateurs===''||e.nb_ordinateurs===null?'':String(e.nb_ordinateurs));setPanelPublic(e.public||'');setPanelOuvert(e.ouvert_a_tous==='Oui'?'Oui':'Non');setPanelCommune(e.commune||'');setPanelLieu(e.lieu||'');setPanelOrienteur(e.orienteur||'');setPanelConseiller(e.conseiller||'');setPanelCoAnim(e.co_animateur||'');setPanelMobile(matIncludes(e.materiel,'Classe mobile'));setPanelPrelev(normalizeDate(e.date_prelevement_materiel)||'');setPanelRetour(normalizeDate(e.date_retour_materiel)||'');},[panel]);
+  React.useEffect(()=>{if(!panel)return;const e=panel;setPanelStatut(e.statut);setPanelInscrits(e.inscrits===undefined||e.inscrits===''?'':String(e.inscrits));setPanelPresents(e.presents===undefined||e.presents===''?'':String(e.presents));setPanelThematique(e.thematique||'');setPanelNote(e.remarques||'');setPanelLiens(liensAtelier(e));setLienTitre('');setLienUrl('');setPanelDate(normalizeDate(e.date)||'');setPanelHoraire(normalizeHoraire(e.horaire)||'');setPanelDuree(parseInt(e.duree)||DUREE_DEFAUT);setPanelBilan(e.fiche_bilan&&typeof e.fiche_bilan==='object'?e.fiche_bilan:{});setPanelNbOrdi(e.nb_ordinateurs===undefined||e.nb_ordinateurs===''||e.nb_ordinateurs===null?'':String(e.nb_ordinateurs));setPanelPublic(e.public||'');setPanelOuvert(e.ouvert_a_tous==='Oui'?'Oui':'Non');setPanelCommune(e.commune||'');setPanelLieu(e.lieu||'');setPanelOrienteur(e.orienteur||'');setPanelConseiller(e.conseiller||'');setPanelCoAnim(e.co_animateur||'');setPanelStructure(e.structure_partenaire||'');setPanelMobile(matIncludes(e.materiel,'Classe mobile'));setPanelPrelev(normalizeDate(e.date_prelevement_materiel)||'');setPanelRetour(normalizeDate(e.date_retour_materiel)||'');},[panel]);
   const closePanel=onClose;
   async function savePanel(){
     if(!panel)return;if(!panelDate){showToast('❌ Date requise',false);return;}if(panelMobile&&!(parseInt(panelNbOrdi)>0)){showToast('❌ Ordinateurs prêtés requis avec la Classe mobile',false);return;}
@@ -2772,7 +2781,7 @@ function PanneauAtelier({panel,onClose,entries,onEntryUpdated,onRefresh,onEdit,o
     if(vacVolet===null&&!window.confirm('Vacances scolaires non vérifiables le '+fmtDate(panelDate)+' (calendrier officiel non publié ou indisponible) : atelier avec un collège.\n\nEnregistrer quand même ?'))return;
     setSaving(true);
     try{
-      const updated={...panel,liens:panelLiens,fiche_bilan:Object.keys(panelBilan||{}).length?panelBilan:'',statut:panelStatut,inscrits:panelInscrits===''?'':parseInt(panelInscrits)||0,presents:panelPresents===''?'':parseInt(panelPresents)||0,thematique:panelThematique,date:panelDate,horaire:panelHoraire,ampm:ampmDepuisHoraire(panelHoraire)||panel.ampm,duree:parseInt(panelDuree)||DUREE_DEFAUT,commune:panelCommune.trim()||panel.commune,lieu:panelLieu.trim()||panel.lieu,orienteur:panelOrienteur.trim()||panel.orienteur,conseiller:panelConseiller||panel.conseiller,co_animateur:panelCoAnim===panelConseiller?'':panelCoAnim,public:panelPublic,ouvert_a_tous:OUVERT_A_TOUS_CHOIX.includes(panelOuvert)?panelOuvert:(panel.ouvert_a_tous||'Non'),nb_ordinateurs:panelMobile?(panelNbOrdi===''?'':parseInt(panelNbOrdi)||0):'',date_prelevement_materiel:panelMobile?panelPrelev:'',date_retour_materiel:panelMobile?panelRetour:'',remarques:panelNote,materiel:matierePanneau(panel,panelMobile).join('|')};
+      const updated={...panel,liens:panelLiens,fiche_bilan:Object.keys(panelBilan||{}).length?panelBilan:'',statut:panelStatut,inscrits:panelInscrits===''?'':parseInt(panelInscrits)||0,presents:panelPresents===''?'':parseInt(panelPresents)||0,thematique:panelThematique,date:panelDate,horaire:panelHoraire,ampm:ampmDepuisHoraire(panelHoraire)||panel.ampm,duree:parseInt(panelDuree)||DUREE_DEFAUT,commune:panelCommune.trim()||panel.commune,lieu:panelLieu.trim()||panel.lieu,orienteur:panelOrienteur.trim()||panel.orienteur,conseiller:panelConseiller||panel.conseiller,co_animateur:panelStructure?'':(panelCoAnim===panelConseiller?'':panelCoAnim),structure_partenaire:panelStructure,public:panelPublic,ouvert_a_tous:OUVERT_A_TOUS_CHOIX.includes(panelOuvert)?panelOuvert:(panel.ouvert_a_tous||'Non'),nb_ordinateurs:panelMobile?(panelNbOrdi===''?'':parseInt(panelNbOrdi)||0):'',date_prelevement_materiel:panelMobile?panelPrelev:'',date_retour_materiel:panelMobile?panelRetour:'',remarques:panelNote,materiel:matierePanneau(panel,panelMobile).join('|')};
       const res=await apiFetch('saveEntry',{entry:updated});
       if(!res.ok)throw new Error(res.error);
       showToast('✅ Mis à jour');closePanel();
@@ -2826,9 +2835,11 @@ function PanneauAtelier({panel,onClose,entries,onEntryUpdated,onRefresh,onEdit,o
               CE('select',{value:panelConseiller,onChange:e=>setPanelConseiller(e.target.value),style:{width:'100%',padding:'8px 10px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:13}},
                 [...CONSEILLERS,...(panelConseiller&&!CONSEILLERS.includes(panelConseiller)?[panelConseiller]:[])].map(c=>CE('option',{key:c,value:c},c)))),
             CE('div',{className:'sp-field'},CE('label',null,'Co-animateur'),
-              CE('select',{value:panelCoAnim,onChange:e=>setPanelCoAnim(e.target.value),style:{width:'100%',padding:'8px 10px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:13}},
+              CE('select',{value:panelStructure?'§'+panelStructure:panelCoAnim,onChange:e=>{const v=e.target.value;if(v.charAt(0)==='§'){setPanelCoAnim('');setPanelStructure(v.slice(1));}else{setPanelCoAnim(v);setPanelStructure('');}},style:{width:'100%',padding:'8px 10px',border:'1.5px solid #e2e8f0',borderRadius:6,fontSize:13}},
                 CE('option',{value:''},'— Aucun —'),
-                [...CONSEILLERS,...(panelCoAnim&&!CONSEILLERS.includes(panelCoAnim)?[panelCoAnim]:[])].filter(c=>c!==panelConseiller).map(c=>CE('option',{key:c,value:c},c))))),
+                [...CONSEILLERS,...(panelCoAnim&&!CONSEILLERS.includes(panelCoAnim)?[panelCoAnim]:[])].filter(c=>c!==panelConseiller).map(c=>CE('option',{key:c,value:c},c)),
+                (STRUCTURES.length>0||panelStructure)&&CE('optgroup',{label:'Structures partenaires'},
+                  [...STRUCTURES,...(panelStructure&&!STRUCTURES.includes(panelStructure)?[panelStructure]:[])].map(c=>CE('option',{key:'§'+c,value:'§'+c},c)))))),
           panel.materiel&&panel.materiel.length>0&&CE('div',{style:{marginTop:10,marginBottom:4}},
             CE('div',{style:{fontSize:11,fontWeight:700,color:'#718096',marginBottom:4}},'MATÉRIEL'),
             panel.materiel.map(m=>CE('span',{key:m,className:'mat-chip'},m))

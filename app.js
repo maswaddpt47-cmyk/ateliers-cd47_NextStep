@@ -291,7 +291,7 @@ function App(){
   const[visibility,setVisibility]   = React.useState(visibiliteEffective({}));
   const[lists,setLists]            = React.useState({
     statuts:[...STATUTS_DEFAULT],conseillers:[...CONSEILLERS_DEFAULT],
-    publics:[...PUBLICS_DEFAULT],materiels:[...MATERIELS_DEFAULT]
+    publics:[...PUBLICS_DEFAULT],materiels:[...MATERIELS_DEFAULT],structures:[]
   });
   const[lastSync,setLastSync]      = React.useState(null);
   const[online,setOnline]          = React.useState(navigator.onLine);
@@ -464,9 +464,10 @@ function App(){
           statuts:(Array.isArray(l.statuts)&&l.statuts.length)?l.statuts:[...STATUTS_DEFAULT],
           conseillers:(Array.isArray(l.conseillers)&&l.conseillers.length)?l.conseillers:[...CONSEILLERS_DEFAULT],
           publics:(Array.isArray(l.publics)&&l.publics.length)?l.publics:[...PUBLICS_DEFAULT],
-          materiels:(Array.isArray(l.materiels)&&l.materiels.length)?l.materiels:[...MATERIELS_DEFAULT]
+          materiels:(Array.isArray(l.materiels)&&l.materiels.length)?l.materiels:[...MATERIELS_DEFAULT],
+          structures:Array.isArray(l.structures)?l.structures:[]
         };
-        setLists(nl);STATUTS=[...nl.statuts];CONSEILLERS=[...nl.conseillers];PUBLICS=[...nl.publics];MATERIELS=[...nl.materiels];
+        setLists(nl);STATUTS=[...nl.statuts];CONSEILLERS=[...nl.conseillers];PUBLICS=[...nl.publics];MATERIELS=[...nl.materiels];STRUCTURES=[...nl.structures];
       }
       const visibilite=data.visibility?visibiliteEffective(data.visibility):visibility;
       if(data.visibility)setVisibility(visibilite);
