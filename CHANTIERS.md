@@ -124,3 +124,17 @@ Limites :
 - Pages github.io inaccessibles depuis cette session (proxy, 403) : accès Pages et CORS vers la production non éprouvés ; les parcours conseiller et admin n'ont pas été rejoués sur la production ni sur une base restaurée réelle (tests navigateur sur API simulée, pas sur l'API PHP restaurée).
 - L'étape d'attente de l'artefact est non concluante : un déploiement ✅ ne prouve pas qu'elle ait servi (échecs intermittents par rafales).
 - Bascule de reprise commune (Pages + API sur une même origine de secours) non essayée. Aucune « référence validée » : décision de l'utilisateur.
+
+## Retest du 25/11/2026 (2ᵉ passage) — reprise de NextStep sur l'API et la base communes, version 238e3ac
+
+Version testée : 238e3ac32a2ee407ad7b5cd6227f3ac3b1e13781
+Données : fictives
+Verdict : partiel
+Preuves :
+- Diff : depuis fb19858 (1er retest), seul `CHANTIERS.md` change (+15 lignes). Depuis ca0dded : client (`shared.js` v331, `app.js`, `admin_app.js`, tests) et `deploy.yml` ; aucun fichier d'import, d'export, de sauvegarde ou de stockage (0 sur `api/`, `scripts/`, `.sql`). Restauration complète non rejouée : la chaîne de reprise n'est pas touchée ici.
+- Rejoué à ce SHA : Node utils 171, logic 121, contract 14, reseau 14 ; navigateur 76 passés, 0 échec.
+- Reprise commune : restauration d'une base ancienne sous le code NEWGEN 39aee62 rejouée (14/14, voir le `CHANTIERS.md` de NEWGEN). Les parcours de NextStep qui en dépendent (fil des tickets, structures partenaires) sont couverts par ses tests navigateur sur API simulée de forme complète (règle 74).
+Limites :
+- `github.io` inaccessible depuis la session (proxy, 403) : accès Pages et CORS vers la production non éprouvés ; parcours conseiller et admin non rejoués sur l'API PHP restaurée (API simulée seulement) ni sur la production.
+- Étape « Attendre l'artefact Pages » toujours non concluante ; bascule de reprise commune (Pages + API d'une origine de secours) non essayée.
+- Aucune « référence validée » : décision de l'utilisateur.
