@@ -72,6 +72,23 @@ test('Index — volet : choisir une structure efface le conseiller co-animateur 
   expect(errs).toEqual([]);
 });
 
+test('Index — volet : choisir un conseiller co-animateur garde le volet ouvert et efface la structure', async ({ page, baseURL }) => {
+  const errs = []; page.on('pageerror', e => errs.push(e.message));
+  page.on('dialog', d => d.accept());
+  const etat = await serveur(page, { entree: { ...ENTREE, structure_partenaire: 'Mission locale' } });
+  await connecter(page, baseURL);
+  await page.getByText('Démarches en ligne').first().click();
+  const volet = page.locator('.side-panel.open');
+  const menu = volet.locator('.sp-field', { has: page.getByText('Co-animateur', { exact: true }) }).locator('select');
+  await expect(menu).toHaveValue('§Mission locale');
+  await menu.selectOption({ label: 'Claire Petit' });   // NextStep : refermait le volet (filtre conseiller changé) avant le 25/11/2026
+  await expect(volet).toHaveCount(1);
+  await volet.getByRole('button', { name: /Enregistrer/ }).click();
+  await expect.poll(() => etat.ecritures.length).toBe(1);
+  expect(etat.ecritures[0]).toMatchObject({ co_animateur: 'Claire Petit', structure_partenaire: '' });
+  expect(errs).toEqual([]);
+});
+
 test('Admin — Listes : onglet « Structures partenaires », ajout enregistré avec les autres listes, sans compte', async ({ page, baseURL }) => {
   const errs = []; page.on('pageerror', e => errs.push(e.message));
   const etat = await serveur(page, { role: 'admin' });

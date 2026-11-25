@@ -423,8 +423,9 @@ function App(){
     if(!viewRef.current) return;
     const handler = e => {
       if(e.target.tagName !== 'SELECT') return;
-      // Ne pas intercepter les selects du formulaire de saisie
-      if(e.target.closest&&e.target.closest('.sf-wrap, .sf-section, [data-saisie]')) return;
+      // Ne pas intercepter les selects du formulaire de saisie ni ceux du volet d'un atelier (Conseiller,
+      // Co-animateur) : y choisir un conseiller changeait le filtre et refermait le volet (constaté le 25/11/2026).
+      if(e.target.closest&&e.target.closest('.sf-wrap, .sf-section, [data-saisie], .side-panel')) return;
       const val = e.target.value;
       if(lists.conseillers.includes(val)){
         setFiltreConseiller(val);
