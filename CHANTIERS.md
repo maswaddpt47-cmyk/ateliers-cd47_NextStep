@@ -109,3 +109,18 @@ non mesuré) ; cache de Chromium non fait (12 s au mieux).
 - 03/10/2026 — lien d'abonnement agenda pour les partenaires — « pour l'instant » (utilisateur).
 - 03/10/2026 — tri des onglets d'après les compteurs d'usage — « pour l'instant ».
 - 03/10/2026 — aide « Premiers pas » pour un nouvel arrivant — « pour l'instant ».
+
+## Retest du 25/11/2026 — reprise de NextStep sur l'API et la base communes
+
+Version testée : fb198587e501bf2a39b7ea06cf08f0913e2e1cae
+Données : fictives
+Verdict : partiel
+Preuves :
+- Diff ca0dded → fb19858 lu : aucun fichier d'import, d'export, de sauvegarde ou de stockage (0 sur `api/`, `scripts/`, `.sql`, copie, sauvegarde). Seuls changent le client (`shared.js` v331, `app.js`, `admin_app.js`, tests) et `deploy.yml` (étape « Attendre l'artefact Pages », permission `actions: read`). Restauration complète non rejouée : la chaîne de reprise n'est pas touchée ici.
+- Tests à ce SHA : Node utils 171, logic 121, contract 14, reseau 14 ; navigateur 76 passés (dont `tickets-fil` et `structures`), 0 échec.
+- Reprise commune : la restauration d'une base ancienne sous le code 6ebf0ad (API partagée) est prouvée dans le `CHANTIERS.md` de NEWGEN (14/14 sur données fictives). Les parcours de NextStep qui en dépendent (fil des tickets, structures partenaires) sont couverts par ses tests navigateur sur API simulée de forme complète (règle 74).
+- Déploiement des pages relevé : run 544 ✅ (17:45 UTC, a547830, avec l'étape d'attente) ; fb19858 est un commit de documentation, sans déploiement attendu.
+Limites :
+- Pages github.io inaccessibles depuis cette session (proxy, 403) : accès Pages et CORS vers la production non éprouvés ; les parcours conseiller et admin n'ont pas été rejoués sur la production ni sur une base restaurée réelle (tests navigateur sur API simulée, pas sur l'API PHP restaurée).
+- L'étape d'attente de l'artefact est non concluante : un déploiement ✅ ne prouve pas qu'elle ait servi (échecs intermittents par rafales).
+- Bascule de reprise commune (Pages + API sur une même origine de secours) non essayée. Aucune « référence validée » : décision de l'utilisateur.
