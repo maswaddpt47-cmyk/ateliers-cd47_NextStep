@@ -64,6 +64,11 @@ jobs:
 
   deploy:
     needs: [test, e2e]
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+      actions: read
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -77,5 +82,19 @@ jobs:
       - uses: actions/upload-pages-artifact@v3
         with:
           path: '.'
+      # GitHub peut mettre quelques secondes à lister l'artefact qu'il vient de
+      # recevoir : deploy-pages le cherche une seule fois, 0,3 s après l'envoi,
+      # et échoue (« No artifacts named github-pages », 25/11/2026). On attend
+      # donc qu'il soit visible (60 s au plus) ; sans réponse, on tente quand même.
+      - name: Attendre l'artefact Pages
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for i in $(seq 1 12); do
+            n=$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/artifacts" --jq '[.artifacts[] | select(.name=="github-pages")] | length' 2>/dev/null || echo 0)
+            if [ "$n" -ge 1 ]; then echo "Artefact visible (essai $i)"; exit 0; fi
+            echo "Artefact pas encore visible (essai $i)"; sleep 5
+          done
+          echo "Artefact non visible après 60 s : on tente le déploiement quand même."
       - id: deployment
         uses: actions/deploy-pages@v4
