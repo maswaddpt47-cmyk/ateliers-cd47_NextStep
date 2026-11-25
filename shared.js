@@ -706,7 +706,8 @@ const GAS_ACTIONS_ECRITURE = new Set([
   'restaurerCorbeille','purgerCorbeille','copieMaintenant',
   // Tickets (AG-016) : creerTicket est rejouable sans effet (id client), mais
   // jamais doublé en vol ; repondreTicket et modifierTicket (AG-041) non plus.
-  'creerTicket','modifierTicket','repondreTicket','supprimerTicket','supprimerAvis',
+  // Commentaire dans le fil d'un ticket (25/11/2026) : l'identifiant du message vient du client, rejouable, jamais doublé en vol.
+  'creerTicket','modifierTicket','repondreTicket','supprimerTicket','supprimerAvis','commenterTicket',
   // Avis papier : chaque envoi crée un avis, jamais doublé (AG-021).
   'saisirAvisPapier',
   // Comptes de la page des travailleurs sociaux (AG-042) : jamais doublés.
@@ -1337,7 +1338,7 @@ window.authToken = {
   };
   // AG-067 (revue Codex) : chaque lecture et écriture des Tickets renvoie le nombre global de « Nouveau » ;
   // il remplace celui de getAll, et un getAll parti avant cette réponse ne peut plus le rétablir.
-  const TICKETS_ACTIONS_TOTAL=['getTickets','creerTicket','modifierTicket','repondreTicket','supprimerTicket'];
+  const TICKETS_ACTIONS_TOTAL=['getTickets','creerTicket','modifierTicket','repondreTicket','supprimerTicket','commenterTicket'];
   function ticketsNouveauxRecus(n){
     window.__ticketsMajTs=Date.now();
     window.__ticketsResume={...(window.__ticketsResume||{}),nouveaux:n};
@@ -7483,20 +7484,56 @@ function FormulaireTicket({onglets,ongletCourant,onCree,onAnnuler,ticket}){
   );
 }
 
+// Fil de discussion d'un ticket (25/11/2026) : messages de l'Admin (bleu) et de l'auteur (gris), du plus ancien au plus
+// récent. Une API d'avant le fil ne livre pas `messages` : la réponse unique s'affiche comme avant.
+function FilTicket({t,messages}){
+  const liste=Array.isArray(messages)?messages:(t.reponse?[{id:'seule',cree_le:t.repondu_le||'',auteur:t.repondu_par||'',par_admin:1,texte:t.reponse}]:[]);
+  if(!liste.length)return null;
+  return CE('div',{style:{marginTop:8,display:'flex',flexDirection:'column',gap:6}},
+    liste.map(m=>CE('div',{key:m.id,'data-message':m.par_admin?'admin':'auteur',style:{padding:'8px 10px',borderRadius:8,whiteSpace:'pre-wrap',fontSize:13,...(m.par_admin?{background:'#eff6ff',border:'1px solid #bfdbfe',color:'#1e3a8a'}:{background:'var(--surface-2,#f1f5f9)',border:'1px solid var(--border,#e2e8f0)',color:'var(--text-2,#334155)',marginLeft:16})}},
+      CE('div',{style:{fontSize:11,fontWeight:700,marginBottom:2}},(m.par_admin?'Réponse de ':'')+(m.auteur||(m.par_admin?'l\'administrateur':'l\'auteur'))+(m.cree_le?' — '+fmtDate(String(m.cree_le).slice(0,10))+' '+String(m.cree_le).slice(11,16):'')),
+      m.texte)));
+}
+
+// Zone de commentaire : l'Admin et l'auteur du ticket seulement (l'API refuse les autres). Ne change pas le statut.
+function CommentaireTicket({t,moi,admin,onMaj}){
+  const[texte,setTexte]=React.useState('');
+  const[envoi,setEnvoi]=React.useState(false);
+  const idRef=React.useRef(genIdTicket().replace('ticket_','msg_'));
+  if(!admin&&!(moi&&t.auteur===moi))return null;
+  async function envoyer(){
+    if(!texte.trim())return;
+    setEnvoi(true);
+    try{
+      const r=await window.apiFetch('commenterTicket',{_id:t.id,_mid:idRef.current,texte:texte.trim()});
+      if(r&&r.ok){
+        idRef.current=genIdTicket().replace('ticket_','msg_');setTexte('');
+        const etat=!admin?'':({envoye:' — ✉️ mail envoyé à '+r.ticket.auteur,echec:' — ⚠️ le mail n\'a pas pu partir',sans_adresse:' — pas de mail : aucune adresse enregistrée',desactive:' — pas de mail : le mail au demandeur est désactivé',anonyme:' — pas de mail : auteur anonymisé',auteur:''}[r.mail]||'');
+        showToast('✅ Message ajouté'+etat,!(r.mail==='echec'));
+        onMaj(r.ticket,r.messages);
+      }else showToast('❌ '+((r&&r.error)||'Erreur'),false);
+    }catch(e){showToast('❌ '+(e.message||'Erreur réseau')+' — réessayez, rien ne sera envoyé deux fois',false);}
+    finally{setEnvoi(false);}
+  }
+  return CE('div',{style:{marginTop:8}},
+    CE('textarea',{rows:2,maxLength:2000,value:texte,'aria-label':'Ajouter un commentaire',onChange:e=>setTexte(e.target.value),placeholder:admin&&t.auteur!==moi?'Ajouter un commentaire (sans changer le statut)…':'Ajouter un commentaire…',style:{width:'100%',boxSizing:'border-box',resize:'vertical',padding:'6px 8px',border:'1.5px solid var(--border,#e2e8f0)',borderRadius:6,fontSize:13,background:'var(--surface,#fff)',color:'var(--text,#1a202c)'}}),
+    CE('button',{type:'button',disabled:envoi||!texte.trim(),onClick:envoyer,style:{marginTop:4,padding:'5px 12px',borderRadius:6,border:'none',background:envoi||!texte.trim()?'#94a3b8':'#1e3a8a',color:'#fff',fontWeight:700,fontSize:12,cursor:envoi||!texte.trim()?'default':'pointer'}},envoi?'…':'💬 Envoyer'));
+}
+
 function ReponseTicket({t,tickets,onMaj,onSuppr}){
   const[statut,setStatut]=React.useState(t.statut==='Nouveau'?'Vu':t.statut);
-  const[reponse,setReponse]=React.useState(t.reponse||'');
+  const[reponse,setReponse]=React.useState('');   // message facultatif envoyé avec le changement de statut (le fil garde l'historique)
   const[doublon,setDoublon]=React.useState(t.doublon_de||'');
   const[envoi,setEnvoi]=React.useState(false);
   async function enregistrer(){
     setEnvoi(true);
     try{
-      const r=await window.apiFetch('repondreTicket',{_id:t.id,statut,reponse,doublon_de:doublon});
+      const r=await window.apiFetch('repondreTicket',{_id:t.id,statut,...(reponse.trim()?{reponse:reponse.trim()}:{}),doublon_de:doublon});
       if(r&&r.ok){
         // Ce que l'API dit de l'envoi (AG-045) : jamais « mail envoyé » si le mail n'est pas parti.
         const etat={envoye:' — ✉️ mail envoyé à '+r.mail_a,echec:' — ⚠️ le mail à '+r.mail_a+' n\'a pas pu partir',sans_adresse:' — ⚠️ pas de mail : aucune adresse enregistrée pour '+r.mail_a,desactive:' — pas de mail : le mail au demandeur est désactivé (interrupteur en haut de la liste)',inchange:' — pas de mail : ni changement de statut ni nouvelle réponse à envoyer',auteur:' — pas de mail : vous êtes l\'auteur de ce ticket',anonyme:' — pas de mail : l\'auteur de ce ticket est anonymisé',deja:' — pas de mail : ces valeurs étaient déjà enregistrées, cet enregistrement n\'envoie rien de plus'}[r.mail]||'';
         showToast('✅ Ticket mis à jour'+etat,!(r.mail==='echec'||r.mail==='sans_adresse'));
-        onMaj(r.ticket);
+        onMaj(r.ticket,r.messages);
       }
       else showToast('❌ '+((r&&r.error)||'Erreur'),false);
     }catch(e){showToast('❌ '+(e.message||'Erreur réseau'),false);}
@@ -7520,7 +7557,7 @@ function ReponseTicket({t,tickets,onMaj,onSuppr}){
       CE('label',{style:{fontSize:12,fontWeight:700}},'Doublon de ',CE('select',{value:doublon,onChange:e=>setDoublon(e.target.value),style:{...champ,maxWidth:240}},
         CE('option',{value:''},'—'),
         tickets.filter(x=>x.id!==t.id).map(x=>CE('option',{key:x.id,value:x.id},fmtDate(String(x.cree_le).slice(0,10))+' — '+x.titre))))),
-    CE('textarea',{rows:3,maxLength:2000,value:reponse,onChange:e=>setReponse(e.target.value),placeholder:'Réponse visible par l\'équipe…',style:{...champ,width:'100%',boxSizing:'border-box',resize:'vertical'}}),
+    CE('textarea',{rows:3,maxLength:2000,value:reponse,onChange:e=>setReponse(e.target.value),placeholder:'Message avec le changement de statut (facultatif)…',style:{...champ,width:'100%',boxSizing:'border-box',resize:'vertical'}}),
     CE('div',{style:{display:'flex',gap:8,alignItems:'center',marginTop:8}},
       CE('button',{type:'button',disabled:envoi,onClick:enregistrer,style:{padding:'6px 14px',borderRadius:6,border:'none',background:'#1e3a8a',color:'#fff',fontWeight:700,fontSize:12,cursor:'pointer'}},envoi?'…':'💾 Enregistrer'),
       CE('button',{type:'button',disabled:envoi,onClick:supprimer,style:{marginLeft:'auto',padding:'6px 12px',borderRadius:6,border:'1.5px solid #fca5a5',background:'transparent',color:'#b91c1c',fontWeight:700,fontSize:12,cursor:'pointer'}},'🗑 Supprimer')));
@@ -7532,6 +7569,7 @@ function ticketsCurseurReponses(tickets,moi){
 }
 function VueTickets({admin,onglets,ongletCourant,onVu}){
   const[tickets,setTickets]=React.useState(null);
+  const[messages,setMessages]=React.useState(null);   // { idTicket: [message…] } ; null = API d'avant le fil
   const[moi,setMoi]=React.useState('');
   const[err,setErr]=React.useState('');
   const[filtre,setFiltre]=React.useState(admin?'ouverts':'ouverts');
@@ -7541,12 +7579,12 @@ function VueTickets({admin,onglets,ongletCourant,onVu}){
   const[mailDem,setMailDem]=React.useState(null);
   // interrupteur « prévenir le demandeur par mail » (AG-045), Admin seulement
   React.useEffect(()=>{
-    window.apiFetch('getTickets').then(r=>{if(r&&r.ok){setTickets(r.tickets||[]);setMoi(r.moi||'');
+    window.apiFetch('getTickets').then(r=>{if(r&&r.ok){setTickets(r.tickets||[]);setMessages(r.messages&&typeof r.messages==='object'?r.messages:null);setMoi(r.moi||'');
       // Curseur = dernière réponse reçue sur MES tickets, parmi ceux livrés (aucun acquittement si le chargement échoue).
       if(onVu)onVu(ticketsCurseurReponses(r.tickets,r.moi));if(typeof r.mail_demandeur==='boolean')setMailDem(r.mail_demandeur);}else setErr((r&&r.error)||'Erreur');})
       .catch(e=>setErr(e.message||'Erreur réseau'));},[]);
   const basculer=id=>setOuverts(o=>{const x=new Set(o);x.has(id)?x.delete(id):x.add(id);return x;});
-  const remplacer=t=>setTickets(l=>{const a=(l||[]).filter(x=>x.id!==t.id);return [t,...a].sort((x,y)=>String(y.cree_le).localeCompare(String(x.cree_le)));});
+  const remplacer=(t,fil)=>{setTickets(l=>{const a=(l||[]).filter(x=>x.id!==t.id);return [t,...a].sort((x,y)=>String(y.cree_le).localeCompare(String(x.cree_le)));});if(Array.isArray(fil))setMessages(m=>({...(m||{}),[t.id]:fil}));};
   const liste=(tickets||[]).filter(t=>filtre==='archives'?ticketClos(t):filtre==='miens'?t.auteur===moi:!ticketClos(t));
   const nb={ouverts:(tickets||[]).filter(t=>!ticketClos(t)).length,miens:(tickets||[]).filter(t=>t.auteur===moi).length,archives:(tickets||[]).filter(ticketClos).length};
   const onglet=(k,l)=>CE('button',{type:'button',onClick:()=>setFiltre(k),style:{padding:'6px 12px',borderRadius:16,fontSize:12,fontWeight:700,cursor:'pointer',border:'1.5px solid '+(filtre===k?'#1e3a8a':'var(--border,#e2e8f0)'),background:filtre===k?'#1e3a8a':'var(--surface,#fff)',color:filtre===k?'#fff':'var(--text-2,#4a5568)'}},l+' ('+nb[k]+')');
@@ -7581,6 +7619,8 @@ function VueTickets({admin,onglets,ongletCourant,onVu}){
           CE('span',{style:{fontSize:10,fontWeight:800,color:'#fff',background:TICKET_COULEURS[t.statut]||'#94a3b8',borderRadius:6,padding:'1px 6px'}},t.statut),
           t.gene&&CE('span',{style:{fontSize:10,fontWeight:700,color:'#991b1b',background:'#fef2f2',borderRadius:6,padding:'1px 6px'}},t.gene),
           CE('span',{style:{fontSize:14,fontWeight:700}},ico+' '+t.titre),
+          // Admin : le dernier mot est à l'auteur, il attend une réponse.
+          admin&&messages&&(messages[t.id]||[]).length>0&&!messages[t.id][messages[t.id].length-1].par_admin&&!ticketClos(t)&&CE('span',{style:{fontSize:10,fontWeight:800,color:'#92400e',background:'#fef3c7',borderRadius:6,padding:'1px 6px'}},'💬 à répondre'),
           CE('span',{style:{fontSize:12,color:'var(--text-3)',marginLeft:'auto'}},t.auteur)),
         ouvert&&edition===t.id&&CE('div',{style:{marginTop:8}},
           CE(FormulaireTicket,{onglets,ticket:t,onCree:x=>{remplacer(x);setEdition('');},onAnnuler:()=>setEdition('')})),
@@ -7590,8 +7630,8 @@ function VueTickets({admin,onglets,ongletCourant,onVu}){
           t.statut==='Nouveau'&&CE('button',{type:'button',onClick:()=>setEdition(t.id),style:{marginTop:6,padding:'4px 10px',borderRadius:6,border:'1px solid var(--border,#e2e8f0)',background:'var(--surface,#fff)',color:'var(--text-2,#4a5568)',fontSize:12,fontWeight:600,cursor:'pointer'}},'✏️ Modifier'),
           CE('div',{style:{fontSize:11,color:'var(--text-3)',marginTop:6}},[t.type,t.onglet&&('onglet '+t.onglet),t.appareil,t.version].filter(Boolean).join(' · ')),
           original&&CE('div',{style:{fontSize:12,marginTop:6,color:'var(--text-2)'}},'↪ Doublon de « '+original.titre+' » ('+original.statut+')'),
-          t.reponse&&CE('div',{style:{marginTop:8,padding:'8px 10px',borderRadius:8,background:'#eff6ff',border:'1px solid #bfdbfe',fontSize:13,color:'#1e3a8a',whiteSpace:'pre-wrap'}},
-            CE('div',{style:{fontSize:11,fontWeight:700,marginBottom:2}},'Réponse de '+(t.repondu_par||'l\'administrateur')+(t.repondu_le?' — '+fmtDate(String(t.repondu_le).slice(0,10)):'')),t.reponse),
+          CE(FilTicket,{t,messages:messages?messages[t.id]:null}),
+          messages&&CE(CommentaireTicket,{t,moi,admin,onMaj:remplacer}),
           admin&&CE(ReponseTicket,{key:t.id+t.statut,t,tickets:tickets||[],onMaj:remplacer,onSuppr:id=>setTickets(l=>(l||[]).filter(x=>x.id!==id).map(x=>x.doublon_de===id?{...x,doublon_de:''}:x))})));
     })
   );
