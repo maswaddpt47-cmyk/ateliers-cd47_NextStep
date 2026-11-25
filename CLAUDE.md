@@ -66,7 +66,8 @@ dans le code. Contradiction d'une proposition : `AGORA.md` d'ATELIERS_NEWGEN
 (contradicteur : l'IA de l'autre éditeur, Codex pour Claude et Claude pour Codex, MD-LIB `agora.md` §12). **Tout changement qui touche un calcul ou un
 chiffre affiché ouvre un bloc dans cette AGORA, systématiquement, avant la
 correction (critère 7, 26/10/2026).** Sauf une nouvelle présentation de chiffres déjà calculés et vérifiés
-(impression, autre forme de graphe), sans nouveau calcul, filtre ni définition (décision de l'utilisateur, 19/11/2026).
+(impression, autre forme de graphe), sans nouveau calcul, filtre ni définition (décision de l'utilisateur, 19/11/2026). Ni un compteur d'alerte
+(pastille, bandeau de rappel) : décision de l'utilisateur du 23/11/2026.
 Un bloc ouvert s'annonce **sur une ligne à part en tête du message, 🔴 et en
 gras** : `🔴 **⚖️ AGORA : critère N — <sujet>. Bloc AG-00N publié dans
 maswaddpt47-cmyk/ATELIERS_NEWGEN. → Dis « pull » à <Codex ou Claude>.**` (MD-LIB `agora.md` §4).
