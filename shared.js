@@ -605,6 +605,12 @@ function envoyerDernierNVu(annee,v){
     const conf=parseInt((r.lu[cle]||{})[annee],10)||0;if(conf>0)ecrireDernierNVu(annee,conf);
   }).catch(()=>{});
 }
+// Ligne de diagnostic de la cloche (Admin seulement) : par année, dernier numéro vu au chargement → plus grand numéro
+// chargé ; « départ » = année sans mémoire (rien n'est signalé) ; serveur = mémoire serveur reçue avant le calcul.
+function diagCloche(){
+  const d=window.__diagCloche;if(!d)return 'Cloche : pas encore calculée';
+  return 'Cloche — '+Object.keys(d).sort().map(a=>a+' : '+(d[a].vu===null?'départ':'vu '+d[a].vu)+' → '+d[a].max+(d[a].serveur?'':' (sans serveur)')).join(' · ');
+}
 function noterDernierNVu(entries){
   const g=ateliersParAnnee(entries);
   Object.keys(g).forEach(a=>{const v=Math.max(lireDernierNVu(a)||0,maxNAteliers(g[a]));ecrireDernierNVu(a,v);envoyerDernierNVu(a,v);});
@@ -615,6 +621,8 @@ function nouveauxAuChargement(entries){
   const g=ateliersParAnnee(entries);let nv=[];
   Object.keys(g).forEach(a=>{
     const d=lireDernierNVu(a);
+    // Diagnostic temporaire (23/11/2026, demande de l'utilisateur) : état au chargement, numéros seulement.
+    (window.__diagCloche=window.__diagCloche||{})[a]={vu:d,max:maxNAteliers(g[a]),serveur:!!luAteliersServeur()};
     if(d===null){const v=maxNAteliers(g[a]);ecrireDernierNVu(a,v);envoyerDernierNVu(a,v);return;}
     envoyerDernierNVu(a,d);   // acquittement resté dans le navigateur : repris (rien si le serveur le connaît déjà)
     nv=nv.concat(nouveauxDepuis(g[a],d,moi));
@@ -7127,7 +7135,7 @@ const NOUVEAUTES=[
   {id:38,date:'2026-11-05',titre:'Historique : changer le statut de plusieurs ateliers d\'un coup',texte:'« ☑ Sélectionner plusieurs ateliers », cochez-les, puis « Changer le statut… » et « Appliquer ».\n• En passant des ateliers en « Annulé », un bouton copie la liste des rendez-vous à supprimer dans votre agenda Outlook.'},
   {id:39,date:'2026-11-13',titre:'Connexion : votre gestionnaire de mots de passe reconnaît la page',texte:'Proton Pass (ou le gestionnaire de votre navigateur) propose maintenant d\'enregistrer votre mot de passe à la connexion, puis de le remplir tout seul les fois suivantes. Choisissez toujours votre nom dans la liste.\n• Sur Android : Paramètres → « Saisie automatique » doit désigner votre gestionnaire.'},
   {id:40,date:'2026-11-13',titre:'Jours fériés et vacances scolaires signalés',texte:'À l\'enregistrement d\'un atelier, une fenêtre vous prévient si la date tombe un jour férié, ou pendant les vacances scolaires (académie de Bordeaux) quand l\'atelier se fait avec un collège. Vous pouvez enregistrer quand même.'},
-  {id:41,date:'2026-11-20',titre:'Volet : onglet « Reporting » et liens Partage47',texte:'Dans l\'Historique, le volet d\'un atelier a deux onglets : « 📋 Détail » (les informations de l\'atelier) et « 📊 Reporting ».\n• Reporting : le QR code des avis stagiaires, les liens Partage47 (feuille de présence, résultats de quiz…) et la fiche bilan.\n• Tout est accessible avant de passer l\'atelier en « Réalisé » : le QR pendant l\'atelier, la fiche bilan aussitôt après.\n• Liens : dans Partage47, « Partager » puis « Copier le lien », et collez-le dans le volet. 5 liens au maximum ; chaque ajout ou retrait est enregistré aussitôt.'}
+  {id:41,date:'2026-11-20',titre:'Volet : onglet « Reporting » et liens Partage47',texte:'Dans l\'Historique, le volet d\'un atelier a deux onglets : « 📋 Détail » (les informations de l\'atelier) et « 📊 Reporting ».\n• Reporting : le QR code des avis stagiaires, les liens Partage47 (feuille de présence, résultats de quiz…) et la fiche bilan.\n• Tout est accessible avant de passer l\'atelier en « Réalisé » : le QR pendant l\'atelier, la fiche bilan aussitôt après.\n• Liens : dans Partage47, « Partager » puis « Copier le lien », et collez-le dans le volet. 5 liens au maximum ; chaque ajout ou retrait est enregistré aussitôt. Vous pouvez aussi renommer un lien avec le bouton ✏️.'}
 ];
 
 // ═══════════════════════════════════════════════════════════

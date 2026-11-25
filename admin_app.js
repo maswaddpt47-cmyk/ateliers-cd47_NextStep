@@ -658,6 +658,7 @@ const LOGS_KEY = lsKey('adm_logs');
           CE('span',{className:'sidebar-btn-ico'},darkMode?'☀️':'🌙'),
           CE('span',{className:'sidebar-btn-lbl'},darkMode?'Mode clair':'Mode sombre')
         ),
+        role==='admin'&&CE('div',{title:'Diagnostic de la cloche « nouveaux ateliers » (temporaire)',style:{fontSize:9,lineHeight:1.3,color:'rgba(255,255,255,.65)',padding:'2px 4px',textAlign:'center',wordBreak:'break-word'}},diagCloche()),
         newEntries.length>0&&CE('button',{
           className:'sidebar-notif-btn',
           title:`${newEntries.length} nouveaux ateliers`,
