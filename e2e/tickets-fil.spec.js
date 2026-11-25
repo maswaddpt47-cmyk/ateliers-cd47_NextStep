@@ -124,3 +124,21 @@ test('Index — une API d\'avant le fil (sans `messages`) : la réponse unique s
   await expect(page.getByLabel('Ajouter un commentaire')).toHaveCount(0);
   expect(errs).toEqual([]);
 });
+
+test('Admin — Archives : formulaire de réponse replié par défaut, « Tout replier » referme les tickets', async ({ page, baseURL }) => {
+  const errs = []; page.on('pageerror', e => errs.push(e.message));
+  const clos = { ...T1, statut: 'Résolu' };
+  await serveur(page, { moi: 'Michel Aswad', role: 'admin', tickets: [clos, T2] });
+  await ouvrirAdmin(page, baseURL);
+  await page.getByRole('button', { name: /Archives/ }).click();
+  const entete = page.getByRole('button', { name: /Où voir mes ateliers/ });
+  await entete.click();
+  await expect(page.getByText('Regardez dans Historique.')).toBeVisible();
+  await expect(page.getByText('Doublon de')).toHaveCount(0);   // formulaire Admin replié
+  await page.getByRole('button', { name: /Statut et réponse/ }).click();
+  await expect(page.getByText('Doublon de')).toBeVisible();
+  await page.getByRole('button', { name: /Tout replier/ }).click();
+  await expect(page.getByText('Regardez dans Historique.')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /Tout replier/ })).toHaveCount(0);
+  expect(errs).toEqual([]);
+});

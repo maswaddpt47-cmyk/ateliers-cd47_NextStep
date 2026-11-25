@@ -7575,6 +7575,7 @@ function VueTickets({admin,onglets,ongletCourant,onVu}){
   const[filtre,setFiltre]=React.useState(admin?'ouverts':'ouverts');
   const[form,setForm]=React.useState(false);
   const[ouverts,setOuverts]=React.useState(()=>new Set());
+  const[formsOuverts,setFormsOuverts]=React.useState(()=>new Set());   // Admin : formulaire de réponse d'un ticket clos, replié par défaut
   const[edition,setEdition]=React.useState('');   // id du ticket en cours de modification (AG-041)
   const[mailDem,setMailDem]=React.useState(null);
   // interrupteur « prévenir le demandeur par mail » (AG-045), Admin seulement
@@ -7603,7 +7604,8 @@ function VueTickets({admin,onglets,ongletCourant,onVu}){
       }}),
       '✉️ Prévenir le demandeur par mail à chaque réponse ou changement de statut'),
     form&&CE(FormulaireTicket,{onglets,ongletCourant,onCree:t=>{remplacer(t);setForm(false);setFiltre('miens');},onAnnuler:()=>setForm(false)}),
-    CE('div',{style:{display:'flex',gap:6,flexWrap:'wrap',marginBottom:10}},onglet('ouverts','Ouverts'),onglet('miens','Mes contributions'),onglet('archives','🗄️ Archives')),
+    CE('div',{style:{display:'flex',gap:6,flexWrap:'wrap',marginBottom:10}},onglet('ouverts','Ouverts'),onglet('miens','Mes contributions'),onglet('archives','🗄️ Archives'),
+      ouverts.size>0&&CE('button',{type:'button',onClick:()=>{setOuverts(new Set());setFormsOuverts(new Set());},style:{padding:'6px 12px',borderRadius:16,fontSize:12,fontWeight:700,cursor:'pointer',border:'1.5px dashed var(--border,#e2e8f0)',background:'transparent',color:'var(--text-2,#4a5568)',marginLeft:'auto'}},'▴ Tout replier')),
     err&&CE('p',{style:{color:'#c53030',fontSize:13}},err),
     tickets===null&&!err&&CE('p',{style:{fontSize:13}},'Chargement…'),
     tickets&&liste.length===0&&CE('p',{style:{fontSize:13,color:'var(--text-3)'}},filtre==='archives'?'Aucun ticket clos.':'Aucune contribution ici pour l\'instant.'),
@@ -7632,7 +7634,8 @@ function VueTickets({admin,onglets,ongletCourant,onVu}){
           original&&CE('div',{style:{fontSize:12,marginTop:6,color:'var(--text-2)'}},'↪ Doublon de « '+original.titre+' » ('+original.statut+')'),
           CE(FilTicket,{t,messages:messages?messages[t.id]:null}),
           messages&&CE(CommentaireTicket,{t,moi,admin,onMaj:remplacer}),
-          admin&&CE(ReponseTicket,{key:t.id+t.statut,t,tickets:tickets||[],onMaj:remplacer,onSuppr:id=>setTickets(l=>(l||[]).filter(x=>x.id!==id).map(x=>x.doublon_de===id?{...x,doublon_de:''}:x))})));
+          admin&&ticketClos(t)&&!formsOuverts.has(t.id)&&CE('button',{type:'button',onClick:()=>setFormsOuverts(o=>new Set(o).add(t.id)),style:{marginTop:6,padding:'4px 10px',borderRadius:6,border:'1px solid var(--border,#e2e8f0)',background:'var(--surface,#fff)',color:'var(--text-2,#4a5568)',fontSize:12,fontWeight:600,cursor:'pointer'}},'⚙️ Statut et réponse…'),
+          admin&&(!ticketClos(t)||formsOuverts.has(t.id))&&CE(ReponseTicket,{key:t.id+t.statut,t,tickets:tickets||[],onMaj:remplacer,onSuppr:id=>setTickets(l=>(l||[]).filter(x=>x.id!==id).map(x=>x.doublon_de===id?{...x,doublon_de:''}:x))})));
     })
   );
 }
