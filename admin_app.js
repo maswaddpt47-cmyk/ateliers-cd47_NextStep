@@ -1,3 +1,6 @@
+// Libellés du journal (25/11/2026, demande de l'utilisateur) : création et mise à jour d'atelier distinguées depuis ce jour ;
+// « saveEntry », plus ancien, ne les distinguait pas.
+const LIBELLES_JOURNAL={creerAtelier:'Création',majAtelier:'Mise à jour',saveEntry:'Enregistrement',delete:'Suppression'};
 // ════════════════════════════════════════════════════════════
 // Stocke le timestamp du dernier geste utilisateur.
 // Vérifié à chaque reprise du focus + toutes les minutes.
@@ -1271,7 +1274,7 @@ function VueLogs(){
             CE('thead',null,CE('tr',null,LOGS_COLONNES.map(({label,key})=>CE('th',{key:label,onClick:()=>toggleSort(key),style:{padding:'8px 10px',textAlign:'left',fontWeight:700,color:'#4a5568',borderBottom:'2px solid #e2e8f0',background:'#f7fafc',whiteSpace:'nowrap',cursor:'pointer',userSelect:'none'}},label+(sortKey===key?(sortDir==='asc'?' ▲':' ▼'):''))))),
             CE('tbody',null,filtered.map((l,i)=>CE('tr',{key:i,style:{background:l.success?(i%2===0?'#f0fdf4':'#fff'):(i%2===0?'#fff5f5':'#fff')}},
               CE('td',{style:{padding:'6px 10px',borderBottom:'1px solid #f0f0f0',whiteSpace:'nowrap',color:'#4a5568'}},formatTs(l.timestamp)),
-              CE('td',{style:{padding:'6px 10px',borderBottom:'1px solid #f0f0f0'}},CE('span',{style:{display:'inline-block',padding:'2px 8px',borderRadius:10,fontSize:11,fontWeight:600,background:'#f1f5f9',color:'#475569',fontFamily:'monospace'}},l.action||'—')),
+              CE('td',{style:{padding:'6px 10px',borderBottom:'1px solid #f0f0f0'}},CE('span',{style:{display:'inline-block',padding:'2px 8px',borderRadius:10,fontSize:11,fontWeight:600,background:'#f1f5f9',color:'#475569',fontFamily:'monospace'}},LIBELLES_JOURNAL[l.action]||l.action||'—')),
               CE('td',{style:{padding:'6px 10px',borderBottom:'1px solid #f0f0f0',fontWeight:600}},l.conseiller?(c=>CE('span',{style:{display:'inline-flex',alignItems:'center',gap:6,padding:'2px 9px',borderRadius:10,background:/^#[0-9a-f]{6}$/i.test(c)?c+'22':'#f1f5f9',border:'1px solid '+c,color:'#1f2937',whiteSpace:'nowrap'}},CE('span',{style:{width:8,height:8,borderRadius:'50%',background:c,flexShrink:0}}),l.conseiller))(conseillerColor(l.conseiller)):'—'),
               CE('td',{style:{padding:'6px 10px',borderBottom:'1px solid #f0f0f0'}},CE('span',{style:{display:'inline-block',padding:'2px 8px',borderRadius:10,fontSize:11,fontWeight:700,background:l.role==='admin'?'#ede9fe':l.role==='superviseur'?'#fef3c7':l.role?'#dbeafe':'#f3f4f6',color:l.role==='admin'?'#6d28d9':l.role==='superviseur'?'#92400e':l.role?'#1d4ed8':'#9ca3af'}},({admin:'Admin',superviseur:'Superviseur',user:'Conseiller'})[l.role]||l.role||'—')),
               CE('td',{style:{padding:'6px 10px',borderBottom:'1px solid #f0f0f0'}},CE('span',{style:{display:'inline-block',padding:'2px 8px',borderRadius:10,fontSize:11,fontWeight:600,background:l.source==='admin.html'?'#fef3c7':l.source?'#dbeafe':'#f1f5f9',color:l.source==='admin.html'?'#92400e':l.source?'#1d4ed8':'#94a3b8'}},l.source||'—')),
