@@ -138,3 +138,14 @@ Limites :
 - `github.io` inaccessible depuis la session (proxy, 403) : accès Pages et CORS vers la production non éprouvés ; parcours conseiller et admin non rejoués sur l'API PHP restaurée (API simulée seulement) ni sur la production.
 - Étape « Attendre l'artefact Pages » toujours non concluante ; bascule de reprise commune (Pages + API d'une origine de secours) non essayée.
 - Aucune « référence validée » : décision de l'utilisateur.
+
+## Retest du 26/11/2026 — reprise commune NEWGEN et NextStep en local
+
+Version testée : 238e3ac32a2ee407ad7b5cd6227f3ac3b1e13781
+Données : fictives
+Verdict : partiel
+Preuves :
+- [V] Le 26/11/2026 vers 00 h 03 (Paris), base fictive créée avec NEWGEN `04095c1`, exportée par `mariadb-dump` puis restaurée dans une base MariaDB 10.11 neuve. Avant l'essai, la cible contenait le ticket fictif et la table `tickets_messages` était absente.
+- [V] Chromium a ouvert NextStep `238e3ac` et utilisé l'API PHP NEWGEN `39aee62`, servie sur la même origine locale. Le parcours Admin a lu le ticket restauré et sa réponse d'avant sauvegarde, puis ajouté un commentaire. L'application a affiché le commentaire. Une requête MariaDB a confirmé une seule ligne correspondante dans la cible et l'absence de la table de messages dans la base source.
+Limites :
+- La reprise fonctionnelle commune est vérifiée en local pour ce parcours Admin. La récupération de la copie chiffrée hors site et la bascule sur l'hébergement de secours, dont CORS si les origines diffèrent, restent à vérifier. Les URL de test sont locales. La production et les références techniques sont conservées.
