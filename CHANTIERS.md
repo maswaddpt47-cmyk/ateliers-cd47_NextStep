@@ -161,3 +161,16 @@ Preuves :
 - Pages Index et Admin répondent HTTP 200 en lecture seule. Les deux applications partagent l'origine `https://maswaddpt47-cmyk.github.io`. Avec cette origine Pages et l'origine API distincte, routées exclusivement vers localhost dans Chromium, les 10 requêtes observées ont reçu l'en-tête CORS attendu. La preuve d'accès HTTP porte sur les pages publiques actuelles.
 Limites :
 - Les droits de publication Pages du compte de secours et la bascule effective restent à vérifier. Si le secours utilise un autre hôte Pages, l'origine doit être autorisée par l'API et les deux clients doivent viser la bonne URL d'API avant l'essai. Première étape : vérifier les droits du compte de secours et les URL prévues, puis rejouer les parcours conseiller et Admin sur cet hébergement avec des données fictives.
+
+## Retest du 26/11/2026 — exercice de secours NEWGEN et NextStep (renvoi)
+
+Version testée : 238e3ac32a2ee407ad7b5cd6227f3ac3b1e13781
+Données : fictives
+Verdict : partiel
+Preuves :
+- Exercice commun, résultats **déclarés par l'utilisateur** et consignés dans le `CHANTIERS.md` de NEWGEN (bloc « Retest du 26/11/2026 — exercice de secours », `eb70f13`) : étapes 1 à 8 « OK » (déclaré, non vérifié par une session), étape 9 « aucune personne habilitée ».
+- Concerne NextStep : étape 8, hébergement de secours préparé ; bascule = changer `API_PROD_URL` (`utils.js` de NextStep) et l'origine autorisée de la nouvelle API.
+Limites :
+- Bascule non essayée, seulement préparée ; accès Pages et CORS vers l'hébergement de secours non éprouvés.
+- Risque « aucune personne habilitée autre que l'utilisateur » accepté par lui le 26/11/2026.
+- Aucune « référence validée » : décision de l'utilisateur.
