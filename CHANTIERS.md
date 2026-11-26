@@ -149,3 +149,15 @@ Preuves :
 - [V] Chromium a ouvert NextStep `238e3ac` et utilisé l'API PHP NEWGEN `39aee62`, servie sur la même origine locale. Le parcours Admin a lu le ticket restauré et sa réponse d'avant sauvegarde, puis ajouté un commentaire. L'application a affiché le commentaire. Une requête MariaDB a confirmé une seule ligne correspondante dans la cible et l'absence de la table de messages dans la base source.
 Limites :
 - La reprise fonctionnelle commune est vérifiée en local pour ce parcours Admin. La récupération de la copie chiffrée hors site et la bascule sur l'hébergement de secours, dont CORS si les origines diffèrent, restent à vérifier. Les URL de test sont locales. La production et les références techniques sont conservées.
+
+## Retest du 26/11/2026 — NextStep `4b50e37` sur l'API commune (D-016)
+
+Version testée : 4b50e37fa1b194f1ef00a701560bb96164ca907e
+Données : fictives
+Verdict : partiel
+Preuves :
+- Diff `ca0dded` → `4b50e37` : le client envoie la structure partenaire séparément et lit le fil des tickets. Le déploiement Pages attend désormais la visibilité de son artefact, avec `actions: read`. Import, export et sauvegarde gardent leurs mécanismes existants. Depuis `238e3ac`, seul `CHANTIERS.md` évolue. L'étape d'attente est identique à celle éprouvée sur NEWGEN avec artefact visible au 3e appel et absent après 12 appels fictifs.
+- Sur la même API PHP NEWGEN `067d0a8` et la même base MariaDB fictive, le conseiller NextStep a relu la structure enregistrée depuis NEWGEN et ajouté un commentaire au ticket historique. L'Admin NextStep a relu les trois messages, dont la réponse antérieure au fil et les ajouts effectués depuis les deux clients. Le statut est resté « En cours ». La base compte un atelier avec la structure, un ticket et trois messages distincts. Le contrôle de la base et des copies est consigné dans `ATELIERS_NEWGEN/CHANTIERS.md`.
+- Pages Index et Admin répondent HTTP 200 en lecture seule. Les deux applications partagent l'origine `https://maswaddpt47-cmyk.github.io`. Avec cette origine Pages et l'origine API distincte, routées exclusivement vers localhost dans Chromium, les 10 requêtes observées ont reçu l'en-tête CORS attendu. La preuve d'accès HTTP porte sur les pages publiques actuelles.
+Limites :
+- Les droits de publication Pages du compte de secours et la bascule effective restent à vérifier. Si le secours utilise un autre hôte Pages, l'origine doit être autorisée par l'API et les deux clients doivent viser la bonne URL d'API avant l'essai. Première étape : vérifier les droits du compte de secours et les URL prévues, puis rejouer les parcours conseiller et Admin sur cet hébergement avec des données fictives.
